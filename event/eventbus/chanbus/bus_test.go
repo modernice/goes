@@ -2,7 +2,9 @@ package chanbus_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -102,18 +104,6 @@ func TestEventBus_Subscribe_multipleNames(t *testing.T) {
 	}
 }
 
-func expectEvent(name string, events <-chan event.Event) error {
-	select {
-	case <-time.After(100 * time.Millisecond):
-		return fmt.Errorf(`didn't receive "%s" event after 100ms`, name)
-	case evt := <-events:
-		if evt.Name() != name {
-			return fmt.Errorf(`expected "%s" event; got "%s"`, name, evt.Name())
-		}
-	}
-	return nil
-}
-
 func TestEventBus_Subscribe_cancel(t *testing.T) {
 	bus := chanbus.New()
 
@@ -135,11 +125,119 @@ func TestEventBus_Subscribe_cancel(t *testing.T) {
 
 	// events should be closed
 	select {
-	case _, ok := <-events:
+	case evt, ok := <-events:
 		if ok {
-			t.Fatal("events channel should be closed")
+			t.Fatal(fmt.Errorf("event channel should be closed; got %v", evt))
 		}
 	case <-time.After(10 * time.Millisecond):
 		t.Fatal("didn't receive from events channel after 10ms")
 	}
+}
+
+func TestEventBus_Subscribe_canceledContext(t *testing.T) {
+	bus := chanbus.New()
+
+	// given a canceled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// when subscribing to "foo" events
+	events, err := bus.Subscribe(ctx, "foo")
+
+	// it should fail with context.Canceled
+	if !errors.Is(err, context.Canceled) {
+		t.Error(fmt.Errorf("err should be context.Canceled; got %v", err))
+	}
+
+	// events should be nil
+	if events != nil {
+		t.Error(fmt.Errorf("events should be nil"))
+	}
+}
+
+func TestEventBus_Publish_multipleEvents(t *testing.T) {
+	foo := event.New("foo", eventData{A: "foo"})
+	bar := event.New("bar", eventData{A: "bar"})
+	baz := event.New("baz", eventData{A: "baz"})
+
+	tests := []struct {
+		name      string
+		subscribe []string
+		publish   []event.Event
+		want      []event.Event
+	}{
+		{
+			name:      "subscribed to 1 event",
+			subscribe: []string{"foo"},
+			publish:   []event.Event{foo, bar},
+			want:      []event.Event{foo},
+		},
+		{
+			name:      "subscribed to all events",
+			subscribe: []string{"foo", "bar"},
+			publish:   []event.Event{foo, bar},
+			want:      []event.Event{foo, bar},
+		},
+		{
+			name:      "subscribed to even more events",
+			subscribe: []string{"foo", "bar", "baz"},
+			publish:   []event.Event{foo, bar},
+			want:      []event.Event{foo, bar},
+		},
+		{
+			name:      "subscribed to no events",
+			subscribe: nil,
+			publish:   []event.Event{foo, bar, baz},
+			want:      nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bus := chanbus.New()
+			ctx := context.Background()
+
+			events, err := bus.Subscribe(ctx, tt.subscribe...)
+			if err != nil {
+				t.Fatal(fmt.Errorf("subscribe to %v: %w", tt.subscribe, err))
+			}
+
+			if err = bus.Publish(ctx, tt.publish...); err != nil {
+				t.Fatal(fmt.Errorf("publish: %w", err))
+			}
+
+			var received []event.Event
+			for len(received) < len(tt.want) {
+				select {
+				case <-time.After(100 * time.Millisecond):
+					t.Fatal(fmt.Errorf("didn't receive event after 100ms"))
+				case evt := <-events:
+					received = append(received, evt)
+				}
+			}
+
+			// check that events channel has no extra events
+			select {
+			case evt := <-events:
+				t.Fatal(fmt.Errorf("shouldn't have received another event; got %v", evt))
+			default:
+			}
+
+			if !reflect.DeepEqual(received, tt.want) {
+				t.Fatal(fmt.Errorf("expected events %v; got %v", tt.want, received))
+			}
+		})
+	}
+}
+
+func expectEvent(name string, events <-chan event.Event) error {
+	select {
+	case <-time.After(100 * time.Millisecond):
+		return fmt.Errorf(`didn't receive "%s" event after 100ms`, name)
+	case evt := <-events:
+		if evt.Name() != name {
+			return fmt.Errorf(`expected "%s" event; got "%s"`, name, evt.Name())
+		}
+	}
+	return nil
 }
