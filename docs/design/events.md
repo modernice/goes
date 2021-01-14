@@ -85,7 +85,7 @@ type exampleEvent struct {
   FieldA string
 }
 
-bus := eventbus.New(nats.New())
+bus := nats.New()
 
 // Publish an "example" Event
 err := bus.Publish(context.TODO(), event.New("example", exampleEvent{
@@ -135,7 +135,7 @@ err := store.Insert(context.TODO(), event.New(...))
 store, err := mongostore.New(...)
 // handle err
 
-bus := eventbus.New(nats.New(), eventbus.WithStore(store))
+bus := eventbus.WithStore(nats.New(), store)
 
 // Publish and store Event
 err := bus.Publish(context.TODO(), event.New(...))
