@@ -10,23 +10,29 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/encoding"
 	"golang.org/x/sync/errgroup"
 )
+
+// EventBusFactory creates an event.Bus from an event.Encoder.
+type EventBusFactory func(event.Encoder) event.Bus
 
 type eventData struct {
 	A string
 }
 
 // EventBus tests an event.Bus implementation.
-func EventBus(t *testing.T, newBus func() event.Bus) {
-	eventBus(t, newBus())
-	subscribeMultipleNames(t, newBus())
-	subscribeCancel(t, newBus())
-	subscribeCanceledContext(t, newBus())
+func EventBus(t *testing.T, newBus EventBusFactory) {
+	eventBus(t, newBus)
+	subscribeMultipleNames(t, newBus)
+	subscribeCancel(t, newBus)
+	subscribeCanceledContext(t, newBus)
 	publishMultipleEvents(t, newBus)
 }
 
-func eventBus(t *testing.T, bus event.Bus) {
+func eventBus(t *testing.T, newBus EventBusFactory) {
+	bus := newBus(newEncoder())
+
 	// given 5 subscribers who listen for "foo" events
 	subscribers := make([]<-chan event.Event, 5)
 	for i := 0; i < 5; i++ {
@@ -75,7 +81,9 @@ func eventBus(t *testing.T, bus event.Bus) {
 	}
 }
 
-func subscribeMultipleNames(t *testing.T, bus event.Bus) {
+func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
+	bus := newBus(newEncoder())
+
 	// given a subscriber who listens for "foo" and "bar" events
 	events, err := bus.Subscribe(context.Background(), "foo", "bar")
 	if err != nil {
@@ -107,7 +115,9 @@ func subscribeMultipleNames(t *testing.T, bus event.Bus) {
 	}
 }
 
-func subscribeCancel(t *testing.T, bus event.Bus) {
+func subscribeCancel(t *testing.T, newBus EventBusFactory) {
+	bus := newBus(newEncoder())
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// when subscribed to "foo" events
@@ -135,7 +145,9 @@ func subscribeCancel(t *testing.T, bus event.Bus) {
 	}
 }
 
-func subscribeCanceledContext(t *testing.T, bus event.Bus) {
+func subscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
+	bus := newBus(newEncoder())
+
 	// given a canceled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -154,7 +166,7 @@ func subscribeCanceledContext(t *testing.T, bus event.Bus) {
 	}
 }
 
-func publishMultipleEvents(t *testing.T, newBus func() event.Bus) {
+func publishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	foo := event.New("foo", eventData{A: "foo"})
 	bar := event.New("bar", eventData{A: "bar"})
 	baz := event.New("baz", eventData{A: "baz"})
@@ -193,7 +205,7 @@ func publishMultipleEvents(t *testing.T, newBus func() event.Bus) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bus := newBus()
+			bus := newBus(newEncoder())
 			ctx := context.Background()
 
 			events, err := bus.Subscribe(ctx, tt.subscribe...)
@@ -239,4 +251,10 @@ func expectEvent(name string, events <-chan event.Event) error {
 		}
 	}
 	return nil
+}
+
+func newEncoder() event.Encoder {
+	enc := encoding.NewGobEncoder()
+	enc.Register("foo", eventData{})
+	return enc
 }
