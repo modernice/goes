@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -23,14 +22,28 @@ type eventData struct {
 
 // EventBus tests an event.Bus implementation.
 func EventBus(t *testing.T, newBus EventBusFactory) {
-	eventBus(t, newBus)
-	subscribeMultipleNames(t, newBus)
-	subscribeCancel(t, newBus)
-	subscribeCanceledContext(t, newBus)
-	publishMultipleEvents(t, newBus)
+	t.Run("basic test", func(t *testing.T) {
+		basicTest(t, newBus)
+	})
+
+	t.Run("subscribe to multiple event names", func(t *testing.T) {
+		subscribeMultipleNames(t, newBus)
+	})
+
+	t.Run("cancel subscription", func(t *testing.T) {
+		cancelSubscription(t, newBus)
+	})
+
+	t.Run("subscribe with canceled context", func(t *testing.T) {
+		subscribeCanceledContext(t, newBus)
+	})
+
+	t.Run("publish multiple events", func(t *testing.T) {
+		publishMultipleEvents(t, newBus)
+	})
 }
 
-func eventBus(t *testing.T, newBus EventBusFactory) {
+func basicTest(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(newEncoder())
 
 	// given 5 subscribers who listen for "foo" events
@@ -115,7 +128,7 @@ func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
 	}
 }
 
-func subscribeCancel(t *testing.T, newBus EventBusFactory) {
+func cancelSubscription(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(newEncoder())
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -128,6 +141,8 @@ func subscribeCancel(t *testing.T, newBus EventBusFactory) {
 
 	// when the ctx is canceled
 	cancel()
+	// wait 10ms to ensure cancellation has propagated
+	<-time.After(10 * time.Millisecond)
 
 	// when a "foo" event is published
 	if err = bus.Publish(context.Background(), event.New("foo", eventData{})); err != nil {
@@ -140,8 +155,8 @@ func subscribeCancel(t *testing.T, newBus EventBusFactory) {
 		if ok {
 			t.Fatal(fmt.Errorf("event channel should be closed; got %v", evt))
 		}
-	case <-time.After(10 * time.Millisecond):
-		t.Fatal("didn't receive from events channel after 10ms")
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("didn't receive from events channel after 100ms")
 	}
 }
 
@@ -234,8 +249,15 @@ func publishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 			default:
 			}
 
-			if !reflect.DeepEqual(received, tt.want) {
-				t.Fatal(fmt.Errorf("expected events %v; got %v", tt.want, received))
+			receivedMap := make(map[event.Event]bool)
+			for _, evt := range received {
+				receivedMap[evt] = true
+			}
+
+			for _, want := range tt.want {
+				if !receivedMap[want] {
+					t.Fatal(fmt.Errorf("didn't receive event %v", want))
+				}
 			}
 		})
 	}
