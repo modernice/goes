@@ -1,6 +1,7 @@
 package event_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockEvent struct {
+type mockData struct {
 	FieldA string
 	FieldB bool
 }
@@ -46,6 +47,89 @@ func TestNewEvent_aggregate(t *testing.T) {
 	assert.Equal(t, v, evt.AggregateVersion())
 }
 
-func newMockData() mockEvent {
-	return mockEvent{FieldA: "foo", FieldB: true}
+func TestEqual(t *testing.T) {
+	id := uuid.New()
+	now := time.Now()
+	tests := []struct {
+		a    event.Event
+		b    event.Event
+		want bool
+	}{
+		{
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			want: true,
+		},
+		{
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			want: false,
+		},
+		{
+			a:    event.New("foo", mockData{FieldA: "foo"}),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id)),
+			want: false,
+		},
+		{
+			a:    event.New("foo", mockData{FieldA: "foo"}),
+			b:    event.New("foo", mockData{FieldA: "foo"}),
+			want: false,
+		},
+		{
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("bar", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			want: false,
+		},
+		{
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("foo", mockData{FieldA: "bar"}, event.ID(id), event.Time(now)),
+			want: false,
+		},
+		{
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.ID(uuid.New())),
+			want: false,
+		},
+		{
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.Aggregate("foobar", uuid.New(), 2)),
+			want: false,
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			if event.Equal(tt.a, tt.b) != tt.want {
+				if tt.want {
+					t.Error(fmt.Errorf("expected events to be equal but they aren't\nevent a: %#v\n\nevent b: %#v", tt.a, tt.b))
+					return
+				}
+				t.Error(fmt.Errorf("expected events not to be equal but they are\nevent a: %#v\n\nevent b: %#v", tt.a, tt.b))
+			}
+		})
+	}
+}
+
+func TestEqual_variadic(t *testing.T) {
+	id := uuid.New()
+	now := time.Now()
+	events := []event.Event{
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
+	}
+
+	if !event.Equal(events...) {
+		t.Error(fmt.Errorf("expected events to be equal but they aren't\n%#v", events))
+	}
+
+	events = append(events, event.New("bar", newMockData(), event.ID(id), event.Time(now)))
+
+	if event.Equal(events...) {
+		t.Error(fmt.Errorf("expected events not to be equal but they are\n%#v", events))
+	}
+}
+
+func newMockData() mockData {
+	return mockData{FieldA: "foo", FieldB: true}
 }

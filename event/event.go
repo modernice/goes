@@ -60,6 +60,13 @@ func New(name string, data Data, opts ...Option) Event {
 	return evt
 }
 
+// ID returns an Option that sets the UUID of an Event.
+func ID(id uuid.UUID) Option {
+	return func(evt *event) {
+		evt.id = id
+	}
+}
+
 // Time returns an Option that sets the timestamp of an Event.
 func Time(t time.Time) Option {
 	return func(evt *event) {
@@ -74,6 +81,29 @@ func Aggregate(name string, id uuid.UUID, version int) Option {
 		evt.aggregateID = id
 		evt.aggregateVersion = version
 	}
+}
+
+// Equal compares events and determines if they're equal. It works exactly like
+// a normal "==" comparison except for the Time field which is being compared by
+// calling a.Time().Equal(b.Time()) for the two Events a and b that are being
+// compared.
+func Equal(events ...Event) bool {
+	if len(events) < 2 {
+		return true
+	}
+	first := events[0]
+	for _, evt := range events[1:] {
+		if !(evt.ID() == first.ID() &&
+			evt.Name() == first.Name() &&
+			evt.Time().Equal(first.Time()) &&
+			evt.Data() == first.Data() &&
+			evt.AggregateID() == first.AggregateID() &&
+			evt.AggregateName() == first.AggregateName() &&
+			evt.AggregateVersion() == first.AggregateVersion()) {
+			return false
+		}
+	}
+	return true
 }
 
 func (evt event) ID() uuid.UUID {
