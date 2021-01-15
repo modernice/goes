@@ -17,9 +17,28 @@ import (
 // EventBusFactory creates an event.Bus from an event.Encoder.
 type EventBusFactory func(event.Encoder) event.Bus
 
-type eventDataA struct{ A string }
-type eventDataB struct{ A string }
-type eventDataC struct{ A string }
+// FooEventData is a testing event.Data.
+type FooEventData struct{ A string }
+
+// BarEventData is a testing event.Data.
+type BarEventData struct{ A string }
+
+// BazEventData is a testing event.Data.
+type BazEventData struct{ A string }
+
+// UnregisteredEventData is a testing event.Data that's not registered in the
+// Encoder returned by NewEncoder.
+type UnregisteredEventData struct{ A string }
+
+// NewEncoder returns a "gob" event.Encoder with registered "foo", "bar" and
+// "baz" events.
+func NewEncoder() event.Encoder {
+	enc := encoding.NewGobEncoder()
+	enc.Register("foo", FooEventData{})
+	enc.Register("bar", BarEventData{})
+	enc.Register("baz", BazEventData{})
+	return enc
+}
 
 // EventBus tests an event.Bus implementation.
 func EventBus(t *testing.T, newBus EventBusFactory) {
@@ -45,7 +64,7 @@ func EventBus(t *testing.T, newBus EventBusFactory) {
 }
 
 func basicTest(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(newEncoder())
+	bus := newBus(NewEncoder())
 
 	// given 5 subscribers who listen for "foo" events
 	subscribers := make([]<-chan event.Event, 5)
@@ -58,7 +77,7 @@ func basicTest(t *testing.T, newBus EventBusFactory) {
 	}
 
 	// when a "foo" event is published #1
-	data := eventDataA{A: "foobar"}
+	data := FooEventData{A: "foobar"}
 	evt := event.New("foo", data)
 
 	// for every subscriber ...
@@ -96,7 +115,7 @@ func basicTest(t *testing.T, newBus EventBusFactory) {
 }
 
 func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(newEncoder())
+	bus := newBus(NewEncoder())
 
 	// given a subscriber who listens for "foo" and "bar" events
 	events, err := bus.Subscribe(context.Background(), "foo", "bar")
@@ -105,7 +124,7 @@ func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
 	}
 
 	// when a "foo" event is published
-	dataA := eventDataA{A: "foobar"}
+	dataA := FooEventData{A: "foobar"}
 	evt := event.New("foo", dataA)
 	if err = bus.Publish(context.Background(), evt); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
@@ -117,7 +136,7 @@ func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
 	}
 
 	// when a "bar" event is published
-	dataB := eventDataB{A: "barbaz"}
+	dataB := BarEventData{A: "barbaz"}
 	evt = event.New("bar", dataB)
 	if err = bus.Publish(context.Background(), evt); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
@@ -130,7 +149,7 @@ func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
 }
 
 func cancelSubscription(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(newEncoder())
+	bus := newBus(NewEncoder())
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -146,7 +165,7 @@ func cancelSubscription(t *testing.T, newBus EventBusFactory) {
 	<-time.After(10 * time.Millisecond)
 
 	// when a "foo" event is published
-	if err = bus.Publish(context.Background(), event.New("foo", eventDataA{})); err != nil {
+	if err = bus.Publish(context.Background(), event.New("foo", FooEventData{})); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
 	}
 
@@ -162,7 +181,7 @@ func cancelSubscription(t *testing.T, newBus EventBusFactory) {
 }
 
 func subscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(newEncoder())
+	bus := newBus(NewEncoder())
 
 	// given a canceled context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -183,9 +202,9 @@ func subscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 }
 
 func publishMultipleEvents(t *testing.T, newBus EventBusFactory) {
-	foo := event.New("foo", eventDataA{A: "foo"})
-	bar := event.New("bar", eventDataB{A: "bar"})
-	baz := event.New("baz", eventDataC{A: "baz"})
+	foo := event.New("foo", FooEventData{A: "foo"})
+	bar := event.New("bar", BarEventData{A: "bar"})
+	baz := event.New("baz", BazEventData{A: "baz"})
 
 	tests := []struct {
 		name      string
@@ -221,7 +240,7 @@ func publishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bus := newBus(newEncoder())
+			bus := newBus(NewEncoder())
 			ctx := context.Background()
 
 			events, err := bus.Subscribe(ctx, tt.subscribe...)
@@ -285,12 +304,4 @@ func expectEvent(name string, events <-chan event.Event) error {
 		}
 	}
 	return nil
-}
-
-func newEncoder() event.Encoder {
-	enc := encoding.NewGobEncoder()
-	enc.Register("foo", eventDataA{})
-	enc.Register("bar", eventDataB{})
-	enc.Register("baz", eventDataC{})
-	return enc
 }

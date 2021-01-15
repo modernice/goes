@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
 
@@ -96,8 +95,6 @@ func TestGobEncoder_New_pointer(t *testing.T) {
 	if data == nil {
 		t.Fatal(fmt.Errorf("data shouldn't be nil"))
 	}
-
-	log.Println(fmt.Sprintf("%#v", data))
 
 	if data == give {
 		t.Fatal(fmt.Errorf("new data shouldn't point to the same address as original data\noriginal: %p\nnew: %p", give, data))
