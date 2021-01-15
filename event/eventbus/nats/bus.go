@@ -17,8 +17,11 @@ import (
 
 // EventBus is the NATS event.Bus implementation.
 type EventBus struct {
-	enc  event.Encoder
+	enc       event.Encoder
+	queueFunc func(string) string
+
 	conn *nats.Conn
+	subs map[subscriber]struct{}
 
 	errs    chan error
 	errMux  sync.RWMutex
@@ -27,6 +30,9 @@ type EventBus struct {
 	onceConnect sync.Once
 	onceErrors  sync.Once
 }
+
+// Option is an EventBus option.
+type Option func(*EventBus)
 
 type subscriber struct {
 	msgs chan *nats.Msg
@@ -50,16 +56,46 @@ type envelope struct {
 	AggregateVersion int
 }
 
+// QueueGroupByFunc returns an Option that sets the NATS queue group for
+// subscriptions by calling fn with the name of the subscribed Event. This can
+// be used to load-balance Events between subscribers.
+//
+// Read more about queue groups: https://docs.nats.io/nats-concepts/queue
+func QueueGroupByFunc(fn func(eventName string) string) Option {
+	return func(bus *EventBus) {
+		bus.queueFunc = fn
+	}
+}
+
+// QueueGroupByEvent returns an Option that sets the NATS queue group for
+// subscriptions to the name of the handled Event. This can be used to
+// load-balance Events between subscribers of the same Event name.
+//
+// Read more about queue groups: https://docs.nats.io/nats-concepts/queue
+func QueueGroupByEvent() Option {
+	return QueueGroupByFunc(func(eventName string) string {
+		return eventName
+	})
+}
+
 // New returns a new EventBus that encodes and decodes event.Data using the
 // provided Encoder. New panics if enc is nil.
-func New(enc event.Encoder) *EventBus {
+func New(enc event.Encoder, opts ...Option) *EventBus {
 	if enc == nil {
 		panic("missing encoder")
 	}
-	return &EventBus{
+	bus := EventBus{
 		enc:  enc,
+		subs: make(map[subscriber]struct{}),
 		errs: make(chan error),
 	}
+	for _, opt := range opts {
+		opt(&bus)
+	}
+	if bus.queueFunc == nil {
+		bus.queueFunc = noQueue
+	}
+	return &bus
 }
 
 // Publish sends each Event evt in events to subscribers who
@@ -105,7 +141,7 @@ func (bus *EventBus) publish(ctx context.Context, evt event.Event) error {
 		return fmt.Errorf("encode envelope: %w", err)
 	}
 
-	if err := bus.conn.Publish(evt.Name(), buf.Bytes()); err != nil {
+	if err := bus.conn.Publish(env.Name, buf.Bytes()); err != nil {
 		return fmt.Errorf("nats: %w", err)
 	}
 
@@ -130,12 +166,23 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 
 	var subscribeError error
 	for _, name := range names {
-		msgs := make(chan *nats.Msg)
-		s, err := bus.conn.ChanSubscribe(name, msgs)
+		var (
+			s    *nats.Subscription
+			err  error
+			msgs = make(chan *nats.Msg)
+		)
+
+		if group := bus.queueFunc(name); group != "" {
+			s, err = bus.conn.ChanQueueSubscribe(name, group, msgs)
+		} else {
+			s, err = bus.conn.ChanSubscribe(name, msgs)
+		}
+
 		if err != nil {
 			subscribeError = err
 			break
 		}
+
 		sub := subscriber{
 			msgs: msgs,
 			sub:  s,
@@ -311,4 +358,10 @@ func (bus *EventBus) handleErrorUnsubscribe(sub errorSubscriber) {
 
 func (bus *EventBus) error(err error) {
 	bus.errs <- err
+}
+
+// noQueue is a no-op that always returns an empty string. It's used as the
+// default queue group function and prevents queue groups from being used
+func noQueue(string) (q string) {
+	return
 }
