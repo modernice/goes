@@ -8,3 +8,10 @@ nats-test:
 	docker-compose -f .docker/nats-test.yml down
 
 .PHONY: nats-test
+
+coverage:
+	docker-compose -f .docker/coverage.yml up --build --abort-on-container-exit --remove-orphans
+	docker-compose -f .docker/coverage.yml down
+	go tool cover -html=out/coverage.out
+
+.PHONY: coverage

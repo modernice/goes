@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  nats:
+    image: nats
+  
+  test:
+    depends_on:
+      - nats
+    build:
+      context: ..
+      dockerfile: .docker/coverage.Dockerfile
+    environment:
+      - NATS_URI=nats://nats:4222
+    volumes:
+      - ../out:/coverage/out
