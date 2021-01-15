@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/encoding"
 	"golang.org/x/sync/errgroup"
@@ -16,9 +17,9 @@ import (
 // EventBusFactory creates an event.Bus from an event.Encoder.
 type EventBusFactory func(event.Encoder) event.Bus
 
-type eventData struct {
-	A string
-}
+type eventDataA struct{ A string }
+type eventDataB struct{ A string }
+type eventDataC struct{ A string }
 
 // EventBus tests an event.Bus implementation.
 func EventBus(t *testing.T, newBus EventBusFactory) {
@@ -57,7 +58,7 @@ func basicTest(t *testing.T, newBus EventBusFactory) {
 	}
 
 	// when a "foo" event is published #1
-	data := eventData{A: "foobar"}
+	data := eventDataA{A: "foobar"}
 	evt := event.New("foo", data)
 
 	// for every subscriber ...
@@ -104,8 +105,8 @@ func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
 	}
 
 	// when a "foo" event is published
-	data := eventData{A: "foobar"}
-	evt := event.New("foo", data)
+	dataA := eventDataA{A: "foobar"}
+	evt := event.New("foo", dataA)
 	if err = bus.Publish(context.Background(), evt); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
 	}
@@ -116,8 +117,8 @@ func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
 	}
 
 	// when a "bar" event is published
-	data = eventData{A: "barbaz"}
-	evt = event.New("bar", data)
+	dataB := eventDataB{A: "barbaz"}
+	evt = event.New("bar", dataB)
 	if err = bus.Publish(context.Background(), evt); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
 	}
@@ -145,7 +146,7 @@ func cancelSubscription(t *testing.T, newBus EventBusFactory) {
 	<-time.After(10 * time.Millisecond)
 
 	// when a "foo" event is published
-	if err = bus.Publish(context.Background(), event.New("foo", eventData{})); err != nil {
+	if err = bus.Publish(context.Background(), event.New("foo", eventDataA{})); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
 	}
 
@@ -182,9 +183,9 @@ func subscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 }
 
 func publishMultipleEvents(t *testing.T, newBus EventBusFactory) {
-	foo := event.New("foo", eventData{A: "foo"})
-	bar := event.New("bar", eventData{A: "bar"})
-	baz := event.New("baz", eventData{A: "baz"})
+	foo := event.New("foo", eventDataA{A: "foo"})
+	bar := event.New("bar", eventDataB{A: "bar"})
+	baz := event.New("baz", eventDataC{A: "baz"})
 
 	tests := []struct {
 		name      string
@@ -242,21 +243,32 @@ func publishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 				}
 			}
 
-			// check that events channel has no extra events
-			select {
-			case evt := <-events:
-				t.Fatal(fmt.Errorf("shouldn't have received another event; got %v", evt))
-			default:
+			if len(tt.want) > 0 {
+				// if we didn't expect any events check that events channel has
+				// no extra events
+				select {
+				case evt, ok := <-events:
+					if !ok {
+						t.Fatal("events shouldn't be closed")
+					}
+					t.Fatal(fmt.Errorf("shouldn't have received another event; got %#v", evt))
+				default:
+				}
 			}
 
-			receivedMap := make(map[event.Event]bool)
+			receivedMap := make(map[uuid.UUID]event.Event)
 			for _, evt := range received {
-				receivedMap[evt] = true
+				receivedMap[evt.ID()] = evt
 			}
 
 			for _, want := range tt.want {
-				if !receivedMap[want] {
+				evt := receivedMap[want.ID()]
+				if evt == nil {
 					t.Fatal(fmt.Errorf("didn't receive event %v", want))
+				}
+
+				if !event.Equal(evt, want) {
+					t.Fatal(fmt.Errorf("received event doesn't match published event\npublished: %#v\nreceived: %#v", want, evt))
 				}
 			}
 		})
@@ -277,6 +289,8 @@ func expectEvent(name string, events <-chan event.Event) error {
 
 func newEncoder() event.Encoder {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", eventData{})
+	enc.Register("foo", eventDataA{})
+	enc.Register("bar", eventDataB{})
+	enc.Register("baz", eventDataC{})
 	return enc
 }
