@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"reflect"
 	"sync"
 
 	"github.com/modernice/goes/event"
@@ -19,24 +20,25 @@ var (
 // GobEncoder encodes and decodes event.Data using the "encoding/gob" package.
 type GobEncoder struct {
 	mux    sync.RWMutex
-	config map[string]event.Data
+	config map[string]reflect.Type
 }
 
 // NewGobEncoder returns a new GobEncoder.
 func NewGobEncoder() *GobEncoder {
 	return &GobEncoder{
-		config: make(map[string]event.Data),
+		config: make(map[string]reflect.Type),
 	}
 }
 
 // Register registers data in the "gob" registry under name.
 func (enc *GobEncoder) Register(name string, data event.Data) {
+	typ := reflect.TypeOf(data)
 	if !gobRegistered(name) {
 		gobRegister(name, data)
 	}
 	enc.mux.Lock()
 	defer enc.mux.Unlock()
-	enc.config[name] = data
+	enc.config[name] = typ
 }
 
 // RegisterMany registers multiple event.Data in one go.
@@ -44,6 +46,18 @@ func (enc *GobEncoder) RegisterMany(m map[string]event.Data) {
 	for name, data := range m {
 		enc.Register(name, data)
 	}
+}
+
+// New returns a new zero-value instance of event.Data that has been registered
+// for Events with the specified name.
+func (enc *GobEncoder) New(name string) (event.Data, error) {
+	if !enc.registered(name) {
+		return nil, fmt.Errorf("%s: %w", name, ErrUnregisteredEvent)
+	}
+	enc.mux.RLock()
+	defer enc.mux.RUnlock()
+	typ := enc.config[name]
+	return reflect.New(typ).Elem().Interface().(event.Data), nil
 }
 
 // Encode encodes data using "encoding/gob" and writes the result into w.
@@ -58,14 +72,14 @@ func (enc *GobEncoder) Encode(w io.Writer, data event.Data) error {
 // Event name. If name hasn't been registered in enc, Decode() returns
 // ErrUnregisteredEvent.
 func (enc *GobEncoder) Decode(name string, r io.Reader) (event.Data, error) {
-	if !enc.registered(name) {
-		return nil, fmt.Errorf("%s: %w", name, ErrUnregisteredEvent)
+	data, err := enc.New(name)
+	if err != nil {
+		return nil, err
 	}
 
 	enc.mux.RLock()
 	defer enc.mux.RUnlock()
 
-	data := enc.config[name]
 	if err := gob.NewDecoder(r).Decode(&data); err != nil {
 		return nil, fmt.Errorf("gob decode %v: %w", data, err)
 	}

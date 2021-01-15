@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"testing"
 
@@ -57,6 +58,52 @@ func TestGobEncoder(t *testing.T) {
 	}
 }
 
+func TestGobEncoder_New(t *testing.T) {
+	enc := encoding.NewGobEncoder()
+
+	data, err := enc.New("foo")
+	if !errors.Is(err, encoding.ErrUnregisteredEvent) {
+		t.Fatal(fmt.Errorf("expected encoding.ErrUnregisteredEvent error; got %#v", err))
+	}
+
+	if data != nil {
+		t.Fatal(fmt.Errorf("data should be nil; got %#v", data))
+	}
+
+	enc.Register("foo", eventDataA{A: "foo"})
+
+	data, err = enc.New("foo")
+	if err != nil {
+		t.Fatal(fmt.Errorf("expected err to be nil; got %#v", err))
+	}
+
+	want := eventDataA{}
+	if data != want {
+		t.Fatal(fmt.Errorf("expected event data to equal %#v; got %#v", want, data))
+	}
+}
+
+func TestGobEncoder_New_pointer(t *testing.T) {
+	enc := encoding.NewGobEncoder()
+	give := &eventDataB{}
+	enc.Register("bar", give)
+
+	data, err := enc.New("bar")
+	if err != nil {
+		t.Fatal(fmt.Errorf("expected err to be nil; got %#v", err))
+	}
+
+	if data == nil {
+		t.Fatal(fmt.Errorf("data shouldn't be nil"))
+	}
+
+	log.Println(fmt.Sprintf("%#v", data))
+
+	if data == give {
+		t.Fatal(fmt.Errorf("new data shouldn't point to the same address as original data\noriginal: %p\nnew: %p", give, data))
+	}
+}
+
 func TestGobEncoder_Decode_unregistered(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 
@@ -102,6 +149,22 @@ func TestGobEncoder_Register_pointer(t *testing.T) {
 
 	if decoded == data {
 		t.Fatal("decoded data points to original data")
+	}
+}
+
+func TestGobEncoder_Register_forceZeroValue(t *testing.T) {
+	enc := encoding.NewGobEncoder()
+	give := eventDataA{A: "foo"}
+	enc.Register("foo", give)
+
+	data, err := enc.New("foo")
+	if err != nil {
+		t.Fatal(fmt.Errorf(`enc.New("foo"): %w`, err))
+	}
+
+	want := eventDataA{}
+	if data != want {
+		t.Fatal(fmt.Errorf("expected new data to be zero-value; got %#v", data))
 	}
 }
 
