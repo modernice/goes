@@ -20,7 +20,7 @@ type EventBus struct {
 	enc  event.Encoder
 	conn *nats.Conn
 
-	errs    chan *Error
+	errs    chan error
 	errMux  sync.RWMutex
 	errSubs []errorSubscriber
 
@@ -36,7 +36,7 @@ type subscriber struct {
 
 type errorSubscriber struct {
 	ctx  context.Context
-	errs chan *Error
+	errs chan error
 	done chan struct{}
 }
 
@@ -58,7 +58,7 @@ func New(enc event.Encoder) *EventBus {
 	}
 	return &EventBus{
 		enc:  enc,
-		errs: make(chan *Error),
+		errs: make(chan error),
 	}
 }
 
@@ -211,13 +211,13 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 			for msg := range sub.msgs {
 				var env envelope
 				if err := gob.NewDecoder(bytes.NewReader(msg.Data)).Decode(&env); err != nil {
-					bus.error(fmt.Errorf("gob decode envelope: %w", err), nil)
+					bus.error(fmt.Errorf("gob decode envelope: %w", err))
 					continue
 				}
 
 				data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
 				if err != nil {
-					bus.error(fmt.Errorf(`encode "%s" event data: %w`, env.Name, err), nil)
+					bus.error(fmt.Errorf(`encode "%s" event data: %w`, env.Name, err))
 					continue
 				}
 
@@ -239,19 +239,19 @@ func (bus *EventBus) handleUnsubscribe(ctx context.Context, subs ...subscriber) 
 	<-ctx.Done()
 	for _, sub := range subs {
 		if err := sub.sub.Unsubscribe(); err != nil {
-			bus.error(fmt.Errorf(`unsubscribe from subject "%s": %w`, sub.sub.Subject, err), nil)
+			bus.error(fmt.Errorf(`unsubscribe from subject "%s": %w`, sub.sub.Subject, err))
 		}
 		close(sub.done)
 	}
 }
 
-// Errors returns an Error channel that receives future asynchronous errors from
-// the EventBus. When ctx is canceled, the Error channel wil be closed.
-func (bus *EventBus) Errors(ctx context.Context) <-chan *Error {
+// Errors returns an error channel that receives future asynchronous errors from
+// the EventBus. When ctx is canceled, the error channel wil be closed.
+func (bus *EventBus) Errors(ctx context.Context) <-chan error {
 	// start sending errors to subscribers on first subscription
 	bus.onceErrors.Do(bus.goHandleErrors)
 
-	errs := make(chan *Error)
+	errs := make(chan error)
 	done := make(chan struct{})
 	sub := errorSubscriber{
 		ctx:  ctx,
@@ -276,7 +276,7 @@ func (bus *EventBus) handleErrors() {
 	for err := range bus.errs {
 		bus.errMux.RLock()
 		for _, sub := range bus.errSubs {
-			go func(sub errorSubscriber, err *Error) {
+			go func(sub errorSubscriber, err error) {
 				select {
 				// abort send of error to subscriber if its context is canceled
 				// and/or its errors channel is full
@@ -309,6 +309,6 @@ func (bus *EventBus) handleErrorUnsubscribe(sub errorSubscriber) {
 	}
 }
 
-func (bus *EventBus) error(err error, evt event.Event) {
-	bus.errs <- &Error{Err: err, Event: evt}
+func (bus *EventBus) error(err error) {
+	bus.errs <- err
 }
