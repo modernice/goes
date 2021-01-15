@@ -146,8 +146,8 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 
 	// if subscription failed for an event name, cancel ctx immediately and let
 	// bus.handleUnsubscribe handle the cleanup
-	var cancel context.CancelFunc
 	if subscribeError != nil {
+		var cancel context.CancelFunc
 		ctx, cancel = context.WithCancel(ctx)
 		cancel()
 	}
