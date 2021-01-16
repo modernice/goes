@@ -155,3 +155,59 @@ func TestConnection(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected bus.conn to still be %#v; got %#v", conn, bus.conn))
 	}
 }
+
+func TestSubjectFunc(t *testing.T) {
+	bus := New(test.NewEncoder(), SubjectFunc(func(eventName string) string {
+		return "prefix." + eventName
+	}))
+
+	events, err := bus.Subscribe(context.Background(), "foo")
+	if err != nil {
+		t.Fatal(fmt.Errorf("subscribe to %q events: %w", "foo", err))
+	}
+
+	evt := event.New("foo", test.FooEventData{A: "foo"})
+	if err = bus.Publish(context.Background(), evt); err != nil {
+		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
+	}
+
+	timeout := time.NewTimer(time.Second)
+	for {
+		select {
+		case <-timeout.C:
+			t.Fatal(fmt.Errorf("didn't receive event after 1s"))
+		case received := <-events:
+			if !event.Equal(received, evt) {
+				t.Fatal(fmt.Errorf("expected received event to equal %#v; got %#v", evt, received))
+			}
+			return
+		}
+	}
+}
+
+func TestSubjectFunc_subjectFunc(t *testing.T) {
+	// default subject
+	bus := New(test.NewEncoder())
+	if got := bus.subjectFunc("foo"); got != "foo" {
+		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", "foo", got))
+	}
+
+	// custom subject func
+	bus = New(test.NewEncoder(), SubjectFunc(func(eventName string) string {
+		return fmt.Sprintf("prefix.%s", eventName)
+	}))
+
+	want := "prefix.foo"
+	if got := bus.subjectFunc("foo"); got != want {
+		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", want, got))
+	}
+}
+
+func TestSubjectPrefix(t *testing.T) {
+	bus := New(test.NewEncoder(), SubjectPrefix("prefix."))
+
+	want := "prefix.foo"
+	if got := bus.subjectFunc("foo"); got != want {
+		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", want, got))
+	}
+}

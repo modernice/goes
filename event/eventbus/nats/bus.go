@@ -19,6 +19,7 @@ import (
 type EventBus struct {
 	enc         event.Encoder
 	queueFunc   func(string) string
+	subjectFunc func(string) string
 	url         string
 	connectOpts []nats.Option
 
@@ -81,6 +82,22 @@ func QueueGroupByEvent() Option {
 	})
 }
 
+// SubjectFunc returns an Option that sets the NATS subject for subscriptions
+// and outgoing Events by calling fn with the name of the handled Event.
+func SubjectFunc(fn func(eventName string) string) Option {
+	return func(bus *EventBus) {
+		bus.subjectFunc = fn
+	}
+}
+
+// SubjectPrefix returns an Option that sets the NATS subject for subscriptions
+// and outgoing Events by prepending prefix to the name of the handled Event.
+func SubjectPrefix(prefix string) Option {
+	return SubjectFunc(func(eventName string) string {
+		return prefix + eventName
+	})
+}
+
 // ConnectWith returns an Option that adds custom nats.Options when connecting
 // to NATS. Connection to NATS will be established on the first call to
 // bus.Publish or bus.Subscribe.
@@ -123,6 +140,9 @@ func New(enc event.Encoder, opts ...Option) *EventBus {
 	}
 	if bus.queueFunc == nil {
 		bus.queueFunc = noQueue
+	}
+	if bus.subjectFunc == nil {
+		bus.subjectFunc = defaultSubject
 	}
 	return &bus
 }
@@ -170,7 +190,7 @@ func (bus *EventBus) publish(ctx context.Context, evt event.Event) error {
 		return fmt.Errorf("encode envelope: %w", err)
 	}
 
-	if err := bus.conn.Publish(env.Name, buf.Bytes()); err != nil {
+	if err := bus.conn.Publish(bus.subjectFunc(env.Name), buf.Bytes()); err != nil {
 		return fmt.Errorf("nats: %w", err)
 	}
 
@@ -201,10 +221,12 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 			msgs = make(chan *nats.Msg)
 		)
 
+		subject := bus.subjectFunc(name)
+
 		if group := bus.queueFunc(name); group != "" {
-			s, err = bus.conn.ChanQueueSubscribe(name, group, msgs)
+			s, err = bus.conn.ChanQueueSubscribe(subject, group, msgs)
 		} else {
-			s, err = bus.conn.ChanSubscribe(name, msgs)
+			s, err = bus.conn.ChanSubscribe(subject, msgs)
 		}
 
 		if err != nil {
@@ -409,4 +431,8 @@ func (sub errorSubscriber) close() {
 // default queue group function and prevents queue groups from being used
 func noQueue(string) (q string) {
 	return
+}
+
+func defaultSubject(eventName string) string {
+	return eventName
 }
