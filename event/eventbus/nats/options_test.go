@@ -207,3 +207,75 @@ func TestSubjectPrefix(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", want, got))
 	}
 }
+
+func TestReceiveTimeout(t *testing.T) {
+	// given a receive timeout of 100ms
+	timeout := 100 * time.Millisecond
+	bus := New(test.NewEncoder(), ReceiveTimeout(timeout))
+	errs := bus.Errors(context.Background())
+
+	// given a "foo" and "bar" subscription
+	events, err := bus.Subscribe(context.Background(), "foo", "bar")
+	if err != nil {
+		t.Fatal(fmt.Errorf("subscribe to %q events: %w", "foo", err))
+	}
+
+	// when a "foo" event is published
+	foo := event.New("foo", test.FooEventData{A: "foo"})
+	if err = bus.Publish(context.Background(), foo); err != nil {
+		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
+	}
+
+	// the "foo" event should be received
+	select {
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal(fmt.Errorf("didn't receive %q event after 500ms", "foo"))
+	case received := <-events:
+		if !event.Equal(received, foo) {
+			t.Fatal(fmt.Errorf("received event doesn't match published event\npublished: %#v\n\nreceived: %#v", foo, received))
+		}
+	}
+
+	// when another "foo" event is published
+	if err = bus.Publish(context.Background(), foo); err != nil {
+		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
+	}
+
+	// when there's no receive from events for at least 100ms
+	<-time.After(200 * time.Millisecond) // 200ms just to be sure
+
+	// the "foo" event should be dropped
+	select {
+	case evt := <-events:
+		t.Fatal(fmt.Errorf("didn't expected to receive from events; got %#v", evt))
+	default:
+	}
+
+	// and we should receive an error indicating that the "foo" event was
+	// dropped
+	select {
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal(fmt.Errorf("didn't receive from errs after 100ms"))
+	case err := <-errs:
+		want := fmt.Sprintf("dropping %q event because it wasn't received after %s", "foo", timeout)
+		if err.Error() != want {
+			t.Fatal(fmt.Errorf("wrong error message\nexpected: %s\ngot: %s", want, err.Error()))
+		}
+	}
+
+	// when "bar" event is published
+	bar := event.New("bar", test.BarEventData{A: "bar"})
+	if err = bus.Publish(context.Background(), bar); err != nil {
+		t.Fatal(fmt.Errorf("publish %q event: %w", "bar", err))
+	}
+
+	// the "bar" event should be received
+	select {
+	case <-time.After(3 * time.Second):
+		t.Fatal(fmt.Errorf("didn't receive from events after 3s"))
+	case evt := <-events:
+		if !event.Equal(evt, bar) {
+			t.Fatal(fmt.Errorf("received wrong event\nexpected: %#v\n\ngot: %#v", bar, evt))
+		}
+	}
+}

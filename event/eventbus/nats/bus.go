@@ -17,11 +17,12 @@ import (
 
 // EventBus is the NATS event.Bus implementation.
 type EventBus struct {
-	enc         event.Encoder
-	queueFunc   func(string) string
-	subjectFunc func(string) string
-	url         string
-	connectOpts []nats.Option
+	enc            event.Encoder
+	queueFunc      func(string) string
+	subjectFunc    func(string) string
+	url            string
+	connectOpts    []nats.Option
+	receiveTimeout time.Duration
 
 	connMux sync.Mutex
 	conn    *nats.Conn
@@ -125,6 +126,16 @@ func Connection(conn *nats.Conn) Option {
 	}
 }
 
+// ReceiveTimeout returns an Option that limits the duration the EventBus tries
+// to send Events into the channel returned by bus.Subscribe. When d is exceeded
+// the Event will be dropped and an error will be sent to channels returned by
+// bus.Errors. A duration of 0 means no timeout and is the default.
+func ReceiveTimeout(d time.Duration) Option {
+	return func(bus *EventBus) {
+		bus.receiveTimeout = d
+	}
+}
+
 // New returns a new EventBus that encodes and decodes event.Data using the
 // provided Encoder. New panics if enc is nil.
 func New(enc event.Encoder, opts ...Option) *EventBus {
@@ -149,8 +160,8 @@ func New(enc event.Encoder, opts ...Option) *EventBus {
 	return &bus
 }
 
-// Publish sends each Event evt in events to subscribers who
-// subscribed to Events with a name of evt.Name().
+// Publish sends each Event evt in events to subscribers who subscribed to
+// Events with a name of evt.Name().
 func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 	if err := bus.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -192,16 +203,17 @@ func (bus *EventBus) publish(ctx context.Context, evt event.Event) error {
 		return fmt.Errorf("encode envelope: %w", err)
 	}
 
-	if err := bus.conn.Publish(bus.subjectFunc(env.Name), buf.Bytes()); err != nil {
+	subject := bus.subjectFunc(env.Name)
+	if err := bus.conn.Publish(subject, buf.Bytes()); err != nil {
 		return fmt.Errorf("nats: %w", err)
 	}
 
 	return nil
 }
 
-// Subscribe returns a channel of Events. For every published Event evt
-// where evt.Name() is one of names, that Event will be received from the
-// returned Event channel. When ctx is canceled, events will be closed.
+// Subscribe returns a channel of Events. For every published Event evt where
+// evt.Name() is one of names, that Event will be received from the returned
+// Event channel. When ctx is canceled, events will be closed.
 func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, error) {
 	if err := bus.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
@@ -323,25 +335,48 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 			defer close(sub.done)
 			for msg := range sub.msgs {
 				var env envelope
-				if err := gob.NewDecoder(bytes.NewReader(msg.Data)).Decode(&env); err != nil {
+				dec := gob.NewDecoder(bytes.NewReader(msg.Data))
+				if err := dec.Decode(&env); err != nil {
 					bus.error(fmt.Errorf("gob decode envelope: %w", err))
 					continue
 				}
 
 				data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
 				if err != nil {
-					bus.error(fmt.Errorf(`encode %q event data: %w`, env.Name, err))
+					bus.error(
+						fmt.Errorf(`encode %q event data: %w`, env.Name, err),
+					)
 					continue
 				}
 
-				// TODO: timeout
-				events <- event.New(
+				evt := event.New(
 					env.Name,
 					data,
 					event.ID(env.ID),
 					event.Time(env.Time),
-					event.Aggregate(env.AggregateName, env.AggregateID, env.AggregateVersion),
+					event.Aggregate(
+						env.AggregateName,
+						env.AggregateID,
+						env.AggregateVersion,
+					),
 				)
+
+				if bus.receiveTimeout == 0 {
+					events <- evt
+					continue
+				}
+
+				timer := time.NewTimer(bus.receiveTimeout)
+				select {
+				case <-timer.C:
+					bus.error(fmt.Errorf(
+						"dropping %q event because it wasn't received after %s",
+						env.Name,
+						bus.receiveTimeout,
+					))
+				case events <- evt:
+					timer.Stop()
+				}
 			}
 		}(sub)
 	}
@@ -353,7 +388,11 @@ func (bus *EventBus) handleUnsubscribe(ctx context.Context, subs ...subscriber) 
 	<-ctx.Done()
 	for _, sub := range subs {
 		if err := sub.sub.Unsubscribe(); err != nil {
-			bus.error(fmt.Errorf(`unsubscribe from subject "%s": %w`, sub.sub.Subject, err))
+			bus.error(fmt.Errorf(
+				`unsubscribe from subject "%s": %w`,
+				sub.sub.Subject,
+				err,
+			))
 		}
 		close(sub.msgs)
 	}
