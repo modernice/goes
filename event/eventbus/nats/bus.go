@@ -17,12 +17,13 @@ import (
 
 // EventBus is the NATS event.Bus implementation.
 type EventBus struct {
-	enc       event.Encoder
-	queueFunc func(string) string
-
+	enc         event.Encoder
+	queueFunc   func(string) string
+	url         string
 	connectOpts []nats.Option
-	conn        *nats.Conn
-	subs        map[subscriber]struct{}
+
+	conn *nats.Conn
+	subs map[subscriber]struct{}
 
 	errs    chan error
 	errMux  sync.RWMutex
@@ -85,6 +86,15 @@ func QueueGroupByEvent() Option {
 func ConnectWith(opts ...nats.Option) Option {
 	return func(bus *EventBus) {
 		bus.connectOpts = append(bus.connectOpts, opts...)
+	}
+}
+
+// URL returns an Option that sets the connection URL to the NATS server. If no
+// URL is specified, the environment variable "NATS_URL" will be used as the
+// connection URL.
+func URL(url string) Option {
+	return func(bus *EventBus) {
+		bus.url = url
 	}
 }
 
@@ -224,10 +234,7 @@ func (bus *EventBus) connect(ctx context.Context) error {
 	connectError := make(chan error)
 	go func() {
 		var err error
-		uri := nats.DefaultURL
-		if envuri := os.Getenv("NATS_URI"); envuri != "" {
-			uri = envuri
-		}
+		uri := bus.natsURL()
 		if bus.conn, err = nats.Connect(uri, bus.connectOpts...); err != nil {
 			connectError <- fmt.Errorf("nats: %w", err)
 			return
@@ -240,6 +247,16 @@ func (bus *EventBus) connect(ctx context.Context) error {
 	case err := <-connectError:
 		return err
 	}
+}
+
+func (bus *EventBus) natsURL() string {
+	url := nats.DefaultURL
+	if bus.url != "" {
+		url = bus.url
+	} else if envuri := os.Getenv("NATS_URL"); envuri != "" {
+		url = envuri
+	}
+	return url
 }
 
 func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {

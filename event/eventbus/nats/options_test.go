@@ -5,6 +5,7 @@ package nats
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -104,5 +105,36 @@ func TestConnectWith(t *testing.T) {
 	}
 	if opts.MaxReconnect != 4 {
 		t.Error(fmt.Errorf("expected MaxReconnect option to be %v; got %v", 4, opts.MaxReconnect))
+	}
+}
+
+func TestURL(t *testing.T) {
+	url := "foo://bar:123"
+	bus := New(test.NewEncoder(), URL(url))
+	if bus.natsURL() != url {
+		t.Fatal(fmt.Errorf("expected bus.natsURL to return %q; got %q", url, bus.natsURL()))
+	}
+}
+
+func TestEventBus_natsURL(t *testing.T) {
+	envURL := "foo://bar:123"
+	org := os.Getenv("NATS_URL")
+	if err := os.Setenv("NATS_URL", envURL); err != nil {
+		t.Fatal(fmt.Errorf("set env %q=%q: %w", "NATS_URL", envURL, err))
+	}
+	defer func() {
+		if err := os.Setenv("NATS_URL", org); err != nil {
+			t.Fatal(fmt.Errorf("set env %q=%q: %w", "NATS_URL", org, err))
+		}
+	}()
+
+	bus := New(test.NewEncoder())
+	if bus.natsURL() != envURL {
+		t.Fatal(fmt.Errorf("expected bus.natsURL to return %q; got %q", envURL, bus.natsURL()))
+	}
+
+	bus.url = "bar://foo:321"
+	if bus.natsURL() != bus.url {
+		t.Fatal(fmt.Errorf("expected bus.natsURL to return %q; got %q", bus.url, bus.natsURL()))
 	}
 }

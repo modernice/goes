@@ -20,14 +20,14 @@ func TestEventBus(t *testing.T) {
 }
 
 func TestEventBus_Subscribe_connect(t *testing.T) {
-	org := os.Getenv("NATS_URI")
-	if err := os.Setenv("NATS_URI", "what://abc:1234"); err != nil {
-		t.Fatal(fmt.Errorf("set environment variable %q: %w", "NATS_URI", err))
+	org := os.Getenv("NATS_URL")
+	if err := os.Setenv("NATS_URL", "what://abc:1234"); err != nil {
+		t.Fatal(fmt.Errorf("set environment variable %q: %w", "NATS_URL", err))
 	}
 
 	defer func() {
-		if err := os.Setenv("NATS_URI", org); err != nil {
-			t.Fatal(fmt.Errorf("reset environment variable %q: %w", "NATS_URI", err))
+		if err := os.Setenv("NATS_URL", org); err != nil {
+			t.Fatal(fmt.Errorf("reset environment variable %q: %w", "NATS_URL", err))
 		}
 	}()
 
@@ -44,14 +44,14 @@ func TestEventBus_Subscribe_connect(t *testing.T) {
 }
 
 func TestEventBus_Publish_connect(t *testing.T) {
-	org := os.Getenv("NATS_URI")
-	if err := os.Setenv("NATS_URI", "what://abc:1234"); err != nil {
-		t.Fatal(fmt.Errorf("set environment variable %q: %w", "NATS_URI", err))
+	org := os.Getenv("NATS_URL")
+	if err := os.Setenv("NATS_URL", "what://abc:1234"); err != nil {
+		t.Fatal(fmt.Errorf("set environment variable %q: %w", "NATS_URL", err))
 	}
 
 	defer func() {
-		if err := os.Setenv("NATS_URI", org); err != nil {
-			t.Fatal(fmt.Errorf("reset environment variable %q: %w", "NATS_URI", err))
+		if err := os.Setenv("NATS_URL", org); err != nil {
+			t.Fatal(fmt.Errorf("reset environment variable %q: %w", "NATS_URL", err))
 		}
 	}()
 

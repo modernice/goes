@@ -10,4 +10,4 @@ services:
       context: ..
       dockerfile: .docker/nats-test.Dockerfile
     environment:
-      - NATS_URI=nats://nats:4222
+      - NATS_URL=nats://nats:4222
