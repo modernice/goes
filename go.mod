@@ -8,7 +8,6 @@ require (
 	github.com/google/uuid v1.1.4
 	github.com/nats-io/nats-server/v2 v2.1.9 // indirect
 	github.com/nats-io/nats.go v1.10.0
-	github.com/stretchr/testify v1.7.0
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	google.golang.org/protobuf v1.25.0 // indirect
 )
