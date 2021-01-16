@@ -1,5 +1,10 @@
+ifeq "${count}" ""
+	count=1
+endif
+
+# `make test count=50` to run `go test -v -race -count=50 ./...`
 test:
-	go test ./...
+	go test -v -race -count=${count} ./...
 
 .PHONY: test
 
