@@ -22,8 +22,9 @@ type EventBus struct {
 	url         string
 	connectOpts []nats.Option
 
-	conn *nats.Conn
-	subs map[subscriber]struct{}
+	connMux sync.Mutex
+	conn    *nats.Conn
+	subs    map[subscriber]struct{}
 
 	errs    chan error
 	errMux  sync.RWMutex
@@ -95,6 +96,14 @@ func ConnectWith(opts ...nats.Option) Option {
 func URL(url string) Option {
 	return func(bus *EventBus) {
 		bus.url = url
+	}
+}
+
+// Connection returns an Option that provides the underlying nats.Conn for the
+// EventBus.
+func Connection(conn *nats.Conn) Option {
+	return func(bus *EventBus) {
+		bus.conn = conn
 	}
 }
 
@@ -231,6 +240,11 @@ func (bus *EventBus) connectOnce(ctx context.Context) error {
 }
 
 func (bus *EventBus) connect(ctx context.Context) error {
+	// user provided a nats.Conn
+	if bus.conn != nil {
+		return nil
+	}
+
 	connectError := make(chan error)
 	go func() {
 		var err error

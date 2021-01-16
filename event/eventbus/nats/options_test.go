@@ -138,3 +138,20 @@ func TestEventBus_natsURL(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected bus.natsURL to return %q; got %q", bus.url, bus.natsURL()))
 	}
 }
+
+func TestConnection(t *testing.T) {
+	conn := &nats.Conn{}
+	bus := New(test.NewEncoder(), Connection(conn))
+
+	if bus.conn != conn {
+		t.Fatal(fmt.Errorf("expected bus.conn to be %#v; got %#v", conn, bus.conn))
+	}
+
+	if err := bus.connectOnce(context.Background()); err != nil {
+		t.Fatal(fmt.Errorf("expected bus.connectOnce not to fail; got %#v", err))
+	}
+
+	if bus.conn != conn {
+		t.Fatal(fmt.Errorf("expected bus.conn to still be %#v; got %#v", conn, bus.conn))
+	}
+}
