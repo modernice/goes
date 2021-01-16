@@ -320,6 +320,7 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 
 	for _, sub := range subs {
 		go func(sub subscriber) {
+			defer close(sub.done)
 			for msg := range sub.msgs {
 				var env envelope
 				if err := gob.NewDecoder(bytes.NewReader(msg.Data)).Decode(&env); err != nil {
@@ -329,7 +330,7 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 
 				data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
 				if err != nil {
-					bus.error(fmt.Errorf(`encode "%s" event data: %w`, env.Name, err))
+					bus.error(fmt.Errorf(`encode %q event data: %w`, env.Name, err))
 					continue
 				}
 
@@ -347,13 +348,14 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 	return events
 }
 
+// handleUnsubscribe unsubscribes subs when ctx is canceled
 func (bus *EventBus) handleUnsubscribe(ctx context.Context, subs ...subscriber) {
 	<-ctx.Done()
 	for _, sub := range subs {
 		if err := sub.sub.Unsubscribe(); err != nil {
 			bus.error(fmt.Errorf(`unsubscribe from subject "%s": %w`, sub.sub.Subject, err))
 		}
-		close(sub.done)
+		close(sub.msgs)
 	}
 }
 
