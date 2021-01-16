@@ -171,16 +171,12 @@ func TestSubjectFunc(t *testing.T) {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
 	}
 
-	timeout := time.NewTimer(time.Second)
-	for {
-		select {
-		case <-timeout.C:
-			t.Fatal(fmt.Errorf("didn't receive event after 1s"))
-		case received := <-events:
-			if !event.Equal(received, evt) {
-				t.Fatal(fmt.Errorf("expected received event to equal %#v; got %#v", evt, received))
-			}
-			return
+	select {
+	case <-time.After(time.Second):
+		t.Fatal(fmt.Errorf("didn't receive event after 1s"))
+	case received := <-events:
+		if !event.Equal(received, evt) {
+			t.Fatal(fmt.Errorf("expected received event to equal %#v; got %#v", evt, received))
 		}
 	}
 }

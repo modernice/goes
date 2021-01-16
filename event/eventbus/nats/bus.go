@@ -27,9 +27,10 @@ type EventBus struct {
 	conn    *nats.Conn
 	subs    map[subscriber]struct{}
 
-	errs    chan error
-	errMux  sync.RWMutex
-	errSubs []errorSubscriber
+	errs                 chan error
+	errorHandlingStarted chan struct{}
+	errSubsMux           sync.RWMutex
+	errSubs              []errorSubscriber
 
 	onceConnect sync.Once
 	onceErrors  sync.Once
@@ -131,9 +132,10 @@ func New(enc event.Encoder, opts ...Option) *EventBus {
 		panic("missing encoder")
 	}
 	bus := EventBus{
-		enc:  enc,
-		subs: make(map[subscriber]struct{}),
-		errs: make(chan error),
+		enc:                  enc,
+		subs:                 make(map[subscriber]struct{}),
+		errs:                 make(chan error),
+		errorHandlingStarted: make(chan struct{}),
 	}
 	for _, opt := range opts {
 		opt(&bus)
@@ -358,19 +360,27 @@ func (bus *EventBus) handleUnsubscribe(ctx context.Context, subs ...subscriber) 
 // Errors returns an error channel that receives future asynchronous errors from
 // the EventBus. When ctx is canceled, the error channel wil be closed.
 func (bus *EventBus) Errors(ctx context.Context) <-chan error {
+	errs := make(chan error)
+
+	select {
+	case <-ctx.Done():
+		close(errs)
+		return errs
+	default:
+	}
+
 	// start sending errors to subscribers on first subscription
 	bus.onceErrors.Do(bus.goHandleErrors)
 
-	errs := make(chan error)
 	sub := errorSubscriber{
 		ctx:  ctx,
 		errs: errs,
 		mux:  &sync.Mutex{},
 	}
 
-	bus.errMux.Lock()
+	bus.errSubsMux.Lock()
 	bus.errSubs = append(bus.errSubs, sub)
-	bus.errMux.Unlock()
+	bus.errSubsMux.Unlock()
 
 	go bus.handleErrorUnsubscribe(sub)
 
@@ -382,8 +392,9 @@ func (bus *EventBus) goHandleErrors() {
 }
 
 func (bus *EventBus) handleErrors() {
+	close(bus.errorHandlingStarted)
 	for err := range bus.errs {
-		bus.errMux.RLock()
+		bus.errSubsMux.RLock()
 		for _, sub := range bus.errSubs {
 			go func(sub errorSubscriber, err error) {
 				sub.mux.Lock()
@@ -395,7 +406,7 @@ func (bus *EventBus) handleErrors() {
 				}
 			}(sub, err)
 		}
-		bus.errMux.RUnlock()
+		bus.errSubsMux.RUnlock()
 	}
 }
 
@@ -407,8 +418,8 @@ func (bus *EventBus) handleErrorUnsubscribe(sub errorSubscriber) {
 	<-sub.ctx.Done()
 
 	// remove sub from subscribers
-	bus.errMux.Lock()
-	defer bus.errMux.Unlock()
+	bus.errSubsMux.Lock()
+	defer bus.errSubsMux.Unlock()
 
 	for i, errSub := range bus.errSubs {
 		if sub == errSub {
@@ -418,7 +429,11 @@ func (bus *EventBus) handleErrorUnsubscribe(sub errorSubscriber) {
 }
 
 func (bus *EventBus) error(err error) {
-	bus.errs <- err
+	select {
+	case <-bus.errorHandlingStarted:
+		bus.errs <- err
+	default:
+	}
 }
 
 func (sub errorSubscriber) close() {
