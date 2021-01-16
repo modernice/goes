@@ -1,0 +1,102 @@
+package nats
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/modernice/goes/event/eventbus/test"
+)
+
+func TestEventBus_Errors(t *testing.T) {
+	bus := New(test.NewEncoder())
+	errs := bus.Errors(context.Background())
+
+	// when an error happens
+	err := errors.New("foo")
+	bus.error(err)
+
+	// that error should be received
+	select {
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal(fmt.Errorf("didn't receive error after 100ms"))
+	case received := <-errs:
+		if received != err {
+			t.Fatal(fmt.Errorf("received wrong error\nexpected: %#v\n\ngot: %#v", received, err))
+		}
+	}
+
+	// no other error should be received
+	select {
+	case received, ok := <-errs:
+		if !ok {
+			t.Fatal(fmt.Errorf("errs shouldn't be closed"))
+		}
+		t.Fatal(fmt.Errorf("shouldn't have received another error; got %#v", received))
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestEventBus_Errors_unsubscribe(t *testing.T) {
+	bus := New(test.NewEncoder())
+
+	// given a cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// when subscribed to errors
+	errs := bus.Errors(ctx)
+
+	// when an error happens
+	err := errors.New("foo")
+	bus.error(err)
+
+	// the error should be received
+	received := <-errs
+	if received != err {
+		t.Fatal(fmt.Errorf("received wrong error\nexpected: %#v\n\ngot: %#v", err, received))
+	}
+
+	// when the context is canceled
+	cancel()
+
+	// errs should be closed
+	timeout := time.NewTimer(time.Second)
+	for {
+		select {
+		case <-timeout.C:
+			t.Fatal(fmt.Errorf("didn't receive error after 1s"))
+		case received, ok := <-errs:
+			if ok {
+				t.Fatal(fmt.Errorf("errs should be closed"))
+			}
+			if received != nil {
+				t.Fatal(fmt.Errorf("received error should be %#v; got %#v", error(nil), received))
+			}
+			return
+		}
+	}
+}
+
+func TestEventBus_Errors_canceledContext(t *testing.T) {
+
+	// when subscribing to errors with a canceled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	bus := New(test.NewEncoder())
+	errs := bus.Errors(ctx)
+
+	// errs should be closed immediately
+	select {
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal(fmt.Errorf("didn't receive from errs after 100ms"))
+	case err, ok := <-errs:
+		if ok {
+			t.Fatal(fmt.Errorf("errs should be closed"))
+		}
+		if err != nil {
+			t.Fatal(fmt.Errorf("received error should be %#v; got %#v", error(nil), err))
+		}
+	}
+}

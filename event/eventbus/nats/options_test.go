@@ -11,6 +11,7 @@ import (
 
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/test"
+	"github.com/nats-io/nats.go"
 )
 
 func TestQueueGroupByFunc(t *testing.T) {
@@ -79,5 +80,29 @@ func TestQueueGroupByEvent(t *testing.T) {
 				t.Fatal(fmt.Errorf("expected queueFunc to return %q; got %q", name, queue))
 			}
 		})
+	}
+}
+
+func TestConnectWith(t *testing.T) {
+	bus := New(test.NewEncoder(), ConnectWith(
+		func(opts *nats.Options) error {
+			opts.AllowReconnect = true
+			return nil
+		},
+		func(opts *nats.Options) error {
+			opts.MaxReconnect = 4
+			return nil
+		},
+	))
+
+	var opts nats.Options
+	for _, opt := range bus.connectOpts {
+		opt(&opts)
+	}
+	if !opts.AllowReconnect {
+		t.Error(fmt.Errorf("expected AllowReconnect option to be %v; got %v", true, opts.AllowReconnect))
+	}
+	if opts.MaxReconnect != 4 {
+		t.Error(fmt.Errorf("expected MaxReconnect option to be %v; got %v", 4, opts.MaxReconnect))
 	}
 }

@@ -20,8 +20,9 @@ type EventBus struct {
 	enc       event.Encoder
 	queueFunc func(string) string
 
-	conn *nats.Conn
-	subs map[subscriber]struct{}
+	connectOpts []nats.Option
+	conn        *nats.Conn
+	subs        map[subscriber]struct{}
 
 	errs    chan error
 	errMux  sync.RWMutex
@@ -43,7 +44,7 @@ type subscriber struct {
 type errorSubscriber struct {
 	ctx  context.Context
 	errs chan error
-	done chan struct{}
+	mux  *sync.Mutex
 }
 
 type envelope struct {
@@ -76,6 +77,15 @@ func QueueGroupByEvent() Option {
 	return QueueGroupByFunc(func(eventName string) string {
 		return eventName
 	})
+}
+
+// ConnectWith returns an Option that adds custom nats.Options when connecting
+// to NATS. Connection to NATS will be established on the first call to
+// bus.Publish or bus.Subscribe.
+func ConnectWith(opts ...nats.Option) Option {
+	return func(bus *EventBus) {
+		bus.connectOpts = append(bus.connectOpts, opts...)
+	}
 }
 
 // New returns a new EventBus that encodes and decodes event.Data using the
@@ -218,7 +228,7 @@ func (bus *EventBus) connect(ctx context.Context) error {
 		if envuri := os.Getenv("NATS_URI"); envuri != "" {
 			uri = envuri
 		}
-		if bus.conn, err = nats.Connect(uri); err != nil {
+		if bus.conn, err = nats.Connect(uri, bus.connectOpts...); err != nil {
 			connectError <- fmt.Errorf("nats: %w", err)
 			return
 		}
@@ -299,11 +309,10 @@ func (bus *EventBus) Errors(ctx context.Context) <-chan error {
 	bus.onceErrors.Do(bus.goHandleErrors)
 
 	errs := make(chan error)
-	done := make(chan struct{})
 	sub := errorSubscriber{
 		ctx:  ctx,
 		errs: errs,
-		done: done,
+		mux:  &sync.Mutex{},
 	}
 
 	bus.errMux.Lock()
@@ -324,9 +333,10 @@ func (bus *EventBus) handleErrors() {
 		bus.errMux.RLock()
 		for _, sub := range bus.errSubs {
 			go func(sub errorSubscriber, err error) {
+				sub.mux.Lock()
+				defer sub.mux.Unlock()
+
 				select {
-				// abort send of error to subscriber if its context is canceled
-				// and/or its errors channel is full
 				case <-sub.ctx.Done():
 				case sub.errs <- err:
 				}
@@ -337,15 +347,13 @@ func (bus *EventBus) handleErrors() {
 }
 
 func (bus *EventBus) handleErrorUnsubscribe(sub errorSubscriber) {
-	defer close(sub.done)
-
 	// close the subscription's error channel when done
-	go func() {
-		<-sub.done
-		close(sub.errs)
-	}()
+	defer sub.close()
 
+	// wait until sub.ctx is canceled
 	<-sub.ctx.Done()
+
+	// remove sub from subscribers
 	bus.errMux.Lock()
 	defer bus.errMux.Unlock()
 
@@ -358,6 +366,12 @@ func (bus *EventBus) handleErrorUnsubscribe(sub errorSubscriber) {
 
 func (bus *EventBus) error(err error) {
 	bus.errs <- err
+}
+
+func (sub errorSubscriber) close() {
+	sub.mux.Lock()
+	close(sub.errs)
+	sub.mux.Unlock()
 }
 
 // noQueue is a no-op that always returns an empty string. It's used as the
