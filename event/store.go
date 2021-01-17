@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/event/time"
+	"github.com/modernice/goes/event/version"
 )
 
 // A Store persists and queries Events.
@@ -22,8 +24,26 @@ type Store interface {
 	Delete(ctx context.Context, evt Event) error
 }
 
-// A Query is used by a Store to query Events.
+// A Query is used by a Store to query Events and provides the filters for the
+// query.
 type Query interface {
+	// Names returns the event names to query for.
+	Names() []string
+
+	// IDs returns the event ids to query for.
+	IDs() []uuid.UUID
+
+	// Times returns the time.Constraints for the query.
+	Times() time.Constraints
+
+	// AggregateNames returns the aggregate names to query for.
+	AggregateNames() []string
+
+	// AggregateIDs returns the aggregate ids to query for.
+	AggregateIDs() []uuid.UUID
+
+	// AggregateVersions returns the version.Constraints for the query.
+	AggregateVersions() version.Constraints
 }
 
 // A Cursor provides streaming over Events.
