@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/event/time"
-	"github.com/modernice/goes/event/version"
+	"github.com/modernice/goes/event/query/time"
+	"github.com/modernice/goes/event/query/version"
 )
 
 // A Store persists and queries Events.

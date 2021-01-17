@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/modernice/goes/event/version"
+	"github.com/modernice/goes/event/query/version"
 )
 
 func TestExact(t *testing.T) {

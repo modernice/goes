@@ -3,8 +3,8 @@ package query
 
 import (
 	"github.com/google/uuid"
-	"github.com/modernice/goes/event/time"
-	"github.com/modernice/goes/event/version"
+	"github.com/modernice/goes/event/query/time"
+	"github.com/modernice/goes/event/query/version"
 )
 
 // Query is a query that's used event stores to filter events.

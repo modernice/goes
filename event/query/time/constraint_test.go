@@ -4,7 +4,7 @@ import (
 	"testing"
 	stdtime "time"
 
-	"github.com/modernice/goes/event/time"
+	"github.com/modernice/goes/event/query/time"
 )
 
 func TestExact(t *testing.T) {
