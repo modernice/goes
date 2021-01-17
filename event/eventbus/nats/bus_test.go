@@ -11,6 +11,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/nats"
 	"github.com/modernice/goes/event/eventbus/test"
+	eventtest "github.com/modernice/goes/event/test"
 )
 
 func TestEventBus(t *testing.T) {
@@ -31,7 +32,7 @@ func TestEventBus_Subscribe_connect(t *testing.T) {
 		}
 	}()
 
-	bus := nats.New(test.NewEncoder())
+	bus := nats.New(eventtest.NewEncoder())
 	events, err := bus.Subscribe(context.Background(), "foo")
 
 	if events != nil {
@@ -55,8 +56,8 @@ func TestEventBus_Publish_connect(t *testing.T) {
 		}
 	}()
 
-	bus := nats.New(test.NewEncoder())
-	err := bus.Publish(context.Background(), event.New("foo", test.FooEventData{}))
+	bus := nats.New(eventtest.NewEncoder())
+	err := bus.Publish(context.Background(), event.New("foo", eventtest.FooEventData{}))
 
 	if err == nil {
 		t.Error(fmt.Errorf("err shouldn't be nil; got %#v", err))
@@ -64,8 +65,8 @@ func TestEventBus_Publish_connect(t *testing.T) {
 }
 
 func TestEventBus_Publish_encodeError(t *testing.T) {
-	bus := nats.New(test.NewEncoder())
-	err := bus.Publish(context.Background(), event.New("xyz", test.UnregisteredEventData{}))
+	bus := nats.New(eventtest.NewEncoder())
+	err := bus.Publish(context.Background(), event.New("xyz", eventtest.UnregisteredEventData{}))
 
 	if err == nil {
 		t.Fatal(fmt.Errorf("expected err not to be nil; got %v", err))

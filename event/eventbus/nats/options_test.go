@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/test"
+	"github.com/modernice/goes/event/test"
 	"github.com/nats-io/nats.go"
 )
 
