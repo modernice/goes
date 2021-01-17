@@ -1,7 +1,5 @@
 package event
 
-//go:generate mockgen -source=encode.go -destination=./mocks/encode.go
-
 import (
 	"io"
 )
