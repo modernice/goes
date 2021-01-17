@@ -43,27 +43,27 @@ func NewEncoder() event.Encoder {
 // EventBus tests an event.Bus implementation.
 func EventBus(t *testing.T, newBus EventBusFactory) {
 	t.Run("basic test", func(t *testing.T) {
-		basicTest(t, newBus)
+		testEventStore(t, newBus)
 	})
 
 	t.Run("subscribe to multiple event names", func(t *testing.T) {
-		subscribeMultipleNames(t, newBus)
+		testSubscribeMultipleItems(t, newBus)
 	})
 
 	t.Run("cancel subscription", func(t *testing.T) {
-		cancelSubscription(t, newBus)
+		testCancelSubscription(t, newBus)
 	})
 
 	t.Run("subscribe with canceled context", func(t *testing.T) {
-		subscribeCanceledContext(t, newBus)
+		testSubscribeCanceledContext(t, newBus)
 	})
 
 	t.Run("publish multiple events", func(t *testing.T) {
-		publishMultipleEvents(t, newBus)
+		testPublishMultipleEvents(t, newBus)
 	})
 }
 
-func basicTest(t *testing.T, newBus EventBusFactory) {
+func testEventStore(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(NewEncoder())
 
 	// given 5 subscribers who listen for "foo" events
@@ -114,7 +114,7 @@ func basicTest(t *testing.T, newBus EventBusFactory) {
 	}
 }
 
-func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
+func testSubscribeMultipleItems(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(NewEncoder())
 
 	// given a subscriber who listens for "foo" and "bar" events
@@ -148,7 +148,7 @@ func subscribeMultipleNames(t *testing.T, newBus EventBusFactory) {
 	}
 }
 
-func cancelSubscription(t *testing.T, newBus EventBusFactory) {
+func testCancelSubscription(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(NewEncoder())
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -180,7 +180,7 @@ func cancelSubscription(t *testing.T, newBus EventBusFactory) {
 	}
 }
 
-func subscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
+func testSubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(NewEncoder())
 
 	// given a canceled context
@@ -201,7 +201,7 @@ func subscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 	}
 }
 
-func publishMultipleEvents(t *testing.T, newBus EventBusFactory) {
+func testPublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	foo := event.New("foo", FooEventData{A: "foo"})
 	bar := event.New("bar", BarEventData{A: "bar"})
 	baz := event.New("baz", BazEventData{A: "baz"})
