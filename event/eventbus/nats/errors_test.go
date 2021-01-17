@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modernice/goes/event/eventbus/test"
+	"github.com/modernice/goes/event/test"
 )
 
 func TestEventBus_Errors(t *testing.T) {
