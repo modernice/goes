@@ -50,14 +50,16 @@ func TestInRange(t *testing.T) {
 		2:  true,
 		10: true,
 		17: true,
-		18: false,
+		18: true,
+		19: false,
 		21: false,
 		22: true,
 		28: true,
 		30: true,
 		31: true,
 		39: true,
-		40: false,
+		40: true,
+		41: false,
 	}
 
 	runTests(t, c, tests)
@@ -115,8 +117,8 @@ func TestFilter(t *testing.T) {
 		version.Min(3),
 		version.Max(80),
 		version.InRange(
-			version.Range{20, 31},
-			version.Range{100, 111},
+			version.Range{20, 30},
+			version.Range{100, 110},
 		),
 	)
 
@@ -140,7 +142,7 @@ func TestFilter(t *testing.T) {
 func runTests(t *testing.T, c version.Constraints, tests map[int]bool) {
 	for give, want := range tests {
 		if got := version.Includes(c, give); got != want {
-			t.Errorf("expected c.Includes(%d) to return %t; got %t", give, want, got)
+			t.Errorf("expected version.Includes(c, %d) to return %t; got %t", give, want, got)
 		}
 	}
 }

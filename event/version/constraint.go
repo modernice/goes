@@ -1,4 +1,4 @@
-// Package version provides version constraining for queries.
+// Package version provides version constraints for queries.
 package version
 
 // Constraints provides the different constraints for querying events. An
@@ -22,7 +22,7 @@ type Constraints interface {
 // A Constraint is an option for constraints.
 type Constraint func(*constraints)
 
-// Range is a version range. Range{10, 31} would include versions 10 to 30.
+// Range is a version range.
 type Range [2]int
 
 type constraints struct {
@@ -55,21 +55,21 @@ func InRange(r ...Range) Constraint {
 	}
 }
 
-// Min returns a Constraint that only allows versions that are at least one of v.
+// Min returns a Constraint that only allows versions that are >= least one of v.
 func Min(v ...int) Constraint {
 	return func(c *constraints) {
 		c.min = append(c.min, v...)
 	}
 }
 
-// Max returns a Constraint that only allows versions that are at most one of v.
+// Max returns a Constraint that only allows versions that are <= at least one of v.
 func Max(v ...int) Constraint {
 	return func(c *constraints) {
 		c.max = append(c.max, v...)
 	}
 }
 
-// Includes determines if the Constraints c include all versions v.
+// Includes determines if the Constraints c includes all of v.
 func Includes(c Constraints, v ...int) bool {
 	if violatesExact(c.Exact(), v...) {
 		return false
@@ -88,6 +88,37 @@ func Includes(c Constraints, v ...int) bool {
 	}
 
 	return true
+}
+
+func (c constraints) Exact() []int {
+	return c.exact
+}
+
+func (c constraints) Ranges() []Range {
+	return c.ranges
+}
+
+func (c constraints) Min() []int {
+	return c.min
+}
+
+func (c constraints) Max() []int {
+	return c.max
+}
+
+// Start returns the start of the Range (r[0]).
+func (r Range) Start() int {
+	return r[0]
+}
+
+// End returns the end of the Range (r[1]).
+func (r Range) End() int {
+	return r[1]
+}
+
+// Includes returns true if v is within the Range r.
+func (r Range) Includes(v int) bool {
+	return v >= r[0] && v <= r[1]
 }
 
 func violatesExact(exact []int, vs ...int) bool {
@@ -144,35 +175,4 @@ func violatesMax(max []int, vs ...int) bool {
 		}
 	}
 	return true
-}
-
-func (c constraints) Exact() []int {
-	return c.exact
-}
-
-func (c constraints) Ranges() []Range {
-	return c.ranges
-}
-
-func (c constraints) Min() []int {
-	return c.min
-}
-
-func (c constraints) Max() []int {
-	return c.max
-}
-
-// Start returns the inclusive beginning of the Range (r[0]).
-func (r Range) Start() int {
-	return r[0]
-}
-
-// End returns the exclusive end of the Range (r[1]).
-func (r Range) End() int {
-	return r[1]
-}
-
-// Includes returns true if v is within the Range r.
-func (r Range) Includes(v int) bool {
-	return v >= r[0] && v < r[1]
 }
