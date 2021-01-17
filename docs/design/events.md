@@ -122,8 +122,7 @@ this modular so the database can be swapped with another one.
 ### Example
 
 ```go
-store, err := mongostore.New(...)
-// handle err
+var store event.Store
 
 // Insert an Event
 err := store.Insert(context.TODO(), event.New(...))
@@ -132,14 +131,92 @@ err := store.Insert(context.TODO(), event.New(...))
 
 **Example with Event Bus:**
 ```go
-store, err := mongostore.New(...)
-// handle err
+var store event.Store
 
 bus := eventbus.WithStore(nats.New(), store)
 
-// Publish and store Event
+// Publish and store event
 err := bus.Publish(context.TODO(), event.New(...))
 // handle err
+```
+
+### Queries
+
+An Event Store must be able to query for Events against the following properties:
+
+**Event name:**
+```go
+var store event.Store
+
+cur, err := store.Query(context.TODO(), query.New(
+  // query for "foo", "bar" and "baz" events
+  query.EventName("foo", "bar", "baz"), 
+))
+// handle err
+defer cur.Close()
+
+for cur.Next(context.TODO()) {
+  evt := cur.Event()
+  log.Println(evt)
+}
+
+if cur.Err() != nil {
+  log.Println(cur.Err())
+}
+```
+
+**Event ID:**
+```go
+var store event.Store
+
+cur, err := store.Query(context.TODO(), query.New(
+  query.EventID(uuid.New(), uuid.New(), uuid.New()),
+))
+// handle err
+defer cur.Close()
+// use cursor
+```
+
+**Aggregate name:**
+```go
+var store event.Store
+
+cur, err := store.Query(context.TODO(), query.New(
+  // query for "foo", "bar" and "baz" aggregates
+  query.AggregateName("foo", "bar", "baz"),
+))
+// handle err
+defer cur.Close()
+// use cursor
+```
+
+**Aggregate ID:**
+```go
+var store event.Store
+
+cur, err := store.Query(context.TODO(), query.New(
+  query.AggregateID(uuid.New(), uuid.New(), uuid.New()),
+))
+// handle err
+defer cur.Close()
+// use cursor
+```
+
+**Aggregate version:**
+```go
+var store event.Store
+
+cur, err := store.Query(context.TODO(), query.New(
+  query.AggregateVersion(
+    version.In(1, 2, 3), // query for events with version 1, 2 or 3
+    version.InRange(0, 8), // query events with version 0 to 7
+    version.Min(2), // query events with version >= 2
+    version.Max(9), // query events with version <= 9
+  ),
+))
+// handle err
+defer cur.Close()
+// use cursor
 ```
 
 ### Requirements
