@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/event/test"
 )
 
 var _ event.Query = Query{}
@@ -138,6 +139,123 @@ func TestNew(t *testing.T) {
 			q := New(tt.opts...)
 			if !reflect.DeepEqual(q, tt.want) {
 				t.Errorf("returned query doesn't match expected\ngot: %#v\n\nexpected: %#v", q, tt.want)
+			}
+		})
+	}
+}
+
+func TestQuery_Test(t *testing.T) {
+	ids := make([]uuid.UUID, 4)
+	times := make([]stdtime.Time, 4)
+	now := stdtime.Now()
+	for i := range ids {
+		ids[i] = uuid.New()
+		times[i] = now.Add(stdtime.Duration(i) * stdtime.Minute)
+	}
+
+	tests := []struct {
+		name  string
+		query event.Query
+		tests map[event.Event]bool
+	}{
+		{
+			name:  "Name",
+			query: New(Name("foo", "bar")),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}): true,
+				event.New("bar", test.BarEventData{}): true,
+				event.New("baz", test.BazEventData{}): false,
+			},
+		},
+		{
+			name:  "ID",
+			query: New(ID(ids[:2]...)),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.ID(ids[0])): true,
+				event.New("bar", test.BarEventData{}, event.ID(ids[1])): true,
+				event.New("baz", test.BazEventData{}, event.ID(ids[2])): false,
+			},
+		},
+		{
+			name:  "Time (exact)",
+			query: New(Time(time.Exact(times[:2]...))),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.Time(times[0])): true,
+				event.New("bar", test.BarEventData{}, event.Time(times[1])): true,
+				event.New("baz", test.BazEventData{}, event.Time(times[2])): false,
+			},
+		},
+		{
+			name:  "Time (range)",
+			query: New(Time(time.InRange(time.Range{times[0], times[1]}))),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.Time(times[0])): true,
+				event.New("bar", test.BarEventData{}, event.Time(times[1])): true,
+				event.New("baz", test.BazEventData{}, event.Time(times[2])): false,
+			},
+		},
+		{
+			name:  "Time (min/max)",
+			query: New(Time(time.Min(times[0]), time.Max(times[1]))),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.Time(times[0])): true,
+				event.New("bar", test.BarEventData{}, event.Time(times[1])): true,
+				event.New("baz", test.BazEventData{}, event.Time(times[2])): false,
+			},
+		},
+		{
+			name:  "AggregateName",
+			query: New(AggregateName("foo", "bar")),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", uuid.New(), 0)): true,
+				event.New("bar", test.BarEventData{}, event.Aggregate("bar", uuid.New(), 0)): true,
+				event.New("baz", test.BazEventData{}, event.Aggregate("baz", uuid.New(), 0)): false,
+			},
+		},
+		{
+			name:  "AggregateID",
+			query: New(AggregateID(ids[:2]...)),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", ids[0], 0)): true,
+				event.New("bar", test.BarEventData{}, event.Aggregate("bar", ids[1], 0)): true,
+				event.New("baz", test.BazEventData{}, event.Aggregate("baz", ids[2], 0)): false,
+			},
+		},
+		{
+			name:  "AggregateVersion (exact)",
+			query: New(AggregateVersion(version.Exact(1, 2))),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", uuid.New(), 1)): true,
+				event.New("bar", test.BarEventData{}, event.Aggregate("bar", uuid.New(), 2)): true,
+				event.New("baz", test.BazEventData{}, event.Aggregate("baz", uuid.New(), 3)): false,
+			},
+		},
+		{
+			name:  "AggregateVersion (range)",
+			query: New(AggregateVersion(version.InRange(version.Range{1, 2}))),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", uuid.New(), 1)): true,
+				event.New("bar", test.BarEventData{}, event.Aggregate("bar", uuid.New(), 2)): true,
+				event.New("baz", test.BazEventData{}, event.Aggregate("baz", uuid.New(), 3)): false,
+			},
+		},
+		{
+			name:  "AggregateVersion (min/max)",
+			query: New(AggregateVersion(version.Min(1), version.Max(2))),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", uuid.New(), 1)): true,
+				event.New("bar", test.BarEventData{}, event.Aggregate("bar", uuid.New(), 2)): true,
+				event.New("baz", test.BazEventData{}, event.Aggregate("baz", uuid.New(), 3)): false,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for evt, want := range tt.tests {
+				if got := Test(tt.query, evt); got != want {
+					t.Errorf("expected query.Test to return %t; got %t", want, got)
+				}
 			}
 		})
 	}
