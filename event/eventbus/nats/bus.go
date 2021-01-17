@@ -7,11 +7,13 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/internal/testing/env"
 	"github.com/nats-io/nats.go"
 )
 
@@ -29,12 +31,14 @@ type EventBus struct {
 	subs    map[subscriber]struct{}
 
 	errs                 chan error
+	initErrors           []error
 	errorHandlingStarted chan struct{}
 	errSubsMux           sync.RWMutex
 	errSubs              []errorSubscriber
 
-	onceConnect sync.Once
-	onceErrors  sync.Once
+	onceConnect    sync.Once
+	onceErrors     sync.Once
+	onceInitErrors sync.Once
 }
 
 // Option is an EventBus option.
@@ -77,6 +81,8 @@ func QueueGroupByFunc(fn func(eventName string) string) Option {
 // subscriptions to the name of the handled Event. This can be used to
 // load-balance Events between subscribers of the same Event name.
 //
+// Can also be set with the "NATS_QUEUE_GROUP_BY_EVENT" environment variable.
+//
 // Read more about queue groups: https://docs.nats.io/nats-concepts/queue
 func QueueGroupByEvent() Option {
 	return QueueGroupByFunc(func(eventName string) string {
@@ -94,6 +100,8 @@ func SubjectFunc(fn func(eventName string) string) Option {
 
 // SubjectPrefix returns an Option that sets the NATS subject for subscriptions
 // and outgoing Events by prepending prefix to the name of the handled Event.
+//
+// Can also be set with the "NATS_SUBJECT_PREFIX" environment variable.
 func SubjectPrefix(prefix string) Option {
 	return SubjectFunc(func(eventName string) string {
 		return prefix + eventName
@@ -112,6 +120,8 @@ func ConnectWith(opts ...nats.Option) Option {
 // URL returns an Option that sets the connection URL to the NATS server. If no
 // URL is specified, the environment variable "NATS_URL" will be used as the
 // connection URL.
+//
+// Can also be set with the "NATS_URL" environment variable.
 func URL(url string) Option {
 	return func(bus *EventBus) {
 		bus.url = url
@@ -130,6 +140,11 @@ func Connection(conn *nats.Conn) Option {
 // to send Events into the channel returned by bus.Subscribe. When d is exceeded
 // the Event will be dropped and an error will be sent to channels returned by
 // bus.Errors. A duration of 0 means no timeout and is the default.
+//
+// Can also be set with the "NATS_RECEIVE_TIMEOUT" environment variable in a
+// format understood by time.ParseDuration. If the environment value is not
+// parseable by time.ParseDuration, no timeout will be used and an error will be
+// sent to the first channel(s) returned by bus.Errors.
 func ReceiveTimeout(d time.Duration) Option {
 	return func(bus *EventBus) {
 		bus.receiveTimeout = d
@@ -148,16 +163,45 @@ func New(enc event.Encoder, opts ...Option) *EventBus {
 		errs:                 make(chan error),
 		errorHandlingStarted: make(chan struct{}),
 	}
-	for _, opt := range opts {
-		opt(&bus)
+	bus.init(opts...)
+
+	return &bus
+}
+
+func (bus *EventBus) init(opts ...Option) {
+	var envOpts []Option
+	if env.Bool("NATS_QUEUE_GROUP_BY_EVENT") {
+		envOpts = append(envOpts, QueueGroupByEvent())
 	}
+
+	if prefix := strings.TrimSpace(env.String("NATS_SUBJECT_PREFIX")); prefix != "" {
+		envOpts = append(envOpts, SubjectPrefix(prefix))
+	}
+
+	if env.String("NATS_RECEIVE_TIMEOUT") != "" {
+		if d, err := env.Duration("NATS_RECEIVE_TIMEOUT"); err == nil {
+			envOpts = append(envOpts, ReceiveTimeout(d))
+		} else {
+			bus.initErrors = append(bus.initErrors, fmt.Errorf(
+				"parse environment variable %q: %w",
+				"NATS_RECEIVE_TIMEOUT",
+				err,
+			))
+		}
+	}
+
+	opts = append(envOpts, opts...)
+	for _, opt := range opts {
+		opt(bus)
+	}
+
 	if bus.queueFunc == nil {
 		bus.queueFunc = noQueue
 	}
+
 	if bus.subjectFunc == nil {
 		bus.subjectFunc = defaultSubject
 	}
-	return &bus
 }
 
 // Publish sends each Event evt in events to subscribers who subscribed to
@@ -425,6 +469,9 @@ func (bus *EventBus) Errors(ctx context.Context) <-chan error {
 
 	go bus.handleErrorUnsubscribe(sub)
 
+	// publish errors that happened in bus.init
+	bus.onceInitErrors.Do(bus.publishInitErrors)
+
 	return errs
 }
 
@@ -467,6 +514,14 @@ func (bus *EventBus) handleErrorUnsubscribe(sub errorSubscriber) {
 			bus.errSubs = append(bus.errSubs[:i], bus.errSubs[i+1:]...)
 		}
 	}
+}
+
+func (bus *EventBus) publishInitErrors() {
+	go func() {
+		for _, err := range bus.initErrors {
+			bus.error(fmt.Errorf("init: %w", err))
+		}
+	}()
 }
 
 func (bus *EventBus) error(err error) {
