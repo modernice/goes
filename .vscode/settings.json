@@ -1,5 +1,6 @@
 {
   "go.buildFlags": [
-    "-tags=nats"
+    "-tags=nats",
+    "-tags=mongostore"
   ]
 }

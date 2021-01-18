@@ -1,15 +1,15 @@
 version: '3.8'
 services:
-  nats:
-    image: nats
+  mongo:
+    image: mongo
   
   test:
     depends_on:
-      - nats
+      - mongo
     build:
       context: ..
       dockerfile: .docker/tag-test.Dockerfile
       args:
-        TAG: nats
+        TAG: mongostore
     environment:
-      - NATS_URL=nats://nats:4222
+      - MONGO_URL=mongodb://mongo:27017
