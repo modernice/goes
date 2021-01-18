@@ -11,17 +11,17 @@ import (
 // A Store persists and queries Events.
 type Store interface {
 	// Insert should insert evt into the Store.
-	Insert(ctx context.Context, evt Event) error
+	Insert(context.Context, Event) error
 
 	// Find should fetch the Event with the specified UUID from the Store.
-	Find(ctx context.Context, id uuid.UUID) (Event, error)
+	Find(context.Context, uuid.UUID) (Event, error)
 
 	// Query should query Events according the Query q and return a Cursor for
 	// those Events.
-	Query(ctx context.Context, q Query) (Cursor, error)
+	Query(context.Context, Query) (Cursor, error)
 
 	// Delete should remove the specified Event from the Store.
-	Delete(ctx context.Context, evt Event) error
+	Delete(context.Context, Event) error
 }
 
 // A Query is used by a Store to query Events and provides the filters for the
