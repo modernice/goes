@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modernice/goes/internal/testing/env"
+	"github.com/modernice/goes/internal/env"
 )
 
 func TestTemp(t *testing.T) {

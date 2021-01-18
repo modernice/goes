@@ -8,7 +8,7 @@ import (
 	"github.com/modernice/goes/event/eventstore/test"
 )
 
-var _ event.Store = &memstore.Store{}
+var _ event.Store = memstore.New()
 
 func TestStore(t *testing.T) {
 	test.EventStore(t, func() event.Store {

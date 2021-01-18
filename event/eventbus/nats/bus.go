@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/internal/testing/env"
+	"github.com/modernice/goes/internal/env"
 	"github.com/nats-io/nats.go"
 )
 

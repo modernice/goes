@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event/test"
-	"github.com/modernice/goes/internal/testing/env"
+	"github.com/modernice/goes/internal/env"
 	"github.com/nats-io/nats.go"
 )
 
