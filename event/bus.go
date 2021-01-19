@@ -1,5 +1,7 @@
 package event
 
+//go:generate mockgen -source=bus.go -destination=./mocks/bus.go
+
 import "context"
 
 // Bus is the pub-sub client for Events.

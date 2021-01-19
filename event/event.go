@@ -1,5 +1,7 @@
 package event
 
+//go:generate mockgen -source=event.go -destination=./mocks/event.go
+
 import (
 	"time"
 
