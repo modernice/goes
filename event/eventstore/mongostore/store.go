@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	stdtime "time"
 
@@ -20,8 +21,9 @@ import (
 
 // Store is the MongoDB event.Store.
 type Store struct {
-	enc    event.Encoder
-	dbname string
+	enc     event.Encoder
+	dbname  string
+	colname string
 
 	client *mongo.Client
 	db     *mongo.Database
@@ -57,10 +59,21 @@ func New(enc event.Encoder, opts ...Option) *Store {
 	for _, opt := range opts {
 		opt(&s)
 	}
-	if s.dbname == "" {
+	if strings.TrimSpace(s.dbname) == "" {
 		s.dbname = "event"
 	}
+	if strings.TrimSpace(s.colname) == "" {
+		s.colname = "events"
+	}
 	return &s
+}
+
+// Client returns an Option that specifies the underlying mongo.Client to be
+// used by the Store.
+func Client(c *mongo.Client) Option {
+	return func(s *Store) {
+		s.client = c
+	}
 }
 
 // Database returns an Option that sets the mongo database to use for the events.
@@ -70,17 +83,58 @@ func Database(name string) Option {
 	}
 }
 
-// Insert save the given Event in the database.
-func (s *Store) Insert(ctx context.Context, evt event.Event) error {
+// Collection returns an Option that sets the mongo collection where the Events
+// are stored in.
+func Collection(name string) Option {
+	return func(s *Store) {
+		s.colname = name
+	}
+}
+
+// Client returns the underlying mongo.Client. If no mongo.Client is provided
+// with the Client option, Client returns nil until the connection to MongoDB
+// has been established by either explicitly calling s.Connect or implicitly by
+// calling s.Insert, s.Find, s.Delete or s.Query. Otherwise Client returns the
+// provided mongo.Client.
+func (s *Store) Client() *mongo.Client {
+	return s.client
+}
+
+// Database returns the underlying mongo.Database. Database returns nil until
+// the connection to MongoDB has been established by either explicitly calling
+// s.Connect or implicitly by calling s.Insert, s.Find, s.Delete or s.Query.
+func (s *Store) Database() *mongo.Database {
+	return s.db
+}
+
+// Collection returns the underlying mongo.Collection. Connection returns nil
+// until the connection to MongoDB has been established by either explicitly
+// calling s.Connect or implicitly by calling s.Insert, s.Find, s.Delete or
+// s.Query.
+func (s *Store) Collection() *mongo.Collection {
+	return s.col
+}
+
+// Insert saves the given Events into the database.
+func (s *Store) Insert(ctx context.Context, events ...event.Event) error {
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
+	for _, evt := range events {
+		if err := s.insert(ctx, evt); err != nil {
+			return fmt.Errorf("%s:%s: %w", evt.Name(), evt.ID(), err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Store) insert(ctx context.Context, evt event.Event) error {
 	var data bytes.Buffer
 	if err := s.enc.Encode(&data, evt.Data()); err != nil {
 		return fmt.Errorf("encode %q event data: %w", evt.Name(), err)
 	}
-
 	if _, err := s.col.InsertOne(ctx, entry{
 		ID:               evt.ID(),
 		Name:             evt.Name(),
@@ -93,7 +147,6 @@ func (s *Store) Insert(ctx context.Context, evt event.Event) error {
 	}); err != nil {
 		return fmt.Errorf("mongo: %w", err)
 	}
-
 	return nil
 }
 
@@ -137,18 +190,21 @@ func (s *Store) Query(ctx context.Context, q event.Query) (event.Cursor, error) 
 	}, nil
 }
 
-// Connect establishes the connection to the underlying MongoDB. Connect doesn't
-// need to be called manually as it's called automatically on the first call to
-// s.Insert, s.Find, s.Delete or s.Query. Use Connect if you want to explicitly
-// control when to connect to MongoDB.
-func (s *Store) Connect(ctx context.Context) error {
-	return s.connectOnce(ctx)
+// Connect establishes the connection to the underlying MongoDB and returns the
+// mongo.Client. Connect doesn't need to be called manually as it's called
+// automatically on the first call to s.Insert, s.Find, s.Delete or s.Query. Use
+// Connect if you want to explicitly control when to connect to MongoDB.
+func (s *Store) Connect(ctx context.Context, opts ...*options.ClientOptions) (*mongo.Client, error) {
+	if err := s.connectOnce(ctx, opts...); err != nil {
+		return nil, err
+	}
+	return s.client, nil
 }
 
-func (s *Store) connectOnce(ctx context.Context) error {
+func (s *Store) connectOnce(ctx context.Context, opts ...*options.ClientOptions) error {
 	var err error
 	s.onceConnect.Do(func() {
-		if err = s.connect(ctx); err != nil {
+		if err = s.connect(ctx, opts...); err != nil {
 			return
 		}
 		if err = s.ensureIndexes(ctx); err != nil {
@@ -158,17 +214,22 @@ func (s *Store) connectOnce(ctx context.Context) error {
 	return err
 }
 
-func (s *Store) connect(ctx context.Context) error {
-	uri := os.Getenv("MONGO_URL")
-	var err error
-	if s.client, err = mongo.Connect(
-		ctx,
-		options.Client().ApplyURI(uri),
-	); err != nil {
-		return fmt.Errorf("mongo.Connect: %w", err)
+func (s *Store) connect(ctx context.Context, opts ...*options.ClientOptions) error {
+	if s.client == nil {
+		uri := os.Getenv("MONGO_URL")
+		opts = append(
+			[]*options.ClientOptions{options.Client().ApplyURI(uri)},
+			opts...,
+		)
+
+		var err error
+		if s.client, err = mongo.Connect(ctx, opts...); err != nil {
+			s.client = nil
+			return fmt.Errorf("mongo.Connect: %w", err)
+		}
 	}
 	s.db = s.client.Database(s.dbname)
-	s.col = s.db.Collection("events")
+	s.col = s.db.Collection(s.colname)
 	return nil
 }
 

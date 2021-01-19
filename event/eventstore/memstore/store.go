@@ -4,6 +4,7 @@ package memstore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
@@ -26,7 +27,16 @@ func New(events ...event.Event) event.Store {
 	}
 }
 
-func (s *store) Insert(ctx context.Context, evt event.Event) error {
+func (s *store) Insert(ctx context.Context, events ...event.Event) error {
+	for _, evt := range events {
+		if err := s.insert(ctx, evt); err != nil {
+			return fmt.Errorf("%s:%s %w", evt.Name(), evt.ID(), err)
+		}
+	}
+	return nil
+}
+
+func (s *store) insert(ctx context.Context, evt event.Event) error {
 	if _, err := s.Find(ctx, evt.ID()); err == nil {
 		return errors.New("")
 	}

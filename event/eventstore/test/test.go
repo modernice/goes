@@ -39,6 +39,12 @@ func run(t *testing.T, name string, newStore EventStoreFactory, runner func(*tes
 }
 
 func testInsert(t *testing.T, newStore EventStoreFactory) {
+	run(t, "SingleInsert", newStore, testSingleInsert)
+	run(t, "MultiInsert", newStore, testMultiInsert)
+	run(t, "InvalidMultiInsert", newStore, testInvalidMultiInsert)
+}
+
+func testSingleInsert(t *testing.T, newStore EventStoreFactory) {
 	store := newStore(test.NewEncoder())
 
 	// inserting an event shouldn't fail
@@ -51,6 +57,49 @@ func testInsert(t *testing.T, newStore EventStoreFactory) {
 	evt = event.New("foo", test.FooEventData{A: "bar"}, event.ID(evt.ID()))
 	if err := store.Insert(context.Background(), evt); err == nil {
 		t.Errorf("inserting an event with an existing id should fail; err=%v", err)
+	}
+}
+
+func testMultiInsert(t *testing.T, newStore EventStoreFactory) {
+	store := newStore(test.NewEncoder())
+	events := []event.Event{
+		event.New("foo", test.FooEventData{A: "foo"}),
+		event.New("foo", test.FooEventData{A: "foo"}),
+		event.New("foo", test.FooEventData{A: "foo"}),
+	}
+
+	if err := store.Insert(context.Background(), events...); err != nil {
+		t.Fatalf("expected store.Insert to succeed; got %#v", err)
+	}
+
+	result, err := runQuery(store, query.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	test.AssertEqualEventsUnsorted(t, events, result)
+}
+
+// testInvalidMultiInsert tests the uniqueness constraints of the Store returned
+// by newStore. We don't test what's actually in the database after the inserts
+// because the aggregate repository has the responsibility of validating event
+// consistency and doing rollbacks when necessary. Here we just validate basic
+// uniqueness constraints that must be ensured on the database level.
+func testInvalidMultiInsert(t *testing.T, newStore EventStoreFactory) {
+	store := newStore(test.NewEncoder())
+	aggregateID := uuid.New()
+	eventID := uuid.New()
+	events := []event.Event{
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 0)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3), event.ID(eventID)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 4), event.ID(eventID)),
+	}
+
+	if err := store.Insert(context.Background(), events...); err == nil {
+		t.Fatalf("expected store.Insert to fail; got %#v", err)
 	}
 }
 
@@ -214,14 +263,9 @@ func testQueryName(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	// querying "foo" events should return all 3 events
-	cur, err := store.Query(context.Background(), query.New(query.Name("foo")))
+	result, err := runQuery(store, query.New(query.Name("foo")))
 	if err != nil {
-		t.Fatal(fmt.Errorf("expected store.Query not to return an error; got %#v", err))
-	}
-
-	result, err := cursor.All(context.Background(), cur)
-	if err != nil {
-		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
+		t.Fatal(err)
 	}
 
 	test.AssertEqualEventsUnsorted(t, events, result)
@@ -239,17 +283,12 @@ func testQueryID(t *testing.T, newStore EventStoreFactory) {
 		t.Fatal(err)
 	}
 
-	cur, err := store.Query(context.Background(), query.New(query.ID(
+	result, err := runQuery(store, query.New(query.ID(
 		events[0].ID(),
 		events[2].ID(),
 	)))
 	if err != nil {
-		t.Fatal(fmt.Errorf("expected store.Query not to return an error; got %#v", err))
-	}
-
-	result, err := cursor.All(context.Background(), cur)
-	if err != nil {
-		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
+		t.Fatal(err)
 	}
 
 	want := []event.Event{events[0], events[2]}
@@ -269,17 +308,12 @@ func testQueryTime(t *testing.T, newStore EventStoreFactory) {
 		t.Fatal(err)
 	}
 
-	cur, err := store.Query(context.Background(), query.New(query.Time(
+	result, err := runQuery(store, query.New(query.Time(
 		time.Min(events[1].Time()),
 		time.Max(events[2].Time()),
 	)))
 	if err != nil {
-		t.Fatal(fmt.Errorf("expected store.Query not to return an error; got %#v", err))
-	}
-
-	result, err := cursor.All(context.Background(), cur)
-	if err != nil {
-		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
+		t.Fatal(err)
 	}
 
 	want := events[1:]
@@ -298,14 +332,9 @@ func testQueryAggregateName(t *testing.T, newStore EventStoreFactory) {
 		t.Fatal(err)
 	}
 
-	cur, err := store.Query(context.Background(), query.New(query.AggregateName("foo")))
+	result, err := runQuery(store, query.New(query.AggregateName("foo")))
 	if err != nil {
-		t.Fatal(fmt.Errorf("expected store.Query not to return an error; got %#v", err))
-	}
-
-	result, err := cursor.All(context.Background(), cur)
-	if err != nil {
-		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
+		t.Fatal(err)
 	}
 
 	want := events[1:]
@@ -324,17 +353,12 @@ func testQueryAggregateID(t *testing.T, newStore EventStoreFactory) {
 		t.Fatal(err)
 	}
 
-	cur, err := store.Query(context.Background(), query.New(query.AggregateID(
+	result, err := runQuery(store, query.New(query.AggregateID(
 		events[0].AggregateID(),
 		events[2].AggregateID(),
 	)))
 	if err != nil {
-		t.Fatal(fmt.Errorf("expected store.Query not to return an error; got %#v", err))
-	}
-
-	result, err := cursor.All(context.Background(), cur)
-	if err != nil {
-		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
+		t.Fatal(err)
 	}
 
 	want := []event.Event{events[0], events[2]}
@@ -355,17 +379,12 @@ func testQueryAggregateVersion(t *testing.T, newStore EventStoreFactory) {
 		t.Fatal(err)
 	}
 
-	cur, err := store.Query(context.Background(), query.New(query.AggregateVersion(
+	result, err := runQuery(store, query.New(query.AggregateVersion(
 		version.Min(5),
 		version.Max(16),
 	)))
 	if err != nil {
-		t.Fatal(fmt.Errorf("expected store.Query not to return an error; got %#v", err))
-	}
-
-	result, err := cursor.All(context.Background(), cur)
-	if err != nil {
-		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
+		t.Fatal(err)
 	}
 
 	want := events[2:4]
@@ -380,4 +399,16 @@ func makeStore(newStore EventStoreFactory, events ...event.Event) (event.Store, 
 		}
 	}
 	return store, nil
+}
+
+func runQuery(s event.Store, q event.Query) ([]event.Event, error) {
+	cur, err := s.Query(context.Background(), q)
+	if err != nil {
+		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)
+	}
+	result, err := cursor.All(context.Background(), cur)
+	if err != nil {
+		return nil, fmt.Errorf("expected cursor.All to succeed; got %w", err)
+	}
+	return result, nil
 }
