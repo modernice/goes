@@ -44,6 +44,76 @@ func (e example) ApplyEvent(evt event.Event) {
 In the above example the `ApplyEvent` method is responsible for (re)-applying
 Events on the Aggregate to reconstruct the current state of the Aggregate.
 
+### Defining Aggregates
+
+```go
+type Person struct {
+  aggregate.Base
+
+  Name string
+  Birthdate time.Time
+}
+
+func New(id uuid.UUID) *Person {
+  return &Person{
+    Base: aggregate.New(id),
+  }
+}
+
+func NewAggregate(id uuid.UUID) aggregate.Aggregate {
+  return New(id)
+}
+
+func (p *Person) Age() int {
+  // note: wrong implementation; just to demonstrate
+  return time.Now().Year() - p.Birthdate.Year()
+}
+```
+
+### Defining Commands
+
+```go
+type Person struct { ... }
+
+type bornData struct {
+  Name string
+  Birthdate time.Time
+}
+
+func (p *Person) Birth(name string) error {
+  if !p.Birthdate.IsZero() {
+    return fmt.Errorf("%q was already born", p.Name)
+  }
+
+  p.event("born", bornData{
+    Name: name,
+    Birthdate: time.Now(),
+  })
+
+  return nil
+}
+```
+
+### Applying Events
+
+```go
+type Person struct { ... }
+type bornData struct { ... }
+
+func (p *Person) ApplyEvent(evt event.Event) {
+  switch evt.Name() {
+  case "born":
+    p.born(evt)
+  case "xxx":
+    p.xxx(evt)
+  case "yyy":
+    p.yyy(evt)
+  case "zzz":
+    p.zzz(evt)
+  }
+}
+```
+
 ## Aggregate Repository
 
 The `Aggregate Repository` builds on top of the
