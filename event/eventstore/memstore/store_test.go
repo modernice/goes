@@ -11,7 +11,7 @@ import (
 var _ event.Store = memstore.New()
 
 func TestStore(t *testing.T) {
-	test.EventStore(t, func() event.Store {
+	test.EventStore(t, "memstore", func(event.Encoder) event.Store {
 		return memstore.New()
 	})
 }

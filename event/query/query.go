@@ -104,10 +104,10 @@ func Test(q event.Query, evt event.Event) bool {
 			!testTimeRanges(ranges, evt.Time()) {
 			return false
 		}
-		if min := times.Min(); len(min) > 0 && !testMinTimes(min, evt.Time()) {
+		if min := times.Min(); !min.IsZero() && !testMinTimes(min, evt.Time()) {
 			return false
 		}
-		if max := times.Max(); len(max) > 0 && !testMaxTimes(max, evt.Time()) {
+		if max := times.Max(); !max.IsZero() && !testMaxTimes(max, evt.Time()) {
 			return false
 		}
 	}
@@ -226,20 +226,16 @@ func testTimeRanges(ranges []time.Range, t stdtime.Time) bool {
 	return false
 }
 
-func testMinTimes(min []stdtime.Time, t stdtime.Time) bool {
-	for _, m := range min {
-		if m.Equal(t) || t.After(m) {
-			return true
-		}
+func testMinTimes(min stdtime.Time, t stdtime.Time) bool {
+	if t.Equal(min) || t.After(min) {
+		return true
 	}
 	return false
 }
 
-func testMaxTimes(min []stdtime.Time, t stdtime.Time) bool {
-	for _, m := range min {
-		if m.Equal(t) || t.Before(m) {
-			return true
-		}
+func testMaxTimes(max stdtime.Time, t stdtime.Time) bool {
+	if t.Equal(max) || t.Before(max) {
+		return true
 	}
 	return false
 }

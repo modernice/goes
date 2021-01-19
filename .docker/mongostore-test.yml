@@ -2,6 +2,7 @@ version: '3.8'
 services:
   mongo:
     image: mongo
+    command: --quiet --logpath /dev/null
   
   test:
     depends_on:

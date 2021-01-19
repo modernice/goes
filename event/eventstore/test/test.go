@@ -6,6 +6,7 @@ import (
 	"testing"
 	stdtime "time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/cursor"
@@ -17,19 +18,28 @@ import (
 )
 
 // EventStoreFactory creates an event.Store.
-type EventStoreFactory func() event.Store
+type EventStoreFactory func(event.Encoder) event.Store
 
 // EventStore tests an event.Store implementation.
-func EventStore(t *testing.T, newStore EventStoreFactory) {
-	testInsert(t, newStore)
-	testFind(t, newStore)
-	testDelete(t, newStore)
-	testConcurrentStore(t, newStore)
-	testQuery(t, newStore)
+func EventStore(t *testing.T, name string, newStore EventStoreFactory) {
+	t.Run(name, func(t *testing.T) {
+		run(t, "Insert", newStore, testInsert)
+		run(t, "Insert", newStore, testInsert)
+		run(t, "Find", newStore, testFind)
+		run(t, "Delete", newStore, testDelete)
+		run(t, "Concurrency", newStore, testConcurrency)
+		run(t, "Query", newStore, testQuery)
+	})
+}
+
+func run(t *testing.T, name string, newStore EventStoreFactory, runner func(*testing.T, EventStoreFactory)) {
+	t.Run(name, func(t *testing.T) {
+		runner(t, newStore)
+	})
 }
 
 func testInsert(t *testing.T, newStore EventStoreFactory) {
-	store := newStore()
+	store := newStore(test.NewEncoder())
 
 	// inserting an event shouldn't fail
 	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("bar", uuid.New(), 3))
@@ -45,7 +55,7 @@ func testInsert(t *testing.T, newStore EventStoreFactory) {
 }
 
 func testFind(t *testing.T, newStore EventStoreFactory) {
-	store := newStore()
+	store := newStore(test.NewEncoder())
 
 	found, err := store.Find(context.Background(), uuid.New())
 	if err == nil {
@@ -65,12 +75,14 @@ func testFind(t *testing.T, newStore EventStoreFactory) {
 		t.Errorf("expected store.Find not to return error; got %#v", err)
 	}
 	if !event.Equal(found, evt) {
-		t.Errorf("found event doesn't match inserted event\ninserted: %#v\n\nfound: %#v", evt, found)
+		t.Errorf("found event doesn't match inserted event\ninserted: %#v\n\nfound: %#v\n\ndiff: %s", evt, found, cmp.Diff(
+			evt, found, cmp.AllowUnexported(evt),
+		))
 	}
 }
 
 func testDelete(t *testing.T, newStore EventStoreFactory) {
-	store := newStore()
+	store := newStore(test.NewEncoder())
 
 	foo := event.New("foo", test.FooEventData{A: "foo"})
 	bar := event.New("bar", test.BarEventData{A: "bar"})
@@ -84,7 +96,7 @@ func testDelete(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	if err := store.Delete(context.Background(), foo); err != nil {
-		t.Fatal(fmt.Errorf("%q: expected store.Delete not to return an error; got %#v", "foo", err))
+		t.Fatal(fmt.Errorf("%q: expected store.Delete not to return an error; got %w", "foo", err))
 	}
 
 	found, err := store.Find(context.Background(), foo.ID())
@@ -104,14 +116,14 @@ func testDelete(t *testing.T, newStore EventStoreFactory) {
 	}
 }
 
-func testConcurrentStore(t *testing.T, newStore EventStoreFactory) {
-	testConcurrentInsert(t, newStore)
-	testConcurrentFind(t, newStore)
-	testConcurrentDelete(t, newStore)
+func testConcurrency(t *testing.T, newStore EventStoreFactory) {
+	run(t, "ConcurrentInsert", newStore, testConcurrentInsert)
+	run(t, "ConcurrentFind", newStore, testConcurrentFind)
+	run(t, "ConcurrentDelete", newStore, testConcurrentDelete)
 }
 
 func testConcurrentInsert(t *testing.T, newStore EventStoreFactory) {
-	store := newStore()
+	store := newStore(test.NewEncoder())
 	group, ctx := errgroup.WithContext(context.Background())
 	for i := 0; i < 30; i++ {
 		i := i
@@ -130,7 +142,7 @@ func testConcurrentInsert(t *testing.T, newStore EventStoreFactory) {
 }
 
 func testConcurrentFind(t *testing.T, newStore EventStoreFactory) {
-	store := newStore()
+	store := newStore(test.NewEncoder())
 	evt := event.New("foo", test.FooEventData{A: "foo"})
 	if err := store.Insert(context.Background(), evt); err != nil {
 		t.Fatal(fmt.Errorf("store.Insert failed: %w", err))
@@ -152,7 +164,7 @@ func testConcurrentFind(t *testing.T, newStore EventStoreFactory) {
 }
 
 func testConcurrentDelete(t *testing.T, newStore EventStoreFactory) {
-	store := newStore()
+	store := newStore(test.NewEncoder())
 
 	events := make([]event.Event, 30)
 	for i := range events {
@@ -180,12 +192,12 @@ func testConcurrentDelete(t *testing.T, newStore EventStoreFactory) {
 }
 
 func testQuery(t *testing.T, newStore EventStoreFactory) {
-	testQueryName(t, newStore)
-	testQueryID(t, newStore)
-	testQueryTime(t, newStore)
-	testQueryAggregateName(t, newStore)
-	testQueryAggregateID(t, newStore)
-	testQueryAggregateVersion(t, newStore)
+	run(t, "QueryName", newStore, testQueryName)
+	run(t, "QueryID", newStore, testQueryID)
+	run(t, "QueryTime", newStore, testQueryTime)
+	run(t, "QueryAggregateName", newStore, testQueryAggregateName)
+	run(t, "QueryAggregateID", newStore, testQueryAggregateID)
+	run(t, "QueryAggregateVersion", newStore, testQueryAggregateVersion)
 }
 
 func testQueryName(t *testing.T, newStore EventStoreFactory) {
@@ -212,9 +224,7 @@ func testQueryName(t *testing.T, newStore EventStoreFactory) {
 		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
 	}
 
-	if !test.EqualEvents(events, result) {
-		t.Fatalf("expected cursor events to match original events\noriginal: %#v\n\ngot: %#v", events, result)
-	}
+	test.AssertEqualEventsUnsorted(t, events, result)
 }
 
 func testQueryID(t *testing.T, newStore EventStoreFactory) {
@@ -243,9 +253,7 @@ func testQueryID(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	want := []event.Event{events[0], events[2]}
-	if !test.EqualEvents(want, result) {
-		t.Fatalf("cursor returned the wrong events\nwant: %#v\n\ngot: %#v", want, result)
-	}
+	test.AssertEqualEventsUnsorted(t, want, result)
 }
 
 func testQueryTime(t *testing.T, newStore EventStoreFactory) {
@@ -275,9 +283,7 @@ func testQueryTime(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	want := events[1:]
-	if !test.EqualEvents(want, result) {
-		t.Fatalf("cursor returned the wrong events\nwant: %#v\n\ngot: %#v", want, result)
-	}
+	test.AssertEqualEventsUnsorted(t, want, result)
 }
 
 func testQueryAggregateName(t *testing.T, newStore EventStoreFactory) {
@@ -303,9 +309,7 @@ func testQueryAggregateName(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	want := events[1:]
-	if !test.EqualEvents(want, result) {
-		t.Fatalf("expected cursor events to match original events\noriginal: %#v\n\ngot: %#v", want, result)
-	}
+	test.AssertEqualEventsUnsorted(t, want, result)
 }
 
 func testQueryAggregateID(t *testing.T, newStore EventStoreFactory) {
@@ -334,9 +338,7 @@ func testQueryAggregateID(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	want := []event.Event{events[0], events[2]}
-	if !test.EqualEvents(want, result) {
-		t.Fatalf("cursor returned the wrong events\nwant: %#v\n\ngot: %#v", want, result)
-	}
+	test.AssertEqualEventsUnsorted(t, want, result)
 }
 
 func testQueryAggregateVersion(t *testing.T, newStore EventStoreFactory) {
@@ -367,13 +369,11 @@ func testQueryAggregateVersion(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	want := events[2:4]
-	if !test.EqualEvents(want, result) {
-		t.Fatalf("cursor returned the wrong events\nwant: %#v\n\ngot: %#v", want, result)
-	}
+	test.AssertEqualEventsUnsorted(t, want, result)
 }
 
 func makeStore(newStore EventStoreFactory, events ...event.Event) (event.Store, error) {
-	store := newStore()
+	store := newStore(test.NewEncoder())
 	for i, evt := range events {
 		if err := store.Insert(context.Background(), evt); err != nil {
 			return store, fmt.Errorf("make store: [%d] failed to insert event: %w", i, err)

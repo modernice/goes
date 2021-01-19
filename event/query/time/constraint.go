@@ -14,11 +14,13 @@ type Constraints interface {
 	// Ranges returns the time ranges to query for.
 	Ranges() []Range
 
-	// Min returns the minimum allowed times to query for.
-	Min() []time.Time
+	// Min returns the minimum allowed time to query for. Zero time means this
+	// filter is disabled
+	Min() time.Time
 
-	// Max returns the maximum allowed times to query for.
-	Max() []time.Time
+	// Max returns the maximum allowed time to query for. Zero time means this
+	// filter is disabled
+	Max() time.Time
 }
 
 // A Constraint is an option for constraints.
@@ -30,8 +32,8 @@ type Range [2]time.Time
 type constraints struct {
 	exact  []time.Time
 	ranges []Range
-	min    []time.Time
-	max    []time.Time
+	min    time.Time
+	max    time.Time
 }
 
 // Filter returns Constraints from the given Constraint opts.
@@ -58,34 +60,26 @@ func InRange(r ...Range) Constraint {
 }
 
 // Before returns a Constraint that only allows times that are before at least one of v.
-func Before(t ...time.Time) Constraint {
-	n := make([]time.Time, len(t))
-	for i, t := range t {
-		n[i] = t.Add(-time.Nanosecond)
-	}
-	return Max(n...)
+func Before(t time.Time) Constraint {
+	return Max(t.Add(-time.Nanosecond))
 }
 
 // After returns a Constraint that only allows times that are after at least one of v.
-func After(t ...time.Time) Constraint {
-	n := make([]time.Time, len(t))
-	for i, t := range t {
-		n[i] = t.Add(time.Nanosecond)
-	}
-	return Min(n...)
+func After(t time.Time) Constraint {
+	return Min(t.Add(time.Nanosecond))
 }
 
 // Min returns a Constraint that only allows times that are >= at least one of v.
-func Min(t ...time.Time) Constraint {
+func Min(min time.Time) Constraint {
 	return func(c *constraints) {
-		c.min = append(c.min, t...)
+		c.min = min
 	}
 }
 
 // Max returns a Constraint that only allows times that are <= at least one of v.
-func Max(t ...time.Time) Constraint {
+func Max(max time.Time) Constraint {
 	return func(c *constraints) {
-		c.max = append(c.max, t...)
+		c.max = max
 	}
 }
 
@@ -118,11 +112,11 @@ func (c constraints) Ranges() []Range {
 	return c.ranges
 }
 
-func (c constraints) Min() []time.Time {
+func (c constraints) Min() time.Time {
 	return c.min
 }
 
-func (c constraints) Max() []time.Time {
+func (c constraints) Max() time.Time {
 	return c.max
 }
 
@@ -169,29 +163,25 @@ func violatesRanges(ranges []Range, t ...time.Time) bool {
 	return true
 }
 
-func violatesMin(min []time.Time, t ...time.Time) bool {
-	if len(min) == 0 {
+func violatesMin(min time.Time, t ...time.Time) bool {
+	if min.IsZero() {
 		return false
 	}
 	for _, t := range t {
-		for _, t2 := range min {
-			if t.After(t2.Add(-time.Nanosecond)) {
-				return false
-			}
+		if t.After(min.Add(-time.Nanosecond)) {
+			return false
 		}
 	}
 	return true
 }
 
-func violatesMax(max []time.Time, t ...time.Time) bool {
-	if len(max) == 0 {
+func violatesMax(max time.Time, t ...time.Time) bool {
+	if max.IsZero() {
 		return false
 	}
 	for _, t := range t {
-		for _, t2 := range max {
-			if t.Before(t2.Add(time.Nanosecond)) {
-				return false
-			}
+		if t.Before(max.Add(time.Nanosecond)) {
+			return false
 		}
 	}
 	return true

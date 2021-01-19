@@ -61,12 +61,7 @@ func TestInRange(t *testing.T) {
 
 func TestBefore(t *testing.T) {
 	now := stdtime.Now()
-	before := []stdtime.Time{
-		now,
-		now.Add(-stdtime.Hour),
-	}
-
-	c := time.Filter(time.Before(before...))
+	c := time.Filter(time.Before(now))
 
 	tests := map[stdtime.Time]bool{
 		now:                        false,
@@ -79,12 +74,7 @@ func TestBefore(t *testing.T) {
 
 func TestAfter(t *testing.T) {
 	now := stdtime.Now()
-	after := []stdtime.Time{
-		now,
-		now.Add(stdtime.Hour),
-	}
-
-	c := time.Filter(time.After(after...))
+	c := time.Filter(time.After(now))
 
 	tests := map[stdtime.Time]bool{
 		now:                       false,
@@ -97,12 +87,7 @@ func TestAfter(t *testing.T) {
 
 func TestMin(t *testing.T) {
 	now := stdtime.Now()
-	min := []stdtime.Time{
-		now,
-		now.Add(stdtime.Hour),
-	}
-
-	c := time.Filter(time.Min(min...))
+	c := time.Filter(time.Min(now))
 
 	tests := map[stdtime.Time]bool{
 		now.Add(-stdtime.Second):  false,
@@ -116,12 +101,7 @@ func TestMin(t *testing.T) {
 
 func TestMax(t *testing.T) {
 	now := stdtime.Now()
-	max := []stdtime.Time{
-		now,
-		now.Add(-stdtime.Hour),
-	}
-
-	c := time.Filter(time.Max(max...))
+	c := time.Filter(time.Max(now))
 
 	tests := map[stdtime.Time]bool{
 		now.Add(stdtime.Second):    false,
