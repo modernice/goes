@@ -120,11 +120,11 @@ The `Aggregate Repository` builds on top of the
 [Event Store](./events.md#event-store). It saves and fetches Aggregates to and
 from the database as a series of Events.
 
-### Fetching Aggregates
+### Example
 
 ```go
 type example struct {
-  aggregate.Base
+  aggregate.Aggregate
 }
 
 func (e example) SomeMethod() error {
@@ -157,6 +157,19 @@ err = ea.SomeMethod()
 // save aggregate
 err = repo.Save(context.TODO(), ea)
 // handle err
+```
+
+### Fetching Aggregates
+
+```go
+type example struct { ... }
+
+repo := repository.New(...)
+
+a, err := repo.Fetch(context.TODO(), "foo", uuid.New()) // fetch latest
+a, err := repo.FetchVersion(context.TODO(), "foo", uuid.New(), 8) // fetch specific version
+err := repo.Apply(context.TODO(), &example{...}) // fetch remaining events and apply them
+err := repo.ApplyVersion(context.TODO(), &example{...}, 15) // fetch events until v15 and apply them
 ```
 
 ### Saving Aggregates
