@@ -20,13 +20,7 @@ func EqualEvents(events ...[]event.Event) bool {
 		return true
 	}
 	first := events[0]
-	opts := []cmp.Option{
-		cmpopts.SortSlices(func(a, b event.Event) bool {
-			aid := a.ID()
-			bid := b.ID()
-			return bytes.Compare(aid[:], bid[:]) == -1
-		}),
-	}
+	var opts []cmp.Option
 	if len(first) > 0 {
 		opts = append(opts, cmp.AllowUnexported(first[0]))
 	}

@@ -10,6 +10,16 @@ import (
 	"github.com/modernice/goes/event/query/version"
 )
 
+const (
+	// SortTime sorts events by time.
+	SortTime = Sorting(iota)
+
+	// SortAsc sorts events in ascending order.
+	SortAsc = SortDirection(iota)
+	// SortDesc sorts events in descending order.
+	SortDesc
+)
+
 // A Store persists and queries Events.
 type Store interface {
 	// Insert inserts Events into the Store.
@@ -46,6 +56,9 @@ type Query interface {
 
 	// AggregateVersions returns the version.Constraints for the query.
 	AggregateVersions() version.Constraints
+
+	// Sorting returns the SortConfig for the query.
+	Sorting() SortConfig
 }
 
 // A Cursor provides streaming over Events.
@@ -68,3 +81,15 @@ type Cursor interface {
 	// Close should close the Cursor.
 	Close(context.Context) error
 }
+
+// SortConfig defines the sorting behaviour for a Query.
+type SortConfig struct {
+	Sort Sorting
+	Dir  SortDirection
+}
+
+// Sorting is a sorting.
+type Sorting int
+
+// SortDirection is a sorting direction.
+type SortDirection int

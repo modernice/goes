@@ -180,7 +180,10 @@ func (s *Store) Query(ctx context.Context, q event.Query) (event.Cursor, error) 
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
-	cur, err := s.col.Find(ctx, makeFilter(q))
+	opts := options.Find()
+	opts = applySorting(opts, q.Sorting())
+
+	cur, err := s.col.Find(ctx, makeFilter(q), opts)
 	if err != nil {
 		return nil, fmt.Errorf("mongo: %w", err)
 	}
@@ -465,4 +468,16 @@ func withAggregateVersionFilter(filter bson.D, versions version.Constraints) bso
 	}
 
 	return filter
+}
+
+func applySorting(opts *options.FindOptions, sorting event.SortConfig) *options.FindOptions {
+	v := 1
+	if !sorting.Dir.Bool(true) {
+		v = -1
+	}
+	switch sorting.Sort {
+	case event.SortTime:
+		opts = opts.SetSort(bson.D{{Key: "timeNano", Value: v}})
+	}
+	return opts
 }

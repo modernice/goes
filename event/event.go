@@ -3,6 +3,7 @@ package event
 //go:generate mockgen -source=event.go -destination=./mocks/event.go
 
 import (
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -119,6 +120,23 @@ func Equal(events ...Event) bool {
 	return true
 }
 
+// Sort sorts Events and returns the sorted Events.
+func Sort(events []Event, sorting Sorting, dir SortDirection) []Event {
+	sorted := make([]Event, len(events))
+	copy(sorted, events)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		switch sorting {
+		case SortTime:
+			return dir.Bool(sorted[i].Time().Before(sorted[j].Time()))
+		default:
+			return true
+		}
+	})
+
+	return sorted
+}
+
 func (evt event) ID() uuid.UUID {
 	return evt.id
 }
@@ -145,4 +163,12 @@ func (evt event) AggregateID() uuid.UUID {
 
 func (evt event) AggregateVersion() int {
 	return evt.aggregateVersion
+}
+
+// Bool returns either b if dir=SortAsc or the !b if dir=SortDesc.
+func (dir SortDirection) Bool(b bool) bool {
+	if dir == SortDesc {
+		return !b
+	}
+	return b
 }

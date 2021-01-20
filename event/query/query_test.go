@@ -132,6 +132,20 @@ func TestNew(t *testing.T) {
 				),
 			},
 		},
+		{
+			name: "SortBy",
+			opts: []Option{
+				SortBy(event.SortTime, event.SortAsc),
+			},
+			want: Query{
+				times:             time.Filter(),
+				aggregateVersions: version.Filter(),
+				sorting: event.SortConfig{
+					Sort: event.SortTime,
+					Dir:  event.SortAsc,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

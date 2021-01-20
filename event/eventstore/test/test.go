@@ -247,6 +247,7 @@ func testQuery(t *testing.T, newStore EventStoreFactory) {
 	run(t, "QueryAggregateName", newStore, testQueryAggregateName)
 	run(t, "QueryAggregateID", newStore, testQueryAggregateID)
 	run(t, "QueryAggregateVersion", newStore, testQueryAggregateVersion)
+	run(t, "Sorting", newStore, testQuerySorting)
 }
 
 func testQueryName(t *testing.T, newStore EventStoreFactory) {
@@ -389,6 +390,65 @@ func testQueryAggregateVersion(t *testing.T, newStore EventStoreFactory) {
 
 	want := events[2:4]
 	test.AssertEqualEventsUnsorted(t, want, result)
+}
+
+func testQuerySorting(t *testing.T, newStore EventStoreFactory) {
+	now := stdtime.Now()
+	events := []event.Event{
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(stdtime.Hour))),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(12*stdtime.Hour))),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(24*stdtime.Hour))),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(48*stdtime.Hour))),
+	}
+
+	tests := []struct {
+		name string
+		q    query.Query
+		want []event.Event
+	}{
+		{
+			name: "SortTime(asc)",
+			q:    query.New(query.SortBy(event.SortTime, event.SortAsc)),
+			want: events,
+		},
+		{
+			name: "SortTime(desc)",
+			q:    query.New(query.SortBy(event.SortTime, event.SortDesc)),
+			want: []event.Event{
+				events[4], events[3], events[2], events[1], events[0],
+			},
+		},
+		{
+			name: "Time+SortTime(desc)",
+			q: query.New(
+				query.Time(
+					time.Min(events[1].Time()),
+					time.Max(events[3].Time()),
+				),
+				query.SortBy(event.SortTime, event.SortDesc),
+			),
+			want: []event.Event{
+				events[3], events[2], events[1],
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, err := makeStore(newStore, events...)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			result, err := runQuery(store, tt.q)
+			if err != nil {
+				t.Fatalf("expected query to succeed: %#v", err)
+			}
+
+			test.AssertEqualEvents(t, tt.want, result)
+		})
+	}
 }
 
 func makeStore(newStore EventStoreFactory, events ...event.Event) (event.Store, error) {
