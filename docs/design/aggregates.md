@@ -120,7 +120,7 @@ The `Aggregate Repository` builds on top of the
 [Event Store](./events.md#event-store). It saves and fetches Aggregates to and
 from the database as a series of Events.
 
-### Example
+### Fetching Aggregates
 
 ```go
 type example struct {
@@ -157,6 +157,54 @@ err = ea.SomeMethod()
 // save aggregate
 err = repo.Save(context.TODO(), ea)
 // handle err
+```
+
+### Saving Aggregates
+
+```go
+type example struct { ... }
+
+repo := aggregate.NewRepository(...)
+
+ex := NewExample(...)
+
+err := repo.Save(context.TODO(), ex)
+// handle err
+```
+
+### Deleting Aggregates
+
+```go
+type example struct { ... }
+
+repo := aggregate.NewRepository(...)
+a, err := repo.Fetch(context.TODO(), "foo", uuid.New())
+// handle err
+
+err = repo.Delete(context.TODO(), a)
+// handle err
+```
+
+### Querying Aggregates
+
+```go
+repo := aggregate.NewRepository(...)
+cur, err := repo.Query(context.TODO(), query.New(
+  query.Name("foo", "bar", "baz"), // query by aggregate names
+  query.ID(uuid.New(), uuid.New(), uuid.New()), // query by aggregate ids
+  query.Version( // query by aggregate versions
+    version.Exact(4, 7, 10), 
+    version.InRange(version.Range{5, 10}),
+    version.Min(2),
+    version.Max(20),
+  ),
+))
+// handle err
+
+result, err := cursor.All(context.TODO(), cur)
+// handle err
+
+log.Println(result)
 ```
 
 ### Requirements
