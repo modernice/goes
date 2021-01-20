@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/test"
 )
 
 type mockData struct {
@@ -14,7 +15,7 @@ type mockData struct {
 	FieldB bool
 }
 
-func TestNewEvent(t *testing.T) {
+func TestNew(t *testing.T) {
 	data := newMockData()
 	evt := event.New("foo", data)
 
@@ -47,7 +48,7 @@ func TestNewEvent(t *testing.T) {
 	}
 }
 
-func TestNewEvent_time(t *testing.T) {
+func TestNew_time(t *testing.T) {
 	ts := time.Now().Add(time.Hour)
 	evt := event.New("foo", newMockData(), event.Time(ts))
 	if !ts.Equal(evt.Time()) {
@@ -55,7 +56,7 @@ func TestNewEvent_time(t *testing.T) {
 	}
 }
 
-func TestNewEvent_aggregate(t *testing.T) {
+func TestNew_aggregate(t *testing.T) {
 	aname := "bar"
 	aid := uuid.New()
 	v := 3
@@ -71,6 +72,33 @@ func TestNewEvent_aggregate(t *testing.T) {
 
 	if evt.AggregateVersion() != v {
 		t.Errorf("expected evt.AggregateVersion() to return %v; got %v", v, evt.AggregateVersion())
+	}
+}
+
+func TestNew_previous(t *testing.T) {
+	aggregateID := uuid.New()
+	prev := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foobar", aggregateID, 3))
+	evt := event.New("bar", test.BarEventData{A: "bar"}, event.Previous(prev))
+
+	if evt.Name() != "bar" {
+		t.Errorf("expected evt.Name to return %q; got %q", "bar", evt.Name())
+	}
+
+	wantData := test.BarEventData{A: "bar"}
+	if evt.Data() != wantData {
+		t.Errorf("expected evt.Data to return %#v; got %#v", wantData, evt.Data())
+	}
+
+	if evt.AggregateName() != "foobar" {
+		t.Errorf("expected evt.AggregateName to return %q; got %q", "foobar", evt.AggregateName())
+	}
+
+	if evt.AggregateID() != aggregateID {
+		t.Errorf("expected evt.AggregateID to return %q; got %q", aggregateID, evt.AggregateID())
+	}
+
+	if evt.AggregateVersion() != 4 {
+		t.Errorf("expected evt.AggregateVersion to return %d; got %d", 4, evt.AggregateVersion())
 	}
 }
 

@@ -85,6 +85,17 @@ func Aggregate(name string, id uuid.UUID, version int) Option {
 	}
 }
 
+// Previous returns an Option that adds Aggregate data to an Event. If prev
+// provides non-nil Aggregate data (UUID, name & version), the returned Option
+// adds those to the new Event with its version increased by 1.
+func Previous(prev Event) Option {
+	v := prev.AggregateVersion()
+	if prev.AggregateID() != uuid.Nil {
+		v++
+	}
+	return Aggregate(prev.AggregateName(), prev.AggregateID(), v)
+}
+
 // Equal compares events and determines if they're equal. It works exactly like
 // a normal "==" comparison except for the Time field which is being compared by
 // calling a.Time().Equal(b.Time()) for the two Events a and b that are being
