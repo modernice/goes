@@ -20,6 +20,9 @@ type Aggregate interface {
 	AggregateChanges() []event.Event
 	// TrackChange adds the Events to the changes of the Aggregate.
 	TrackChange(...event.Event) error
+	// FlushChanges increases the version of the Aggregate by the number of
+	// changes and empties the changes.
+	FlushChanges()
 	// ApplyEvent applies the Event on the Aggregate.
 	ApplyEvent(event.Event)
 }
@@ -61,6 +64,16 @@ func (b *base) TrackChange(events ...event.Event) error {
 	}
 	b.changes = append(b.changes, events...)
 	return nil
+}
+
+func (b *base) FlushChanges() {
+	if len(b.changes) == 0 {
+		return
+	}
+	// b.TrackChange guarantees a correct event order, so we can safely assume
+	// the last element has the highest version.
+	b.version = b.changes[len(b.changes)-1].AggregateVersion()
+	b.changes = nil
 }
 
 // ApplyEvent does nothing. Structs that embed base should implement ApplyEvent.

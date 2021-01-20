@@ -77,3 +77,27 @@ func TestBase_TrackChange_inconsistent(t *testing.T) {
 		t.Fatalf("b.TrackChange returned the wrong error\n\nwant: %#v\n\ngot: %#v", wantError, err)
 	}
 }
+
+func TestBase_FlushChanges(t *testing.T) {
+	aggregateID := uuid.New()
+	b := aggregate.New("foo", aggregateID)
+	events := []event.Event{
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
+	}
+
+	if err := b.TrackChange(events...); err != nil {
+		t.Fatalf("expected b.TrackChange not to return an error; got %#v", err)
+	}
+
+	b.FlushChanges()
+
+	if changes := b.AggregateChanges(); len(changes) != 0 {
+		t.Fatalf("expected b.AggregateChanges to return an empty slice; got %#v", changes)
+	}
+
+	if v := b.AggregateVersion(); v != 3 {
+		t.Fatalf("expected b.AggregateVersion to return %d; got %d", 3, v)
+	}
+}
