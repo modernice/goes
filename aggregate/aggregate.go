@@ -1,8 +1,8 @@
 package aggregate
 
 import (
-	"context"
 	"fmt"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate/consistency"
@@ -34,25 +34,8 @@ type Aggregate interface {
 	ApplyEvent(event.Event)
 }
 
-// Repository is the aggregate repository. It saves and fetches aggregates to
-// and from the underlying event store.
-type Repository interface {
-	// Save inserts the changes of Aggregate a into the event store.
-	Save(ctx context.Context, a Aggregate) error
-
-	// Fetch fetches the events for the given Aggregate from the event store,
-	// beginning from version a.AggregateVersion()+1 up to the latest version
-	// for that Aggregate and applies them to a, so that a is in the latest
-	// state. If the event store does not return any events, a stays untouched.
-	Fetch(ctx context.Context, a Aggregate) error
-
-	// FetchVersion fetches the events for the given Aggregate from the event
-	// store, beginning from version a.AggregateVersion()+1 up to v and applies
-	// them to a, so that a is in the state of the time of the event with
-	// version v. If the event store does not return any events, a stays
-	// untouched.
-	FetchVersion(ctx context.Context, a Aggregate, v int) error
-}
+// Option is an aggregate option.
+type Option func(*base)
 
 type base struct {
 	id      uuid.UUID
@@ -62,11 +45,50 @@ type base struct {
 }
 
 // New returns a new base aggregate.
-func New(name string, id uuid.UUID) Aggregate {
-	return &base{
+func New(name string, id uuid.UUID, opts ...Option) Aggregate {
+	b := &base{
 		id:   id,
 		name: name,
 	}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b
+}
+
+// Version returns an Option that sets the version of an Aggregate.
+func Version(v int) Option {
+	return func(b *base) {
+		b.version = v
+	}
+}
+
+// Sort sorts aggregates and returns the sorted aggregates.
+func Sort(as []Aggregate, s Sorting, dir SortDirection) []Aggregate {
+	sorted := make([]Aggregate, len(as))
+	copy(sorted, as)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		switch s {
+		case SortName:
+			return dir.Bool(
+				sorted[i].AggregateName() <= sorted[j].AggregateName(),
+			)
+		case SortID:
+			return dir.Bool(
+				sorted[i].AggregateID().String() <=
+					sorted[j].AggregateID().String(),
+			)
+		case SortVersion:
+			return dir.Bool(
+				sorted[i].AggregateVersion() <= sorted[j].AggregateVersion(),
+			)
+		default:
+			return true
+		}
+	})
+
+	return sorted
 }
 
 func (b *base) AggregateID() uuid.UUID {

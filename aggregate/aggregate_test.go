@@ -34,6 +34,14 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestNew_version(t *testing.T) {
+	want := 3
+	a := aggregate.New("foo", uuid.New(), aggregate.Version(want))
+	if v := a.AggregateVersion(); v != want {
+		t.Fatalf("a.AggregateVersion should return %d; got %d", want, v)
+	}
+}
+
 func TestBase_TrackChange(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)

@@ -6,10 +6,10 @@ ifeq "${run}" ""
 	run=""
 endif
 
-# `make test count=50` to run `go test -v -race -count=50 ./...`
-# `make test run=TestXXX` to run `go test -v -race -run=TestXXX ./...`
+# `make test count=50` to run `go test -race -count=50 ./...`
+# `make test run=TestXXX` to run `go test -race -run=TestXXX ./...`
 test:
-	go test -v -race -run=${run} -count=${count} ./...
+	go test -race -run=${run} -count=${count} ./...
 
 .PHONY: test
 
