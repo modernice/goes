@@ -12,8 +12,8 @@ type busWithStore struct {
 	s event.Store
 }
 
-// WithStore returns a Bus that inserts events into the Store s before
-// publishing them through the Bus b.
+// WithStore returns a Bus that inserts events into Store s before publishing
+// them through Bus b.
 func WithStore(b event.Bus, s event.Store) event.Bus {
 	return &busWithStore{b, s}
 }
