@@ -23,6 +23,11 @@ func New(store event.Store) aggregate.Repository {
 	return &repository{store}
 }
 
+// Save saves the changes of Aggregate a into the event store. If the underlying
+// event store fails to insert the events, Save tries to rollback the changes by
+// deleting the successfully stored events from the store and returns a
+// *SaveError which contains the causing insert error, the rolled back events
+// and the rollback error for those event.
 func (r *repository) Save(ctx context.Context, a aggregate.Aggregate) error {
 	changes := a.AggregateChanges()
 	if err := r.store.Insert(ctx, changes...); err != nil {
