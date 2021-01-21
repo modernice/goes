@@ -10,7 +10,7 @@ import (
 	"github.com/modernice/goes/event/query/version"
 )
 
-// Query is a query that's used event stores to filter events.
+// Query is used by event stores to filter events.
 type Query struct {
 	names          []string
 	ids            []uuid.UUID

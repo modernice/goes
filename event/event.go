@@ -165,7 +165,7 @@ func (evt event) AggregateVersion() int {
 	return evt.aggregateVersion
 }
 
-// Bool returns either b if dir=SortAsc or the !b if dir=SortDesc.
+// Bool returns either b if dir=SortAsc or !b if dir=SortDesc.
 func (dir SortDirection) Bool(b bool) bool {
 	if dir == SortDesc {
 		return !b
