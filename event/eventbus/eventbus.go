@@ -8,28 +8,24 @@ import (
 )
 
 type busWithStore struct {
-	bus   event.Bus
-	store event.Store
+	event.Bus
+	s event.Store
 }
 
-// WithStore returns a Bus that inserts Events into the provided Store before
-// publishing.
-func WithStore(bus event.Bus, store event.Store) event.Bus {
-	return &busWithStore{bus, store}
+// WithStore returns a Bus that inserts events into the Store s before
+// publishing them through the Bus b.
+func WithStore(b event.Bus, s event.Store) event.Bus {
+	return &busWithStore{b, s}
 }
 
 func (bus *busWithStore) Publish(ctx context.Context, events ...event.Event) error {
-	if err := bus.store.Insert(ctx, events...); err != nil {
+	if err := bus.s.Insert(ctx, events...); err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
 
-	if err := bus.bus.Publish(ctx, events...); err != nil {
+	if err := bus.Bus.Publish(ctx, events...); err != nil {
 		return fmt.Errorf("publish: %w", err)
 	}
 
 	return nil
-}
-
-func (bus *busWithStore) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, error) {
-	return bus.bus.Subscribe(ctx, names...)
 }
