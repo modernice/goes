@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/aggregate"
 )
 
 var (
@@ -15,25 +15,25 @@ var (
 )
 
 type cursor struct {
-	events []event.Event
-	event  event.Event
-	pos    int
-	err    error
-	closed chan struct{}
+	aggregates []aggregate.Aggregate
+	aggregate  aggregate.Aggregate
+	pos        int
+	err        error
+	closed     chan struct{}
 }
 
 // New returns an in-memory Cursor filled with the provided Events.
-func New(events ...event.Event) event.Cursor {
+func New(as ...aggregate.Aggregate) aggregate.Cursor {
 	return &cursor{
-		events: events,
-		closed: make(chan struct{}),
+		aggregates: as,
+		closed:     make(chan struct{}),
 	}
 }
 
-// All iterates over the Cursor cur and returns its Events. If a call to
-// cur.Next causes an error, the already fetched Events and that error are
+// All iterates over the Cursor cur and returns its aggregates. If a call to
+// cur.Next causes an error, the already fetched aggregates and that error are
 // returned. All automatically calls cur.Close(ctx) when done.
-func All(ctx context.Context, cur event.Cursor) (events []event.Event, err error) {
+func All(ctx context.Context, cur aggregate.Cursor) (aggregates []aggregate.Aggregate, err error) {
 	defer func() {
 		if cerr := cur.Close(ctx); cerr != nil {
 			if err != nil {
@@ -43,8 +43,9 @@ func All(ctx context.Context, cur event.Cursor) (events []event.Event, err error
 			err = cerr
 		}
 	}()
+
 	for cur.Next(ctx) {
-		events = append(events, cur.Event())
+		aggregates = append(aggregates, cur.Aggregate())
 	}
 	if err = cur.Err(); err != nil {
 		return
@@ -60,17 +61,16 @@ func (c *cursor) Next(ctx context.Context) bool {
 	default:
 		c.err = nil
 	}
-
-	if len(c.events) <= c.pos {
+	if len(c.aggregates) <= c.pos {
 		return false
 	}
-	c.event = c.events[c.pos]
+	c.aggregate = c.aggregates[c.pos]
 	c.pos++
 	return true
 }
 
-func (c *cursor) Event() event.Event {
-	return c.event
+func (c *cursor) Aggregate() aggregate.Aggregate {
+	return c.aggregate
 }
 
 func (c *cursor) Err() error {

@@ -158,7 +158,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestQuery_Test(t *testing.T) {
+func TestTest(t *testing.T) {
 	ids := make([]uuid.UUID, 4)
 	times := make([]stdtime.Time, 4)
 	now := stdtime.Now()

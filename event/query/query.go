@@ -95,7 +95,7 @@ func SortBy(sort event.Sorting, dir event.SortDirection) Option {
 
 // Test tests the Event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
-// implementations to filter Events based on the Query.
+// implementations to filter events based on the query.
 func Test(q event.Query, evt event.Event) bool {
 	if names := q.Names(); len(names) > 0 &&
 		!stringsContains(names, evt.Name()) {
@@ -155,12 +155,12 @@ func Test(q event.Query, evt event.Event) bool {
 	return true
 }
 
-// Names returns the "event name" filter.
+// Names returns the event names to query for.
 func (q Query) Names() []string {
 	return q.names
 }
 
-// IDs returns the "event id" filter.
+// IDs returns the event ids to query for.
 func (q Query) IDs() []uuid.UUID {
 	return q.ids
 }
@@ -171,22 +171,22 @@ func (q Query) Times() time.Constraints {
 	return q.times
 }
 
-// AggregateNames returns the "aggregate name" filter.
+// AggregateNames returns the aggregate names to query for.
 func (q Query) AggregateNames() []string {
 	return q.aggregateNames
 }
 
-// AggregateIDs returns the "aggregate id" filter.
+// AggregateIDs returns the aggregate ids to query for.
 func (q Query) AggregateIDs() []uuid.UUID {
 	return q.aggregateIDs
 }
 
-// AggregateVersions returns the "aggregate version" filter.
+// AggregateVersions returns the aggregate versions to query for.
 func (q Query) AggregateVersions() version.Constraints {
 	return q.aggregateVersions
 }
 
-// Sorting returns the SortConfig for the Query.
+// Sorting returns the SortConfig for the query.
 func (q Query) Sorting() event.SortConfig {
 	return q.sorting
 }

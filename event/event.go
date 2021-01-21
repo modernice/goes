@@ -120,7 +120,7 @@ func Equal(events ...Event) bool {
 	return true
 }
 
-// Sort sorts Events and returns the sorted Events.
+// Sort sorts events and returns the sorted events.
 func Sort(events []Event, sorting Sorting, dir SortDirection) []Event {
 	sorted := make([]Event, len(events))
 	copy(sorted, events)
@@ -163,12 +163,4 @@ func (evt event) AggregateID() uuid.UUID {
 
 func (evt event) AggregateVersion() int {
 	return evt.aggregateVersion
-}
-
-// Bool returns either b if dir=SortAsc or !b if dir=SortDesc.
-func (dir SortDirection) Bool(b bool) bool {
-	if dir == SortDesc {
-		return !b
-	}
-	return b
 }

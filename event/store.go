@@ -61,7 +61,7 @@ type Query interface {
 	Sorting() SortConfig
 }
 
-// A Cursor provides streaming over Events.
+// A Cursor iterates over events.
 type Cursor interface {
 	// Next should fetch the next Event from the underlying Store and return
 	// true if the next call to Cursor.Event would return that Event. If an
@@ -93,3 +93,11 @@ type Sorting int
 
 // SortDirection is a sorting direction.
 type SortDirection int
+
+// Bool returns either b if dir=SortAsc or !b if dir=SortDesc.
+func (dir SortDirection) Bool(b bool) bool {
+	if dir == SortDesc {
+		return !b
+	}
+	return b
+}
