@@ -166,8 +166,8 @@ type example struct { ... }
 
 repo := repository.New(...)
 
-a, err := repo.Fetch(context.TODO(), "foo", uuid.New()) // fetch latest
-a, err := repo.FetchVersion(context.TODO(), "foo", uuid.New(), 8) // fetch specific version
+a, err := repo.Get(context.TODO(), "foo", uuid.New()) // fetch latest
+a, err := repo.GetVersion(context.TODO(), "foo", uuid.New(), 8) // fetch specific version
 err := repo.Apply(context.TODO(), &example{...}) // fetch remaining events and apply them
 err := repo.ApplyVersion(context.TODO(), &example{...}, 15) // fetch events until v15 and apply them
 ```

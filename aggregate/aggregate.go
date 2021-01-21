@@ -1,6 +1,7 @@
 package aggregate
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -12,19 +13,45 @@ import (
 type Aggregate interface {
 	// AggregateID return the UUID of the aggregate.
 	AggregateID() uuid.UUID
+
 	// AggregateName returns the name of the aggregate.
 	AggregateName() string
+
 	// AggregateVersion returns the version of the aggregate.
 	AggregateVersion() int
+
 	// AggregateChanges returns the uncommited Events of the Aggregate.
 	AggregateChanges() []event.Event
+
 	// TrackChange adds the Events to the changes of the Aggregate.
 	TrackChange(...event.Event) error
+
 	// FlushChanges increases the version of the Aggregate by the number of
 	// changes and empties the changes.
 	FlushChanges()
+
 	// ApplyEvent applies the Event on the Aggregate.
 	ApplyEvent(event.Event)
+}
+
+// Repository is the aggregate repository. It saves and fetches aggregates to
+// and from the underlying event store.
+type Repository interface {
+	// Save inserts the changes of Aggregate a into the event store.
+	Save(ctx context.Context, a Aggregate) error
+
+	// Fetch fetches the events for the given Aggregate from the event store,
+	// beginning from version a.AggregateVersion()+1 up to the latest version
+	// for that Aggregate and applies them to a, so that a is in the latest
+	// state. If the event store does not return any events, a stays untouched.
+	Fetch(ctx context.Context, a Aggregate) error
+
+	// FetchVersion fetches the events for the given Aggregate from the event
+	// store, beginning from version a.AggregateVersion()+1 up to v and applies
+	// them to a, so that a is in the state of the time of the event with
+	// version v. If the event store does not return any events, a stays
+	// untouched.
+	FetchVersion(ctx context.Context, a Aggregate, v int) error
 }
 
 type base struct {
