@@ -42,6 +42,9 @@ type Repository interface {
 	// untouched.
 	FetchVersion(ctx context.Context, a Aggregate, v int) error
 
+	// Delete deletes an Aggregate by deleting the events of the aggregate.
+	Delete(ctx context.Context, a Aggregate) error
+
 	// Query queries the event store for aggregates filtered by Query q and
 	// returns a Cursor that iterates over those aggregates.
 	// Query(ctx context.Context, q Query) (Cursor, error)

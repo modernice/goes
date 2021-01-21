@@ -334,3 +334,48 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 		t.Errorf("foo.AggregateVersion should return %d; got %d", 3, foo.AggregateVersion())
 	}
 }
+
+func TestRepository_Delete(t *testing.T) {
+	foo := test.NewFoo(uuid.New())
+	changes := []event.Event{
+		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(
+			foo.AggregateName(),
+			foo.AggregateID(),
+			1,
+		)),
+		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(
+			foo.AggregateName(),
+			foo.AggregateID(),
+			2,
+		)),
+		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(
+			foo.AggregateName(),
+			foo.AggregateID(),
+			3,
+		)),
+	}
+
+	s := memstore.New(changes...)
+	r := repository.New(s)
+
+	if err := r.Fetch(context.Background(), foo); err != nil {
+		t.Fatalf("r.Fetch should not fail: %#v", err)
+	}
+
+	if v := foo.AggregateVersion(); v != 3 {
+		t.Fatalf("foo.AggregateVersion should return %d; got %d", 3, v)
+	}
+
+	if err := r.Delete(context.Background(), foo); err != nil {
+		t.Fatalf("r.Delete should not fail: %#v", err)
+	}
+
+	foo = test.NewFoo(foo.AggregateID())
+	if err := r.Fetch(context.Background(), foo); err != nil {
+		t.Fatalf("r.Fetch should not fail: %#v", err)
+	}
+
+	if v := foo.AggregateVersion(); v != 0 {
+		t.Fatalf("foo.AggregateVersion should return %d; got %d", 0, v)
+	}
+}

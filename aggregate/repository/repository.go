@@ -116,6 +116,30 @@ func (r *repository) FetchVersion(ctx context.Context, a aggregate.Aggregate, v 
 	))
 }
 
+func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
+	cur, err := r.store.Query(ctx, query.New(
+		query.AggregateName(a.AggregateName()),
+		query.AggregateID(a.AggregateID()),
+	))
+	if err != nil {
+		return fmt.Errorf("query events: %w", err)
+	}
+	defer cur.Close(ctx)
+
+	for cur.Next(ctx) {
+		evt := cur.Event()
+		if err := r.store.Delete(ctx, evt); err != nil {
+			return fmt.Errorf("delete %q event (ID=%s): %w", evt.Name(), evt.ID(), err)
+		}
+	}
+
+	if cur.Err() != nil {
+		return fmt.Errorf("cursor: %w", err)
+	}
+
+	return nil
+}
+
 func buildAggregate(a aggregate.Aggregate, events ...event.Event) error {
 	for _, evt := range events {
 		a.ApplyEvent(evt)
