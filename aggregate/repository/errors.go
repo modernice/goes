@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
@@ -24,7 +25,22 @@ type SaveRollbacks []struct {
 }
 
 func (err *SaveError) Error() string {
-	return ""
+	return fmt.Sprintf(
+		"save: %v; rollbacks=%d failed=%d",
+		err.Err,
+		len(err.Rollbacks),
+		err.failed(),
+	)
+}
+
+func (err *SaveError) failed() int {
+	var f int
+	for _, rb := range err.Rollbacks {
+		if rb.Err != nil {
+			f++
+		}
+	}
+	return f
 }
 
 // Is determines if err and target are equal.
