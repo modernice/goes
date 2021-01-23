@@ -22,7 +22,7 @@ type cursor struct {
 	closed     chan struct{}
 }
 
-// New returns an in-memory Cursor filled with the provided Events.
+// New returns an in-memory Cursor filled with the provided aggregates.
 func New(as ...aggregate.Aggregate) aggregate.Cursor {
 	return &cursor{
 		aggregates: as,
@@ -47,9 +47,7 @@ func All(ctx context.Context, cur aggregate.Cursor) (aggregates []aggregate.Aggr
 	for cur.Next(ctx) {
 		aggregates = append(aggregates, cur.Aggregate())
 	}
-	if err = cur.Err(); err != nil {
-		return
-	}
+	err = cur.Err()
 	return
 }
 
