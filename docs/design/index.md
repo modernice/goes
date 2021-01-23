@@ -5,7 +5,7 @@
 This project aims to provide a progressively adaptable CQRS & Event Sourcing
 framework for the Go language.
 
-- Last updated: 2021/01/20
+- Last updated: 2021/01/23
 - Status: Planning
 - Stakeholders:
   - [@bounoable](https://github.com/bounoable)
@@ -38,7 +38,7 @@ well tested.
 
 ## Design
 
-The framework consists of the following modules:
+The framework consists of the following components:
 
-- [event](./events.md) – publish & subscribe to (aggregate) events
-- [aggregate](./aggregates.md) – create & manage aggregates
+- [Event](./events.md) – publish & subscribe to (aggregate) events
+- [Aggregate](./aggregates.md) – create & manage aggregates

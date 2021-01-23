@@ -220,6 +220,34 @@ result, err := cursor.All(context.TODO(), cur)
 log.Println(result)
 ```
 
+### Aggregates from Event Stream
+
+```go
+var events event.Cursor
+
+cur := stream.New(
+  context.TODO(),
+  events,
+
+  // provide the factory func for the "foo aggregate
+  stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+    return NewExample(id)
+  }),
+
+  // give hint that events are sorted
+  stream.Sorted(),
+)
+
+for cur.Next(context.TODO()) {
+  a := cur.Aggregate()
+  log.Println(a)
+}
+
+if err := cur.Err(); err != nil {
+  // handle err
+}
+```
+
 ### Requirements
 
 - save aggregates
