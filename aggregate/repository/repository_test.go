@@ -386,6 +386,8 @@ func TestRepository_Delete(t *testing.T) {
 }
 
 func TestRepository_Query_name(t *testing.T) {
+	t.Skip()
+
 	as := []aggregate.Aggregate{
 		aggregate.New("foo", uuid.New()),
 		aggregate.New("bar", uuid.New()),
