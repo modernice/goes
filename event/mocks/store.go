@@ -207,6 +207,20 @@ func (mr *MockQueryMockRecorder) AggregateVersions() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateVersions", reflect.TypeOf((*MockQuery)(nil).AggregateVersions))
 }
 
+// Sorting mocks base method
+func (m *MockQuery) Sorting() event.SortOptions {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sorting")
+	ret0, _ := ret[0].(event.SortOptions)
+	return ret0
+}
+
+// Sorting indicates an expected call of Sorting
+func (mr *MockQueryMockRecorder) Sorting() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sorting", reflect.TypeOf((*MockQuery)(nil).Sorting))
+}
+
 // MockCursor is a mock of Cursor interface
 type MockCursor struct {
 	ctrl     *gomock.Controller

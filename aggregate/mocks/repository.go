@@ -92,6 +92,21 @@ func (mr *MockRepositoryMockRecorder) Delete(ctx, a interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRepository)(nil).Delete), ctx, a)
 }
 
+// Query mocks base method
+func (m *MockRepository) Query(ctx context.Context, q aggregate.Query) (aggregate.Cursor, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Query", ctx, q)
+	ret0, _ := ret[0].(aggregate.Cursor)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Query indicates an expected call of Query
+func (mr *MockRepositoryMockRecorder) Query(ctx, q interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockRepository)(nil).Query), ctx, q)
+}
+
 // MockQuery is a mock of Query interface
 type MockQuery struct {
 	ctrl     *gomock.Controller
@@ -158,10 +173,10 @@ func (mr *MockQueryMockRecorder) Versions() *gomock.Call {
 }
 
 // Sorting mocks base method
-func (m *MockQuery) Sorting() aggregate.SortConfig {
+func (m *MockQuery) Sorting() aggregate.SortOptions {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Sorting")
-	ret0, _ := ret[0].(aggregate.SortConfig)
+	ret0, _ := ret[0].(aggregate.SortOptions)
 	return ret0
 }
 
