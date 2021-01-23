@@ -37,6 +37,34 @@ func TestApplyEventFunc(t *testing.T) {
 	}
 }
 
+func TestTrackChangeFunc(t *testing.T) {
+	aggregateID := uuid.New()
+	events := []event.Event{
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
+	}
+
+	var tracked bool
+	foo := test.NewFoo(
+		aggregateID,
+		test.TrackChangeFunc(func(changes []event.Event, track func(...event.Event) error) error {
+			tracked = true
+			return track(changes...)
+		}),
+	)
+
+	if err := foo.TrackChange(events...); err != nil {
+		t.Fatalf("expected foo.TrackChange not to return an error; got %#v", err)
+	}
+
+	if !tracked {
+		t.Errorf("changes were not tracked")
+	}
+
+	eventtest.AssertEqualEvents(t, events, foo.AggregateChanges())
+}
+
 func TestFlushChangesFunc(t *testing.T) {
 	aggregateID := uuid.New()
 	foo := test.NewFoo(aggregateID, test.FlushChangesFunc(func(flush func()) {}))

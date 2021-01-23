@@ -22,6 +22,7 @@ type AggregateOption func(*testAggregate)
 type testAggregate struct {
 	aggregate.Aggregate
 	applyFuncs map[string]func(event.Event)
+	trackFunc  func([]event.Event, func(...event.Event) error) error
 	flushFunc  func(func())
 }
 
@@ -42,10 +43,18 @@ func NewFoo(id uuid.UUID, opts ...AggregateOption) *Foo {
 }
 
 // ApplyEventFunc returns an AggregateOption that allows users to intercept
-// a.ApplyEvent calls.
+// calls to a.ApplyEvent.
 func ApplyEventFunc(eventName string, fn func(event.Event)) AggregateOption {
 	return func(a *testAggregate) {
 		a.applyFuncs[eventName] = fn
+	}
+}
+
+// TrackChangeFunc returns an AggregateOption that allows users to intercept
+// calls to a.TrackChange.
+func TrackChangeFunc(fn func(changes []event.Event, track func(...event.Event) error) error) AggregateOption {
+	return func(a *testAggregate) {
+		a.trackFunc = fn
 	}
 }
 
@@ -58,16 +67,21 @@ func FlushChangesFunc(fn func(flush func())) AggregateOption {
 	}
 }
 
-// // ApplyEvent applies the Event evt if an apply function was provided with
-// // ApplyEventFunc.
-// func (foo *Foo) ApplyEvent(evt event.Event) {
-// 	foo.base.ApplyEvent(evt)
-// }
-
 func (a *testAggregate) ApplyEvent(evt event.Event) {
 	if fn := a.applyFuncs[evt.Name()]; fn != nil {
 		fn(evt)
 	}
+}
+
+func (a *testAggregate) TrackChange(changes ...event.Event) error {
+	if a.trackFunc == nil {
+		return a.trackChange(changes...)
+	}
+	return a.trackFunc(changes, a.trackChange)
+}
+
+func (a *testAggregate) trackChange(changes ...event.Event) error {
+	return a.Aggregate.TrackChange(changes...)
 }
 
 func (a *testAggregate) FlushChanges() {
