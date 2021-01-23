@@ -80,7 +80,7 @@ type Cursor interface {
 	// Cursor.Next.
 	Err() error
 
-	// Close should close the Cursor.
+	// Close closes the cursor.
 	Close(context.Context) error
 }
 

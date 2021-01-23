@@ -22,7 +22,7 @@ type cursor struct {
 	closed chan struct{}
 }
 
-// New returns an in-memory Cursor filled with the provided Events.
+// New returns an in-memory Cursor filled with the provided events.
 func New(events ...event.Event) event.Cursor {
 	return &cursor{
 		events: events,

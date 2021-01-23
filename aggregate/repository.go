@@ -47,7 +47,7 @@ type Repository interface {
 
 	// Query queries the event store for aggregates filtered by Query q and
 	// returns a Cursor that iterates over those aggregates.
-	// Query(ctx context.Context, q Query) (Cursor, error)
+	Query(ctx context.Context, q Query) (Cursor, error)
 }
 
 // Query is used by Repositories to filter aggregates.
@@ -62,7 +62,7 @@ type Query interface {
 	Versions() version.Constraints
 
 	// Sorting returns the SortConfig for the query.
-	Sorting() SortConfig
+	Sorting() SortOptions
 }
 
 // A Cursor iterates over aggregates.
@@ -86,8 +86,8 @@ type Cursor interface {
 	Close(context.Context) error
 }
 
-// SortConfig defines the sorting behaviour for a Query.
-type SortConfig struct {
+// SortOptions defines the sorting behaviour for a Query.
+type SortOptions struct {
 	Sort Sorting
 	Dir  SortDirection
 }

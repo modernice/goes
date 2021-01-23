@@ -3,11 +3,16 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/aggregate/cursor"
+	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
@@ -378,4 +383,42 @@ func TestRepository_Delete(t *testing.T) {
 	if v := foo.AggregateVersion(); v != 0 {
 		t.Fatalf("foo.AggregateVersion should return %d; got %d", 0, v)
 	}
+}
+
+func TestRepository_Query_name(t *testing.T) {
+	as := []aggregate.Aggregate{
+		aggregate.New("foo", uuid.New()),
+		aggregate.New("bar", uuid.New()),
+		aggregate.New("foo", uuid.New()),
+		aggregate.New("baz", uuid.New()),
+		aggregate.New("foo", uuid.New()),
+		aggregate.New("foobar", uuid.New()),
+	}
+
+	s := memstore.New()
+	r := repository.New(s)
+
+	for _, a := range as {
+		if err := r.Save(context.Background(), a); err != nil {
+			t.Fatalf("r.Save should not fail: %v", err)
+		}
+	}
+
+	result, err := runQuery(r, query.New(query.Name("foo")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []aggregate.Aggregate{as[0], as[2], as[4]}
+	if !reflect.DeepEqual(result, want) {
+		t.Fatalf("query returned the wrong aggregates\n\nwant: %#v\n\ngot: %#v\n\n", want, result)
+	}
+}
+
+func runQuery(r aggregate.Repository, q query.Query) ([]aggregate.Aggregate, error) {
+	cur, err := r.Query(context.Background(), q)
+	if err != nil {
+		return nil, fmt.Errorf("query: %w", err)
+	}
+	return cursor.All(context.Background(), cur)
 }

@@ -26,8 +26,13 @@ mongo-test:
 .PHONY: mongo-test
 
 coverage:
-	docker-compose -f .docker/coverage.yml up --build --abort-on-container-exit --remove-orphans
-	docker-compose -f .docker/coverage.yml down
+	docker-compose -f .docker/coverage.yml up --build --abort-on-container-exit --remove-orphans; \
+	docker-compose -f .docker/coverage.yml down; \
 	go tool cover -html=out/coverage.out
 
 .PHONY: coverage
+
+bench:
+	go test -v -bench=. -run=${run} -count=${count} ./...
+
+.PHONY: bench
