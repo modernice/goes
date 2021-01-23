@@ -7,9 +7,9 @@ import (
 
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
-	ecursor "github.com/modernice/goes/event/cursor"
 	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
+	stream "github.com/modernice/goes/event/stream"
 )
 
 type repository struct {
@@ -110,9 +110,9 @@ func (r *repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 		return nil, fmt.Errorf("query events: %w", err)
 	}
 
-	events, err := ecursor.All(ctx, cur)
+	events, err := stream.All(ctx, cur)
 	if err != nil {
-		return events, fmt.Errorf("cursor: %w", err)
+		return events, fmt.Errorf("stream: %w", err)
 	}
 
 	return events, nil
@@ -143,13 +143,13 @@ func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
 	}
 
 	if cur.Err() != nil {
-		return fmt.Errorf("cursor: %w", err)
+		return fmt.Errorf("stream: %w", err)
 	}
 
 	return nil
 }
 
-func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.Cursor, error) {
+func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.Stream, error) {
 	opts := makeQueryOptions(q)
 
 	cur, err := r.store.Query(ctx, equery.New(opts...))
@@ -202,6 +202,6 @@ func withNameFilter(opts []equery.Option, q aggregate.Query) []equery.Option {
 	return append(opts, equery.AggregateName(names...))
 }
 
-func newCursor(ctx context.Context, cur event.Cursor) *cursor {
+func newCursor(ctx context.Context, cur event.Stream) *cursor {
 	return nil
 }

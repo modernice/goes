@@ -1,4 +1,4 @@
-package cursor_test
+package stream_test
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/cursor"
+	"github.com/modernice/goes/event/stream"
 	"github.com/modernice/goes/event/test"
 )
 
-func TestCursor(t *testing.T) {
+func TestStream(t *testing.T) {
 	events := makeEvents()
-	cur := cursor.New(events...)
+	cur := stream.New(events...)
 
 	var cursorEvents []event.Event
 	for cur.Next(context.Background()) {
@@ -40,8 +40,8 @@ func TestCursor(t *testing.T) {
 	}
 }
 
-func TestCursor_Next_closed(t *testing.T) {
-	cur := cursor.New(makeEvents()...)
+func TestStream_Next_closed(t *testing.T) {
+	cur := stream.New(makeEvents()...)
 	if err := cur.Close(context.Background()); err != nil {
 		t.Fatal(fmt.Errorf("expected cur.Close not to return an error; got %v", err))
 	}
@@ -50,8 +50,8 @@ func TestCursor_Next_closed(t *testing.T) {
 		t.Errorf("expected cur.Next to return %t; got %t", false, ok)
 	}
 
-	if err := cur.Err(); !errors.Is(err, cursor.ErrClosed) {
-		t.Error(fmt.Errorf("expected cur.Err to return %#v; got %#v", cursor.ErrClosed, err))
+	if err := cur.Err(); !errors.Is(err, stream.ErrClosed) {
+		t.Error(fmt.Errorf("expected cur.Err to return %#v; got %#v", stream.ErrClosed, err))
 	}
 
 	if evt := cur.Event(); evt != nil {
@@ -61,9 +61,9 @@ func TestCursor_Next_closed(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	events := makeEvents()
-	cur := cursor.New(events...)
+	cur := stream.New(events...)
 
-	all, err := cursor.All(context.Background(), cur)
+	all, err := stream.All(context.Background(), cur)
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
 	}
@@ -82,19 +82,19 @@ func TestAll(t *testing.T) {
 		t.Errorf("expected cur.Next to return %t; got %t", false, ok)
 	}
 
-	if err = cur.Err(); !errors.Is(err, cursor.ErrClosed) {
-		t.Errorf("expected cur.Err to return %#v; got %#v", cursor.ErrClosed, err)
+	if err = cur.Err(); !errors.Is(err, stream.ErrClosed) {
+		t.Errorf("expected cur.Err to return %#v; got %#v", stream.ErrClosed, err)
 	}
 }
 
 func TestAll_partial(t *testing.T) {
 	events := makeEvents()
-	cur := cursor.New(events...)
+	cur := stream.New(events...)
 	if !cur.Next(context.Background()) {
 		t.Fatal(fmt.Errorf("cur.Next: %w", cur.Err()))
 	}
 
-	all, err := cursor.All(context.Background(), cur)
+	all, err := stream.All(context.Background(), cur)
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %v", err))
 	}
@@ -112,14 +112,14 @@ func TestAll_partial(t *testing.T) {
 
 func TestAll_closed(t *testing.T) {
 	events := makeEvents()
-	cur := cursor.New(events...)
+	cur := stream.New(events...)
 
 	if err := cur.Close(context.Background()); err != nil {
 		t.Fatal(fmt.Errorf("expected cur.Close not to return an error; got %#v", err))
 	}
 
-	if _, err := cursor.All(context.Background(), cur); !errors.Is(err, cursor.ErrClosed) {
-		t.Errorf("expected cursor.All to return %#v; got %#v", cursor.ErrClosed, err)
+	if _, err := stream.All(context.Background(), cur); !errors.Is(err, stream.ErrClosed) {
+		t.Errorf("expected cursor.All to return %#v; got %#v", stream.ErrClosed, err)
 	}
 }
 

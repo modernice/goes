@@ -174,9 +174,9 @@ func (s *Store) Delete(ctx context.Context, evt event.Event) error {
 	return nil
 }
 
-// Query queries the database for Events filtered by the Query q and returns a
-// Cursor that iterates over those Events.
-func (s *Store) Query(ctx context.Context, q event.Query) (event.Cursor, error) {
+// Query queries the database for events filtered by Query q and returns an
+// event.Stream for those events.
+func (s *Store) Query(ctx context.Context, q event.Query) (event.Stream, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}

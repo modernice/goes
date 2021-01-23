@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/cursor"
 	"github.com/modernice/goes/event/query"
+	"github.com/modernice/goes/event/stream"
 )
 
 type store struct {
@@ -56,7 +56,7 @@ func (s *store) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 	return nil, errors.New("")
 }
 
-func (s *store) Query(ctx context.Context, q event.Query) (event.Cursor, error) {
+func (s *store) Query(ctx context.Context, q event.Query) (event.Stream, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	var events []event.Event
@@ -67,7 +67,7 @@ func (s *store) Query(ctx context.Context, q event.Query) (event.Cursor, error) 
 	}
 	sorting := q.Sorting()
 	events = event.Sort(events, sorting.Sort, sorting.Dir)
-	return cursor.New(events...), nil
+	return stream.New(events...), nil
 }
 
 func (s *store) Delete(ctx context.Context, evt event.Event) error {

@@ -46,8 +46,8 @@ type Repository interface {
 	Delete(ctx context.Context, a Aggregate) error
 
 	// Query queries the event store for aggregates filtered by Query q and
-	// returns a Cursor that iterates over those aggregates.
-	Query(ctx context.Context, q Query) (Cursor, error)
+	// returns a Stream for those aggregates.
+	Query(ctx context.Context, q Query) (Stream, error)
 }
 
 // Query is used by Repositories to filter aggregates.
@@ -65,24 +65,24 @@ type Query interface {
 	Sorting() SortOptions
 }
 
-// A Cursor iterates over aggregates.
-type Cursor interface {
+// A Stream iterates over aggregates.
+type Stream interface {
 	// Next should fetch the next Aggregate from the underlying Store and return
-	// true if the next call to Cursor.Aggregate would return that Aggregate. If
-	// an error occurred during Next, Cursor.Err should return that error and
-	// Cursor.Aggregate should return nil.
+	// true if the next call to Stream.Aggregate would return that Aggregate. If
+	// an error occurred during Next, Stream.Err should return that error and
+	// Stream.Aggregate should return nil.
 	Next(context.Context) bool
 
-	// Aggregate should return the current Aggregate from the Cursor or nil if
-	// Cursor.Next hasn't been called yet or because an error occurred during
-	// Cursor.Next.
+	// Aggregate should return the current Aggregate from the Stream or nil if
+	// Stream.Next hasn't been called yet or because an error occurred during
+	// Stream.Next.
 	Aggregate() Aggregate
 
 	// Err should return the error that occurred during the last call to
-	// Cursor.Next.
+	// Stream.Next.
 	Err() error
 
-	// Close should close the Cursor.
+	// Close should close the Stream.
 	Close(context.Context) error
 }
 

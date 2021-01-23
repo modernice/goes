@@ -72,10 +72,10 @@ func (mr *MockStoreMockRecorder) Find(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Query mocks base method
-func (m *MockStore) Query(arg0 context.Context, arg1 event.Query) (event.Cursor, error) {
+func (m *MockStore) Query(arg0 context.Context, arg1 event.Query) (event.Stream, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Query", arg0, arg1)
-	ret0, _ := ret[0].(event.Cursor)
+	ret0, _ := ret[0].(event.Stream)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -221,31 +221,31 @@ func (mr *MockQueryMockRecorder) Sorting() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sorting", reflect.TypeOf((*MockQuery)(nil).Sorting))
 }
 
-// MockCursor is a mock of Cursor interface
-type MockCursor struct {
+// MockStream is a mock of Stream interface
+type MockStream struct {
 	ctrl     *gomock.Controller
-	recorder *MockCursorMockRecorder
+	recorder *MockStreamMockRecorder
 }
 
-// MockCursorMockRecorder is the mock recorder for MockCursor
-type MockCursorMockRecorder struct {
-	mock *MockCursor
+// MockStreamMockRecorder is the mock recorder for MockStream
+type MockStreamMockRecorder struct {
+	mock *MockStream
 }
 
-// NewMockCursor creates a new mock instance
-func NewMockCursor(ctrl *gomock.Controller) *MockCursor {
-	mock := &MockCursor{ctrl: ctrl}
-	mock.recorder = &MockCursorMockRecorder{mock}
+// NewMockStream creates a new mock instance
+func NewMockStream(ctrl *gomock.Controller) *MockStream {
+	mock := &MockStream{ctrl: ctrl}
+	mock.recorder = &MockStreamMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockCursor) EXPECT() *MockCursorMockRecorder {
+func (m *MockStream) EXPECT() *MockStreamMockRecorder {
 	return m.recorder
 }
 
 // Next mocks base method
-func (m *MockCursor) Next(arg0 context.Context) bool {
+func (m *MockStream) Next(arg0 context.Context) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Next", arg0)
 	ret0, _ := ret[0].(bool)
@@ -253,13 +253,13 @@ func (m *MockCursor) Next(arg0 context.Context) bool {
 }
 
 // Next indicates an expected call of Next
-func (mr *MockCursorMockRecorder) Next(arg0 interface{}) *gomock.Call {
+func (mr *MockStreamMockRecorder) Next(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockCursor)(nil).Next), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockStream)(nil).Next), arg0)
 }
 
 // Event mocks base method
-func (m *MockCursor) Event() event.Event {
+func (m *MockStream) Event() event.Event {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Event")
 	ret0, _ := ret[0].(event.Event)
@@ -267,13 +267,13 @@ func (m *MockCursor) Event() event.Event {
 }
 
 // Event indicates an expected call of Event
-func (mr *MockCursorMockRecorder) Event() *gomock.Call {
+func (mr *MockStreamMockRecorder) Event() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Event", reflect.TypeOf((*MockCursor)(nil).Event))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Event", reflect.TypeOf((*MockStream)(nil).Event))
 }
 
 // Err mocks base method
-func (m *MockCursor) Err() error {
+func (m *MockStream) Err() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Err")
 	ret0, _ := ret[0].(error)
@@ -281,13 +281,13 @@ func (m *MockCursor) Err() error {
 }
 
 // Err indicates an expected call of Err
-func (mr *MockCursorMockRecorder) Err() *gomock.Call {
+func (mr *MockStreamMockRecorder) Err() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockCursor)(nil).Err))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockStream)(nil).Err))
 }
 
 // Close mocks base method
-func (m *MockCursor) Close(arg0 context.Context) error {
+func (m *MockStream) Close(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close", arg0)
 	ret0, _ := ret[0].(error)
@@ -295,7 +295,7 @@ func (m *MockCursor) Close(arg0 context.Context) error {
 }
 
 // Close indicates an expected call of Close
-func (mr *MockCursorMockRecorder) Close(arg0 interface{}) *gomock.Call {
+func (mr *MockStreamMockRecorder) Close(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCursor)(nil).Close), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockStream)(nil).Close), arg0)
 }

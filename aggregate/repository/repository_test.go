@@ -11,9 +11,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/aggregate/cursor"
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/repository"
+	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
@@ -422,5 +422,5 @@ func runQuery(r aggregate.Repository, q query.Query) ([]aggregate.Aggregate, err
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
-	return cursor.All(context.Background(), cur)
+	return stream.All(context.Background(), cur)
 }

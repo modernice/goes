@@ -78,14 +78,24 @@ func TestEventBus_envReceiveTimeout(t *testing.T) {
 	bus = New(test.NewEncoder())
 	errs := bus.Errors(context.Background())
 
-	select {
-	case <-time.After(500 * time.Millisecond):
-		t.Fatalf("didn't receive error after 500ms")
-	case err := <-errs:
-		_, parseError := time.ParseDuration("invalid")
-		want := fmt.Errorf("init: parse environment variable %q: %w", "NATS_RECEIVE_TIMEOUT", parseError).Error()
-		if err.Error() != want {
-			t.Fatalf("expected error message %q; got %q", want, err.Error())
+	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timer.C:
+			t.Fatalf("didn't receive error after %s", 3*time.Second)
+		case <-ticker.C:
+		case err := <-errs:
+			_, parseError := time.ParseDuration("invalid")
+			want := fmt.Errorf("init: parse environment variable %q: %w", "NATS_RECEIVE_TIMEOUT", parseError).Error()
+			if err.Error() != want {
+				t.Fatalf("expected error message %q; got %q", want, err.Error())
+			}
+			return
 		}
 	}
 }

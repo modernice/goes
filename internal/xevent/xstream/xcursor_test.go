@@ -1,4 +1,4 @@
-package xcursor_test
+package xstream_test
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/cursor"
+	"github.com/modernice/goes/event/stream"
 	"github.com/modernice/goes/event/test"
-	"github.com/modernice/goes/internal/xevent/xcursor"
+	"github.com/modernice/goes/internal/xevent/xstream"
 )
 
 func TestDelayed(t *testing.T) {
@@ -19,9 +19,9 @@ func TestDelayed(t *testing.T) {
 		event.New("foo", test.FooEventData{}),
 	}
 
-	base := cursor.New(events...)
+	base := stream.New(events...)
 	delay := 50 * time.Millisecond
-	cur := xcursor.Delayed(base, delay)
+	cur := xstream.Delayed(base, delay)
 
 	var nextMux sync.Mutex
 	next := func() <-chan event.Event {

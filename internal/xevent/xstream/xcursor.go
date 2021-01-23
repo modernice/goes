@@ -1,4 +1,4 @@
-package xcursor
+package xstream
 
 import (
 	"context"
@@ -8,16 +8,16 @@ import (
 )
 
 type delayed struct {
-	event.Cursor
+	event.Stream
 
 	delay time.Duration
 	err   error
 }
 
-// Delayed returns a Cursor c that adds an artificial delay to calls to c.Next.
-func Delayed(cur event.Cursor, delay time.Duration) event.Cursor {
+// Delayed returns a Stream s that adds an artificial delay to calls to s.Next.
+func Delayed(s event.Stream, delay time.Duration) event.Stream {
 	return &delayed{
-		Cursor: cur,
+		Stream: s,
 		delay:  delay,
 	}
 }
@@ -33,8 +33,8 @@ func (c *delayed) Next(ctx context.Context) bool {
 	case <-timer.C:
 	}
 
-	s := c.Cursor.Next(ctx)
-	c.err = c.Cursor.Err()
+	s := c.Stream.Next(ctx)
+	c.err = c.Stream.Err()
 	return s
 }
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/event"
 )
 
 var (
@@ -15,25 +15,25 @@ var (
 )
 
 type stream struct {
-	aggregates []aggregate.Aggregate
-	aggregate  aggregate.Aggregate
-	pos        int
-	err        error
-	closed     chan struct{}
+	events []event.Event
+	event  event.Event
+	pos    int
+	err    error
+	closed chan struct{}
 }
 
-// New returns an in-memory Stream filled with the provided aggregates.
-func New(as ...aggregate.Aggregate) aggregate.Stream {
+// New returns an in-memory Stream filled with the provided events.
+func New(events ...event.Event) event.Stream {
 	return &stream{
-		aggregates: as,
-		closed:     make(chan struct{}),
+		events: events,
+		closed: make(chan struct{}),
 	}
 }
 
-// All iterates over the Stream s and returns its aggregates. If a call to
-// cur.Next causes an error, the already fetched aggregates and that error are
+// All iterates over the Stream s and returns its Events. If a call to
+// s.Next causes an error, the already fetched Events and that error are
 // returned. All automatically calls s.Close(ctx) when done.
-func All(ctx context.Context, s aggregate.Stream) (aggregates []aggregate.Aggregate, err error) {
+func All(ctx context.Context, s event.Stream) (events []event.Event, err error) {
 	defer func() {
 		if cerr := s.Close(ctx); cerr != nil {
 			if err != nil {
@@ -44,9 +44,11 @@ func All(ctx context.Context, s aggregate.Stream) (aggregates []aggregate.Aggreg
 		}
 	}()
 	for s.Next(ctx) {
-		aggregates = append(aggregates, s.Aggregate())
+		events = append(events, s.Event())
 	}
-	err = s.Err()
+	if err = s.Err(); err != nil {
+		return
+	}
 	return
 }
 
@@ -58,16 +60,17 @@ func (c *stream) Next(ctx context.Context) bool {
 	default:
 		c.err = nil
 	}
-	if len(c.aggregates) <= c.pos {
+
+	if len(c.events) <= c.pos {
 		return false
 	}
-	c.aggregate = c.aggregates[c.pos]
+	c.event = c.events[c.pos]
 	c.pos++
 	return true
 }
 
-func (c *stream) Aggregate() aggregate.Aggregate {
-	return c.aggregate
+func (c *stream) Event() event.Event {
+	return c.event
 }
 
 func (c *stream) Err() error {
