@@ -16,7 +16,7 @@ type Query struct {
 	ids            []uuid.UUID
 	aggregateNames []string
 	aggregateIDs   []uuid.UUID
-	sorting        event.SortConfig
+	sorting        event.SortOptions
 
 	times             time.Constraints
 	aggregateVersions version.Constraints
@@ -86,7 +86,7 @@ func AggregateVersion(constraints ...version.Constraint) Option {
 // SortBy returns an Option that defines the sorting behaviour for a Query.
 func SortBy(sort event.Sorting, dir event.SortDirection) Option {
 	return func(b *builder) {
-		b.sorting = event.SortConfig{
+		b.sorting = event.SortOptions{
 			Sort: sort,
 			Dir:  dir,
 		}
@@ -187,7 +187,7 @@ func (q Query) AggregateVersions() version.Constraints {
 }
 
 // Sorting returns the SortConfig for the query.
-func (q Query) Sorting() event.SortConfig {
+func (q Query) Sorting() event.SortOptions {
 	return q.sorting
 }
 

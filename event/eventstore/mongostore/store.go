@@ -470,7 +470,7 @@ func withAggregateVersionFilter(filter bson.D, versions version.Constraints) bso
 	return filter
 }
 
-func applySorting(opts *options.FindOptions, sorting event.SortConfig) *options.FindOptions {
+func applySorting(opts *options.FindOptions, sorting event.SortOptions) *options.FindOptions {
 	v := 1
 	if !sorting.Dir.Bool(true) {
 		v = -1
@@ -478,6 +478,8 @@ func applySorting(opts *options.FindOptions, sorting event.SortConfig) *options.
 	switch sorting.Sort {
 	case event.SortTime:
 		opts = opts.SetSort(bson.D{{Key: "timeNano", Value: v}})
+	case event.SortAggregateVersion:
+		opts = opts.SetSort(bson.D{{Key: "aggregateVersion", Value: v}})
 	}
 	return opts
 }

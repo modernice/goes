@@ -13,6 +13,8 @@ import (
 const (
 	// SortTime sorts events by time.
 	SortTime = Sorting(iota)
+	// SortAggregateVersion sorts events by their aggregate version.
+	SortAggregateVersion
 
 	// SortAsc sorts events in ascending order.
 	SortAsc = SortDirection(iota)
@@ -58,7 +60,7 @@ type Query interface {
 	AggregateVersions() version.Constraints
 
 	// Sorting returns the SortConfig for the query.
-	Sorting() SortConfig
+	Sorting() SortOptions
 }
 
 // A Cursor iterates over events.
@@ -82,8 +84,8 @@ type Cursor interface {
 	Close(context.Context) error
 }
 
-// SortConfig defines the sorting behaviour for a Query.
-type SortConfig struct {
+// SortOptions defines the sorting behaviour for a Query.
+type SortOptions struct {
 	Sort Sorting
 	Dir  SortDirection
 }

@@ -140,7 +140,7 @@ func TestNew(t *testing.T) {
 			want: Query{
 				times:             time.Filter(),
 				aggregateVersions: version.Filter(),
-				sorting: event.SortConfig{
+				sorting: event.SortOptions{
 					Sort: event.SortTime,
 					Dir:  event.SortAsc,
 				},

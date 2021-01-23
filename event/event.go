@@ -129,6 +129,8 @@ func Sort(events []Event, sorting Sorting, dir SortDirection) []Event {
 		switch sorting {
 		case SortTime:
 			return dir.Bool(sorted[i].Time().Before(sorted[j].Time()))
+		case SortAggregateVersion:
+			return dir.Bool(sorted[i].AggregateVersion() <= sorted[j].AggregateVersion())
 		default:
 			return true
 		}
