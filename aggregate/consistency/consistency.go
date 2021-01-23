@@ -120,3 +120,16 @@ func (err *Error) Error() string {
 		return fmt.Sprintf("consistency: invalid inconsistency kind=%d", err.Kind)
 	}
 }
+
+func (k Kind) String() string {
+	switch k {
+	case ID:
+		return "Kind(ID)"
+	case Name:
+		return "Kind(Name)"
+	case Version:
+		return "Kind(Version)"
+	default:
+		return "Kind(Unknown)"
+	}
+}
