@@ -63,6 +63,22 @@ func Version(v int) Option {
 	}
 }
 
+// ApplyHistory applies the given events to the Aggregate a to reconstruct the
+// state of a at the time of the latest event.
+func ApplyHistory(a Aggregate, events ...event.Event) error {
+	if err := consistency.Validate(a, events...); err != nil {
+		return fmt.Errorf("validate consistency: %w", err)
+	}
+	for _, evt := range events {
+		a.ApplyEvent(evt)
+	}
+	if err := a.TrackChange(events...); err != nil {
+		return fmt.Errorf("track change: %w", err)
+	}
+	a.FlushChanges()
+	return nil
+}
+
 // Sort sorts aggregates and returns the sorted aggregates.
 func Sort(as []Aggregate, s Sorting, dir SortDirection) []Aggregate {
 	sorted := make([]Aggregate, len(as))

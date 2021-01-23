@@ -8,8 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/consistency"
+	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/test"
+	etest "github.com/modernice/goes/event/test"
 )
 
 func TestNew(t *testing.T) {
@@ -46,9 +47,9 @@ func TestBase_TrackChange(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
 	}
 	if err := b.TrackChange(events...); err != nil {
 		t.Fatalf("expected b.TrackChange to succeed; got %#v", err)
@@ -63,9 +64,9 @@ func TestBase_TrackChange_inconsistent(t *testing.T) {
 	invalidID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", invalidID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", invalidID, 3)),
 	}
 
 	wantError := &consistency.Error{
@@ -90,9 +91,9 @@ func TestBase_FlushChanges(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
 	}
 
 	if err := b.TrackChange(events...); err != nil {
@@ -108,4 +109,35 @@ func TestBase_FlushChanges(t *testing.T) {
 	if v := b.AggregateVersion(); v != 3 {
 		t.Fatalf("expected b.AggregateVersion to return %d; got %d", 3, v)
 	}
+}
+
+func TestApplyHistory(t *testing.T) {
+	var applied []event.Event
+	var flushed bool
+	foo := test.NewFoo(
+		uuid.New(),
+		test.ApplyEventFunc("foo", func(evt event.Event) {
+			applied = append(applied, evt)
+		}),
+		test.FlushChangesFunc(func(flush func()) {
+			flush()
+			flushed = true
+		}),
+	)
+
+	events := []event.Event{
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 3)),
+	}
+
+	if err := aggregate.ApplyHistory(foo, events...); err != nil {
+		t.Fatalf("history could not be applied: %v", err)
+	}
+
+	if !flushed {
+		t.Errorf("aggregate changes weren't flushed")
+	}
+
+	etest.AssertEqualEvents(t, events, applied)
 }
