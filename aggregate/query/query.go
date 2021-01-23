@@ -11,7 +11,7 @@ type Query struct {
 	names    []string
 	ids      []uuid.UUID
 	versions version.Constraints
-	sorting  aggregate.SortConfig
+	sorting  aggregate.SortOptions
 }
 
 // Option is a query option.
@@ -104,7 +104,7 @@ func (q Query) Versions() version.Constraints {
 }
 
 // Sorting returns the SortConfig for the query.
-func (q Query) Sorting() aggregate.SortConfig {
+func (q Query) Sorting() aggregate.SortOptions {
 	return q.sorting
 }
 
