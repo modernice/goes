@@ -107,6 +107,12 @@ func Sort(as []Aggregate, s Sorting, dir SortDirection) []Aggregate {
 	return sorted
 }
 
+// CurrentVersion returns the version of Aggregate a including the uncommitted
+// changes.
+func CurrentVersion(a Aggregate) int {
+	return a.AggregateVersion() + len(a.AggregateChanges())
+}
+
 func (b *base) AggregateID() uuid.UUID {
 	return b.id
 }

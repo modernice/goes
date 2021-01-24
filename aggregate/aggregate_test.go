@@ -141,3 +141,34 @@ func TestApplyHistory(t *testing.T) {
 
 	etest.AssertEqualEvents(t, events, applied)
 }
+
+func TestCurrentVersion(t *testing.T) {
+	a := aggregate.New("foo", uuid.New())
+
+	if v := aggregate.CurrentVersion(a); v != 0 {
+		t.Errorf("current aggregate version should be %d; got %d", 0, v)
+	}
+
+	evt := event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateName(), a.AggregateID(), 1))
+	a.ApplyEvent(evt)
+
+	if v := aggregate.CurrentVersion(a); v != 0 {
+		t.Errorf("current aggregate version should be %d; got %d", 0, v)
+	}
+
+	if err := a.TrackChange(evt); err != nil {
+		t.Errorf("failed to track change: %v", err)
+	}
+
+	if v := aggregate.CurrentVersion(a); v != 1 {
+		t.Errorf("current aggregate version should be %d; got %d", 1, v)
+	}
+
+	if err := a.TrackChange(evt); err != nil {
+		t.Errorf("failed to track change: %v", err)
+	}
+
+	if v := aggregate.CurrentVersion(a); v != 2 {
+		t.Errorf("current aggregate version should be %d; got %d", 2, v)
+	}
+}
