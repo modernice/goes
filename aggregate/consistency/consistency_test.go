@@ -10,6 +10,7 @@ import (
 	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xevent"
 )
 
 func TestValidate_valid(t *testing.T) {
@@ -73,10 +74,17 @@ func TestValidate_name(t *testing.T) {
 
 func TestValidate_version(t *testing.T) {
 	aggregateID := uuid.New()
+	changedAggregate := aggregate.New("foo", aggregateID)
+	changes := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(changedAggregate))
+	if err := changedAggregate.TrackChange(changes...); err != nil {
+		t.Fatalf("failed to track changes: %v", err)
+	}
+
 	tests := []struct {
-		name   string
-		events []event.Event
-		want   func(aggregate.Aggregate, []event.Event) *consistency.Error
+		name      string
+		aggregate aggregate.Aggregate
+		events    []event.Event
+		want      func(aggregate.Aggregate, []event.Event) *consistency.Error
 	}{
 		{
 			name: "version too low #1",
@@ -107,6 +115,23 @@ func TestValidate_version(t *testing.T) {
 					Aggregate:  a,
 					Events:     events,
 					EventIndex: 2,
+				}
+			},
+		},
+		{
+			name:      "version too low #3 (with changes)",
+			aggregate: changedAggregate,
+			events: []event.Event{
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
+			},
+			want: func(a aggregate.Aggregate, events []event.Event) *consistency.Error {
+				return &consistency.Error{
+					Kind:       consistency.Version,
+					Aggregate:  a,
+					Events:     events,
+					EventIndex: 0,
 				}
 			},
 		},
@@ -146,7 +171,10 @@ func TestValidate_version(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := aggregate.New("foo", aggregateID)
+			a := tt.aggregate
+			if a == nil {
+				a = aggregate.New("foo", aggregateID)
+			}
 			err := consistency.Validate(a, tt.events...)
 			want := tt.want(a, tt.events)
 

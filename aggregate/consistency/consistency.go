@@ -42,6 +42,8 @@ type Aggregate interface {
 	AggregateName() string
 	// AggregateVersion returns the version of the Aggregate.
 	AggregateVersion() int
+	// AggregateChanges returns the changes of the Aggregate.
+	AggregateChanges() []event.Event
 }
 
 // Validate tests the consistency of the given Events against the Aggregate a.
@@ -58,8 +60,8 @@ type Aggregate interface {
 func Validate(a Aggregate, events ...event.Event) error {
 	id := a.AggregateID()
 	name := a.AggregateName()
-	version := a.AggregateVersion()
-	currentVersion := version
+	version := currentVersion(a)
+	cv := version
 	for i, evt := range events {
 		if evt.AggregateID() != id {
 			return &Error{
@@ -77,7 +79,7 @@ func Validate(a Aggregate, events ...event.Event) error {
 				EventIndex: i,
 			}
 		}
-		if evt.AggregateVersion() != currentVersion+1 {
+		if evt.AggregateVersion() != cv+1 {
 			return &Error{
 				Kind:       Version,
 				Aggregate:  a,
@@ -85,7 +87,7 @@ func Validate(a Aggregate, events ...event.Event) error {
 				EventIndex: i,
 			}
 		}
-		currentVersion++
+		cv++
 	}
 	return nil
 }
@@ -114,7 +116,7 @@ func (err *Error) Error() string {
 	case Version:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid AggregateVersion. want=%d got=%d",
-			evt.Name(), err.Aggregate.AggregateVersion()+1+err.EventIndex, evt.AggregateVersion(),
+			evt.Name(), currentVersion(err.Aggregate)+1+err.EventIndex, evt.AggregateVersion(),
 		)
 	default:
 		return fmt.Sprintf("consistency: invalid inconsistency kind=%d", err.Kind)
@@ -132,4 +134,8 @@ func (k Kind) String() string {
 	default:
 		return "Kind(Unknown)"
 	}
+}
+
+func currentVersion(a Aggregate) int {
+	return a.AggregateVersion() + len(a.AggregateChanges())
 }
