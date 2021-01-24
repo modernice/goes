@@ -1,3 +1,4 @@
+// TODO: delete this file
 package eventstore
 
 import (

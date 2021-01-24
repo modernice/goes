@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventbus/chanbus"
@@ -52,5 +53,74 @@ func TestWithStore_insertError(t *testing.T) {
 	bus := eventbus.WithStore(mockBus, mockStore)
 	if err := bus.Publish(context.Background(), evt); !errors.Is(err, insertError) {
 		t.Fatalf("expected bus.Publish to fail with %#v; got %#v", insertError, err)
+	}
+}
+
+func TestWithStore_storeFilter(t *testing.T) {
+	filter := []func(evt event.Event) bool{
+		func(evt event.Event) bool {
+			return evt.AggregateName() != ""
+		},
+		func(evt event.Event) bool {
+			return evt.AggregateID() != uuid.Nil
+		},
+	}
+
+	tests := map[event.Event]bool{
+		event.New("foo", test.FooEventData{A: "foo"}):                                        false,
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.Nil, 0)):   false,
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("", uuid.New(), 0)):    false,
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 0)): true,
+	}
+
+	for give, want := range tests {
+		func() {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockBus := mock_event.NewMockBus(ctrl)
+			mockBus.EXPECT().Publish(gomock.Any(), give).Return(nil)
+
+			mockStore := mock_event.NewMockStore(ctrl)
+			if want {
+				mockStore.EXPECT().Insert(gomock.Any(), give).Return(nil)
+			}
+
+			bus := eventbus.WithStore(mockBus, mockStore, eventbus.StoreFilter(filter...))
+
+			if err := bus.Publish(context.Background(), give); err != nil {
+				t.Fatalf("bus.Publish should not fail; got %#v", err)
+			}
+		}()
+	}
+}
+
+func TestWithStore_requireAggregate(t *testing.T) {
+	tests := map[event.Event]bool{
+		event.New("foo", test.FooEventData{A: "foo"}):                                        false,
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.Nil, 0)):   false,
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("", uuid.New(), 0)):    false,
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 0)): true,
+	}
+
+	for give, want := range tests {
+		func() {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockBus := mock_event.NewMockBus(ctrl)
+			mockBus.EXPECT().Publish(gomock.Any(), give).Return(nil)
+
+			mockStore := mock_event.NewMockStore(ctrl)
+			if want {
+				mockStore.EXPECT().Insert(gomock.Any(), give).Return(nil)
+			}
+
+			bus := eventbus.WithStore(mockBus, mockStore, eventbus.RequireAggregate())
+
+			if err := bus.Publish(context.Background(), give); err != nil {
+				t.Fatalf("bus.Publish should not fail; got %#v", err)
+			}
+		}()
 	}
 }
