@@ -1,14 +1,12 @@
 package test
 
 import (
-	"bytes"
 	"fmt"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/modernice/goes/event"
 )
 
@@ -53,13 +51,7 @@ func AssertEqualEvents(t *testing.T, events ...[]event.Event) {
 	}
 
 	first := events[0]
-	opts := []cmp.Option{
-		cmpopts.SortSlices(func(a, b event.Event) bool {
-			aid := a.ID()
-			bid := b.ID()
-			return bytes.Compare(aid[:], bid[:]) == -1
-		}),
-	}
+	var opts []cmp.Option
 	if len(first) > 0 {
 		opts = append(opts, cmp.AllowUnexported(first[0]))
 	}
