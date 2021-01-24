@@ -9,9 +9,30 @@ import (
 	"github.com/google/uuid"
 )
 
-// An Event is an event that happened in the application. It provides at least
-// an id, name, timestamp and Data. An event that belongs to an aggregate
-// additionaly provides the aggregate name, aggregate id and aggrgate version.
+// An Event unifies two different concepts: It's either an event from the event
+// stream of an event-sourced aggregate or it's an event that doesn't belong to
+// an aggregate. This is determined by the return values of AggregateName and
+// AggregateID; if they're both non-zero, the Event belongs to the aggregate.
+//
+// Publish & Subscribe
+//
+// An Event can be published through a Bus and sent to subscribers of events
+// with the same name. A subscriber who listens for "foo" events would receive
+// the published Event e if e.Name() returns "foo".
+//
+// Example (Publish):
+// 	var b Bus
+// 	evt := New("foo", someData{})
+// 	err := b.Publish(context.TODO(), evt)
+// 	// handle err
+//
+// Example (Subscribe):
+// 	var b Bus
+// 	events, err := b.Subscribe(context.TODO(), "foo")
+// 	// handle err
+// 	for evt := range events {
+// 	    log.Println(fmt.Sprintf("received %q event: %#v", evt.Name(), evt))
+// 	}
 type Event interface {
 	// ID returns the unique id of the Event.
 	ID() uuid.UUID
