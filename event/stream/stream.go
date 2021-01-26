@@ -14,7 +14,7 @@ var (
 	ErrClosed = errors.New("stream closed")
 )
 
-type stream struct {
+type memstream struct {
 	events []event.Event
 	event  event.Event
 	pos    int
@@ -22,9 +22,9 @@ type stream struct {
 	closed chan struct{}
 }
 
-// New returns an in-memory Stream filled with the provided events.
-func New(events ...event.Event) event.Stream {
-	return &stream{
+// InMemory returns an in-memory Stream filled with the provided events.
+func InMemory(events ...event.Event) event.Stream {
+	return &memstream{
 		events: events,
 		closed: make(chan struct{}),
 	}
@@ -52,7 +52,7 @@ func All(ctx context.Context, s event.Stream) (events []event.Event, err error) 
 	return
 }
 
-func (c *stream) Next(ctx context.Context) bool {
+func (c *memstream) Next(ctx context.Context) bool {
 	select {
 	case <-c.closed:
 		c.err = ErrClosed
@@ -69,15 +69,15 @@ func (c *stream) Next(ctx context.Context) bool {
 	return true
 }
 
-func (c *stream) Event() event.Event {
+func (c *memstream) Event() event.Event {
 	return c.event
 }
 
-func (c *stream) Err() error {
+func (c *memstream) Err() error {
 	return c.err
 }
 
-func (c *stream) Close(context.Context) error {
+func (c *memstream) Close(context.Context) error {
 	select {
 	case <-c.closed:
 	default:

@@ -67,7 +67,7 @@ func (s *store) Query(ctx context.Context, q event.Query) (event.Stream, error) 
 	}
 	sorting := q.Sorting()
 	events = event.Sort(events, sorting.Sort, sorting.Dir)
-	return stream.New(events...), nil
+	return stream.InMemory(events...), nil
 }
 
 func (s *store) Delete(ctx context.Context, evt event.Event) error {

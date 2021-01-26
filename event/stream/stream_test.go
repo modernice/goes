@@ -12,9 +12,9 @@ import (
 	"github.com/modernice/goes/event/test"
 )
 
-func TestStream(t *testing.T) {
+func TestInMemory(t *testing.T) {
 	events := makeEvents()
-	cur := stream.New(events...)
+	cur := stream.InMemory(events...)
 
 	var cursorEvents []event.Event
 	for cur.Next(context.Background()) {
@@ -41,7 +41,7 @@ func TestStream(t *testing.T) {
 }
 
 func TestStream_Next_closed(t *testing.T) {
-	cur := stream.New(makeEvents()...)
+	cur := stream.InMemory(makeEvents()...)
 	if err := cur.Close(context.Background()); err != nil {
 		t.Fatal(fmt.Errorf("expected cur.Close not to return an error; got %v", err))
 	}
@@ -61,7 +61,7 @@ func TestStream_Next_closed(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	events := makeEvents()
-	cur := stream.New(events...)
+	cur := stream.InMemory(events...)
 
 	all, err := stream.All(context.Background(), cur)
 	if err != nil {
@@ -89,7 +89,7 @@ func TestAll(t *testing.T) {
 
 func TestAll_partial(t *testing.T) {
 	events := makeEvents()
-	cur := stream.New(events...)
+	cur := stream.InMemory(events...)
 	if !cur.Next(context.Background()) {
 		t.Fatal(fmt.Errorf("cur.Next: %w", cur.Err()))
 	}
@@ -112,7 +112,7 @@ func TestAll_partial(t *testing.T) {
 
 func TestAll_closed(t *testing.T) {
 	events := makeEvents()
-	cur := stream.New(events...)
+	cur := stream.InMemory(events...)
 
 	if err := cur.Close(context.Background()); err != nil {
 		t.Fatal(fmt.Errorf("expected cur.Close not to return an error; got %#v", err))

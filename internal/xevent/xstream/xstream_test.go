@@ -19,7 +19,7 @@ func TestDelayed(t *testing.T) {
 		event.New("foo", test.FooEventData{}),
 	}
 
-	base := stream.New(events...)
+	base := stream.InMemory(events...)
 	delay := 50 * time.Millisecond
 	cur := xstream.Delayed(base, delay)
 
