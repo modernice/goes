@@ -1,4 +1,6 @@
 // Package etree provides a red-black tree for events.
+// This package was intended for aggregate streams but isn't currently used by
+// any package. TODO: delete package (?)
 package etree
 
 import (
