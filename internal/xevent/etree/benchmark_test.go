@@ -8,8 +8,8 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
-	"github.com/modernice/goes/internal/etree"
 	"github.com/modernice/goes/internal/xevent"
+	"github.com/modernice/goes/internal/xevent/etree"
 )
 
 var tmpStack []event.Event
