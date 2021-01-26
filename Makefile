@@ -6,6 +6,10 @@ ifeq "${run}" ""
 	run=""
 endif
 
+ifeq "${bench}" ""
+	bench=.
+endif
+
 # `make test count=50` to run `go test -race -count=50 ./...`
 # `make test run=TestXXX` to run `go test -race -run=TestXXX ./...`
 test:
@@ -33,6 +37,6 @@ coverage:
 .PHONY: coverage
 
 bench:
-	go test -v -bench=. -run=${run} -count=${count} ./...
+	go test -bench=${bench} -run=${run} -count=${count} ./...
 
 .PHONY: bench
