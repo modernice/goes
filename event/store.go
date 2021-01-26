@@ -13,6 +13,10 @@ import (
 const (
 	// SortTime sorts events by time.
 	SortTime = Sorting(iota)
+	// SortAggregateName sorts events by their aggregate name.
+	SortAggregateName
+	// SortAggregateID sorts events by their aggregate id.
+	SortAggregateID
 	// SortAggregateVersion sorts events by their aggregate version.
 	SortAggregateVersion
 
@@ -59,8 +63,8 @@ type Query interface {
 	// AggregateVersions returns the version.Constraints for the query.
 	AggregateVersions() version.Constraints
 
-	// Sorting returns the SortConfig for the query.
-	Sorting() SortOptions
+	// Sorting returns the SortConfigs for the query.
+	Sortings() []SortOptions
 }
 
 // A Stream provides streaming over events.
@@ -96,10 +100,44 @@ type Sorting int
 // SortDirection is a sorting direction.
 type SortDirection int
 
+// Compare compares a and b and returns -1 if a <= b, 0 is a == b or 1 if a > b.
+func (s Sorting) Compare(a, b Event) (cmp int8) {
+	switch s {
+	case SortTime:
+		return boolToCmp(a.Time().Before(b.Time()), a.Time().Equal(b.Time()))
+	case SortAggregateName:
+		return boolToCmp(
+			a.AggregateName() <= b.AggregateName(),
+			a.AggregateName() == b.AggregateName(),
+		)
+	case SortAggregateID:
+		return boolToCmp(
+			a.AggregateID().String() <= b.AggregateID().String(),
+			a.AggregateID() == b.AggregateID(),
+		)
+	case SortAggregateVersion:
+		return boolToCmp(
+			a.AggregateVersion() <= b.AggregateVersion(),
+			a.AggregateVersion() == b.AggregateVersion(),
+		)
+	}
+	return
+}
+
 // Bool returns either b if dir=SortAsc or !b if dir=SortDesc.
 func (dir SortDirection) Bool(b bool) bool {
 	if dir == SortDesc {
 		return !b
 	}
 	return b
+}
+
+func boolToCmp(b, same bool) int8 {
+	if same {
+		return 0
+	}
+	if b {
+		return -1
+	}
+	return 1
 }

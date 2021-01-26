@@ -142,19 +142,23 @@ func Equal(events ...Event) bool {
 }
 
 // Sort sorts events and returns the sorted events.
-func Sort(events []Event, sorting Sorting, dir SortDirection) []Event {
+func Sort(events []Event, sort Sorting, dir SortDirection) []Event {
+	return SortMulti(events, SortOptions{Sort: sort, Dir: dir})
+}
+
+// SortMulti sorts events by multiple sortings and returns the sorted events.
+func SortMulti(events []Event, sorts ...SortOptions) []Event {
 	sorted := make([]Event, len(events))
 	copy(sorted, events)
 
 	sort.Slice(sorted, func(i, j int) bool {
-		switch sorting {
-		case SortTime:
-			return dir.Bool(sorted[i].Time().Before(sorted[j].Time()))
-		case SortAggregateVersion:
-			return dir.Bool(sorted[i].AggregateVersion() <= sorted[j].AggregateVersion())
-		default:
-			return true
+		for _, opts := range sorts {
+			cmp := opts.Sort.Compare(sorted[i], sorted[j])
+			if cmp != 0 {
+				return opts.Dir.Bool(cmp < 0)
+			}
 		}
+		return true
 	})
 
 	return sorted

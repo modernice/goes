@@ -65,8 +65,7 @@ func (s *store) Query(ctx context.Context, q event.Query) (event.Stream, error) 
 			events = append(events, evt)
 		}
 	}
-	sorting := q.Sorting()
-	events = event.Sort(events, sorting.Sort, sorting.Dir)
+	events = event.SortMulti(events, q.Sortings()...)
 	return stream.InMemory(events...), nil
 }
 

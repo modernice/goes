@@ -14,34 +14,6 @@ import (
 
 var _ event.Query = Query{}
 
-func TestQuery(t *testing.T) {
-	q := New()
-
-	if reflect.TypeOf(q.Names()) != reflect.TypeOf([]string{}) {
-		t.Errorf("expected type of q.Names() to be %T; got %T", []string{}, q.Names())
-	}
-
-	if reflect.TypeOf(q.IDs()) != reflect.TypeOf([]uuid.UUID{}) {
-		t.Errorf("expected type of q.IDs() to be %T; got %T", []uuid.UUID{}, q.IDs())
-	}
-
-	if reflect.TypeOf(q.Times()) != reflect.TypeOf(time.Filter()) {
-		t.Errorf("expected type of q.Times() to be %T; got %T", time.Filter(), q.Times())
-	}
-
-	if reflect.TypeOf(q.AggregateNames()) != reflect.TypeOf([]string{}) {
-		t.Errorf("expected type of q.AggregateNames() to be %T; got %T", []string{}, q.AggregateNames())
-	}
-
-	if reflect.TypeOf(q.AggregateIDs()) != reflect.TypeOf([]uuid.UUID{}) {
-		t.Errorf("expected type of q.AggregateIDs() to be %T; got %T", []uuid.UUID{}, q.AggregateIDs())
-	}
-
-	if reflect.TypeOf(q.AggregateVersions()) != reflect.TypeOf(version.Filter()) {
-		t.Errorf("expected type of q.AggregateVersions() to be %T; got %T", version.Filter(), q.AggregateVersions())
-	}
-}
-
 func TestNew(t *testing.T) {
 	ids := make([]uuid.UUID, 4)
 	times := make([]stdtime.Time, 4)
@@ -140,9 +112,32 @@ func TestNew(t *testing.T) {
 			want: Query{
 				times:             time.Filter(),
 				aggregateVersions: version.Filter(),
-				sorting: event.SortOptions{
+				sortings: []event.SortOptions{{
 					Sort: event.SortTime,
 					Dir:  event.SortAsc,
+				}},
+			},
+		},
+		{
+			name: "SortByMulti",
+			opts: []Option{
+				SortByMulti(
+					event.SortOptions{Sort: event.SortTime, Dir: event.SortAsc},
+					event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortDesc},
+				),
+			},
+			want: Query{
+				times:             time.Filter(),
+				aggregateVersions: version.Filter(),
+				sortings: []event.SortOptions{
+					{
+						Sort: event.SortTime,
+						Dir:  event.SortAsc,
+					},
+					{
+						Sort: event.SortAggregateVersion,
+						Dir:  event.SortDesc,
+					},
 				},
 			},
 		},

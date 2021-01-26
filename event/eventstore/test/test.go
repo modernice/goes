@@ -394,14 +394,12 @@ func testQueryAggregateVersion(t *testing.T, newStore EventStoreFactory) {
 
 func testQuerySorting(t *testing.T, newStore EventStoreFactory) {
 	now := stdtime.Now()
-	aggregateName := "foo"
-	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(12*stdtime.Hour)), event.Aggregate(aggregateName, aggregateID, 3)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(stdtime.Hour)), event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(48*stdtime.Hour)), event.Aggregate(aggregateName, aggregateID, 5)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now), event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(24*stdtime.Hour)), event.Aggregate(aggregateName, aggregateID, 4)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(12*stdtime.Hour)), event.Aggregate("foo1", uuid.New(), 3)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(stdtime.Hour)), event.Aggregate("foo2", uuid.New(), 2)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(48*stdtime.Hour)), event.Aggregate("foo3", uuid.New(), 5)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now), event.Aggregate("foo4", uuid.New(), 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(24*stdtime.Hour)), event.Aggregate("foo5", uuid.New(), 4)),
 	}
 
 	tests := []struct {
@@ -442,6 +440,26 @@ func testQuerySorting(t *testing.T, newStore EventStoreFactory) {
 			want: event.Sort([]event.Event{events[0], events[4]}, event.SortTime, event.SortDesc),
 		},
 		{
+			name: "SortAggregateName(asc)",
+			q:    query.New(query.SortBy(event.SortAggregateName, event.SortAsc)),
+			want: event.Sort(events, event.SortAggregateName, event.SortAsc),
+		},
+		{
+			name: "SortAggregateName(desc)",
+			q:    query.New(query.SortBy(event.SortAggregateName, event.SortDesc)),
+			want: event.Sort(events, event.SortAggregateName, event.SortDesc),
+		},
+		{
+			name: "SortAggregateID(asc)",
+			q:    query.New(query.SortBy(event.SortAggregateID, event.SortAsc)),
+			want: event.Sort(events, event.SortAggregateID, event.SortAsc),
+		},
+		{
+			name: "SortAggregateID(desc)",
+			q:    query.New(query.SortBy(event.SortAggregateID, event.SortDesc)),
+			want: event.Sort(events, event.SortAggregateID, event.SortDesc),
+		},
+		{
 			name: "SortAggregateVersion(asc)",
 			q:    query.New(query.SortBy(event.SortAggregateVersion, event.SortAsc)),
 			want: event.Sort(events, event.SortAggregateVersion, event.SortAsc),
@@ -450,6 +468,18 @@ func testQuerySorting(t *testing.T, newStore EventStoreFactory) {
 			name: "SortAggregateVersion(desc)",
 			q:    query.New(query.SortBy(event.SortAggregateVersion, event.SortDesc)),
 			want: event.Sort(events, event.SortAggregateVersion, event.SortDesc),
+		},
+		{
+			name: "SortAggregateName(desc)+SortAggregateVersion(asc)",
+			q: query.New(
+				query.SortByMulti(event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortDesc}),
+				query.SortByMulti(event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc}),
+			),
+			want: event.SortMulti(
+				events,
+				event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortDesc},
+				event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
+			),
 		},
 	}
 

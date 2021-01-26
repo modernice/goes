@@ -181,7 +181,7 @@ func (s *Store) Query(ctx context.Context, q event.Query) (event.Stream, error) 
 		return nil, fmt.Errorf("connect: %w", err)
 	}
 	opts := options.Find()
-	opts = applySorting(opts, q.Sorting())
+	opts = applySortings(opts, q.Sortings()...)
 
 	cur, err := s.col.Find(ctx, makeFilter(q), opts)
 	if err != nil {
@@ -470,16 +470,24 @@ func withAggregateVersionFilter(filter bson.D, versions version.Constraints) bso
 	return filter
 }
 
-func applySorting(opts *options.FindOptions, sorting event.SortOptions) *options.FindOptions {
-	v := 1
-	if !sorting.Dir.Bool(true) {
-		v = -1
+func applySortings(opts *options.FindOptions, sortings ...event.SortOptions) *options.FindOptions {
+	sorts := make(bson.D, len(sortings))
+	for i, opts := range sortings {
+		v := 1
+		if !opts.Dir.Bool(true) {
+			v = -1
+		}
+
+		switch opts.Sort {
+		case event.SortTime:
+			sorts[i] = bson.E{Key: "timeNano", Value: v}
+		case event.SortAggregateName:
+			sorts[i] = bson.E{Key: "aggregateName", Value: v}
+		case event.SortAggregateID:
+			sorts[i] = bson.E{Key: "aggregateId", Value: v}
+		case event.SortAggregateVersion:
+			sorts[i] = bson.E{Key: "aggregateVersion", Value: v}
+		}
 	}
-	switch sorting.Sort {
-	case event.SortTime:
-		opts = opts.SetSort(bson.D{{Key: "timeNano", Value: v}})
-	case event.SortAggregateVersion:
-		opts = opts.SetSort(bson.D{{Key: "aggregateVersion", Value: v}})
-	}
-	return opts
+	return opts.SetSort(sorts)
 }
