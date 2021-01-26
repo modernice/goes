@@ -70,6 +70,11 @@ func FlushChangesFunc(fn func(flush func())) AggregateOption {
 func (a *testAggregate) ApplyEvent(evt event.Event) {
 	if fn := a.applyFuncs[evt.Name()]; fn != nil {
 		fn(evt)
+		return
+	}
+
+	if fn := a.applyFuncs[""]; fn != nil {
+		fn(evt)
 	}
 }
 
