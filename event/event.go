@@ -146,7 +146,7 @@ func Sort(events []Event, sort Sorting, dir SortDirection) []Event {
 	return SortMulti(events, SortOptions{Sort: sort, Dir: dir})
 }
 
-// SortMulti sorts events by multiple sortings and returns the sorted events.
+// SortMulti sorts events by multiple fields and returns the sorted events.
 func SortMulti(events []Event, sorts ...SortOptions) []Event {
 	sorted := make([]Event, len(events))
 	copy(sorted, events)

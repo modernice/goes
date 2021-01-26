@@ -107,6 +107,25 @@ func Sort(as []Aggregate, s Sorting, dir SortDirection) []Aggregate {
 	return sorted
 }
 
+// SortMulti sorts aggregates by multiple fields and returns the sorted
+// aggregates.
+func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
+	sorted := make([]Aggregate, len(as))
+	copy(sorted, as)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		for _, opts := range sorts {
+			cmp := opts.Sort.Compare(sorted[i], sorted[j])
+			if cmp != 0 {
+				return opts.Dir.Bool(cmp < 0)
+			}
+		}
+		return true
+	})
+
+	return sorted
+}
+
 // CurrentVersion returns the version of Aggregate a including the uncommitted
 // changes.
 func CurrentVersion(a Aggregate) int {

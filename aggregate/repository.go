@@ -61,8 +61,8 @@ type Query interface {
 	// Versions returns the version constraints for the query.
 	Versions() version.Constraints
 
-	// Sorting returns the SortConfig for the query.
-	Sorting() SortOptions
+	// Sortings returns the SortConfig for the query.
+	Sortings() []SortOptions
 }
 
 // A Stream iterates over aggregates.
@@ -98,10 +98,42 @@ type Sorting int
 // SortDirection is a sorting direction.
 type SortDirection int
 
+// Compare compares a and b and returns -1 if a <= b, 0 if a == b or 1 if a > b.
+func (s Sorting) Compare(a, b Aggregate) (cmp int8) {
+	switch s {
+	case SortName:
+		return boolToCmp(
+			a.AggregateName() <= b.AggregateName(),
+			a.AggregateName() == b.AggregateName(),
+		)
+	case SortID:
+		return boolToCmp(
+			a.AggregateID().String() <= b.AggregateID().String(),
+			a.AggregateID() == b.AggregateID(),
+		)
+	case SortVersion:
+		return boolToCmp(
+			a.AggregateVersion() <= b.AggregateVersion(),
+			a.AggregateVersion() == b.AggregateVersion(),
+		)
+	}
+	return
+}
+
 // Bool returns either b if dir=SortAsc or !b if dir=SortDesc.
 func (dir SortDirection) Bool(b bool) bool {
 	if dir == SortDesc {
 		return !b
 	}
 	return b
+}
+
+func boolToCmp(b, same bool) int8 {
+	if same {
+		return 0
+	}
+	if b {
+		return -1
+	}
+	return 1
 }
