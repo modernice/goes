@@ -130,9 +130,6 @@ func (b *base) AggregateChanges() []event.Event {
 }
 
 func (b *base) TrackChange(events ...event.Event) error {
-	if err := consistency.Validate(b, events...); err != nil {
-		return fmt.Errorf("validate consistency: %w", err)
-	}
 	b.changes = append(b.changes, events...)
 	return nil
 }
