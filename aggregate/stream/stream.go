@@ -2,7 +2,6 @@ package stream
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/event"
-	estream "github.com/modernice/goes/event/stream"
 )
 
 // Option is an option for FromEvents.
@@ -18,13 +16,18 @@ type Option func(*stream)
 
 type stream struct {
 	isSorted            bool
+	isGrouped           bool
 	validateConsistency bool
 
 	events       event.Stream
 	factoryFuncs map[string]func(uuid.UUID) aggregate.Aggregate
 
-	queuesMux sync.RWMutex
-	queues    map[string]map[uuid.UUID]chan event.Event
+	acceptCtx  context.Context
+	stopAccept context.CancelFunc
+
+	queuesMux    sync.RWMutex
+	queues       map[string]map[uuid.UUID]chan event.Event
+	closedQueues map[chan event.Event]bool
 
 	startedBuildsMux sync.RWMutex
 	startedBuilds    map[string]map[uuid.UUID]bool
@@ -35,6 +38,8 @@ type stream struct {
 
 	errMux sync.RWMutex
 	err    error
+
+	closed chan struct{}
 }
 
 // AggregateFactory returns an Option that provides the factory function for
@@ -45,46 +50,71 @@ func AggregateFactory(name string, fn func(uuid.UUID) aggregate.Aggregate) Optio
 	}
 }
 
-// IsSorted returns an Option that gives the Stream performance hints. When
-// this option is enabled the Stream won't sort events by their aggregate
-// version before applying them to the aggregate that's being built. The Stream
-// will also return aggregates earlier after they're built because the Stream
-// knows if an event is the last for an aggregate.
+// IsSorted returns an Option that optimizes Aggregate builds by giving the
+// Stream information about the order of incoming Events from the event.Stream.
 //
-// This option is disabled by default and should only be enabled if a correct
-// order of events is guaranteed. Events are correctly ordered only if they're
-// sequentally grouped by aggregate and within the groups sorted by version.
+// When IsSorted is enabled (which it is by default), the Stream sorts the
+// collected Events for a specific Aggregate by the AggregateVersion of the
+// Events before applying them to the Aggregate.
 //
-// Here's an example for correctly sorted events (note how the groups don't need
-// to be sorted, only the events within a group):
-//
-// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+// Disable this option only if the underlying event.Stream guarantees that
+// incoming Events are sorted by AggregateVersion.
 func IsSorted(v bool) Option {
 	return func(s *stream) {
 		s.isSorted = v
 	}
 }
 
-// ValidateConsistency returns an Option that controls if the consistency of
-// events gets validates before building an aggregate. This option is enabled by
-// default and should only be disabled if the consistency of events is
-// guaranteed beforehand or if it's explicitly desired to put an aggregate into
-// an invalid state.
+// IsGrouped returns an Option that optimizes Aggregate builds by giving the
+// Stream information about the order of incoming Events from the event.Stream.
+//
+// When IsGrouped is disabled, the Stream has to wait for the event.Stream to be
+// drained before it can be sure no more Events will arrive for a specific
+// Aggregate. When IsGrouped is enabled, the Stream knows when all Events for an
+// Aggregate have been received and can therefore return the Aggregate as soon
+// as its last Event has been received and applied.
+//
+// IsGrouped is disabled by default and should only be enabled if the correct
+// order of events is guaranteed by the event.Stream. Events are correctly
+// ordered only if they're sequentally grouped by aggregate. Sorting within a
+// group of Events does not matter if IsSorted is disabled (which it is by
+// default). When IsSorted is enabled, Events within a group must be ordered by
+// AggregateVersion.
+//
+// What's not important is the order of the Event groups; only that Events for
+// a an instance of an Aggregate come in sequentially.
+//
+// An example for correctly ordered events (when IsSorted is disabled):
+//
+// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
+// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
+// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
+// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
+// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
+// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
+// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
+// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
+// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
+// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
+// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
+// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
+// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+func IsGrouped(v bool) Option {
+	return func(s *stream) {
+		s.isGrouped = v
+	}
+}
+
+// ValidateConsistency returns an Option that optimizes Aggregate builds by
+// controlling if the consistency of Events is validated before building an
+// Aggregate from those Events.
+//
+// This option is enabled by default and should only be disabled if the
+// consistency of Events is guaranteed by the underlying event.Stream or if it's
+// explicitly desired to put an Aggregate into an invalid state.
 func ValidateConsistency(v bool) Option {
 	return func(s *stream) {
 		s.validateConsistency = v
@@ -102,22 +132,31 @@ func FromEvents(es event.Stream, opts ...Option) (as aggregate.Stream) {
 		factoryFuncs:        make(map[string]func(uuid.UUID) aggregate.Aggregate),
 		results:             make(chan aggregate.Aggregate),
 		queues:              make(map[string]map[uuid.UUID]chan event.Event),
+		closedQueues:        make(map[chan event.Event]bool),
 		startQueue:          make(chan aggregate.Aggregate),
 		startedBuilds:       make(map[string]map[uuid.UUID]bool),
+		closed:              make(chan struct{}),
 	}
 	for _, opt := range opts {
 		opt(&aes)
 	}
-
+	aes.acceptCtx, aes.stopAccept = context.WithCancel(context.Background())
 	go aes.acceptEvents()
 	go aes.buildAggregates()
 	return &aes
 }
 
 func (s *stream) Next(ctx context.Context) bool {
+	// if s.Err() != nil {
+	// 	return false
+	// }
+
 	select {
 	case <-ctx.Done():
 		s.error(ctx.Err())
+		return false
+	case <-s.closed:
+		s.error(ErrClosed)
 		return false
 	case a, ok := <-s.results:
 		if !ok {
@@ -139,30 +178,50 @@ func (s *stream) Err() error {
 }
 
 func (s *stream) Close(ctx context.Context) error {
-	return s.events.Close(ctx)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case _, ok := <-s.closed:
+		if !ok {
+			return ErrClosed
+		}
+	default:
+	}
+	close(s.closed)
+	s.stopAccept()
+	return nil
 }
 
 func (s *stream) acceptEvents() {
 	defer s.closeQueues()
 
-	ctx := context.Background()
-	for s.events.Next(ctx) {
+	var prev event.Event
+	for s.events.Next(s.acceptCtx) {
 		evt := s.events.Event()
 		name, id := evt.AggregateName(), evt.AggregateID()
 
 		// start building the aggregate if it's the first event of an aggregate
 		if !s.buildStarted(name, id) {
-			s.startBuild(name, id)
+			if err := s.startBuild(name, id); err != nil {
+				s.error(fmt.Errorf("start build %s(%s): %w", name, id, err))
+				continue
+			}
+		}
+		s.queueEvent(evt)
+
+		// if the event stream is grouped, check if prev belongs to another
+		// aggregate: if so, close the previous aggregates event queue
+		if s.isGrouped && prev != nil &&
+			(prev.AggregateName() != evt.AggregateName() ||
+				prev.AggregateID() != evt.AggregateID()) {
+			s.closeQueue(s.queue(prev.AggregateName(), prev.AggregateID()))
 		}
 
-		s.queueEvent(evt)
+		prev = evt
 	}
 
 	if err := s.events.Err(); err != nil {
-		if errors.Is(err, estream.ErrClosed) {
-			err = ErrClosed
-		}
-		s.error(err)
+		s.error(fmt.Errorf("event stream: %w", err))
 	}
 }
 
@@ -176,8 +235,12 @@ func (s *stream) buildStarted(name string, id uuid.UUID) bool {
 	return started[id]
 }
 
-func (s *stream) startBuild(name string, id uuid.UUID) {
-	a := s.newAggregate(name, id)
+func (s *stream) startBuild(name string, id uuid.UUID) error {
+	a, err := s.newAggregate(name, id)
+	if err != nil {
+		return fmt.Errorf("new %q aggregate: %w", name, err)
+	}
+
 	s.startedBuildsMux.Lock()
 	defer s.startedBuildsMux.Unlock()
 	started, ok := s.startedBuilds[name]
@@ -187,6 +250,7 @@ func (s *stream) startBuild(name string, id uuid.UUID) {
 	}
 	started[id] = true
 	s.startQueue <- a
+	return nil
 }
 
 func (s *stream) closeQueues() {
@@ -195,9 +259,26 @@ func (s *stream) closeQueues() {
 	defer s.queuesMux.RUnlock()
 	for _, queues := range s.queues {
 		for _, q := range queues {
-			close(q)
+			s.queuesMux.RUnlock()
+			s.closeQueue(q)
+			s.queuesMux.RLock()
 		}
 	}
+}
+
+func (s *stream) closeQueue(q chan event.Event) {
+	if !s.queueClosed(q) {
+		s.queuesMux.Lock()
+		defer s.queuesMux.Unlock()
+		s.closedQueues[q] = true
+		close(q)
+	}
+}
+
+func (s *stream) queueClosed(q chan event.Event) bool {
+	s.queuesMux.RLock()
+	defer s.queuesMux.RUnlock()
+	return s.closedQueues[q]
 }
 
 func (s *stream) queueEvent(evt event.Event) {
@@ -286,9 +367,12 @@ func (s *stream) build(a aggregate.Aggregate) error {
 	return nil
 }
 
-func (s *stream) newAggregate(name string, id uuid.UUID) aggregate.Aggregate {
-	fn := s.factoryFuncs[name]
-	return fn(id)
+func (s *stream) newAggregate(name string, id uuid.UUID) (aggregate.Aggregate, error) {
+	fn, ok := s.factoryFuncs[name]
+	if !ok {
+		return nil, ErrNoFactory
+	}
+	return fn(id), nil
 }
 
 // error sets s.err to err if s.err == nil

@@ -151,15 +151,15 @@ func TestSort_version(t *testing.T) {
 
 func TestSortMulti(t *testing.T) {
 	as := []aggregate.Aggregate{
-		aggregate.New("foo1", uuid.New(), aggregate.Version(1)),
-		aggregate.New("foo1", uuid.New(), aggregate.Version(2)),
-		aggregate.New("foo1", uuid.New(), aggregate.Version(3)),
-		aggregate.New("foo2", uuid.New(), aggregate.Version(1)),
-		aggregate.New("foo2", uuid.New(), aggregate.Version(2)),
-		aggregate.New("foo2", uuid.New(), aggregate.Version(3)),
-		aggregate.New("foo3", uuid.New(), aggregate.Version(1)),
-		aggregate.New("foo3", uuid.New(), aggregate.Version(2)),
-		aggregate.New("foo3", uuid.New(), aggregate.Version(3)),
+		aggregate.New("foo1", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version(1)),
+		aggregate.New("foo1", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version(2)),
+		aggregate.New("foo1", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version(3)),
+		aggregate.New("foo2", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version(1)),
+		aggregate.New("foo2", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version(2)),
+		aggregate.New("foo2", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version(3)),
+		aggregate.New("foo3", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version(1)),
+		aggregate.New("foo3", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version(2)),
+		aggregate.New("foo3", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version(3)),
 	}
 
 	shuffled := xaggregate.Shuffle(as)
@@ -204,6 +204,21 @@ func TestSortMulti(t *testing.T) {
 		as[8], as[5], as[2],
 		as[7], as[4], as[1],
 		as[6], as[3], as[0],
+	}
+	if !reflect.DeepEqual(want, sorted) {
+		t.Errorf("aggregates got sorted incorrectly.\n\nwant: %#v\n\ngot: %#v\n\n", want, sorted)
+	}
+
+	sorted = aggregate.SortMulti(
+		shuffled,
+		aggregate.SortOptions{Sort: aggregate.SortName, Dir: aggregate.SortAsc},
+		aggregate.SortOptions{Sort: aggregate.SortID, Dir: aggregate.SortDesc},
+	)
+
+	want = []aggregate.Aggregate{
+		as[2], as[1], as[0],
+		as[5], as[4], as[3],
+		as[8], as[7], as[6],
 	}
 	if !reflect.DeepEqual(want, sorted) {
 		t.Errorf("aggregates got sorted incorrectly.\n\nwant: %#v\n\ngot: %#v\n\n", want, sorted)

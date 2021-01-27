@@ -81,30 +81,7 @@ func ApplyHistory(a Aggregate, events ...event.Event) error {
 
 // Sort sorts aggregates and returns the sorted aggregates.
 func Sort(as []Aggregate, s Sorting, dir SortDirection) []Aggregate {
-	sorted := make([]Aggregate, len(as))
-	copy(sorted, as)
-
-	sort.Slice(sorted, func(i, j int) bool {
-		switch s {
-		case SortName:
-			return dir.Bool(
-				sorted[i].AggregateName() <= sorted[j].AggregateName(),
-			)
-		case SortID:
-			return dir.Bool(
-				sorted[i].AggregateID().String() <=
-					sorted[j].AggregateID().String(),
-			)
-		case SortVersion:
-			return dir.Bool(
-				sorted[i].AggregateVersion() <= sorted[j].AggregateVersion(),
-			)
-		default:
-			return true
-		}
-	})
-
-	return sorted
+	return SortMulti(as, SortOptions{Sort: s, Dir: dir})
 }
 
 // SortMulti sorts aggregates by multiple fields and returns the sorted

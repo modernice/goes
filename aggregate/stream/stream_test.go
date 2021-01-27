@@ -25,7 +25,7 @@ type makeEventsConfig struct {
 	skip []int
 }
 
-func TestEventStream_singleAggregate_sorted(t *testing.T) {
+func TestStream_singleAggregate_sorted(t *testing.T) {
 	as, getAppliedEvents := xaggregate.Make(1)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -56,7 +56,7 @@ func TestEventStream_singleAggregate_sorted(t *testing.T) {
 	}
 }
 
-func TestEventStream_singleAggregate_unsorted(t *testing.T) {
+func TestStream_singleAggregate_unsorted(t *testing.T) {
 	as, getAppliedEvents := xaggregate.Make(1)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -87,7 +87,7 @@ func TestEventStream_singleAggregate_unsorted(t *testing.T) {
 	}
 }
 
-func TestEventStream_multipleAggregates_unsorted(t *testing.T) {
+func TestStream_multipleAggregates_unsorted(t *testing.T) {
 	as, getAppliedEvents := xaggregate.Make(10)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -132,7 +132,7 @@ func TestEventStream_multipleAggregates_unsorted(t *testing.T) {
 	}
 }
 
-func TestEventStream_Next_contextCanceled(t *testing.T) {
+func TestStream_Next_contextCanceled(t *testing.T) {
 	as, _ := xaggregate.Make(3)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -159,7 +159,7 @@ func TestEventStream_Next_contextCanceled(t *testing.T) {
 	}
 }
 
-func TestEventStream_Close(t *testing.T) {
+func TestStream_Close(t *testing.T) {
 	as, _ := xaggregate.Make(10)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -192,7 +192,7 @@ func TestEventStream_Close(t *testing.T) {
 	}
 }
 
-func TestEventStream_closedEventStream(t *testing.T) {
+func TestStream_closedEventStream(t *testing.T) {
 	as, _ := xaggregate.Make(10)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -216,8 +216,8 @@ func TestEventStream_closedEventStream(t *testing.T) {
 		t.Errorf("str.Next should return %t; got %t", false, ok)
 	}
 
-	if err := str.Err(); !errors.Is(err, stream.ErrClosed) {
-		t.Errorf("stream should return error %#v; got %#v", stream.ErrClosed, err)
+	if err := str.Err(); !errors.Is(err, estream.ErrClosed) {
+		t.Errorf("stream should return error %#v; got %#v", estream.ErrClosed, err)
 	}
 
 	if a := str.Aggregate(); a != nil {
@@ -225,7 +225,7 @@ func TestEventStream_closedEventStream(t *testing.T) {
 	}
 }
 
-func TestEventStream_inconsistent(t *testing.T) {
+func TestStream_inconsistent(t *testing.T) {
 	as, _ := xaggregate.Make(1)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion(3))
@@ -259,7 +259,7 @@ func TestEventStream_inconsistent(t *testing.T) {
 	}
 }
 
-func TestIsSorted_sorting(t *testing.T) {
+func TestIsSorted(t *testing.T) {
 	as, _ := xaggregate.Make(1)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -297,22 +297,75 @@ func TestIsSorted_sorting(t *testing.T) {
 	}
 }
 
-func TestIsSorted_finishBuild(t *testing.T) {
-	// TODO: implement multisort for events
-	// as, _ := xaggregate.Make(2)
-	// am := xaggregate.Map(as)
-	// events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
-	// events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
+func TestIsGrouped(t *testing.T) {
+	as, _ := xaggregate.Make(2)
+	as = aggregate.SortMulti(
+		as,
+		aggregate.SortOptions{Sort: aggregate.SortName, Dir: aggregate.SortAsc},
+		aggregate.SortOptions{Sort: aggregate.SortID, Dir: aggregate.SortAsc},
+	)
 
-	// es := xstream.Delayed(estream.InMemory(events...), 10*time.Millisecond)
+	am := xaggregate.Map(as)
+	events := xevent.Make("foo", test.FooEventData{}, 5, xevent.ForAggregate(as...))
+	events = event.SortMulti(
+		events,
+		event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
+		event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
+		event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
+	)
 
-	// str := stream.FromEvents(
-	// 	es,
-	// 	stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-	// 		return am[id]
-	// 	}),
-	// 	stream.IsSorted(true),
-	// )
+	// Delay the event stream by 10ms until all events for the first aggregate
+	// have been received. Then delay the remaining events by 1s, so that they
+	// never arrive.
+	var handledFirstAggregate bool
+	es := xstream.DelayedFunc(estream.InMemory(events...), func(prev event.Event) time.Duration {
+		if prev == events[4] {
+			handledFirstAggregate = true
+			return 10 * time.Millisecond
+		}
+		if handledFirstAggregate {
+			return time.Second
+		}
+		return 10 * time.Millisecond
+	})
+
+	str := stream.FromEvents(
+		es,
+		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+			return am[id]
+		}),
+		stream.IsGrouped(true),
+	)
+
+	// Add a 500ms timeout to ensure the second aggregate isn't built.
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	if !str.Next(ctx) {
+		t.Fatalf("str.Next should return %t; got %t", true, false)
+	}
+
+	if err := str.Err(); err != nil {
+		t.Errorf("stream should return no error; got %#v", err)
+	}
+
+	a := str.Aggregate()
+	if a != as[0] {
+		t.Errorf("str.Aggregate should return %#v; got %#v", as[0], a)
+	}
+
+	if str.Next(ctx) {
+		t.Errorf("str.Next should return %t; got %t", false, true)
+	}
+
+	err := str.Err()
+	if err == nil {
+		t.Errorf("str.Err should return an error; got <nil>")
+	}
+
+	if !errors.Is(err, ctx.Err()) {
+		t.Errorf("str.Err should return %#v; got %#v", ctx.Err(), err)
+	}
 }
 
 func TestValidateConsistency(t *testing.T) {
@@ -348,6 +401,26 @@ func TestValidateConsistency(t *testing.T) {
 
 	if res[0] != as[0] {
 		t.Errorf("stream returned the wrong aggregate:\n\nwant: %#v\n\ngot %#v\n\n", as[0], res[0])
+	}
+}
+
+func TestAggregateFactory_unregistered(t *testing.T) {
+	as, _ := xaggregate.Make(1)
+	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
+
+	es := estream.InMemory(events...)
+	defer es.Close(context.Background())
+
+	str := stream.FromEvents(es)
+	defer str.Close(context.Background())
+
+	if str.Next(context.Background()) {
+		t.Errorf("str.Next should return %t; got %t", false, true)
+	}
+
+	if err := str.Err(); !errors.Is(err, stream.ErrNoFactory) {
+		t.Errorf("str.Err should return %#v; got %#v", stream.ErrNoFactory, err)
 	}
 }
 

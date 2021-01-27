@@ -98,22 +98,22 @@ type Sorting int
 // SortDirection is a sorting direction.
 type SortDirection int
 
-// Compare compares a and b and returns -1 if a <= b, 0 if a == b or 1 if a > b.
+// Compare compares a and b and returns -1 if a < b, 0 if a == b or 1 if a > b.
 func (s Sorting) Compare(a, b Aggregate) (cmp int8) {
 	switch s {
 	case SortName:
 		return boolToCmp(
-			a.AggregateName() <= b.AggregateName(),
+			a.AggregateName() < b.AggregateName(),
 			a.AggregateName() == b.AggregateName(),
 		)
 	case SortID:
 		return boolToCmp(
-			a.AggregateID().String() <= b.AggregateID().String(),
+			a.AggregateID().String() < b.AggregateID().String(),
 			a.AggregateID() == b.AggregateID(),
 		)
 	case SortVersion:
 		return boolToCmp(
-			a.AggregateVersion() <= b.AggregateVersion(),
+			a.AggregateVersion() < b.AggregateVersion(),
 			a.AggregateVersion() == b.AggregateVersion(),
 		)
 	}
