@@ -76,9 +76,7 @@ func TestValidate_version(t *testing.T) {
 	aggregateID := uuid.New()
 	changedAggregate := aggregate.New("foo", aggregateID)
 	changes := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(changedAggregate))
-	if err := changedAggregate.TrackChange(changes...); err != nil {
-		t.Fatalf("failed to track changes: %v", err)
-	}
+	changedAggregate.TrackChange(changes...)
 
 	tests := []struct {
 		name      string

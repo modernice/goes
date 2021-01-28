@@ -49,9 +49,7 @@ func TestBase_TrackChange(t *testing.T) {
 		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
 		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
 	}
-	if err := b.TrackChange(events...); err != nil {
-		t.Fatalf("expected b.TrackChange to succeed; got %#v", err)
-	}
+	b.TrackChange(events...)
 	if changes := b.AggregateChanges(); !reflect.DeepEqual(events, changes) {
 		t.Fatalf("b.AggregateChanges() returned wrong events\n\nwant: %#v\n\ngot: %#v", events, changes)
 	}
@@ -66,9 +64,7 @@ func TestBase_FlushChanges(t *testing.T) {
 		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
 	}
 
-	if err := b.TrackChange(events...); err != nil {
-		t.Fatalf("expected b.TrackChange not to return an error; got %#v", err)
-	}
+	b.TrackChange(events...)
 
 	b.FlushChanges()
 
@@ -121,9 +117,7 @@ func TestCurrentVersion(t *testing.T) {
 
 	evt := event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateName(), a.AggregateID(), 1))
 
-	if err := a.TrackChange(evt); err != nil {
-		t.Errorf("failed to track change: %v", err)
-	}
+	a.TrackChange(evt)
 
 	if v := aggregate.CurrentVersion(a); v != 1 {
 		t.Errorf("current aggregate version should be %d; got %d", 1, v)
@@ -131,9 +125,7 @@ func TestCurrentVersion(t *testing.T) {
 
 	evt = event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateName(), a.AggregateID(), 2))
 
-	if err := a.TrackChange(evt); err != nil {
-		t.Errorf("failed to track change: %v", err)
-	}
+	a.TrackChange(evt)
 
 	if v := aggregate.CurrentVersion(a); v != 2 {
 		t.Errorf("current aggregate version should be %d; got %d", 2, v)

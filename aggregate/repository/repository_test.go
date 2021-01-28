@@ -39,9 +39,7 @@ func TestRepository_Save(t *testing.T) {
 		close(flushed)
 	}))
 
-	if err := foo.TrackChange(events...); err != nil {
-		t.Fatalf("expected foo.TrackChange to succeed; got %#v", err)
-	}
+	foo.TrackChange(events...)
 
 	if err := r.Save(context.Background(), foo); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
@@ -73,9 +71,7 @@ func TestRepository_Save_rollback(t *testing.T) {
 	}
 
 	a := test.NewFoo(aggregateID)
-	if err := a.TrackChange(events...); err != nil {
-		t.Fatalf("expected a.TrackChange to succeed; got %#v", err)
-	}
+	a.TrackChange(events...)
 
 	// when the event insert fails
 	mockInsertError := errors.New("mock insert error")
@@ -119,9 +115,7 @@ func TestRepository_Save_rollbackError(t *testing.T) {
 	}
 
 	a := test.NewFoo(aggregateID)
-	if err := a.TrackChange(events...); err != nil {
-		t.Fatalf("expected a.TrackChange to succeed; got %#v", err)
-	}
+	a.TrackChange(events...)
 
 	// when the event insert fails
 	mockInsertError := errors.New("mock insert error")
@@ -164,9 +158,7 @@ func TestRepository_Fetch(t *testing.T) {
 	}
 
 	org := test.NewFoo(aggregateID)
-	if err := org.TrackChange(events...); err != nil {
-		t.Fatalf("expected a.TrackChange to succeed; got %#v", err)
-	}
+	org.TrackChange(events...)
 
 	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
@@ -216,9 +208,7 @@ func TestRepository_FetchVersion(t *testing.T) {
 	}
 
 	org := test.NewFoo(aggregateID)
-	if err := org.TrackChange(events...); err != nil {
-		t.Fatalf("expected a.TrackChange to succeed; got %#v", err)
-	}
+	org.TrackChange(events...)
 
 	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
@@ -266,9 +256,7 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	}
 
 	org := test.NewFoo(aggregateID)
-	if err := org.TrackChange(events...); err != nil {
-		t.Fatalf("expected a.TrackChange to succeed; got %#v", err)
-	}
+	org.TrackChange(events...)
 
 	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
@@ -315,9 +303,7 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 	}
 
 	org := test.NewFoo(aggregateID)
-	if err := org.TrackChange(events...); err != nil {
-		t.Fatalf("expected a.TrackChange to succeed; got %#v", err)
-	}
+	org.TrackChange(events...)
 
 	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {

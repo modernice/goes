@@ -48,15 +48,13 @@ func TestTrackChangeFunc(t *testing.T) {
 	var tracked bool
 	foo := test.NewFoo(
 		aggregateID,
-		test.TrackChangeFunc(func(changes []event.Event, track func(...event.Event) error) error {
+		test.TrackChangeFunc(func(changes []event.Event, track func(...event.Event)) {
 			tracked = true
-			return track(changes...)
+			track(changes...)
 		}),
 	)
 
-	if err := foo.TrackChange(events...); err != nil {
-		t.Fatalf("expected foo.TrackChange not to return an error; got %#v", err)
-	}
+	foo.TrackChange(events...)
 
 	if !tracked {
 		t.Errorf("changes were not tracked")
@@ -73,9 +71,7 @@ func TestFlushChangesFunc(t *testing.T) {
 		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 2)),
 		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 3)),
 	}
-	if err := foo.TrackChange(events...); err != nil {
-		t.Fatalf("expected foo.TrackChange not to return an error; got %#v", err)
-	}
+	foo.TrackChange(events...)
 
 	foo.FlushChanges()
 	eventtest.AssertEqualEvents(t, events, foo.AggregateChanges())
@@ -83,9 +79,7 @@ func TestFlushChangesFunc(t *testing.T) {
 	foo = test.NewFoo(aggregateID, test.FlushChangesFunc(func(flush func()) {
 		flush()
 	}))
-	if err := foo.TrackChange(events...); err != nil {
-		t.Fatalf("expected foo.TrackChange not to return an error; got %#v", err)
-	}
+	foo.TrackChange(events...)
 
 	foo.FlushChanges()
 	eventtest.AssertEqualEvents(t, foo.AggregateChanges(), nil)

@@ -22,7 +22,7 @@ type AggregateOption func(*testAggregate)
 type testAggregate struct {
 	aggregate.Aggregate
 	applyFuncs map[string]func(event.Event)
-	trackFunc  func([]event.Event, func(...event.Event) error) error
+	trackFunc  func([]event.Event, func(...event.Event))
 	flushFunc  func(func())
 }
 
@@ -64,7 +64,7 @@ func ApplyEventFunc(eventName string, fn func(event.Event)) AggregateOption {
 
 // TrackChangeFunc returns an AggregateOption that allows users to intercept
 // calls to a.TrackChange.
-func TrackChangeFunc(fn func(changes []event.Event, track func(...event.Event) error) error) AggregateOption {
+func TrackChangeFunc(fn func(changes []event.Event, track func(...event.Event))) AggregateOption {
 	return func(a *testAggregate) {
 		a.trackFunc = fn
 	}
@@ -90,15 +90,16 @@ func (a *testAggregate) ApplyEvent(evt event.Event) {
 	}
 }
 
-func (a *testAggregate) TrackChange(changes ...event.Event) error {
+func (a *testAggregate) TrackChange(changes ...event.Event) {
 	if a.trackFunc == nil {
-		return a.trackChange(changes...)
+		a.trackChange(changes...)
+		return
 	}
-	return a.trackFunc(changes, a.trackChange)
+	a.trackFunc(changes, a.trackChange)
 }
 
-func (a *testAggregate) trackChange(changes ...event.Event) error {
-	return a.Aggregate.TrackChange(changes...)
+func (a *testAggregate) trackChange(changes ...event.Event) {
+	a.Aggregate.TrackChange(changes...)
 }
 
 func (a *testAggregate) FlushChanges() {

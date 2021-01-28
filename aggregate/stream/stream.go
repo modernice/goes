@@ -356,9 +356,7 @@ func (s *stream) build(a aggregate.Aggregate) error {
 		a.ApplyEvent(evt)
 	}
 
-	if err := a.TrackChange(events...); err != nil {
-		return fmt.Errorf("track change: %w\n\n%#v", err, events)
-	}
+	a.TrackChange(events...)
 
 	return nil
 }

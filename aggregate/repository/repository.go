@@ -161,9 +161,7 @@ func buildAggregate(a aggregate.Aggregate, events ...event.Event) error {
 	for _, evt := range events {
 		a.ApplyEvent(evt)
 	}
-	if err := a.TrackChange(events...); err != nil {
-		return fmt.Errorf("track change: %w", err)
-	}
+	a.TrackChange(events...)
 	a.FlushChanges()
 	return nil
 }

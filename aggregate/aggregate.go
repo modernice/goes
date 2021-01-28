@@ -1,5 +1,7 @@
 package aggregate
 
+//go:generate mockgen -source=aggregate.go -destination=./mocks/aggregate.go
+
 import (
 	"fmt"
 	"sort"
@@ -24,7 +26,7 @@ type Aggregate interface {
 	AggregateChanges() []event.Event
 
 	// TrackChange adds the Events to the changes of the Aggregate.
-	TrackChange(...event.Event) error
+	TrackChange(...event.Event)
 
 	// FlushChanges increases the version of the Aggregate by the number of
 	// changes and empties the changes.
@@ -72,9 +74,7 @@ func ApplyHistory(a Aggregate, events ...event.Event) error {
 	for _, evt := range events {
 		a.ApplyEvent(evt)
 	}
-	if err := a.TrackChange(events...); err != nil {
-		return fmt.Errorf("track change: %w", err)
-	}
+	a.TrackChange(events...)
 	a.FlushChanges()
 	return nil
 }
@@ -125,9 +125,8 @@ func (b *base) AggregateChanges() []event.Event {
 	return b.changes
 }
 
-func (b *base) TrackChange(events ...event.Event) error {
+func (b *base) TrackChange(events ...event.Event) {
 	b.changes = append(b.changes, events...)
-	return nil
 }
 
 func (b *base) FlushChanges() {
