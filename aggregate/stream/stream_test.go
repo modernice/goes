@@ -57,6 +57,14 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 	if res[0] != as[0] {
 		t.Errorf("stream returned the wrong aggregate\n\nwant: %#v\n\ngot: %#v\n\n", as[0], res[0])
 	}
+
+	if l := len(res[0].AggregateChanges()); l != 0 {
+		t.Errorf("stream should flush aggregate changes. len(changes)=%d", l)
+	}
+
+	if v := res[0].AggregateVersion(); v != 10 {
+		t.Errorf("aggregate should have version %d; got %d", 10, v)
+	}
 }
 
 func TestStream_singleAggregate_unsorted(t *testing.T) {

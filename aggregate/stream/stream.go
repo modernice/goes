@@ -383,6 +383,7 @@ func (s *stream) build(a aggregate.Aggregate) error {
 	}
 
 	a.TrackChange(events...)
+	a.FlushChanges()
 
 	return nil
 }
