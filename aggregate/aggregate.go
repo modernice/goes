@@ -36,6 +36,15 @@ type Aggregate interface {
 	ApplyEvent(event.Event)
 }
 
+// A Factory makes Aggregates.
+type Factory interface {
+	// Make returns a new Aggregate with the given name and id.
+	Make(name string, id uuid.UUID) (Aggregate, error)
+}
+
+// A FactoryFunc allows a function to be used as a Factory.
+type FactoryFunc func(string, uuid.UUID) (Aggregate, error)
+
 // Option is an aggregate option.
 type Option func(*base)
 
@@ -107,6 +116,11 @@ func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 // changes.
 func CurrentVersion(a Aggregate) int {
 	return a.AggregateVersion() + len(a.AggregateChanges())
+}
+
+// Make returns a new Aggregate with the given name and id.
+func (fn FactoryFunc) Make(name string, id uuid.UUID) (Aggregate, error) {
+	return fn(name, id)
 }
 
 func (b *base) AggregateID() uuid.UUID {
