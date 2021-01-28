@@ -334,7 +334,7 @@ func TestStream_inconsistent(t *testing.T) {
 	}
 }
 
-func TestIsSorted(t *testing.T) {
+func TestSorted(t *testing.T) {
 	as, _ := xaggregate.Make(1)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -349,7 +349,7 @@ func TestIsSorted(t *testing.T) {
 		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
 		})),
-		stream.IsSorted(true),
+		stream.Sorted(true),
 	)
 
 	res, err := stream.All(context.Background(), str)
@@ -372,7 +372,7 @@ func TestIsSorted(t *testing.T) {
 	}
 }
 
-func TestIsGrouped(t *testing.T) {
+func TestGrouped(t *testing.T) {
 	as, _ := xaggregate.Make(2)
 	as = aggregate.SortMulti(
 		as,
@@ -409,7 +409,7 @@ func TestIsGrouped(t *testing.T) {
 		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
 		})),
-		stream.IsGrouped(true),
+		stream.Grouped(true),
 	)
 
 	// Add a 500ms timeout to ensure the second aggregate isn't built.
@@ -460,7 +460,7 @@ func TestValidateConsistency(t *testing.T) {
 		})),
 
 		// prevent sorting of events
-		stream.IsSorted(true),
+		stream.Sorted(true),
 		// disable consistency validation
 		stream.ValidateConsistency(false),
 	)

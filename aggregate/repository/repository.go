@@ -159,8 +159,8 @@ func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.St
 	return stream.FromEvents(
 		es,
 		stream.Factory(r.factory),
-		stream.IsGrouped(true),
-		stream.IsSorted(true),
+		stream.Grouped(true),
+		stream.Sorted(true),
 	), nil
 }
 

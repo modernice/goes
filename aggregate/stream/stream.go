@@ -55,31 +55,31 @@ func Factory(f aggregate.Factory) Option {
 	}
 }
 
-// IsSorted returns an Option that optimizes Aggregate builds by giving the
+// Sorted returns an Option that optimizes Aggregate builds by giving the
 // Stream information about the order of incoming Events from the event.Stream.
 //
-// When IsSorted is enabled (which it is by default), the Stream sorts the
+// When Sorted is enabled (which it is by default), the Stream sorts the
 // collected Events for a specific Aggregate by the AggregateVersion of the
 // Events before applying them to the Aggregate.
 //
 // Disable this option only if the underlying event.Stream guarantees that
 // incoming Events are sorted by AggregateVersion.
-func IsSorted(v bool) Option {
+func Sorted(v bool) Option {
 	return func(s *stream) {
 		s.isSorted = v
 	}
 }
 
-// IsGrouped returns an Option that optimizes Aggregate builds by giving the
+// Grouped returns an Option that optimizes Aggregate builds by giving the
 // Stream information about the order of incoming Events from the event.Stream.
 //
-// When IsGrouped is disabled, the Stream has to wait for the event.Stream to be
+// When Grouped is disabled, the Stream has to wait for the event.Stream to be
 // drained before it can be sure no more Events will arrive for a specific
-// Aggregate. When IsGrouped is enabled, the Stream knows when all Events for an
+// Aggregate. When Grouped is enabled, the Stream knows when all Events for an
 // Aggregate have been received and can therefore return the Aggregate as soon
 // as its last Event has been received and applied.
 //
-// IsGrouped is disabled by default and should only be enabled if the correct
+// Grouped is disabled by default and should only be enabled if the correct
 // order of events is guaranteed by the event.Stream. Events are correctly
 // ordered only if they're sequentally grouped by aggregate. Sorting within a
 // group of Events does not matter if IsSorted is disabled (which it is by
@@ -107,7 +107,7 @@ func IsSorted(v bool) Option {
 // 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
 // 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
 // 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-func IsGrouped(v bool) Option {
+func Grouped(v bool) Option {
 	return func(s *stream) {
 		s.isGrouped = v
 	}
