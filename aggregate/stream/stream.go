@@ -147,10 +147,6 @@ func FromEvents(es event.Stream, opts ...Option) (as aggregate.Stream) {
 }
 
 func (s *stream) Next(ctx context.Context) bool {
-	// if s.Err() != nil {
-	// 	return false
-	// }
-
 	select {
 	case <-ctx.Done():
 		s.error(ctx.Err())
