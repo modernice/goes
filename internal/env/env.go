@@ -19,7 +19,7 @@ var (
 	}
 )
 
-// Temp calls os.Getenv(key, fmt.Sprint(val)) and returns a function that
+// Temp calls os.Setenv(key, fmt.Sprint(val)) and returns a function that
 // restores the previous value of that environment variable.
 func Temp(key string, val interface{}) func() {
 	org := os.Getenv(key)
