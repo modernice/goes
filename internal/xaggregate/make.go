@@ -12,6 +12,7 @@ type MakeOption func(*makeConfig)
 
 type makeConfig struct {
 	name string
+	opts []aggregate.Option
 }
 
 // Name returns a MakeOption that specifies the AggregateName.

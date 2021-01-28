@@ -18,6 +18,7 @@ type stream struct {
 	isSorted            bool
 	isGrouped           bool
 	validateConsistency bool
+	filters             []func(event.Event) bool
 
 	events  event.Stream
 	factory aggregate.Factory
@@ -125,6 +126,15 @@ func ValidateConsistency(v bool) Option {
 	}
 }
 
+// Filter returns an Option that filters incoming Events before they're handled
+// by the Stream. Events are passed to every fn in fns until a fn returns false.
+// If any of fns returns false, the Event is discarded by the Stream.
+func Filter(fns ...func(event.Event) bool) Option {
+	return func(s *stream) {
+		s.filters = append(s.filters, fns...)
+	}
+}
+
 // FromEvents returns a Stream from an event.Stream. The returned Stream pulls
 // events from es by calling es.Next until es.Next returns false or s.Err
 // returns a non-nil error. When s.Err returns a non-nil error, that error is
@@ -229,6 +239,11 @@ func (s *stream) acceptEvents() {
 	var prev event.Event
 	for s.events.Next(s.acceptCtx) {
 		evt := s.events.Event()
+
+		if s.shouldDiscard(evt) {
+			continue
+		}
+
 		name, id := evt.AggregateName(), evt.AggregateID()
 
 		// start building the aggregate if it's the first event of an aggregate
@@ -254,6 +269,15 @@ func (s *stream) acceptEvents() {
 	if err := s.events.Err(); err != nil {
 		s.error(fmt.Errorf("event stream: %w", err))
 	}
+}
+
+func (s *stream) shouldDiscard(evt event.Event) bool {
+	for _, fn := range s.filters {
+		if !fn(evt) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *stream) buildStarted(name string, id uuid.UUID) bool {

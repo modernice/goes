@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -492,6 +494,46 @@ func TestFactory(t *testing.T) {
 
 	if err := str.Err(); !errors.Is(err, factory.ErrUnknownName) {
 		t.Errorf("str.Err should return %#v; got %#v", factory.ErrUnknownName, err)
+	}
+}
+
+func TestFilter(t *testing.T) {
+	foos, _ := xaggregate.Make(5, xaggregate.Name("foo"))
+	foobars, _ := xaggregate.Make(5, xaggregate.Name("foobar"))
+	as := append(foos, foobars...)
+	am := xaggregate.Map(as)
+
+	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events = xevent.Shuffle(events)
+
+	es := estream.InMemory(events...)
+	f := factory.New(factory.For("", func(id uuid.UUID) aggregate.Aggregate {
+		return am[id]
+	}))
+
+	str := stream.FromEvents(
+		es,
+		stream.Factory(f),
+		stream.Filter(
+			func(evt event.Event) bool {
+				return strings.HasPrefix(evt.AggregateName(), "foo")
+			},
+			func(evt event.Event) bool {
+				return strings.HasSuffix(evt.AggregateName(), "bar")
+			},
+		),
+	)
+
+	res, err := stream.All(context.Background(), str)
+	if err != nil {
+		t.Errorf("stream should not return an error; got %v", err)
+	}
+
+	want := aggregate.Sort(foobars, aggregate.SortID, aggregate.SortAsc)
+	got := aggregate.Sort(res, aggregate.SortID, aggregate.SortAsc)
+
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("stream returned the wrong aggregates\n\nwant: %#v\n\ngot: %#v\n\n", want, got)
 	}
 }
 
