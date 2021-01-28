@@ -24,6 +24,7 @@ type stream struct {
 
 	acceptCtx  context.Context
 	stopAccept context.CancelFunc
+	acceptDone chan struct{}
 
 	queuesMux    sync.RWMutex
 	queues       map[string]map[uuid.UUID]chan event.Event
@@ -125,13 +126,17 @@ func ValidateConsistency(v bool) Option {
 }
 
 // FromEvents returns a Stream from an event.Stream. The returned Stream pulls
-// events from es by calling s.Next until s.Next returns false or s.Err
+// events from es by calling es.Next until es.Next returns false or s.Err
 // returns a non-nil error. When s.Err returns a non-nil error, that error is
 // also returned from as.Err.
+//
+// When the returned Stream is closed, the underlying event.Stream es is also
+// closed.
 func FromEvents(es event.Stream, opts ...Option) (as aggregate.Stream) {
 	aes := stream{
 		validateConsistency: true,
 		events:              es,
+		acceptDone:          make(chan struct{}),
 		results:             make(chan aggregate.Aggregate),
 		queues:              make(map[string]map[uuid.UUID]chan event.Event),
 		closedQueues:        make(map[chan event.Event]bool),
@@ -154,7 +159,7 @@ func (s *stream) Next(ctx context.Context) bool {
 		s.error(ctx.Err())
 		return false
 	case <-s.closed:
-		s.error(ErrClosed)
+		s.forceError(ErrClosed)
 		return false
 	case a, ok := <-s.results:
 		if !ok {
@@ -185,12 +190,31 @@ func (s *stream) Close(ctx context.Context) error {
 		}
 	default:
 	}
-	close(s.closed)
+
+	// stop accepting events
 	s.stopAccept()
+
+	// wait until event stream is not used anymore
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.acceptDone:
+	}
+
+	// mark as closed before closing the event stream to ensure s.Err() returns
+	// ErrClosed and not the error from the event store
+	close(s.closed)
+
+	// then close the event stream
+	if err := s.events.Close(ctx); err != nil {
+		return fmt.Errorf("close event stream: %w", err)
+	}
+
 	return nil
 }
 
 func (s *stream) acceptEvents() {
+	defer close(s.acceptDone)
 	defer s.closeQueues()
 
 	var prev event.Event
@@ -374,7 +398,18 @@ func (s *stream) newAggregate(name string, id uuid.UUID) (aggregate.Aggregate, e
 func (s *stream) error(err error) {
 	s.errMux.Lock()
 	defer s.errMux.Unlock()
+	select {
+	case <-s.closed:
+		return
+	default:
+	}
 	if s.err == nil {
 		s.err = err
 	}
+}
+
+func (s *stream) forceError(err error) {
+	s.errMux.Lock()
+	defer s.errMux.Unlock()
+	s.err = err
 }

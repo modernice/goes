@@ -7,12 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/aggregate/factory"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
+	mock_event "github.com/modernice/goes/event/mocks"
 	estream "github.com/modernice/goes/event/stream"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/xaggregate"
@@ -193,7 +195,7 @@ func TestStream_Close(t *testing.T) {
 	}
 }
 
-func TestStream_closedEventStream(t *testing.T) {
+func TestStream_Close_closedEventStream(t *testing.T) {
 	as, _ := xaggregate.Make(10)
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
@@ -223,6 +225,68 @@ func TestStream_closedEventStream(t *testing.T) {
 
 	if a := str.Aggregate(); a != nil {
 		t.Errorf("stream should not return an aggregate; got %#v", a)
+	}
+}
+
+func TestStream_Close_closeEventStream(t *testing.T) {
+	as, _ := xaggregate.Make(10)
+	am := xaggregate.Map(as)
+	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+
+	es := estream.InMemory(events...)
+	str := stream.FromEvents(es, stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		return am[id]
+	})))
+
+	if err := str.Close(context.Background()); err != nil {
+		t.Errorf("stream failed to close: %v", err)
+	}
+
+	if es.Next(context.Background()) {
+		t.Errorf("es.Next should return %t; got %t", false, true)
+	}
+
+	if err := es.Err(); !errors.Is(err, estream.ErrClosed) {
+		t.Errorf("event stream should be closed and return error %#v; got %#v", estream.ErrClosed, err)
+	}
+}
+
+func TestStream_Close_closeEventStream_error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	as, _ := xaggregate.Make(10)
+	am := xaggregate.Map(as)
+
+	mes := mock_event.NewMockStream(ctrl)
+	mockError := errors.New("mock error")
+	mes.EXPECT().Close(gomock.Any()).Return(mockError)
+	es := xstream.Delayed(mes, time.Second)
+
+	str := stream.FromEvents(es, stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		return am[id]
+	})))
+
+	if err := str.Close(context.Background()); !errors.Is(err, mockError) {
+		t.Errorf("str.Close should return the event stores error %#v; got %#v", mockError, err)
+	}
+}
+
+func TestStream_Close_closeEventStream_contextCanceled(t *testing.T) {
+	as, _ := xaggregate.Make(10)
+	am := xaggregate.Map(as)
+	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+
+	es := estream.InMemory(events...)
+	str := stream.FromEvents(es, stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		return am[id]
+	})))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := str.Close(ctx); !errors.Is(err, context.Canceled) {
+		t.Errorf("str.Close should return error %v; got %v", context.Canceled, err)
 	}
 }
 
@@ -411,8 +475,6 @@ func TestFactory(t *testing.T) {
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 
 	es := estream.InMemory(events...)
-	defer es.Close(context.Background())
-
 	f := factory.New()
 	str := stream.FromEvents(es, stream.Factory(f))
 
