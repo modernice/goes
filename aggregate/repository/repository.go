@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
 	equery "github.com/modernice/goes/event/query"
@@ -14,14 +15,18 @@ import (
 )
 
 type repository struct {
-	store event.Store
+	store   event.Store
+	factory aggregate.Factory
 }
 
 // New return a Repository for aggregates. The Repository uses the provided
 // store to query the events needed to build the state of aggregates and to
 // insert the aggregate changes in form of events into the Store.
-func New(store event.Store) aggregate.Repository {
-	return &repository{store}
+func New(store event.Store, fac aggregate.Factory) aggregate.Repository {
+	return &repository{
+		store:   store,
+		factory: fac,
+	}
 }
 
 // Save saves the changes of Aggregate a into the event store.
@@ -147,14 +152,16 @@ func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
 
 func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.Stream, error) {
 	opts := makeQueryOptions(q)
-
 	es, err := r.store.Query(ctx, equery.New(opts...))
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)
 	}
-	defer es.Close(ctx)
-
-	return stream.FromEvents(es), nil
+	return stream.FromEvents(
+		es,
+		stream.Factory(r.factory),
+		stream.IsGrouped(true),
+		stream.IsSorted(true),
+	), nil
 }
 
 func buildAggregate(a aggregate.Aggregate, events ...event.Event) error {
@@ -167,15 +174,13 @@ func buildAggregate(a aggregate.Aggregate, events ...event.Event) error {
 }
 
 func makeQueryOptions(q aggregate.Query) []equery.Option {
-	var opts []equery.Option
-	opts = withNameFilter(opts, q)
+	opts := append(
+		query.EventQueryOpts(q),
+		equery.SortByMulti(
+			event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
+			event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
+			event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
+		),
+	)
 	return opts
-}
-
-func withNameFilter(opts []equery.Option, q aggregate.Query) []equery.Option {
-	names := q.Names()
-	if len(names) == 0 {
-		return opts
-	}
-	return append(opts, equery.AggregateName(names...))
 }

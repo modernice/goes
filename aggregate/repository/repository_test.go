@@ -11,6 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/aggregate/factory"
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/aggregate/stream"
@@ -18,13 +19,14 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
 	mock_event "github.com/modernice/goes/event/mocks"
+	"github.com/modernice/goes/event/query/version"
 	etest "github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/xaggregate"
 	"github.com/modernice/goes/internal/xevent"
 )
 
 func TestRepository_Save(t *testing.T) {
-	r := repository.New(memstore.New())
+	r := repository.New(memstore.New(), nil)
 
 	aggregateID := uuid.New()
 	events := []event.Event{
@@ -60,7 +62,7 @@ func TestRepository_Save_rollback(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := mock_event.NewMockStore(ctrl)
-	r := repository.New(mockStore)
+	r := repository.New(mockStore, nil)
 
 	// given 3 events
 	aggregateID := uuid.New()
@@ -104,7 +106,7 @@ func TestRepository_Save_rollbackError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := mock_event.NewMockStore(ctrl)
-	r := repository.New(mockStore)
+	r := repository.New(mockStore, nil)
 
 	// given 3 events
 	aggregateID := uuid.New()
@@ -160,7 +162,7 @@ func TestRepository_Fetch(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(memstore.New())
+	r := repository.New(memstore.New(), nil)
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -210,7 +212,7 @@ func TestRepository_FetchVersion(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(memstore.New())
+	r := repository.New(memstore.New(), nil)
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -258,7 +260,7 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(memstore.New())
+	r := repository.New(memstore.New(), nil)
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -305,7 +307,7 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(memstore.New())
+	r := repository.New(memstore.New(), nil)
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -349,7 +351,7 @@ func TestRepository_Delete(t *testing.T) {
 	}
 
 	s := memstore.New(changes...)
-	r := repository.New(s)
+	r := repository.New(s, nil)
 
 	if err := r.Fetch(context.Background(), foo); err != nil {
 		t.Fatalf("r.Fetch should not fail: %#v", err)
@@ -374,30 +376,18 @@ func TestRepository_Delete(t *testing.T) {
 }
 
 func TestRepository_Query_name(t *testing.T) {
-	t.Skip()
-
 	foos, _ := xaggregate.Make(3, xaggregate.Name("foo"))
 	bars, _ := xaggregate.Make(3, xaggregate.Name("bar"))
 	bazs, _ := xaggregate.Make(3, xaggregate.Name("baz"))
 	as := append(foos, append(bars, bazs...)...)
-
+	am := xaggregate.Map(as)
 	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
-	for _, a := range as {
-		aevents := xevent.FilterAggregate(events, a)
-		for _, evt := range aevents {
-			a.ApplyEvent(evt)
-		}
-		a.TrackChange(aevents...)
-	}
 
-	s := memstore.New()
-	r := repository.New(s)
-
-	for _, a := range as {
-		if err := r.Save(context.Background(), a); err != nil {
-			t.Fatalf("r.Save should not fail: %v", err)
-		}
-	}
+	s := memstore.New(events...)
+	f := factory.New(factory.For("foo", func(id uuid.UUID) aggregate.Aggregate {
+		return am[id]
+	}))
+	r := repository.New(s, f)
 
 	result, err := runQuery(r, query.New(query.Name("foo")))
 	if err != nil {
@@ -407,8 +397,150 @@ func TestRepository_Query_name(t *testing.T) {
 	foos = aggregate.Sort(foos, aggregate.SortID, aggregate.SortAsc)
 	result = aggregate.Sort(result, aggregate.SortID, aggregate.SortAsc)
 
-	if !reflect.DeepEqual(result, foos) {
-		t.Fatalf("query returned the wrong aggregates\n\nwant: %#v\n\ngot: %#v\n\n", foos, result)
+	if !reflect.DeepEqual(foos, result) {
+		t.Fatalf("repository returned the wrong aggregates.\n\nwant: %v\n\ngot: %v", foos, result)
+	}
+
+	for _, a := range result {
+		aevents := xevent.FilterAggregate(events, a)
+		want := aevents[len(aevents)-1].AggregateVersion()
+		if a.AggregateVersion() != want {
+			t.Errorf("aggregate has wrong version. want=%d got=%d", want, a.AggregateVersion())
+		}
+	}
+}
+
+func TestRepository_Query_name_multiple(t *testing.T) {
+	foos, _ := xaggregate.Make(3, xaggregate.Name("foo"))
+	bars, _ := xaggregate.Make(3, xaggregate.Name("bar"))
+	bazs, _ := xaggregate.Make(3, xaggregate.Name("baz"))
+	as := append(foos, append(bars, bazs...)...)
+	am := xaggregate.Map(as)
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
+
+	s := memstore.New(events...)
+	f := factory.New(
+		factory.For("foo", func(id uuid.UUID) aggregate.Aggregate {
+			return am[id]
+		}),
+		factory.For("baz", func(id uuid.UUID) aggregate.Aggregate {
+			return am[id]
+		}),
+	)
+	r := repository.New(s, f)
+
+	result, err := runQuery(r, query.New(query.Name("foo", "baz")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := append(foos, bazs...)
+	want = aggregate.Sort(want, aggregate.SortID, aggregate.SortAsc)
+	result = aggregate.Sort(result, aggregate.SortID, aggregate.SortAsc)
+
+	if !reflect.DeepEqual(want, result) {
+		t.Fatalf("repository returned the wrong aggregates.\n\nwant: %v\n\ngot: %v", want, result)
+	}
+
+	for _, a := range result {
+		aevents := xevent.FilterAggregate(events, a)
+		want := aevents[len(aevents)-1].AggregateVersion()
+		if a.AggregateVersion() != want {
+			t.Errorf("aggregate has wrong version. want=%d got=%d", want, a.AggregateVersion())
+		}
+	}
+}
+
+func TestRepository_Query_id(t *testing.T) {
+	foos, _ := xaggregate.Make(3, xaggregate.Name("foo"))
+	bars, _ := xaggregate.Make(3, xaggregate.Name("bar"))
+	bazs, _ := xaggregate.Make(3, xaggregate.Name("baz"))
+	as := append(foos, append(bars, bazs...)...)
+	am := xaggregate.Map(as)
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
+
+	s := memstore.New(events...)
+	f := factory.New(
+		factory.For("foo", func(id uuid.UUID) aggregate.Aggregate {
+			return am[id]
+		}),
+		factory.For("baz", func(id uuid.UUID) aggregate.Aggregate {
+			return am[id]
+		}),
+	)
+	r := repository.New(s, f)
+
+	result, err := runQuery(r, query.New(
+		query.ID(foos[0].AggregateID(), bazs[2].AggregateID()),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []aggregate.Aggregate{foos[0], bazs[2]}
+	want = aggregate.Sort(want, aggregate.SortID, aggregate.SortAsc)
+	result = aggregate.Sort(result, aggregate.SortID, aggregate.SortAsc)
+
+	if !reflect.DeepEqual(want, result) {
+		t.Fatalf("repository returned the wrong aggregates.\n\nwant: %v\n\ngot: %v", want, result)
+	}
+
+	for _, a := range result {
+		aevents := xevent.FilterAggregate(events, a)
+		want := aevents[len(aevents)-1].AggregateVersion()
+		if a.AggregateVersion() != want {
+			t.Errorf("aggregate has wrong version. want=%d got=%d", want, a.AggregateVersion())
+		}
+	}
+}
+
+func TestRepository_Query_version(t *testing.T) {
+	foos, _ := xaggregate.Make(1, xaggregate.Name("foo"))
+	bars, _ := xaggregate.Make(1, xaggregate.Name("bar"))
+	bazs, _ := xaggregate.Make(1, xaggregate.Name("baz"))
+	as := append(foos, append(bars, bazs...)...)
+	am := xaggregate.Map(as)
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as[0]))
+	events = append(events, xevent.Make("foo", etest.FooEventData{}, 20, xevent.ForAggregate(as[1]))...)
+	events = append(events, xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(as[2]))...)
+	events = xevent.Shuffle(events)
+
+	s := memstore.New(events...)
+	f := factory.New(
+		factory.For("foo", func(id uuid.UUID) aggregate.Aggregate {
+			return am[id]
+		}),
+		factory.For("bar", func(id uuid.UUID) aggregate.Aggregate {
+			return am[id]
+		}),
+		factory.For("baz", func(id uuid.UUID) aggregate.Aggregate {
+			return am[id]
+		}),
+	)
+	r := repository.New(s, f)
+
+	result, err := runQuery(r, query.New(query.Version(version.Exact(10, 20))))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := aggregate.Sort(as, aggregate.SortID, aggregate.SortAsc)
+	result = aggregate.Sort(result, aggregate.SortID, aggregate.SortAsc)
+
+	if !reflect.DeepEqual(want, result) {
+		t.Fatalf("repository returned the wrong aggregates.\n\nwant: %v\n\ngot: %v", want, result)
+	}
+
+	for _, a := range result {
+		aevents := xevent.FilterAggregate(events, a)
+		aevents = event.Sort(aevents, event.SortAggregateVersion, event.SortAsc)
+		want := aevents[len(aevents)-1].AggregateVersion()
+		if want > 20 {
+			want = 20
+		}
+		if a.AggregateVersion() != want {
+			t.Errorf("aggregate has wrong version. want=%d got=%d", want, a.AggregateVersion())
+		}
 	}
 }
 
