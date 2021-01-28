@@ -154,6 +154,17 @@ func FromEvents(es event.Stream, opts ...Option) (as aggregate.Stream) {
 }
 
 func (s *stream) Next(ctx context.Context) bool {
+	// first check if the stream has been closed to ensure ErrClosed
+	select {
+	case <-ctx.Done():
+		s.error(ctx.Err())
+		return false
+	case <-s.closed:
+		s.forceError(ErrClosed)
+		return false
+	default:
+	}
+
 	select {
 	case <-ctx.Done():
 		s.error(ctx.Err())
@@ -201,14 +212,12 @@ func (s *stream) Close(ctx context.Context) error {
 	case <-s.acceptDone:
 	}
 
-	// mark as closed before closing the event stream to ensure s.Err() returns
-	// ErrClosed and not the error from the event store
-	close(s.closed)
-
 	// then close the event stream
 	if err := s.events.Close(ctx); err != nil {
 		return fmt.Errorf("close event stream: %w", err)
 	}
+
+	close(s.closed)
 
 	return nil
 }
@@ -271,7 +280,10 @@ func (s *stream) startBuild(name string, id uuid.UUID) error {
 		s.startedBuilds[name] = started
 	}
 	started[id] = true
-	s.startQueue <- a
+	select {
+	case <-s.closed:
+	case s.startQueue <- a:
+	}
 	return nil
 }
 
@@ -357,7 +369,10 @@ func (s *stream) buildAggregate(wg *sync.WaitGroup, a aggregate.Aggregate) {
 		s.error(err)
 		return
 	}
-	s.results <- a
+	select {
+	case <-s.closed:
+	case s.results <- a:
+	}
 }
 
 func (s *stream) build(a aggregate.Aggregate) error {
