@@ -26,6 +26,18 @@ type testAggregate struct {
 	flushFunc  func(func())
 }
 
+// NewAggregate returns a new test aggregate.
+func NewAggregate(name string, id uuid.UUID, opts ...AggregateOption) aggregate.Aggregate {
+	a := &testAggregate{
+		Aggregate:  aggregate.New(name, id),
+		applyFuncs: make(map[string]func(event.Event)),
+	}
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
+}
+
 // NewFoo returns a new Foo.
 func NewFoo(id uuid.UUID, opts ...AggregateOption) *Foo {
 	foo := Foo{

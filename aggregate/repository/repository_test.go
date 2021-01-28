@@ -18,7 +18,9 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
 	mock_event "github.com/modernice/goes/event/mocks"
-	eventtest "github.com/modernice/goes/event/test"
+	etest "github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xaggregate"
+	"github.com/modernice/goes/internal/xevent"
 )
 
 func TestRepository_Save(t *testing.T) {
@@ -26,9 +28,9 @@ func TestRepository_Save(t *testing.T) {
 
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
 	}
 
 	flushed := make(chan struct{})
@@ -65,9 +67,9 @@ func TestRepository_Save_rollback(t *testing.T) {
 	// given 3 events
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
 	}
 
 	a := test.NewFoo(aggregateID)
@@ -98,7 +100,7 @@ func TestRepository_Save_rollback(t *testing.T) {
 	}
 
 	// the aggregate should keep the changes
-	eventtest.AssertEqualEvents(t, events, a.AggregateChanges())
+	etest.AssertEqualEvents(t, events, a.AggregateChanges())
 }
 
 func TestRepository_Save_rollbackError(t *testing.T) {
@@ -111,9 +113,9 @@ func TestRepository_Save_rollbackError(t *testing.T) {
 	// given 3 events
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
 	}
 
 	a := test.NewFoo(aggregateID)
@@ -149,16 +151,16 @@ func TestRepository_Save_rollbackError(t *testing.T) {
 	}
 
 	// the aggregate should keep the changes
-	eventtest.AssertEqualEvents(t, events, a.AggregateChanges())
+	etest.AssertEqualEvents(t, events, a.AggregateChanges())
 }
 
 func TestRepository_Fetch(t *testing.T) {
 	aggregateName := "foo"
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
 	}
 
 	org := test.NewFoo(aggregateID)
@@ -187,7 +189,7 @@ func TestRepository_Fetch(t *testing.T) {
 		t.Fatalf("expected r.Fetch to succeed; got %#v", err)
 	}
 
-	eventtest.AssertEqualEvents(t, events, appliedEvents)
+	etest.AssertEqualEvents(t, events, appliedEvents)
 
 	if foo.AggregateVersion() != 3 {
 		t.Errorf("expected foo.AggregateVersion to return %d; got %d", 3, foo.AggregateVersion())
@@ -206,11 +208,11 @@ func TestRepository_FetchVersion(t *testing.T) {
 	aggregateName := "foo"
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 4)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 5)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 4)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 5)),
 	}
 
 	org := test.NewFoo(aggregateID)
@@ -239,7 +241,7 @@ func TestRepository_FetchVersion(t *testing.T) {
 		t.Fatalf("expected r.FetchVersion to succeed; got %#v", err)
 	}
 
-	eventtest.AssertEqualEvents(t, events[:4], appliedEvents)
+	etest.AssertEqualEvents(t, events[:4], appliedEvents)
 
 	if foo.AggregateVersion() != 4 {
 		t.Errorf("expected foo.AggregateVersion to return %d; got %d", 4, foo.AggregateVersion())
@@ -258,9 +260,9 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	aggregateName := "foo"
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
 	}
 
 	org := test.NewFoo(aggregateID)
@@ -307,9 +309,9 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 	aggregateName := "foo"
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
 	}
 
 	org := test.NewFoo(aggregateID)
@@ -343,17 +345,17 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 func TestRepository_Delete(t *testing.T) {
 	foo := test.NewFoo(uuid.New())
 	changes := []event.Event{
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(
 			foo.AggregateName(),
 			foo.AggregateID(),
 			1,
 		)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(
 			foo.AggregateName(),
 			foo.AggregateID(),
 			2,
 		)),
-		event.New("foo", eventtest.FooEventData{A: "foo"}, event.Aggregate(
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(
 			foo.AggregateName(),
 			foo.AggregateID(),
 			3,
@@ -388,13 +390,18 @@ func TestRepository_Delete(t *testing.T) {
 func TestRepository_Query_name(t *testing.T) {
 	t.Skip()
 
-	as := []aggregate.Aggregate{
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("bar", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("baz", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foobar", uuid.New()),
+	foos, _ := xaggregate.Make(3, xaggregate.Name("foo"))
+	bars, _ := xaggregate.Make(3, xaggregate.Name("bar"))
+	bazs, _ := xaggregate.Make(3, xaggregate.Name("baz"))
+	as := append(foos, append(bars, bazs...)...)
+
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
+	for _, a := range as {
+		aevents := xevent.FilterAggregate(events, a)
+		for _, evt := range aevents {
+			a.ApplyEvent(evt)
+		}
+		a.TrackChange(aevents...)
 	}
 
 	s := memstore.New()
@@ -411,9 +418,11 @@ func TestRepository_Query_name(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := []aggregate.Aggregate{as[0], as[2], as[4]}
-	if !reflect.DeepEqual(result, want) {
-		t.Fatalf("query returned the wrong aggregates\n\nwant: %#v\n\ngot: %#v\n\n", want, result)
+	foos = aggregate.Sort(foos, aggregate.SortID, aggregate.SortAsc)
+	result = aggregate.Sort(result, aggregate.SortID, aggregate.SortAsc)
+
+	if !reflect.DeepEqual(result, foos) {
+		t.Fatalf("query returned the wrong aggregates\n\nwant: %#v\n\ngot: %#v\n\n", foos, result)
 	}
 }
 

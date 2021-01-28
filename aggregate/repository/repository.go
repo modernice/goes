@@ -6,19 +6,15 @@ import (
 	"sync"
 
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
 	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
-	stream "github.com/modernice/goes/event/stream"
+	estream "github.com/modernice/goes/event/stream"
 )
 
 type repository struct {
 	store event.Store
-}
-
-type cursor struct {
-	events     chan event.Event
-	aggregates chan aggregate.Aggregate
 }
 
 // New return a Repository for aggregates. The Repository uses the provided
@@ -110,7 +106,7 @@ func (r *repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 		return nil, fmt.Errorf("query events: %w", err)
 	}
 
-	events, err := stream.All(ctx, cur)
+	events, err := estream.All(ctx, cur)
 	if err != nil {
 		return events, fmt.Errorf("stream: %w", err)
 	}
@@ -152,29 +148,13 @@ func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
 func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.Stream, error) {
 	opts := makeQueryOptions(q)
 
-	cur, err := r.store.Query(ctx, equery.New(opts...))
+	es, err := r.store.Query(ctx, equery.New(opts...))
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)
 	}
-	defer cur.Close(ctx)
+	defer es.Close(ctx)
 
-	return newCursor(ctx, cur), nil
-}
-
-func (c *cursor) Next(ctx context.Context) bool {
-	return false
-}
-
-func (c *cursor) Aggregate() aggregate.Aggregate {
-	return nil
-}
-
-func (c *cursor) Err() error {
-	return nil
-}
-
-func (c *cursor) Close(ctx context.Context) error {
-	return nil
+	return stream.FromEvents(es), nil
 }
 
 func buildAggregate(a aggregate.Aggregate, events ...event.Event) error {
@@ -200,8 +180,4 @@ func withNameFilter(opts []equery.Option, q aggregate.Query) []equery.Option {
 		return opts
 	}
 	return append(opts, equery.AggregateName(names...))
-}
-
-func newCursor(ctx context.Context, cur event.Stream) *cursor {
-	return nil
 }
