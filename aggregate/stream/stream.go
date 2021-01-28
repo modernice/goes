@@ -80,16 +80,13 @@ func Sorted(v bool) Option {
 // as its last Event has been received and applied.
 //
 // Grouped is disabled by default and should only be enabled if the correct
-// order of events is guaranteed by the event.Stream. Events are correctly
-// ordered only if they're sequentally grouped by aggregate. Sorting within a
-// group of Events does not matter if IsSorted is disabled (which it is by
-// default). When IsSorted is enabled, Events within a group must be ordered by
-// AggregateVersion.
+// order of events is guaranteed by the underlying event.Stream. Events are
+// correctly ordered only if they're sequentially grouped by aggregate. Sorting
+// within a group of Events does not matter if IsSorted is disabled (which it is
+// by default). When IsSorted is enabled, Events within a group must be ordered
+// by AggregateVersion.
 //
-// What's not important is the order of the Event groups; only that Events for
-// a an instance of an Aggregate come in sequentially.
-//
-// An example for correctly ordered events (when IsSorted is disabled):
+// An example for correctly ordered events (with IsSorted disabled):
 //
 // 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
 // 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
