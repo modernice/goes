@@ -97,7 +97,7 @@ func (r *repository) fetch(ctx context.Context, a aggregate.Aggregate, opts ...e
 	opts = append([]equery.Option{
 		equery.AggregateName(a.AggregateName()),
 		equery.AggregateID(a.AggregateID()),
-		equery.SortBy(event.SortTime, event.SortAsc),
+		equery.SortBy(event.SortAggregateVersion, event.SortAsc),
 	}, opts...)
 
 	events, err := r.queryEvents(ctx, equery.New(opts...))
