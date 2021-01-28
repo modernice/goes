@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/consistency"
+	"github.com/modernice/goes/aggregate/factory"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
 	estream "github.com/modernice/goes/event/stream"
@@ -34,9 +35,9 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 	)
 
 	res, err := drain(str, time.Second)
@@ -65,9 +66,9 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 	)
 
 	res, err := drain(str, time.Second)
@@ -96,9 +97,9 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 	)
 
 	res, err := drain(str, 3*time.Second)
@@ -142,9 +143,9 @@ func TestStream_Next_contextCanceled(t *testing.T) {
 
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -170,9 +171,9 @@ func TestStream_Close(t *testing.T) {
 
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 	)
 
 	if err := str.Close(context.Background()); err != nil {
@@ -203,9 +204,9 @@ func TestStream_closedEventStream(t *testing.T) {
 
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 	)
 
 	if err := es.Close(context.Background()); err != nil {
@@ -234,9 +235,9 @@ func TestStream_inconsistent(t *testing.T) {
 
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 	)
 
 	res, err := stream.All(context.Background(), str)
@@ -271,9 +272,9 @@ func TestIsSorted(t *testing.T) {
 	es := estream.InMemory(events...)
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 		stream.IsSorted(true),
 	)
 
@@ -331,9 +332,9 @@ func TestIsGrouped(t *testing.T) {
 
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 		stream.IsGrouped(true),
 	)
 
@@ -380,9 +381,9 @@ func TestValidateConsistency(t *testing.T) {
 	es := estream.InMemory(events...)
 	str := stream.FromEvents(
 		es,
-		stream.AggregateFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
+		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
 			return am[id]
-		}),
+		})),
 
 		// prevent sorting of events
 		stream.IsSorted(true),
@@ -404,7 +405,7 @@ func TestValidateConsistency(t *testing.T) {
 	}
 }
 
-func TestAggregateFactory_unregistered(t *testing.T) {
+func TestFactory(t *testing.T) {
 	as, _ := xaggregate.Make(1)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
@@ -412,15 +413,15 @@ func TestAggregateFactory_unregistered(t *testing.T) {
 	es := estream.InMemory(events...)
 	defer es.Close(context.Background())
 
-	str := stream.FromEvents(es)
-	defer str.Close(context.Background())
+	f := factory.New()
+	str := stream.FromEvents(es, stream.Factory(f))
 
 	if str.Next(context.Background()) {
 		t.Errorf("str.Next should return %t; got %t", false, true)
 	}
 
-	if err := str.Err(); !errors.Is(err, stream.ErrNoFactory) {
-		t.Errorf("str.Err should return %#v; got %#v", stream.ErrNoFactory, err)
+	if err := str.Err(); !errors.Is(err, factory.ErrUnknownName) {
+		t.Errorf("str.Err should return %#v; got %#v", factory.ErrUnknownName, err)
 	}
 }
 
@@ -451,4 +452,8 @@ func drain(s aggregate.Stream, timeout time.Duration) ([]aggregate.Aggregate, er
 	case r := <-res:
 		return r.as, r.err
 	}
+}
+
+func newFactory(name string, fn func(uuid.UUID) aggregate.Aggregate) aggregate.Factory {
+	return factory.New(factory.For(name, fn))
 }

@@ -19,8 +19,8 @@ type stream struct {
 	isGrouped           bool
 	validateConsistency bool
 
-	events       event.Stream
-	factoryFuncs map[string]func(uuid.UUID) aggregate.Aggregate
+	events  event.Stream
+	factory aggregate.Factory
 
 	acceptCtx  context.Context
 	stopAccept context.CancelFunc
@@ -42,11 +42,14 @@ type stream struct {
 	closed chan struct{}
 }
 
-// AggregateFactory returns an Option that provides the factory function for
-// aggregates with name as their name.
-func AggregateFactory(name string, fn func(uuid.UUID) aggregate.Aggregate) Option {
+// Factory returns an Option that provides the aggregate.Factory that's called
+// to make Aggregates.
+//
+// When no aggregate.Factory is provided with Factory, Aggregates are created
+// with aggregate.New (which returns the base Aggregate).
+func Factory(f aggregate.Factory) Option {
 	return func(s *stream) {
-		s.factoryFuncs[name] = fn
+		s.factory = f
 	}
 }
 
@@ -129,7 +132,6 @@ func FromEvents(es event.Stream, opts ...Option) (as aggregate.Stream) {
 	aes := stream{
 		validateConsistency: true,
 		events:              es,
-		factoryFuncs:        make(map[string]func(uuid.UUID) aggregate.Aggregate),
 		results:             make(chan aggregate.Aggregate),
 		queues:              make(map[string]map[uuid.UUID]chan event.Event),
 		closedQueues:        make(map[chan event.Event]bool),
@@ -362,11 +364,10 @@ func (s *stream) build(a aggregate.Aggregate) error {
 }
 
 func (s *stream) newAggregate(name string, id uuid.UUID) (aggregate.Aggregate, error) {
-	fn, ok := s.factoryFuncs[name]
-	if !ok {
-		return nil, ErrNoFactory
+	if s.factory == nil {
+		return aggregate.New(name, id), nil
 	}
-	return fn(id), nil
+	return s.factory.Make(name, id)
 }
 
 // error sets s.err to err if s.err == nil
