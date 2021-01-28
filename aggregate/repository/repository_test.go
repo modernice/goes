@@ -81,6 +81,7 @@ func TestRepository_Save_rollback(t *testing.T) {
 
 	// it should delete the events
 	for _, evt := range events {
+		mockStore.EXPECT().Find(gomock.Any(), evt.ID()).Return(evt, nil)
 		mockStore.EXPECT().Delete(gomock.Any(), evt).Return(nil)
 	}
 
@@ -130,6 +131,7 @@ func TestRepository_Save_rollbackError(t *testing.T) {
 		if i != 0 {
 			mockDeleteError = errors.New("mock rollback error")
 		}
+		mockStore.EXPECT().Find(gomock.Any(), evt.ID()).Return(evt, nil)
 		mockStore.EXPECT().Delete(gomock.Any(), evt).Return(mockDeleteError)
 	}
 

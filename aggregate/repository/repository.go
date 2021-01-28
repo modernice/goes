@@ -62,10 +62,17 @@ func (r *repository) rollbackSave(ctx context.Context, a aggregate.Aggregate) Sa
 		evt := evt
 		go func() {
 			defer wg.Done()
+			evt, err := r.store.Find(ctx, evt.ID())
+			if err != nil {
+				mux.Lock()
+				defer mux.Unlock()
+				errs[i] = fmt.Errorf("find event %s: %w", evt.ID(), err)
+				return
+			}
 			if err := r.store.Delete(ctx, evt); err != nil {
 				mux.Lock()
+				defer mux.Unlock()
 				errs[i] = fmt.Errorf("delete event %q: %w", evt.ID(), err)
-				mux.Unlock()
 			}
 		}()
 	}
