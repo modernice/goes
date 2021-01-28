@@ -104,10 +104,7 @@ func (r *repository) fetch(ctx context.Context, a aggregate.Aggregate, opts ...e
 	if err != nil {
 		return fmt.Errorf("query events: %w", err)
 	}
-
-	if err := buildAggregate(a, events...); err != nil {
-		return fmt.Errorf("finalize: %w", err)
-	}
+	buildAggregate(a, events...)
 
 	return nil
 }
@@ -171,13 +168,12 @@ func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.St
 	), nil
 }
 
-func buildAggregate(a aggregate.Aggregate, events ...event.Event) error {
+func buildAggregate(a aggregate.Aggregate, events ...event.Event) {
 	for _, evt := range events {
 		a.ApplyEvent(evt)
 	}
 	a.TrackChange(events...)
 	a.FlushChanges()
-	return nil
 }
 
 func makeQueryOptions(q aggregate.Query) []equery.Option {
