@@ -41,7 +41,9 @@ func New(opts ...Option) aggregate.Factory {
 func (f *factory) Make(name string, id uuid.UUID) (aggregate.Aggregate, error) {
 	fn, ok := f.funcs[name]
 	if !ok {
-		return nil, fmt.Errorf("make %s(%s): %w", name, id, ErrUnknownName)
+		if fn, ok = f.funcs[""]; !ok {
+			return nil, fmt.Errorf("make %s(%s): %w", name, id, ErrUnknownName)
+		}
 	}
 	return fn(id), nil
 }
