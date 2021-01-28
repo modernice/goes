@@ -46,26 +46,11 @@ type entry struct {
 	Data             []byte       `bson:"data"`
 }
 
-type cursor struct {
+type stream struct {
 	enc event.Encoder
 	cur *mongo.Cursor
 	evt event.Event
 	err error
-}
-
-// New returns a MongoDB event.Store.
-func New(enc event.Encoder, opts ...Option) *Store {
-	s := Store{enc: enc}
-	for _, opt := range opts {
-		opt(&s)
-	}
-	if strings.TrimSpace(s.dbname) == "" {
-		s.dbname = "event"
-	}
-	if strings.TrimSpace(s.colname) == "" {
-		s.colname = "events"
-	}
-	return &s
 }
 
 // Client returns an Option that specifies the underlying mongo.Client to be
@@ -89,6 +74,21 @@ func Collection(name string) Option {
 	return func(s *Store) {
 		s.colname = name
 	}
+}
+
+// New returns a MongoDB event.Store.
+func New(enc event.Encoder, opts ...Option) *Store {
+	s := Store{enc: enc}
+	for _, opt := range opts {
+		opt(&s)
+	}
+	if strings.TrimSpace(s.dbname) == "" {
+		s.dbname = "event"
+	}
+	if strings.TrimSpace(s.colname) == "" {
+		s.colname = "events"
+	}
+	return &s
 }
 
 // Client returns the underlying mongo.Client. If no mongo.Client is provided
@@ -187,7 +187,7 @@ func (s *Store) Query(ctx context.Context, q event.Query) (event.Stream, error) 
 	if err != nil {
 		return nil, fmt.Errorf("mongo: %w", err)
 	}
-	return &cursor{
+	return &stream{
 		enc: s.enc,
 		cur: cur,
 	}, nil
@@ -301,7 +301,7 @@ func (e entry) event(enc event.Encoder) (event.Event, error) {
 	), nil
 }
 
-func (c *cursor) Next(ctx context.Context) bool {
+func (c *stream) Next(ctx context.Context) bool {
 	if !c.cur.Next(ctx) {
 		c.err = c.cur.Err()
 		return false
@@ -320,15 +320,15 @@ func (c *cursor) Next(ctx context.Context) bool {
 	return true
 }
 
-func (c *cursor) Event() event.Event {
+func (c *stream) Event() event.Event {
 	return c.evt
 }
 
-func (c *cursor) Err() error {
+func (c *stream) Err() error {
 	return c.err
 }
 
-func (c *cursor) Close(ctx context.Context) error {
+func (c *stream) Close(ctx context.Context) error {
 	return c.cur.Close(ctx)
 }
 
