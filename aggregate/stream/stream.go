@@ -58,11 +58,11 @@ func Factory(f aggregate.Factory) Option {
 // Sorted returns an Option that optimizes Aggregate builds by giving the
 // Stream information about the order of incoming Events from the event.Stream.
 //
-// When Sorted is enabled (which it is by default), the Stream sorts the
+// When Sorted is disabled (which it is by default), the Stream sorts the
 // collected Events for a specific Aggregate by the AggregateVersion of the
 // Events before applying them to the Aggregate.
 //
-// Disable this option only if the underlying event.Stream guarantees that
+// Enable this option only if the underlying event.Stream guarantees that
 // incoming Events are sorted by AggregateVersion.
 func Sorted(v bool) Option {
 	return func(s *stream) {
