@@ -7,16 +7,34 @@ import (
 	"github.com/modernice/goes/event"
 )
 
+// MakeOption is a Make option.
+type MakeOption func(*makeConfig)
+
+type makeConfig struct {
+	name string
+}
+
+// Name returns a MakeOption that specifies the AggregateName.
+func Name(name string) MakeOption {
+	return func(cfg *makeConfig) {
+		cfg.name = name
+	}
+}
+
 // Make returns n "foo" aggregates and a function to retrieve the applied events
 // for those aggregates.
-func Make(n int) (
+func Make(n int, opts ...MakeOption) (
 	_ []aggregate.Aggregate,
 	getAppliedEvents func(uuid.UUID) []event.Event,
 ) {
+	var cfg makeConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	as := make([]aggregate.Aggregate, n)
 	gaes := make(map[uuid.UUID]func() []event.Event)
 	for i := range as {
-		a, gae := makeAggregate(uuid.New())
+		a, gae := makeAggregate(cfg.name, uuid.New())
 		as[i] = a
 		gaes[a.AggregateID()] = gae
 	}
@@ -25,12 +43,15 @@ func Make(n int) (
 	}
 }
 
-func makeAggregate(id uuid.UUID) (_ aggregate.Aggregate, getAppliedEvents func() []event.Event) {
+func makeAggregate(name string, id uuid.UUID) (_ aggregate.Aggregate, getAppliedEvents func() []event.Event) {
+	if name == "" {
+		name = "foo"
+	}
 	var applied []event.Event
-	foo := test.NewFoo(id, test.ApplyEventFunc("", func(e event.Event) {
+	a := test.NewAggregate(name, id, test.ApplyEventFunc("", func(e event.Event) {
 		applied = append(applied, e)
 	}))
-	return foo, func() []event.Event {
+	return a, func() []event.Event {
 		events := make([]event.Event, len(applied))
 		copy(events, applied)
 		return events

@@ -40,3 +40,12 @@ func TestMake(t *testing.T) {
 		test.AssertEqualEvents(t, getAppliedEvents(a.AggregateID()), []event.Event{evt})
 	}
 }
+
+func TestName(t *testing.T) {
+	as, _ := xaggregate.Make(3, xaggregate.Name("bar"))
+	for _, a := range as {
+		if a.AggregateName() != "bar" {
+			t.Errorf("aggregate should have name %q; got %q", "bar", a.AggregateName())
+		}
+	}
+}
