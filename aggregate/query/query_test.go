@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
 )
 
@@ -151,6 +153,61 @@ func TestTest(t *testing.T) {
 				if got := Test(tt.query, a); got != want {
 					t.Errorf("Test should return %t; got %t", want, got)
 				}
+			}
+		})
+	}
+}
+
+func TestEventQueryOpts(t *testing.T) {
+	ids := makeUUIDs(3)
+	tests := []struct {
+		name string
+		give Query
+		want event.Query
+	}{
+		{
+			name: "empty",
+			give: New(),
+			want: query.New(),
+		},
+		{
+			name: "Name",
+			give: New(Name("foo", "bar", "baz")),
+			want: query.New(query.AggregateName("foo", "bar", "baz")),
+		},
+		{
+			name: "ID",
+			give: New(ID(ids...)),
+			want: query.New(query.AggregateID(ids...)),
+		},
+		{
+			name: "Version(exact)",
+			give: New(Version(version.Exact(1, 2, 3))),
+			want: query.New(query.AggregateVersion(version.Max(1, 2, 3))),
+		},
+		{
+			name: "Version(range)",
+			give: New(Version(version.InRange(version.Range{10, 70}, version.Range{30, 50}))),
+			want: query.New(query.AggregateVersion(version.Max(70, 50))),
+		},
+		{
+			name: "Version(min)",
+			give: New(Version(version.Min(2, 4, 6))),
+			want: query.New(),
+		},
+		{
+			name: "Version(max)",
+			give: New(Version(version.Max(20, 40, 60))),
+			want: query.New(query.AggregateVersion(version.Max(20, 40, 60))),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := EventQueryOpts(tt.give)
+			got := query.New(opts...)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ToEventQuery returned a wrong Query:\n\nwant: %#v\n\ngot: %#v", tt.want, got)
 			}
 		})
 	}

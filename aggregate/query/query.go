@@ -3,6 +3,7 @@ package query
 import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
 )
 
@@ -86,6 +87,45 @@ func Test(q aggregate.Query, a aggregate.Aggregate) bool {
 	}
 
 	return true
+}
+
+// EventQueryOpts returns query.Options for a given aggregate.Query.
+//
+// In order for the returned Query to return the correct Events, EventQueryOpts
+// needs to rewrite some of the version filters to make sense for an Aggregate-
+// specific event.Query:
+// 	- version.Exact is rewritten to version.Max
+// 		(querying for version 10 of an Aggregate should return Events 1 -> 10)
+// 	- version.Max is passed without modification
+// 	- version.Min is discarded
+// 		(because an Aggregate (normally) cannot start at a version > 1)
+// 	- version.Ranges is rewritten to version.Max
+func EventQueryOpts(q aggregate.Query) []query.Option {
+	var opts []query.Option
+	if names := q.Names(); len(names) > 0 {
+		opts = append(opts, query.AggregateName(names...))
+	}
+	if ids := q.IDs(); len(ids) > 0 {
+		opts = append(opts, query.AggregateID(ids...))
+	}
+	if versions := q.Versions(); versions != nil {
+		var constraints []version.Constraint
+		if exact := versions.Exact(); len(exact) > 0 {
+			constraints = append(constraints, version.Max(exact...))
+		}
+		if ranges := versions.Ranges(); len(ranges) > 0 {
+			max := make([]int, len(ranges))
+			for i, r := range ranges {
+				max[i] = r.End()
+			}
+			constraints = append(constraints, version.Max(max...))
+		}
+		if max := versions.Max(); len(max) > 0 {
+			constraints = append(constraints, version.Max(max...))
+		}
+		opts = append(opts, query.AggregateVersion(constraints...))
+	}
+	return opts
 }
 
 // Names returns the aggregate names to query for.
