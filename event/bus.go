@@ -16,3 +16,4 @@ type Bus interface {
 	// closed by the implementing Bus.
 	Subscribe(ctx context.Context, names ...string) (<-chan Event, error)
 }
+
