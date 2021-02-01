@@ -49,6 +49,15 @@ type Bus interface {
 	Dispatch(context.Context, Command) error
 }
 
+// A Handler handles Commands.
+type Handler interface {
+    // Handle handles a Command.
+    Handle(context.Context, Command) error
+}
+
+// HandlerFunc allows functions to be used as Handlers. 
+type HandlerFunc func(context.Context, Command) error
+
 // Option is a Command option.
 type Option func(*base)
 
