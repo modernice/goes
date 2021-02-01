@@ -95,10 +95,14 @@ has to do the following steps:
 
 From these steps we can extrapolate the following rules:
 
-- A SAGA has an initiating Command (in this case the `PlaceOrder` Command)
-- A SAGA has one or many finalizing Events (in this case `OrderConfirmed` &
+- A SAGA may have an initiating Command (in this case the `PlaceOrder` Command)
+- A SAGA may have one or more finalizing Events (in this case `OrderConfirmed` &
   `OrderCanceled`)
-- 
+
+Additional requirements from the top of my head:
+
+- A SAGA may be manually completed
+- A SAGA may be retryable
 
 ## Design
 
@@ -193,6 +197,15 @@ placeOrder := saga.New(
 
     saga.SucceedsWith("order", orderID, event.OrderConfirmed),
 
+    saga.SucceedsWith(
+        "order",
+        orderID,
+        event.OrderConfirmed,
+        saga.SucceedsIf(func(evt event.Event) bool {
+            return evt.Data().(event.OrderConfirmedDaata).BlaBla == 4
+        }),
+    ),
+
     saga.FailsWhen(
         query.New(
             query.AggregateName("order"),
@@ -222,6 +235,14 @@ placeOrder := saga.New(
         event.StockReserveFailed,
         func(evt event.Event) []saga.Command { ... }),
     ),
+)
+```
+
+### Idea 5
+
+```go
+placeOrder := saga.New(
+    saga.StartsWith(),
 )
 ```
 
