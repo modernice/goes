@@ -1,6 +1,6 @@
 package command
 
-//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus,Handler
+//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus
 
 import (
 	"context"
@@ -47,21 +47,16 @@ type Bus interface {
 	// receive the Command can vary and depends on the underlying Bus
 	// implementation.
 	Dispatch(context.Context, Command) error
+
+	// Handle registers a Command Handler for the given Command names and returns
+	// a channel of Commands.
+	Handle(context.Context, ...string) (<-chan Command, error)
 }
 
-// A Handler handles Commands.
-type Handler interface {
-	// Handle handles a Command.
-	Handle(Context, Command) error
-}
-
-// HandlerFunc allows functions to be used as Handlers.
-type HandlerFunc func(Context, Command) error
-
-// Context is the context for Handlers.
-type Context interface {
-	context.Context
-}
+// // Context is the context for Handlers.
+// type Context interface {
+// context.Context
+// }
 
 // Option is a Command option.
 type Option func(*base)
