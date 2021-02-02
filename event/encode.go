@@ -14,3 +14,11 @@ type Encoder interface {
 	// Decode decodes the Data in r based on the specified Event name.
 	Decode(name string, r io.Reader) (Data, error)
 }
+
+// A Registry is an Encoder that also allows to register new Event types.
+type Registry interface {
+	Encoder
+
+	// Register registers a new Event with the given name and Data.
+	Register(name string, d Data)
+}
