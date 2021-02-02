@@ -248,3 +248,31 @@ func placeOrder(ctx command.Context) error {
 }
 ```
 
+### and use the Command Bus for handling Commands
+
+```
+func main() {
+    var ebus event.Bus
+    var enc command.Encoder
+
+    bus := cmdbus.New(enc, ebus)
+
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    commands, err := bus.Handle(context.TODO(), "foo", "bar", "baz")
+    if err != nil {
+	log.Fatalf("command bus: %w", err)
+    }
+
+    for cmd := range commands {
+	log.Println(fmt.Sprintf("Command ID: %s", cmd.ID()))
+	log.Println(fmt.Sprintf("Command Name: %s", cmd.Name()))
+	// ...
+    }
+
+
+    // stop handling commands
+    cancel()
+}
+```
