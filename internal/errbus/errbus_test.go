@@ -47,6 +47,8 @@ func TestBus_Subscribe_cancelContext(t *testing.T) {
 	errs := bus.Subscribe(ctx)
 	cancel()
 
+	<-time.After(10*time.Millisecond)
+
 	if pubError := bus.Publish(context.Background(), errors.New("foo")); pubError != nil {
 		t.Fatalf("failed to publish error: %v", pubError)
 	}
