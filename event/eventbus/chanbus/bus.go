@@ -92,6 +92,12 @@ func (bus *eventBus) publish(evt event.Event) {
 		go func(sub subscriber) {
 			select {
 			case <-sub.ctx.Done():
+				return
+			default:
+			}
+
+			select {
+			case <-sub.ctx.Done():
 			case sub.events <- evt:
 			}
 		}(sub)
