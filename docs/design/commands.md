@@ -276,3 +276,21 @@ func main() {
     cancel()
 }
 ```
+
+## Command Bus
+
+### How it works
+
+<div style="background: #fff; border-radius: 8px; padding: 1rem;">
+
+![Event-driven Command Bus](../assets/img/command-bus.svg)
+
+</div>
+
+### Example
+
+<div style="background: #fff; border-radius: 8px; padding: 1rem;">
+
+![Event-driven Command Bus example](../assets/img/command-bus-example.svg)
+
+</div>
