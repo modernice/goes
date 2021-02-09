@@ -146,7 +146,7 @@ automatically provides some nice features:
 - the **$$$ value** of the Command Events 
   - [YouTube: Greg Young – Event sourcing](https://www.youtube.com/watch?v=I3uH3iiiDqY)
 
-But of course there are some downsides, too:
+But also some disadvantages:
 
 - it's slower because
   - multiple Events need to be published in order to execute a single Command
