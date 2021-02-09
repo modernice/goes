@@ -277,7 +277,7 @@ func main() {
 }
 ```
 
-## Command Bus
+## Event-driven Command Bus
 
 ### How it works
 
