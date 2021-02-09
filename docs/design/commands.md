@@ -1,296 +1,150 @@
 # Commands
 
-## Calling Commands directly on the Aggregate
+## Introduction
+
+Commands are actions that are performed (mostly) by/against an
+[Aggregate](./aggregates.md). The simplest implementation of a Command for an
+Aggregate would look like this:
 
 ```go
-// order.go
-
 type Order struct {
     aggregate.Aggregate
 
-    ItemID    uuid.UUID
-    Quantity  int
-    Customer  Customer
+    Items []Item
 }
 
-type Customer struct { ... }
-
-func (o *Order) ApplyEvent(event.Event) { ... }
-
-func (o *Order) Place(
-    orderID, itemID uuid.UUID,
-    quantity int,
-    cus Customer,
-) error {
-    if quantity < 1 {
-        return errors.New("illegal quantity")
-    }
-    o.event("order.placed", orderPlacedData{
-        OrderID:  orderID,
-        ItemID:   itemID,
-        Quantity: quantity,
-        Customer: cus,
-    })
-    return nil
-}
-```
-
-```go
-func placeOrder(aggregates aggregate.Repository) error {
-    orderID := uuid.New()
-    itemID := uuid.New()
-    quantity := 3
-    cus := Customer{}
-    order := NewOrder(orderID)
-
-    if err := aggregates.Fetch(context.TODO(), order); err != nil {
-        return fmt.Errorf("fetch order: %w", err)
-    }
-
-    if err := order.Place(orderID, itemID, quantity, cus); err != nil {
-        return fmt.Errorf("place order: %w", err)
-    }
-
-    if err := aggregates.Save(context.TODO(), order); err != nil {
-        return fmt.Errorf("save order: %w", err)
-    }
-
-    return nil
-}
-```
-
-## Dispatch Commands via the Command Bus
-
-### Defining Commands
-
-```go
-// commands.go
-
-const PlaceOrder = "order.place"
-
-type PlaceOrderData struct {
-    ItemID uuid.UUID
+type Item struct {
+    ID       uuid.UUID
     Quantity int
 }
 
-func NewPlaceOrder(orderID, itemID uuid.UUID, quantity int) command.Command {
-    return command.New(PlaceOrder, PlaceOrderData{
-        ItemID:   itemID,
-        Quantity: quantity,
-    }, command.Aggregate("order", orderID))
-}
-```
-
-### and use the Aggregate as the Command Handler
-
-```go
-// order.go
-
-type Order struct {
-    aggregate.Aggregate
-
-    ItemID    uuid.UUID
-    Quantity  int
-    Customer  Customer
+type ShoppingCart struct {
+    Items []Item
 }
 
-type Customer struct { ... }
+type OrderPlacedData struct {
+    Items []Item
+}
 
-func (o *Order) ApplyEvent(evt event.Event) {
-    switch evt.Name() {
-    case "order.place":
-        return o.place(evt)
+func (o *Order) Place(cart ShoppingCart) error {
+    if cart.Empty() {
+        return errors.New("empty cart")
     }
-}
-
-func (o *Order) HandleCommand(cmd command.Command) error {
-    switch cmd.Name() {
-    case "order.place":
-        return o.handlePlace(cmd)
-    default:
-        return nil
-    }
-}
-
-func (o *Order) handlePlace(cmd command.Command) error {
-    data := cmd.Data().(PlaceOrderData)
-
-    if data.quantity < 1 {
-        return errors.New("illegal quantity")
-    }
-
-    o.event("order.placed", orderPlacedData{
-        OrderID:  orderID,
-        ItemID:   itemID,
-        Quantity: quantity,
-        Customer: cus,
+    o.event("order.placed", OrderPlacedData{
+        Items: cart.Items,
     })
-
     return nil
 }
 
 func (o *Order) place(evt event.Event) {
     data := evt.Data().(OrderPlacedData)
-    o.ItemID = data.ItemID
-    o.Quantity = data.Quantity
+    o.Items = data.Items
+}
+
+func (o *Order) ApplyEvent(evt event.Event) {
+    switch evt.Name() {
+    case "order.placed":
+        o.place(evt)
+    }
 }
 ```
+
+With the above approach we can execute a the `PlaceOrder` Command directly on
+the Aggregate itself (but we must not forget to persist the changes to the
+Aggregate):
 
 ```go
-// main.go
-
-func placeOrder(aggregates aggregate.Repository, bus command.Bus) error {
-    orderID := uuid.New()
-    itemID := uuid.New()
-    quantity := 3
-    cus := Customer{}
-
-    if err := bus.Dispatch(
-        context.TODO(),
-        NewPlaceOrder(orderID, itemID, quantity),
-      ); err != nil {
-        return fmt.Errorf("dispatch command: %w", err)
-    }
-
-    return nil
-}
-```
-
-### and use a standalone Command Handler (idea #1)
-
-```go
-// order.go
-
-type Order struct { ... }
-
-func (o *Order) Place(
-    itemID uuid.UUID,
-    quantity int,
-) error {
-    if quantity < 1 {
-        return fmt.Errorf("illegal quantity: %d", quantity)
-    }
-    o.event("order.placed", orderPlacedData{
-        ItemID:   itemID,
-        Quantity: quantity,
-    }
-    return nil
-}
-
-type commandHandler struct {
-    aggregates aggregate.Repository
-}
-
-func (ch commandHandler) HandleCommand(
-    ctx context.Contex,
-    cmd command.Command,
-) error {
-    switch cmd.Name() {
-    case "order.place":
-        return ch.placeOrder(ctx, cmd)
-    default:
-        return nil
-    }
-}
-
-func (ch commandHandler) placeOrder(ctx context.Context, cmd command.Command) error {
-    ctx := cmd.Context()
-    a, err := cmd.Aggregate(func(id uuid.UUID) aggregate.Aggregate {
-        return NewOrder(id)
-    })
-    order := a.(*Order)
-    if err := ch.aggregates.Fetch(ctx, order); err != nil {
-        return fmt.Errorf("fetch order: %w", err)
-    }
-
-    data := cmd.Data().(orderPlacedData)
-
-    if err := order.Place(data.ItemID, data.Quantity); err != nil {
-        return fmt.Errorf("place order: %w", err)
-    }
-
-    if err = ch.aggregates.Save(ctx, order); err != nil {
-        return fmt.Errorf("save order: %w", err)
-    }
-
-    return nil
-}
-```
-
-### and use a standalone Command Handler (idea #2)
-
-This Command Handler does not need to save the Aggregate back into the Event
-Store. Persistence is handled by the Command Bus which calls the Handler.
-
-```go
-func CommandHandler() command.HandlerFunc {
-    return func(ctx command.Context) error {
-        cmd := ctx.Command()
-        switch cmd.Name() {
-        case "order.placed":
-            return placeOrder(ctx)
-        default:
-            return nil
-        }
-    }
-}
-
-func placeOrder(ctx command.Context) error {
-    cmd := ctx.Command()
-    data := cmd.Data()
-    order := ctx.Aggregate().(*Order)
-
-    if err := order.Place(data.ItemID, data.Quantity); err != nil {
-        return fmt.Errorf("place order: %w", err)
-    }
-
-    return nil
-}
-```
-
-### and use the Command Bus for handling Commands
-
-```
 func main() {
-    var ebus event.Bus
-    var enc command.Encoder
+    // repo & cart are initialized
+    var repo aggregate.Repository
+    var cart ShoppingCart
 
-    bus := cmdbus.New(enc, ebus)
-
-    ctx, cancel := context.WithCancel(context.Background())
-    defer cancel()
-
-    commands, err := bus.Handle(context.TODO(), "foo", "bar", "baz")
-    if err != nil {
-	log.Fatalf("command bus: %w", err)
+    var o Order
+    if err := repo.Fetch(context.TODO(), &o); err != nil {
+        log.Fatalf("fetch order: %w", err)
     }
 
-    for cmd := range commands {
-	log.Println(fmt.Sprintf("Command ID: %s", cmd.ID()))
-	log.Println(fmt.Sprintf("Command Name: %s", cmd.Name()))
-	// ...
+    if err := o.Place(cart); err != nil {
+        log.Fatal(fmt.Errorf("place order: %w", err))
     }
 
-
-    // stop handling commands
-    cancel()
+    if err := repo.Save(context.TODO(), &o); err != nil {
+        log.Fatal(fmt.Errorf("save order: %w", err))
+    }
 }
 ```
+
+## Command Bus
+
+Imagine the following service structure where the Frontend application wants to
+execute a Command through an API Gateway service:
+
+<div style="background: #fff; border-radius: 8px; padding: 1rem;">
+
+![Dispatch Command without Bus](../assets/img/dispatch-command-without-bus.svg)
+</div>
+
+In order to execute the `PlaceOrder` Command, the `API Gateway` needs to make
+RPC calls directly to the `OrderService` and the OrderService then fetches the
+`Order` from the `Aggregate Repository`, calls the Command on the Order
+Aggregate and then saves the Aggregate back to the Repository. These are
+redundant steps that must be implemented by every single Command Handler.
+
+While it's perfectly fine to execute/handle Commands using this approach, a
+dedicated `Command Bus` can provide and unify some key features like
+
+- middlewares
+- retries
+- reporting/logging
+- automated fetching & saving
+
+and possibly many more.
+
+## Command Bus as a Service
+
+There are multiple ways to implement a Command Bus. One way is to add a
+separate (micro)service which acts as the Command Bus. The other services then
+dispatch Commands using an RPC client which connects to the Command Bus service.
+
+While the above approach might be the most robust, it also has some
+disadvantages:
+
+- at least 1 extra service that must be setup/orchestrated
+- "single" point of failure (if the Command Bus service crashes)
+- (maybe) hard to implement
+- logging must be implemented separately
 
 ## Event-driven Command Bus
 
-### How it works
+Another communication approach between the Command Buses is the already
+existing [Event Bus](./events.md#event-bus). Instead of using RPC calls the
+Command Buses can publish Events to exchange messages.
+
+This has some advantages over a separate Command Bus service:
+
+- 100% distributed – no single point of failure
+- simpler to implement
+- simpler to setup
+- builds on existing features
+- the **$ value $** of the Command Events
+  - [YouTube: Greg Young – Event sourcing](https://www.youtube.com/watch?v=I3uH3iiiDqY)
+
+But of course there are some downsides, too:
+
+- it's slower because
+  - multiple Events need to be published in order to execute a single Command
+  - of the asynchronous nature of the Event system
+- more network throughput & higher CPU because
+  - of the Event system (every Command Bus must filter out its received Events)
+- harder to debug
+
+### Detailed Design
+
+- `User`: The caller who wants to dispatch a Command (may be a real-world user)
+- `PubCommandBus`: The Command Bus through which the Command is dispatched
+- `SubCommandBusN`: Two replicas of the same Command Bus (e.g. container replicas)
 
 <div style="background: #fff; border-radius: 8px; padding: 1rem;">
 
 ![Event-driven Command Bus](../assets/img/command-bus.svg)
-
-</div>
-
-### Example
-
-<div style="background: #fff; border-radius: 8px; padding: 1rem;">
-
-![Event-driven Command Bus example](../assets/img/command-bus-example.svg)
-
 </div>

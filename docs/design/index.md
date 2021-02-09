@@ -5,7 +5,7 @@
 This project aims to provide a progressively adaptable CQRS & Event Sourcing
 framework for the Go language.
 
-- Last updated: 2021/02/08
+- Last updated: 2021/02/09
 - Status: Active
 - Stakeholders:
   - [@bounoable](https://github.com/bounoable)
