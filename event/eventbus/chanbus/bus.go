@@ -15,8 +15,11 @@ type eventBus struct {
 }
 
 type subscriber struct {
+	*sync.RWMutex
+
 	ctx    context.Context
 	events chan event.Event
+	done   chan struct{}
 }
 
 // New returns a Bus that communicates over channels.
@@ -57,8 +60,10 @@ func (bus *eventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 
 	events := make(chan event.Event, 1)
 	sub := subscriber{
-		ctx:    ctx,
-		events: events,
+		RWMutex: &sync.RWMutex{},
+		ctx:     ctx,
+		events:  events,
+		done:    make(chan struct{}),
 	}
 
 	bus.mux.Lock()
@@ -72,9 +77,8 @@ func (bus *eventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 
 	// unsubscribe when ctx canceled
 	go func() {
-		defer close(events)
+		defer bus.unsubscribe(sub, names...)
 		<-ctx.Done()
-		bus.unsubscribe(sub, names...)
 	}()
 
 	return events, nil
@@ -91,13 +95,14 @@ func (bus *eventBus) publish(evt event.Event) {
 	for _, sub := range subs {
 		go func(sub subscriber) {
 			select {
-			case <-sub.ctx.Done():
+			case <-sub.done:
 				return
 			default:
 			}
-
+			sub.RLock()
+			defer sub.RUnlock()
 			select {
-			case <-sub.ctx.Done():
+			case <-sub.done:
 			case sub.events <- evt:
 			}
 		}(sub)
@@ -115,6 +120,13 @@ func (bus *eventBus) subscribers(name string) []subscriber {
 }
 
 func (bus *eventBus) unsubscribe(sub subscriber, names ...string) {
+	defer func() {
+		sub.Lock()
+		defer sub.Unlock()
+		close(sub.done)
+		close(sub.events)
+	}()
+
 	bus.mux.Lock()
 	defer bus.mux.Unlock()
 	for _, name := range names {
