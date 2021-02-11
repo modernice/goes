@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/command/cmdbus/dispatch"
 )
 
 // A Command is a (domain) command that can be dispatched through a Bus.
@@ -46,17 +47,24 @@ type Bus interface {
 	// Dispatch sends the Command to the appropriate Handlers. Which Handlers
 	// receive the Command can vary and depends on the underlying Bus
 	// implementation.
-	Dispatch(context.Context, Command) error
+	Dispatch(context.Context, Command, ...dispatch.Option) error
 
-	// Handle registers a Command Handler for the given Command names and returns
-	// a channel of Commands.
-	Handle(context.Context, ...string) (<-chan Command, error)
+	// Handle returns a channel of Contexts. When a Command whose name is in
+	// names is dispatched, that Command is received from the Context channel.
+	// Implementations of Bus must ensure that a Command will only be received
+	// by a single channel/handler.
+	Handle(ctx context.Context, names ...string) (<-chan Context, error)
 }
 
-// // Context is the context for Handlers.
-// type Context interface {
-// context.Context
-// }
+// Context is the context for handling Commands.
+type Context interface {
+	// Command returns the actual Command.
+	Command() Command
+
+	// Done must be called after a Command is executed with the error that
+	// happened during the execution (if any).
+	Done(context.Context, error) error
+}
 
 // Option is a Command option.
 type Option func(*base)

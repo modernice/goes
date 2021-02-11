@@ -29,8 +29,8 @@ type ShoppingCart struct {
     Items []Item
 }
 
-// OrderPlacedData is the Event for placing an order.
-type OrderPlacedData struct {
+// OrderPlacedBody is the Event body for a placed order.
+type OrderPlacedBody struct {
     Items []Item
 }
 
@@ -40,7 +40,7 @@ func (o *Order) Place(cart ShoppingCart) error {
         return errors.New("empty cart")
     }
     // raise the "order.placed" event
-    o.event("order.placed", OrderPlacedData{
+    o.event("order.placed", OrderPlacedBody{
         Items: cart.Items,
     })
     return nil
@@ -48,7 +48,7 @@ func (o *Order) Place(cart ShoppingCart) error {
 
 // apply the "order.placed" event
 func (o *Order) place(evt event.Event) {
-    data := evt.Data().(OrderPlacedData)
+    data := evt.Data().(OrderPlacedBody)
     o.Items = data.Items
 }
 
@@ -121,10 +121,19 @@ and possibly many more.
 
 A Command Bus can be implemented in many ways. The first that comes to my mind
 is to create separate service that must be run together with the rest of the
-application services (e.g. as a service in a Docker Stack).
+application services (e.g. as a service in a Docker Stack):
+
+<div style="background: #fff; border-radius: 8px; padding: 1rem;">
+
+![Command Bus Service](../assets/img/command-bus-service.svg)
+</div>
 
 While this approach might be the most robust, it has some disadvantages:
 
+- hard to implement
+  - Command Service has to manage connections to the buses and handle
+    disconnects etc. gracefully
+  - must recover from crashes
 - at least 1 extra service that must be setup/orchestrated
   - at least 1 per host (!) server to be reliable
 - "single" point of failure (if the Command Bus service crashes)
@@ -135,28 +144,9 @@ While this approach might be the most robust, it has some disadvantages:
 
 Another way to implement the Command Bus is using Events with the already
 existing [Event Bus](./events.md#event-bus). Instead of using RPC calls to an
-explicit server, services communicate Commands through different Events. This
-automatically provides some nice features:
+explicit server, services communicate Commands through different Events:
 
-- automatic "logging" of Commands through the Event Bus
-- 100% distributed (no "master" Command Bus service)
-- simpler to implement
-- simpler to setup
-- builds on existing features
-- the **$$$ value** of the Command Events 
-  - [YouTube: Greg Young – Event sourcing](https://www.youtube.com/watch?v=I3uH3iiiDqY)
-
-But also some disadvantages:
-
-- it's slower because
-  - multiple Events need to be published in order to execute a single Command
-  - of the asynchronous nature of the Event system
-- more network throughput & higher CPU because
-  - of the Event system (every Command Bus must filter out its received Events)
-- harder to debug
-
-#### Design
-
+**Components:**
 - `User`: The caller who wants to dispatch a Command (may be a real-world user)
 - `PubCommandBus`: The Command Bus through which the Command is dispatched
 - `SubCommandBusN`: Two replicas of the same Command Bus (e.g. container replicas)
@@ -165,3 +155,24 @@ But also some disadvantages:
 
 ![Event-driven Command Bus](../assets/img/command-bus.svg)
 </div>
+
+This automatically provides some nice features:
+
+- automatic "logging" of Commands through the Event Bus
+- 100% distributed (no "master" Command Bus service)
+- simpler to implement
+- simpler to setup because it uses the event setup
+- builds on existing features
+
+But also some disadvantages:
+
+- it's slower because
+  - multiple Events need to be published in order to execute a single Command
+  - of the asynchronous nature of the Event system
+- maybe less reliable because it's asynchronous (?)
+- more network throughput & higher CPU usage because
+  - every Command Bus receives every Command Event, regardless of Command type
+    (this could increase the pressure on **all** Command Buses noticeably
+    depending on the amount of concurrently running Command Buses and amount of
+    dispatches happening in the application.
+- harder to debug

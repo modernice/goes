@@ -9,6 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
 	command "github.com/modernice/goes/command"
+	dispatch "github.com/modernice/goes/command/cmdbus/dispatch"
 	io "io"
 	reflect "reflect"
 )
@@ -182,28 +183,33 @@ func (m *MockBus) EXPECT() *MockBusMockRecorder {
 }
 
 // Dispatch mocks base method
-func (m *MockBus) Dispatch(arg0 context.Context, arg1 command.Command) error {
+func (m *MockBus) Dispatch(arg0 context.Context, arg1 command.Command, arg2 ...dispatch.Option) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Dispatch", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Dispatch", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Dispatch indicates an expected call of Dispatch
-func (mr *MockBusMockRecorder) Dispatch(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockBusMockRecorder) Dispatch(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dispatch", reflect.TypeOf((*MockBus)(nil).Dispatch), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dispatch", reflect.TypeOf((*MockBus)(nil).Dispatch), varargs...)
 }
 
 // Handle mocks base method
-func (m *MockBus) Handle(arg0 context.Context, arg1 ...string) (<-chan command.Command, error) {
+func (m *MockBus) Handle(arg0 context.Context, arg1 ...string) (<-chan command.Context, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Handle", varargs...)
-	ret0, _ := ret[0].(<-chan command.Command)
+	ret0, _ := ret[0].(<-chan command.Context)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
