@@ -281,7 +281,7 @@ func TestBus_Handle_decodeError(t *testing.T) {
 	enc := mock_command.NewMockEncoder(ctrl)
 
 	ebus := chanbus.New()
-	bus := cmdbus.New(enc, ebus)
+	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(100*time.Millisecond))
 
 	decodeError := errors.New("decode error")
 	enc.EXPECT().
@@ -325,42 +325,38 @@ func TestBus_Handle_exactlyOneHandler(t *testing.T) {
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(0))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	subCtx, cancelSub := context.WithCancel(context.Background())
 
-	commands1, err := bus.Handle(ctx, "foo")
+	commands, err := multiSubscribe(subCtx, bus, 3, "foo")
 	if err != nil {
-		t.Fatalf("failed to register handler: %v", err)
-	}
-
-	commands2, err := bus.Handle(ctx, "foo")
-	if err != nil {
-		t.Fatalf("failed to register handler: %v", err)
-	}
-
-	cmd := command.New(
-		"foo",
-		mockPayload{A: true, B: "bar"},
-	)
-	if err := bus.Dispatch(context.Background(), cmd); err != nil {
-		t.Fatalf("failed to dispatch command: %v", err)
+		t.Fatalf("mutli subscribe (%d): %v", 3, err)
 	}
 
 	var handleCount int64
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go countHandle(&wg, &handleCount, commands1)
-	go countHandle(&wg, &handleCount, commands2)
+	handleDone := make(chan struct{})
 	go func() {
-		<-time.After(500 * time.Millisecond)
-		cancel()
+		defer close(handleDone)
+		for range commands {
+			atomic.AddInt64(&handleCount, 1)
+		}
 	}()
-	wg.Wait()
+
+	cmd := command.New("foo", mockPayload{})
+	if err := bus.Dispatch(context.Background(), cmd); err != nil {
+		t.Fatalf("failed to dispatch %q command: %v", cmd.Name(), err)
+	}
+
+	<-time.After(100 * time.Millisecond)
+	cancelSub()
+
+	select {
+	case <-time.After(time.Second):
+		t.Fatalf("didn't receive from handleDone channel after %s", time.Second)
+	case <-handleDone:
+	}
 
 	if handleCount != 1 {
-		t.Fatalf(
-			"exactly 1 handler should receive the command, but %d received it",
-			handleCount,
-		)
+		t.Fatalf("exactly 1 handler should have received the command; got %d", handleCount)
 	}
 }
 
@@ -375,41 +371,29 @@ func TestBus_Dispatch_synchronous(t *testing.T) {
 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
 	}
 
-	cmd := command.New("foo", mockPayload{})
-	errc := make(chan error, 1)
+	errs := make(chan error, 2)
 	go func() {
-		if err := bus.Dispatch(context.Background(), cmd, dispatch.Synchronous()); err != nil {
-			errc <- fmt.Errorf("failed to dispatch %q command: %v", "foo", err)
-			return
+		for cmd := range commands {
+			if err := cmd.Done(context.Background()); err != nil {
+				errs <- err
+			}
 		}
-		close(errc)
 	}()
 
-	var cmdCtx command.Context
-	select {
-	case <-time.After(500 * time.Millisecond):
-		t.Fatalf("didn't receive command after %s", 500*time.Millisecond)
-	case err := <-errc:
-		if err != nil {
-			t.Fatal(err)
+	cmd := command.New("foo", mockPayload{})
+	dispatched := make(chan struct{})
+	go func() {
+		if err := bus.Dispatch(context.Background(), cmd, dispatch.Synchronous()); err != nil {
+			errs <- fmt.Errorf("failed to dispatch %q command: %v", cmd.Name(), err)
+			return
 		}
-		t.Fatalf("bus.Dispatch should not have returned yet")
-	case cmdCtx = <-commands:
-	}
+		close(dispatched)
+	}()
 
-	if err := cmdCtx.Done(context.Background(), nil); err != nil {
-		t.Fatalf("cmdCtx.Done() failed: %v", err)
-	}
-
-	var dispatchError error
 	select {
-	case <-time.After(200 * time.Millisecond):
-		t.Fatalf("didn't receive error after %s", 200*time.Millisecond)
-	case dispatchError = <-errc:
-	}
-
-	if dispatchError != nil {
-		t.Fatalf("dispatchError should be <nil>; got %v", dispatchError)
+	case err := <-errs:
+		t.Fatal(err)
+	case <-dispatched:
 	}
 }
 
@@ -485,7 +469,7 @@ func TestDrainTimeout(t *testing.T) {
 	}
 }
 
-func TestRegister(t *testing.T) {
+func TestRegisterEvents(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -499,9 +483,28 @@ func TestRegister(t *testing.T) {
 	cmdbus.RegisterEvents(reg)
 }
 
-func countHandle(wg *sync.WaitGroup, count *int64, commands <-chan command.Context) {
-	defer wg.Done()
-	for range commands {
-		atomic.AddInt64(count, 1)
+func multiSubscribe(ctx context.Context, bus command.Bus, count int, names ...string) (<-chan command.Context, error) {
+	commands := make(chan command.Context)
+	var wg sync.WaitGroup
+	wg.Add(count)
+	for i := 0; i < count; i++ {
+		cmds, err := bus.Handle(ctx, names...)
+		if err != nil {
+			return nil, fmt.Errorf("subscribe to %q events: %w", names, err)
+		}
+		go func() {
+			defer wg.Done()
+			for cmd := range cmds {
+				select {
+				case <-ctx.Done():
+				case commands <- cmd:
+				}
+			}
+		}()
 	}
+	go func() {
+		wg.Wait()
+		close(commands)
+	}()
+	return commands, nil
 }

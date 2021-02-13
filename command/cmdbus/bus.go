@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
+	"github.com/modernice/goes/command/done"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/errbus"
 	"github.com/modernice/goes/internal/xcommand/cmdctx"
@@ -537,20 +538,15 @@ func (b *Bus) acceptCommands(
 	}
 }
 
-func (b *Bus) doneFunc(cmd pendingCommand) func(context.Context, error) error {
-	return func(ctx context.Context, err error) error {
-		return b.markDone(ctx, cmd, err)
+func (b *Bus) doneFunc(cmd pendingCommand) func(context.Context, ...done.Option) error {
+	return func(ctx context.Context, opts ...done.Option) error {
+		return b.markDone(ctx, cmd, opts...)
 	}
 }
 
-func (b *Bus) markDone(ctx context.Context, cmd pendingCommand, err error) error {
-	var msg string
-	if err != nil {
-		msg = err.Error()
-	}
+func (b *Bus) markDone(ctx context.Context, cmd pendingCommand, opts ...done.Option) error {
 	evt := event.New(CommandExecuted, CommandExecutedData{
-		ID:    cmd.Cmd.ID(),
-		Error: msg,
+		ID: cmd.Cmd.ID(),
 	})
 	if err := b.bus.Publish(ctx, evt); err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
