@@ -61,9 +61,10 @@ type Context interface {
 	// Command returns the actual Command.
 	Command() Command
 
-	// Done must be called after a Command is executed with the error that
-	// happened during the execution (if any).
-	Done(context.Context, error) error
+	// Done should be called after the execution of the Command to report the
+	// execution result. Use Options to add information about the execution to
+	// the report.
+	Done(context.Context) error
 }
 
 // Option is a Command option.
