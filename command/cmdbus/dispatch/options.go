@@ -1,10 +1,16 @@
 package dispatch
 
+import "github.com/modernice/goes/command/cmdbus/report"
+
 // Config is the configuration for dispatching a Command.
 type Config struct {
 	// A synchronous dispatch waits for the execution of the Command to finish
 	// and returns the execution error if there was any.
 	Synchronous bool
+
+	// If Reporter is a non-nil pointer to a cmdbus.Reporter and Synchronous is
+	// true, the Bus will report the execution result of a Command to Reporter.
+	Reporter report.Reporter
 }
 
 // Option is a dispatch option.
@@ -25,5 +31,14 @@ func Configure(opts ...Option) Config {
 func Synchronous() Option {
 	return func(cfg *Config) {
 		cfg.Synchronous = true
+	}
+}
+
+// Report returns an Option that makes the Command Bus report the executon
+// result of a Command to the Reporter r. Report does nothing if the Synchronous
+// Option is not used.
+func Report(r report.Reporter) Option {
+	return func(cfg *Config) {
+		cfg.Reporter = r
 	}
 }
