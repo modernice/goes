@@ -176,3 +176,43 @@ But also some disadvantages:
     depending on the amount of concurrently running Command Buses and amount of
     dispatches happening in the application.
 - harder to debug
+
+#### Dispatch synchronously
+
+```go
+// dispatch
+
+var bus command.Bus
+
+err := bus.Dispatch(
+    context.TODO(),
+    command.New("foo", payload{}),
+    dispatch.Synchronous(),
+)
+
+if execError, ok := cmdbus.ExecError(err); ok {
+    log.Fatal(execError)
+    log.Fatal(fmt.Errorf("Command: %#v", execError.Cmd))
+    log.Fatal(fmt.Errorf("Execution error: %v", execError.Error))
+}
+
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+```go
+// handle
+
+var bus command.Bus
+
+commands, err := bus.Handle(context.TODO(), "foo")
+// handle err
+
+for ctx := range commands {
+    err := execute(ctx.Command)
+    if err := ctx.Done(err); err != nil {
+        log.Fatal(fmt.Errorf("mark command as done: %w", err))
+    }
+}
+```
