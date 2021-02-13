@@ -46,20 +46,10 @@ type Bus struct {
 // Option is a Command Bus option.
 type Option func(*Bus)
 
-// A Command is returned by a Bus and adds a Done method to a Command.
-type Command interface {
-	command.Command
-
-	// Done marks the Command as "executed". The provided error should be the
-	// execution error or nil if the execution succeeded. Done returns an error
-	// if it fails to publish the CommandExecuted Event.
-	Done(error) error
-}
-
 type pendingCommand struct {
 	Cmd       command.Command
-	HandlerID uuid.UUID
 	Config    dispatch.Config
+	HandlerID uuid.UUID
 }
 
 // AssignTimeout returns an Option that configures the timeout when assigning a
@@ -163,7 +153,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 	}
 
 	// if the dispatch is synchronous, retreive the execution error
-	var resultc <-chan string
+	var resultc <-chan error
 	if cfg.Synchronous {
 		if resultc, err = b.awaitResult(ctx, cmd.ID()); err != nil {
 			return fmt.Errorf("failed to await result: %w", err)
@@ -187,11 +177,14 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg, ok := <-resultc:
-			if !ok || msg == "" {
+		case err, ok := <-resultc:
+			if !ok || err == nil {
 				return nil
 			}
-			return fmt.Errorf("execute command: %v", msg)
+			return &ExecutionError{
+				Cmd: cmd,
+				Err: err,
+			}
 		}
 	}
 
@@ -273,7 +266,7 @@ func (b *Bus) assignHandlerTo(ctx context.Context, cmdID, handlerID uuid.UUID) e
 	return nil
 }
 
-func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan string, error) {
+func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan error, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	events, err := b.bus.Subscribe(ctx, CommandExecuted)
 	if err != nil {
@@ -281,10 +274,10 @@ func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan string, 
 		return nil, fmt.Errorf("subscribe to %q events: %w", CommandExecuted, err)
 	}
 
-	errc := make(chan string)
+	result := make(chan error)
 	go func() {
 		defer cancel()
-		defer close(errc)
+		defer close(result)
 		for {
 			select {
 			case <-ctx.Done():
@@ -297,17 +290,22 @@ func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan string, 
 				if data.ID != cmdID {
 					continue
 				}
+
+				var err error
+				if data.Error != "" {
+					err = errors.New(data.Error)
+				}
 				select {
 				case <-ctx.Done():
 					return
-				case errc <- data.Error:
+				case result <- err:
 					return
 				}
 			}
 		}
 	}()
 
-	return errc, nil
+	return result, nil
 }
 
 // Handle returns a channel of Command Contexts. That channel is registered as
@@ -545,8 +543,14 @@ func (b *Bus) doneFunc(cmd pendingCommand) func(context.Context, ...done.Option)
 }
 
 func (b *Bus) markDone(ctx context.Context, cmd pendingCommand, opts ...done.Option) error {
+	cfg := done.Configure(opts...)
+	var msg string
+	if cfg.Err != nil {
+		msg = cfg.Err.Error()
+	}
 	evt := event.New(CommandExecuted, CommandExecutedData{
-		ID: cmd.Cmd.ID(),
+		ID:    cmd.Cmd.ID(),
+		Error: msg,
 	})
 	if err := b.bus.Publish(ctx, evt); err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)

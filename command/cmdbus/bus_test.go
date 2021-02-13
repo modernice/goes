@@ -17,6 +17,7 @@ import (
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
+	"github.com/modernice/goes/command/done"
 	"github.com/modernice/goes/command/encoding"
 	mock_command "github.com/modernice/goes/command/mocks"
 	"github.com/modernice/goes/event"
@@ -394,6 +395,53 @@ func TestBus_Dispatch_synchronous(t *testing.T) {
 	case err := <-errs:
 		t.Fatal(err)
 	case <-dispatched:
+	}
+}
+
+func TestBus_Dispatch_synchronous_withError(t *testing.T) {
+	enc := encoding.NewGobEncoder()
+	enc.Register("foo", mockPayload{})
+	ebus := chanbus.New()
+	bus := cmdbus.New(enc, ebus)
+
+	commands, err := bus.Handle(context.Background(), "foo")
+	if err != nil {
+		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
+	}
+
+	errs := make(chan error, 2)
+	mockError := errors.New("mock error")
+	go func() {
+		for cmd := range commands {
+			if err := cmd.Done(context.Background(), done.WithError(mockError)); err != nil {
+				errs <- err
+			}
+		}
+	}()
+
+	cmd := command.New("foo", mockPayload{})
+	dispatchErrc := make(chan error)
+	go func() { dispatchErrc <- bus.Dispatch(context.Background(), cmd, dispatch.Synchronous()) }()
+
+	var dispatchError error
+	select {
+	case err := <-errs:
+		t.Fatal(err)
+	case err := <-dispatchErrc:
+		dispatchError = err
+	}
+
+	execError, ok := cmdbus.ExecError(dispatchError)
+	if !ok {
+		t.Fatalf("bus.Dispatch() should return an error of type %T; got %T", execError, dispatchError)
+	}
+
+	if !reflect.DeepEqual(execError.Cmd, cmd) {
+		t.Fatalf("execError.Cmd should be %v; got %v", cmd, execError.Cmd)
+	}
+
+	if execError.Err.Error() != mockError.Error() {
+		t.Fatalf("execError.Err.Error() should return %q; got %q", mockError.Error(), execError.Err.Error())
 	}
 }
 
