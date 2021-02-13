@@ -2,7 +2,6 @@ package cmdbus
 
 import (
 	"github.com/google/uuid"
-	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/event"
 )
 
@@ -44,9 +43,6 @@ type CommandDispatchedData struct {
 
 	// Payload is the encoded domain-specific Command Payload.
 	Payload []byte
-
-	// Config is the dispatch configuration.
-	Config dispatch.Config
 }
 
 // CommandRequestedData is the Event Data for the CommandRequested Event.

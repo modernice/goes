@@ -48,7 +48,6 @@ type Option func(*Bus)
 
 type pendingCommand struct {
 	Cmd       command.Command
-	Config    dispatch.Config
 	HandlerID uuid.UUID
 }
 
@@ -405,10 +404,7 @@ func (b *Bus) handleDispatchedEvent(
 
 	select {
 	case <-ctx.Done():
-	case request <- pendingCommand{
-		Cmd:    cmd,
-		Config: data.Config,
-	}:
+	case request <- pendingCommand{Cmd: cmd}:
 	}
 }
 

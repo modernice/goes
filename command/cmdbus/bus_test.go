@@ -104,10 +104,6 @@ func TestBus_Dispatch(t *testing.T) {
 			)
 		}
 
-		if data.Config != dispatch.Configure() {
-			t.Errorf("evt.Data().Config should be %v; got %v", dispatch.Configure(), data.Config)
-		}
-
 		pl, err := enc.Decode(data.Name, bytes.NewReader(data.Payload))
 		if err != nil {
 			t.Fatalf("failed to decode command payload: %v", err)
@@ -444,6 +440,43 @@ func TestBus_Dispatch_synchronous_withError(t *testing.T) {
 		t.Fatalf("execError.Err.Error() should return %q; got %q", mockError.Error(), execError.Err.Error())
 	}
 }
+
+// func TestBus_Dispatch_synchronous_report(t *testing.T) {
+// 	enc := encoding.NewGobEncoder()
+// 	enc.Register("foo", mockPayload{})
+// 	ebus := chanbus.New()
+// 	bus := cmdbus.New(enc, ebus)
+
+// 	commands, err := bus.Handle(context.Background(), "foo")
+// 	if err != nil {
+// 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
+// 	}
+
+// 	errs := make(chan error)
+// 	go func() {
+// 		for cmd := range commands {
+// 			d := time.Duration(rand.Intn(1000)) * time.Millisecond
+// 			if err := cmd.Done(context.Background(), done.WithRuntime(d)); err != nil {
+// 				errs <- fmt.Errorf("mark as done: %w", err)
+// 			}
+// 		}
+// 	}()
+
+// 	cmd := command.New("foo", mockPayload{})
+// 	dispatchErrc := make(chan error)
+// 	go func() {
+// 		dispatchErrc <- bus.Dispatch(context.Background(), cmd)
+// 	}()
+
+// 	var dispatchError error
+// 	select {
+// 	case err := <-errs:
+// 		t.Fatal(err)
+// 	case err := <-dispatchErrc:
+// 		dispatchError = err
+// 	}
+
+// }
 
 func TestAssignTimeout(t *testing.T) {
 	enc := encoding.NewGobEncoder()
