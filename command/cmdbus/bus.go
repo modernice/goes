@@ -261,10 +261,10 @@ func (b *Bus) assignHandler(
 	return assigned, errc, nil
 }
 
-func (b *Bus) assignHandlerTo(ctx context.Context, cmdID, assignID uuid.UUID) error {
+func (b *Bus) assignHandlerTo(ctx context.Context, cmdID, handlerID uuid.UUID) error {
 	evt := event.New(CommandAssigned, CommandAssignedData{
 		ID:        cmdID,
-		HandlerID: assignID,
+		HandlerID: handlerID,
 	})
 	if err := b.bus.Publish(ctx, evt); err != nil {
 		return fmt.Errorf("publish %q events: %w", CommandAssigned, err)
