@@ -220,3 +220,58 @@ for ctx := range commands {
     }
 }
 ```
+
+#### Reporting results
+
+```go
+var bus command.Bus
+
+commands, err := bus.Handle(context.TODO(), "foo")
+// handle err
+
+go func() {
+    for cmd := range commands {
+        // execute command
+        if err := cmd.Done(context.TODO()); err != nil {
+            // handle err
+        }
+    }
+}()
+
+cmd := command.New("foo", mockPayload{})
+
+var report report.Report
+
+err := bus.Dispatch(
+    context.TODO(),
+    cmd,
+    dispatch.Synchronous(),
+    dispatch.Report(&report),
+)
+// handle err
+
+log.Println(fmt.Sprintf("Command: %v", report.Command()))
+log.Println(fmt.Sprintf("Runtime: %v", report.Runtime()))
+log.Println(fmt.Sprintf("Error: %v", report.Error()))
+```
+
+```go
+// report/report.go
+
+var _ reporting.Reporter = &Report{}
+
+type Report struct {
+    cmd Command.Command
+    runtime time.Duration
+    err error
+}
+
+type Option func(*Report)
+
+func (r *Report) Report(cmd command.Command, opts ...Option) {
+    r.cmd = cmd
+    for _, opt := range opts {
+        opt(r)
+    }
+}
+```
