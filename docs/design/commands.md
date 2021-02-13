@@ -153,7 +153,7 @@ explicit server, services communicate Commands through different Events:
 
 <div style="background: #fff; border-radius: 8px; padding: 1rem;">
 
-![Event-driven Command Bus](../assets/img/command-bus.svg)
+![Event-driven Command Bus](../assets/img/command-bus-event-driven.svg)
 </div>
 
 This automatically provides some nice features:
@@ -211,7 +211,11 @@ commands, err := bus.Handle(context.TODO(), "foo")
 
 for ctx := range commands {
     err := execute(ctx.Command)
-    if err := ctx.Done(err); err != nil {
+    if err := ctx.Done(
+        context.TODO(),
+        done.WithError(errors.New("execution error")), // mark as failed
+        done.WithRuntime(15*time.Second), // override the runtime of the execution
+    ); err != nil {
         log.Fatal(fmt.Errorf("mark command as done: %w", err))
     }
 }
