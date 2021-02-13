@@ -1,6 +1,6 @@
 package command
 
-//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus
+//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus,Context
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
+	"github.com/modernice/goes/command/done"
 )
 
 // A Command is a (domain) command that can be dispatched through a Bus.
@@ -64,7 +65,7 @@ type Context interface {
 	// Done should be called after the execution of the Command to report the
 	// execution result. Use Options to add information about the execution to
 	// the report.
-	Done(context.Context) error
+	Done(context.Context, ...done.Option) error
 }
 
 // Option is a Command option.
