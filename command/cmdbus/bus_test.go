@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
+	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/done"
 	"github.com/modernice/goes/command/encoding"
 	mock_command "github.com/modernice/goes/command/mocks"
@@ -320,7 +322,9 @@ func TestBus_Handle_exactlyOneHandler(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
 	ebus := chanbus.New()
-	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(0))
+	bus := cmdbus.New(enc, ebus)
+
+	busErrors := bus.Errors(context.Background())
 
 	subCtx, cancelSub := context.WithCancel(context.Background())
 
@@ -333,17 +337,33 @@ func TestBus_Handle_exactlyOneHandler(t *testing.T) {
 	handleDone := make(chan struct{})
 	go func() {
 		defer close(handleDone)
-		for range commands {
+		for cmd := range commands {
 			atomic.AddInt64(&handleCount, 1)
+			if err := cmd.Done(context.Background()); err != nil {
+				panic(err)
+			}
 		}
 	}()
 
 	cmd := command.New("foo", mockPayload{})
-	if err := bus.Dispatch(context.Background(), cmd); err != nil {
-		t.Fatalf("failed to dispatch %q command: %v", cmd.Name(), err)
+	dispatchErrc := make(chan error)
+	go func() {
+		dispatchErrc <- bus.Dispatch(
+			context.Background(),
+			cmd,
+			dispatch.Synchronous(), // make synchronous to avoid flakyness
+		)
+	}()
+
+	select {
+	case err := <-busErrors:
+		t.Fatal(err)
+	case err := <-dispatchErrc:
+		if err != nil {
+			t.Fatalf("dispatch: %v", err)
+		}
 	}
 
-	<-time.After(100 * time.Millisecond)
 	cancelSub()
 
 	select {
@@ -441,42 +461,85 @@ func TestBus_Dispatch_synchronous_withError(t *testing.T) {
 	}
 }
 
-// func TestBus_Dispatch_synchronous_report(t *testing.T) {
-// 	enc := encoding.NewGobEncoder()
-// 	enc.Register("foo", mockPayload{})
-// 	ebus := chanbus.New()
-// 	bus := cmdbus.New(enc, ebus)
+func TestBus_Dispatch_report(t *testing.T) {
+	enc := encoding.NewGobEncoder()
+	enc.Register("foo", mockPayload{})
+	ebus := chanbus.New()
+	bus := cmdbus.New(enc, ebus)
 
-// 	commands, err := bus.Handle(context.Background(), "foo")
-// 	if err != nil {
-// 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
-// 	}
+	commands, err := bus.Handle(context.Background(), "foo")
+	if err != nil {
+		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
+	}
 
-// 	errs := make(chan error)
-// 	go func() {
-// 		for cmd := range commands {
-// 			d := time.Duration(rand.Intn(1000)) * time.Millisecond
-// 			if err := cmd.Done(context.Background(), done.WithRuntime(d)); err != nil {
-// 				errs <- fmt.Errorf("mark as done: %w", err)
-// 			}
-// 		}
-// 	}()
+	errs := make(chan error)
+	mockError := errors.New("mock error")
+	mockRuntime := time.Duration(rand.Intn(1000)) * time.Millisecond
+	go func() {
+		for cmd := range commands {
+			if err := cmd.Done(
+				context.Background(),
+				done.WithRuntime(mockRuntime),
+				done.WithError(mockError),
+			); err != nil {
+				errs <- fmt.Errorf("mark as done: %w", err)
+			}
+		}
+	}()
 
-// 	cmd := command.New("foo", mockPayload{})
-// 	dispatchErrc := make(chan error)
-// 	go func() {
-// 		dispatchErrc <- bus.Dispatch(context.Background(), cmd)
-// 	}()
+	cmd := command.New("foo", mockPayload{})
+	dispatchErrc := make(chan error)
+	var rep report.Report
+	go func() {
+		dispatchErrc <- bus.Dispatch(
+			context.Background(),
+			cmd,
+			dispatch.Synchronous(),
+			dispatch.Report(&rep),
+		)
+	}()
 
-// 	var dispatchError error
-// 	select {
-// 	case err := <-errs:
-// 		t.Fatal(err)
-// 	case err := <-dispatchErrc:
-// 		dispatchError = err
-// 	}
+	var dispatchError error
+	select {
+	case err := <-errs:
+		t.Fatal(err)
+	case err := <-dispatchErrc:
+		dispatchError = err
+	}
 
-// }
+	if dispatchError == nil {
+		t.Errorf("expected a dispatch error; got %v", dispatchErrc)
+	}
+
+	var execError *cmdbus.ExecutionError
+	if !errors.As(dispatchError, &execError) {
+		t.Errorf("dispatch error should unwrap to %T", execError)
+	}
+
+	if !reflect.DeepEqual(execError.Cmd, cmd) {
+		t.Errorf("execError.Cmd should be %v; got %v", cmd, execError.Cmd)
+	}
+
+	if execError.Err.Error() != mockError.Error() {
+		t.Errorf("execError.Err.Error() should return %q; got %q", mockError.Error(), execError.Err.Error())
+	}
+
+	if !reflect.DeepEqual(rep.Command(), cmd) {
+		t.Errorf("rep.Command() should return %v; got %v", cmd, rep.Command())
+	}
+
+	if rep.Runtime() != mockRuntime {
+		t.Errorf("rep.Runtime() should be %s; got %s", mockRuntime, rep.Runtime())
+	}
+
+	if rep.Error() == nil {
+		t.Fatalf("rep.Error() should return an error; got %v", rep.Error())
+	}
+
+	if rep.Error().Error() != execError.Error() {
+		t.Errorf("rep.Error().Error() should return %q; got %q", execError.Error(), rep.Error().Error())
+	}
+}
 
 func TestAssignTimeout(t *testing.T) {
 	enc := encoding.NewGobEncoder()
@@ -576,10 +639,7 @@ func multiSubscribe(ctx context.Context, bus command.Bus, count int, names ...st
 		go func() {
 			defer wg.Done()
 			for cmd := range cmds {
-				select {
-				case <-ctx.Done():
-				case commands <- cmd:
-				}
+				commands <- cmd
 			}
 		}()
 	}

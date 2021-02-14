@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
+	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/done"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/errbus"
@@ -123,7 +124,13 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 //
 // Alternatively, use the dispatch.Synchronous Option to wait for the Command to
 // be handled. Errors that happen during the excecution of the Command are then
-// also returned by Dispatch.
+// also returned by Dispatch as an *ExecutionError. Call ExecError() with the
+// error returned by Dispatch to unwrap the *ExecutionError:
+//	err := b.Dispatch(context.TODO(), cmd)
+//	if execError, ok := ExecError(err); ok {
+//		log.Println(execError.Cmd)
+//		log.Println(execError.Err)
+//	}
 func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatch.Option) error {
 	cfg := dispatch.Configure(opts...)
 
@@ -132,34 +139,45 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 		return fmt.Errorf("encode payload: %w", err)
 	}
 
-	evt := event.New(CommandDispatched, CommandDispatchedData{
-		ID:            cmd.ID(),
-		Name:          cmd.Name(),
-		AggregateName: cmd.AggregateName(),
-		AggregateID:   cmd.AggregateID(),
-		Payload:       load.Bytes(),
-	})
-
 	// assign command to handler
 	assignedc, errc, err := b.assignHandler(ctx, cmd.ID())
 	if err != nil {
 		return fmt.Errorf("assign handler: %w", err)
 	}
 
-	// publish `CommandDispatched` event
-	if err := b.bus.Publish(ctx, evt); err != nil {
-		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
-	}
-
-	// if the dispatch is synchronous, retreive the execution error
-	var resultc <-chan error
+	// if the dispatch is synchronous, retrieve the execution error
+	var resultc <-chan CommandExecutedData
 	if cfg.Synchronous {
 		if resultc, err = b.awaitResult(ctx, cmd.ID()); err != nil {
 			return fmt.Errorf("failed to await result: %w", err)
 		}
 	}
 
+	// publish `CommandDispatched` event
+	if err := b.bus.Publish(ctx, event.New(CommandDispatched, CommandDispatchedData{
+		ID:            cmd.ID(),
+		Name:          cmd.Name(),
+		AggregateName: cmd.AggregateName(),
+		AggregateID:   cmd.AggregateID(),
+		Payload:       load.Bytes(),
+	})); err != nil {
+		return fmt.Errorf("publish %q event: %w", CommandDispatched, err)
+	}
+
 	// wait until the command has been assigned to a handler
+	if err := b.awaitAssigned(ctx, assignedc, errc); err != nil {
+		return err
+	}
+
+	// if the dispatch is synchronous, await the execution result
+	if cfg.Synchronous {
+		return b.executionResult(ctx, cfg, cmd, resultc)
+	}
+
+	return nil
+}
+
+func (b *Bus) awaitAssigned(ctx context.Context, assigned <-chan struct{}, errc <-chan error) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -168,25 +186,45 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 			err = ErrAssignTimeout
 		}
 		return fmt.Errorf("assign handler: %w", err)
-	case <-assignedc:
+	case <-assigned:
+		return nil
 	}
+}
 
-	// if the dispatch is synchronous, await the execution result
-	if cfg.Synchronous {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case err, ok := <-resultc:
-			if !ok || err == nil {
-				return nil
-			}
-			return &ExecutionError{
+func (b *Bus) executionResult(
+	ctx context.Context,
+	cfg dispatch.Config,
+	cmd command.Command,
+	result <-chan CommandExecutedData,
+) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case data, ok := <-result:
+		if !ok {
+			return nil
+		}
+
+		var execError *ExecutionError
+		if data.Error != "" {
+			execError = &ExecutionError{
 				Cmd: cmd,
-				Err: err,
+				Err: errors.New(data.Error),
 			}
 		}
-	}
 
+		if cfg.Reporter != nil {
+			opts := []report.Option{report.Runtime(data.Runtime)}
+			if execError != nil {
+				opts = append(opts, report.Error(execError))
+			}
+			cfg.Reporter.Report(cmd, opts...)
+		}
+
+		if execError != nil {
+			return execError
+		}
+	}
 	return nil
 }
 
@@ -265,41 +303,30 @@ func (b *Bus) assignHandlerTo(ctx context.Context, cmdID, handlerID uuid.UUID) e
 	return nil
 }
 
-func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan error, error) {
+func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan CommandExecutedData, error) {
 	ctx, cancel := context.WithCancel(ctx)
+
 	events, err := b.bus.Subscribe(ctx, CommandExecuted)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("subscribe to %q events: %w", CommandExecuted, err)
 	}
 
-	result := make(chan error)
+	result := make(chan CommandExecutedData, 1)
 	go func() {
 		defer cancel()
 		defer close(result)
-		for {
+		for evt := range events {
+			data := evt.Data().(CommandExecutedData)
+			if data.ID != cmdID {
+				continue
+			}
+
 			select {
 			case <-ctx.Done():
 				return
-			case evt, ok := <-events:
-				if !ok {
-					return
-				}
-				data := evt.Data().(CommandExecutedData)
-				if data.ID != cmdID {
-					continue
-				}
-
-				var err error
-				if data.Error != "" {
-					err = errors.New(data.Error)
-				}
-				select {
-				case <-ctx.Done():
-					return
-				case result <- err:
-					return
-				}
+			case result <- data:
+				return
 			}
 		}
 	}()
@@ -341,7 +368,7 @@ func (b *Bus) Handle(ctx context.Context, names ...string) (<-chan command.Conte
 	// handle `CommandDispatched` events
 	go b.handleDispatched(ctx, dispatched, commands)
 
-	// accept dispatched commands
+	// request dispatched commands
 	go b.requestCommands(ctx, commands, requested)
 
 	// handle assigned commands
@@ -533,20 +560,28 @@ func (b *Bus) acceptCommands(
 }
 
 func (b *Bus) doneFunc(cmd pendingCommand) func(context.Context, ...done.Option) error {
+	start := time.Now()
 	return func(ctx context.Context, opts ...done.Option) error {
-		return b.markDone(ctx, cmd, opts...)
+		return b.markDone(ctx, cmd, start, opts...)
 	}
 }
 
-func (b *Bus) markDone(ctx context.Context, cmd pendingCommand, opts ...done.Option) error {
+func (b *Bus) markDone(ctx context.Context, cmd pendingCommand, start time.Time, opts ...done.Option) error {
 	cfg := done.Configure(opts...)
 	var msg string
 	if cfg.Err != nil {
 		msg = cfg.Err.Error()
 	}
+
+	runtime := cfg.Runtime
+	if runtime == 0 {
+		runtime = time.Now().Sub(start)
+	}
+
 	evt := event.New(CommandExecuted, CommandExecutedData{
-		ID:    cmd.Cmd.ID(),
-		Error: msg,
+		ID:      cmd.Cmd.ID(),
+		Runtime: runtime,
+		Error:   msg,
 	})
 	if err := b.bus.Publish(ctx, evt); err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)

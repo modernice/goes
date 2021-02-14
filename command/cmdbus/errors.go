@@ -26,3 +26,7 @@ func ExecError(err error) (*ExecutionError, bool) {
 func (err *ExecutionError) Error() string {
 	return fmt.Sprintf("execute %q command: %v", err.Cmd.Name(), err.Err)
 }
+
+func (err *ExecutionError) Unwrap() error {
+	return err.Err
+}

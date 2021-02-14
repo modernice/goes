@@ -8,8 +8,8 @@ type Config struct {
 	// and returns the execution error if there was any.
 	Synchronous bool
 
-	// If Reporter is a non-nil pointer to a cmdbus.Reporter and Synchronous is
-	// true, the Bus will report the execution result of a Command to Reporter.
+	// If Reporter is not nil and Synchronous is true, the Bus will report the
+	// execution result of a Command to Reporter by calling Reporter.Report.
 	Reporter report.Reporter
 }
 
@@ -26,6 +26,7 @@ func Configure(opts ...Option) Config {
 }
 
 // Synchronous returns an Option that makes dispatches synchronous.
+//
 // A synchronous dispatch also returns errors that happen during the execution
 // of a Command.
 func Synchronous() Option {

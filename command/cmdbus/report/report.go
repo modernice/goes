@@ -12,7 +12,8 @@ type Reporter interface {
 	Report(Command, ...Option)
 }
 
-// A Report provides information about the execution of a Command.
+// A Report provides information about the execution of a Command. A *Report is
+// also a Reporter.
 type Report struct {
 	cmd     Command
 	runtime time.Duration
@@ -71,9 +72,6 @@ func (r Report) Error() error {
 }
 
 // Report fills the Report with the given Command and information from opts.
-//
-// This method is implemented so that a Report struct can be used as a
-// cmdbus.Reporter.
 func (r *Report) Report(cmd Command, opts ...Option) {
 	*r = Fill(cmd, opts...)
 }

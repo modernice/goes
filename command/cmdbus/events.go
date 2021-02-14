@@ -1,6 +1,8 @@
 package cmdbus
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 )
@@ -65,8 +67,9 @@ type CommandAcceptedData struct {
 
 // CommandExecutedData is the Event Data for the CommandExecuted Event.
 type CommandExecutedData struct {
-	ID    uuid.UUID
-	Error string
+	ID      uuid.UUID
+	Runtime time.Duration
+	Error   string
 }
 
 // RegisterEvents registers the Command Events into the Registry.
