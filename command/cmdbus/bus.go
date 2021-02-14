@@ -581,6 +581,13 @@ func (b *Bus) markDone(ctx context.Context, cmd pendingCommand, start time.Time,
 		runtime = time.Now().Sub(start)
 	}
 
+	if msg != "" {
+		b.error(&ExecutionError{
+			Cmd: cmd.Cmd,
+			Err: errors.New(msg),
+		})
+	}
+
 	evt := event.New(CommandExecuted, CommandExecutedData{
 		ID:      cmd.Cmd.ID(),
 		Runtime: runtime,

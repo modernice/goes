@@ -318,6 +318,55 @@ func TestBus_Handle_decodeError(t *testing.T) {
 	}
 }
 
+func TestBus_Handle_executionError(t *testing.T) {
+	enc := encoding.NewGobEncoder()
+	enc.Register("foo", mockPayload{})
+	ebus := chanbus.New()
+	bus := cmdbus.New(enc, ebus)
+
+	commands, err := bus.Handle(context.Background(), "foo")
+	if err != nil {
+		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
+	}
+
+	doneError := make(chan error)
+	mockError := errors.New("mock error")
+	go func() {
+		for cmd := range commands {
+			if err := cmd.Done(context.Background(), done.WithError(mockError)); err != nil {
+				doneError <- fmt.Errorf("mark as done: %w", err)
+			}
+		}
+	}()
+
+	errs := bus.Errors(context.Background())
+
+	cmd := command.New("foo", mockPayload{})
+	if err := bus.Dispatch(context.Background(), cmd); err != nil {
+		t.Fatalf("failed to dispatch %q command: %v", cmd.Name(), err)
+	}
+
+	var execError *cmdbus.ExecutionError
+	select {
+	case <-time.After(time.Second):
+		t.Fatalf("didn't receive error after %s", time.Second)
+	case err := <-doneError:
+		t.Fatal(err)
+	case err := <-errs:
+		if !errors.As(err, &execError) {
+			t.Fatalf("failed to unwrap error %T to %T", err, execError)
+		}
+	}
+
+	if !reflect.DeepEqual(execError.Cmd, cmd) {
+		t.Errorf("ExecutionError contains the wrong Command. want=%v got=%v", cmd, execError.Cmd)
+	}
+
+	if execError.Err.Error() != mockError.Error() {
+		t.Errorf("ExecutionError wraps the wrong error. want=%v got=%v", mockError, execError.Err)
+	}
+}
+
 func TestBus_Handle_exactlyOneHandler(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
