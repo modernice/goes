@@ -6,10 +6,14 @@ import "github.com/modernice/goes/command/cmdbus/report"
 type Config struct {
 	// A synchronous dispatch waits for the execution of the Command to finish
 	// and returns the execution error if there was any.
+	//
+	// A dispatch is automatically made synchronous when Repoter is non-nil.
 	Synchronous bool
 
-	// If Reporter is not nil and Synchronous is true, the Bus will report the
-	// execution result of a Command to Reporter by calling Reporter.Report.
+	// If Reporter is not nil, the Bus will report the execution result of a
+	// Command to Reporter by calling Reporter.Report().
+	//
+	// A non-nil Reporter makes the dispatch synchronous.
 	Reporter report.Reporter
 }
 
@@ -36,8 +40,7 @@ func Synchronous() Option {
 }
 
 // Report returns an Option that makes the Command Bus report the executon
-// result of a Command to the Reporter r. Report does nothing if the Synchronous
-// Option is not used.
+// result of a Command to the Reporter r.
 func Report(r report.Reporter) Option {
 	return func(cfg *Config) {
 		cfg.Reporter = r

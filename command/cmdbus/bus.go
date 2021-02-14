@@ -116,7 +116,7 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 // Errors
 //
 // By default, the error returned by Dispatch doesn't give any information about
-// the execution of the Command, because the Bus returns as soon as another Bus
+// the execution of the Command because the Bus returns as soon as another Bus
 // accepts a dispatched Command.
 //
 // To handle errors that happen during the execution of Commands, call
@@ -134,8 +134,27 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 //		log.Println(execError.Cmd)
 //		log.Println(execError.Err)
 //	}
+//
+// Execution result
+//
+// By default, Dispatch does not return information about the execution of a
+// Command, but a report.Reporter can be provided with the dispatch.Report()
+// Option. When a Reporter is provided, the dispatch is automatically made
+// synchronous because the Bus has to wait until Command execution completes.
+//
+// Example:
+//	var rep report.Report
+//	err := b.Dispatch(context.TODO(), cmd, dispatch.Report(&rep))
+// 	// handle err
+// 	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
+//	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
+// 	log.Println(fmt.Sprintf("Error: %v", rep.Error()))
 func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatch.Option) error {
 	cfg := dispatch.Configure(opts...)
+	sync := cfg.Synchronous
+	if cfg.Reporter != nil {
+		sync = true
+	}
 
 	var load bytes.Buffer
 	if err := b.enc.Encode(&load, cmd.Payload()); err != nil {
@@ -150,7 +169,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 
 	// if the dispatch is synchronous, retrieve the execution error
 	var resultc <-chan CommandExecutedData
-	if cfg.Synchronous {
+	if sync {
 		if resultc, err = b.awaitResult(ctx, cmd.ID()); err != nil {
 			return fmt.Errorf("failed to await result: %w", err)
 		}
@@ -173,7 +192,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 	}
 
 	// if the dispatch is synchronous, await the execution result
-	if cfg.Synchronous {
+	if sync {
 		return b.executionResult(ctx, cfg, cmd, resultc)
 	}
 

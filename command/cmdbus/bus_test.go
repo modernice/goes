@@ -543,7 +543,6 @@ func TestBus_Dispatch_report(t *testing.T) {
 		dispatchErrc <- bus.Dispatch(
 			context.Background(),
 			cmd,
-			dispatch.Synchronous(),
 			dispatch.Report(&rep),
 		)
 	}()
