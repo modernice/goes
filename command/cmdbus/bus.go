@@ -113,19 +113,22 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 // publishes a final CommandAccepted Event to tell the Bus b that the Command
 // arrived at its Handler.
 //
-// Handling errors
+// Errors
 //
 // By default, the error returned by Dispatch doesn't give any information about
-// the execution of the Command. When a Handler accepts a Command, Dispatch
-// returns nil and doesn't wait for the Handler to execute the Command.
+// the execution of the Command, because the Bus returns as soon as another Bus
+// accepts a dispatched Command.
 //
 // To handle errors that happen during the execution of Commands, call
-// b.Errors() on the handling Command Bus instead to get a channel of errors.
+// b.Errors() on the receiving Command Bus instead.
 //
-// Alternatively, use the dispatch.Synchronous Option to wait for the Command to
-// be handled. Errors that happen during the excecution of the Command are then
-// also returned by Dispatch as an *ExecutionError. Call ExecError() with the
-// error returned by Dispatch to unwrap the *ExecutionError:
+// Alternatively, use the dispatch.Synchronous() Option to make the dispatch
+// synchronous. A synchronous dispatch waits for the handling Bus to publish a
+// CommandExecuted Event before returning.
+//
+// Errors that happen during the excecution of the Command are then also
+// returned by Dispatch as an *ExecutionError. Call ExecError() with
+// that error as the argument to unwrap the underlying *ExecutionError:
 //	err := b.Dispatch(context.TODO(), cmd)
 //	if execError, ok := ExecError(err); ok {
 //		log.Println(execError.Cmd)
