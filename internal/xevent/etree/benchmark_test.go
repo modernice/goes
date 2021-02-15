@@ -32,6 +32,9 @@ func benchmarkTree_Insert(b *testing.B, n int) {
 	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, n, xevent.ForAggregate(a))
 
+	b.ReportAllocs()
+	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		events = xevent.Shuffle(events)
 
@@ -65,6 +68,9 @@ func BenchmarkSlice_Insert5000000(b *testing.B) { benchmarkSlice_Insert(b, 50000
 func benchmarkSlice_Insert(b *testing.B, n int) {
 	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, n, xevent.ForAggregate(a))
+
+	b.ReportAllocs()
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		events = xevent.Shuffle(events)
