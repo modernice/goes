@@ -28,8 +28,8 @@ func WithError(err error) Option {
 	}
 }
 
-// WithRuntime returns an Option that overrides the measured execution runtime of
-// a Command.
+// WithRuntime returns an Option that overrides the measured execution time of a
+// Command.
 func WithRuntime(d time.Duration) Option {
 	return func(cfg *Config) {
 		cfg.Runtime = d
