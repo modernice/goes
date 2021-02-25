@@ -1,3 +1,5 @@
+// +build nats
+
 package nats
 
 import (
@@ -81,21 +83,15 @@ func TestEventBus_envReceiveTimeout(t *testing.T) {
 	timer := time.NewTimer(3 * time.Second)
 	defer timer.Stop()
 
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-timer.C:
-			t.Fatalf("didn't receive error after %s", 3*time.Second)
-		case <-ticker.C:
-		case err := <-errs:
-			_, parseError := time.ParseDuration("invalid")
-			want := fmt.Errorf("init: parse environment variable %q: %w", "NATS_RECEIVE_TIMEOUT", parseError).Error()
-			if err.Error() != want {
-				t.Fatalf("expected error message %q; got %q", want, err.Error())
-			}
-			return
+	select {
+	case <-timer.C:
+		t.Fatalf("didn't receive error after %s", 3*time.Second)
+	case err := <-errs:
+		_, parseError := time.ParseDuration("invalid")
+		want := fmt.Errorf("init: parse environment variable %q: %w", "NATS_RECEIVE_TIMEOUT", parseError).Error()
+		if err.Error() != want {
+			t.Fatalf("expected error message %q; got %q", want, err.Error())
 		}
+		return
 	}
 }
