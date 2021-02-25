@@ -59,6 +59,9 @@ type Bus interface {
 
 // Context is the context for handling Commands.
 type Context interface {
+	// Context returns the underlying context.Context.
+	Context() context.Context
+
 	// Command returns the actual Command.
 	Command() Command
 

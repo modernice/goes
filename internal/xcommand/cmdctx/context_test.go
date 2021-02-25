@@ -12,14 +12,25 @@ import (
 
 type mockPayload struct{}
 
-func TestWhenDone(t *testing.T) {
-	cmd := command.New("foo", mockPayload{})
+type ctxKey string
 
-	ctx := cmdctx.New(cmd)
+func TestContext(t *testing.T) {
+	base := context.WithValue(context.Background(), ctxKey("foo"), "bar")
+	cmd := command.New("foo", mockPayload{})
+	ctx := cmdctx.New(base, cmd)
+
+	if ctx.Context() != base {
+		t.Errorf("Context.Context() should return %v; got %v", base, ctx.Context())
+	}
 
 	if ctx.Command() != cmd {
-		t.Errorf("ctx.Command should be %v; got %v", cmd, ctx.Command())
+		t.Errorf("Context.Command() should return %v; got %v", cmd, ctx.Command())
 	}
+}
+
+func TestWhenDone(t *testing.T) {
+	cmd := command.New("foo", mockPayload{})
+	ctx := cmdctx.New(context.Background(), cmd)
 
 	doneError := ctx.Done(context.Background())
 
@@ -35,7 +46,7 @@ func TestWhenDone_withError(t *testing.T) {
 	mockDoneError := errors.New("mock done error")
 
 	var cfg done.Config
-	ctx := cmdctx.New(cmd, cmdctx.WhenDone(func(_ context.Context, opts ...done.Option) error {
+	ctx := cmdctx.New(context.Background(), cmd, cmdctx.WhenDone(func(_ context.Context, opts ...done.Option) error {
 		cfg = done.Configure(opts...)
 		return mockDoneError
 	}))
@@ -57,7 +68,7 @@ func TestWhenDone_withError(t *testing.T) {
 
 func TestContext_Done_default(t *testing.T) {
 	cmd := command.New("foo", mockPayload{})
-	ctx := cmdctx.New(cmd)
+	ctx := cmdctx.New(context.Background(), cmd)
 
 	mockError := errors.New("mock error")
 	err := ctx.Done(context.Background(), done.WithError(mockError))

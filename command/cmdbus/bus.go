@@ -576,7 +576,11 @@ func (b *Bus) acceptCommands(
 				ctx.Err(),
 			))
 			return
-		case accepted <- cmdctx.New(pcmd.Cmd, cmdctx.WhenDone(b.doneFunc(pcmd))):
+		case accepted <- cmdctx.New(
+			ctx,
+			pcmd.Cmd,
+			cmdctx.WhenDone(b.doneFunc(pcmd)),
+		):
 		}
 	}
 }
