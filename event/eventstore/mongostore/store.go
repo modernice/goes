@@ -4,6 +4,7 @@ package mongostore
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -21,19 +22,43 @@ import (
 
 // Store is the MongoDB event.Store.
 type Store struct {
-	enc     event.Encoder
-	dbname  string
-	colname string
+	enc        event.Encoder
+	dbname     string
+	entriesCol string
+	statesCol  string
 
-	client *mongo.Client
-	db     *mongo.Database
-	col    *mongo.Collection
+	client  *mongo.Client
+	db      *mongo.Database
+	entries *mongo.Collection
+	states  *mongo.Collection
 
 	onceConnect sync.Once
 }
 
 // Option is a Store option.
 type Option func(*Store)
+
+// A VersionError means the insertion of Events failed because at least one of
+// the Events has an invalid/inconsistent version.
+type VersionError struct {
+	// AggregateName is the name of the Aggregate.
+	AggregateName string
+
+	// AggregateID is the UUID of the Aggregate.
+	AggregateID uuid.UUID
+
+	// CurrentVersion is the current version of the Aggregate.
+	CurrentVersion int
+
+	// Event is the event with the invalid version.
+	Event event.Event
+}
+
+type state struct {
+	AggregateName string    `bson:"aggregateName"`
+	AggregageID   uuid.UUID `bson:"aggregateId"`
+	Version       int       `bson:"version"`
+}
 
 type entry struct {
 	ID               uuid.UUID    `bson:"id"`
@@ -72,7 +97,15 @@ func Database(name string) Option {
 // are stored in.
 func Collection(name string) Option {
 	return func(s *Store) {
-		s.colname = name
+		s.entriesCol = name
+	}
+}
+
+// StateCollection returns an Option that specifies the name of the Collection
+// where the current state of Aggregates are stored in.
+func StateCollection(name string) Option {
+	return func(s *Store) {
+		s.statesCol = name
 	}
 }
 
@@ -85,8 +118,11 @@ func New(enc event.Encoder, opts ...Option) *Store {
 	if strings.TrimSpace(s.dbname) == "" {
 		s.dbname = "event"
 	}
-	if strings.TrimSpace(s.colname) == "" {
-		s.colname = "events"
+	if strings.TrimSpace(s.entriesCol) == "" {
+		s.entriesCol = "events"
+	}
+	if strings.TrimSpace(s.statesCol) == "" {
+		s.statesCol = "states"
 	}
 	return &s
 }
@@ -107,12 +143,20 @@ func (s *Store) Database() *mongo.Database {
 	return s.db
 }
 
-// Collection returns the underlying mongo.Collection. Connection returns nil
-// until the connection to MongoDB has been established by either explicitly
-// calling s.Connect or implicitly by calling s.Insert, s.Find, s.Delete or
-// s.Query.
+// Collection returns the underlying *mongo.Collection where the Events are
+// stored in. Connection returns nil until the connection to MongoDB has been
+// established by either explicitly calling s.Connect or implicitly by calling
+// s.Insert, s.Find, s.Delete or s.Query.
 func (s *Store) Collection() *mongo.Collection {
-	return s.col
+	return s.entries
+}
+
+// StateCollection returns the underlying *mongo.Collection where Aggregate
+// states are stored in. Connection returns nil until the connection to MongoDB
+// has been established by either explicitly calling s.Connect or implicitly by
+// calling s.Insert, s.Find, s.Delete or s.Query.
+func (s *Store) StateCollection() *mongo.Collection {
+	return s.states
 }
 
 // Insert saves the given Events into the database.
@@ -121,12 +165,96 @@ func (s *Store) Insert(ctx context.Context, events ...event.Event) error {
 		return fmt.Errorf("connect: %w", err)
 	}
 
-	for _, evt := range events {
-		if err := s.insert(ctx, evt); err != nil {
-			return fmt.Errorf("%s:%s: %w", evt.Name(), evt.ID(), err)
+	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) error {
+		if err := ctx.StartTransaction(); err != nil {
+			return fmt.Errorf("start transaction: %w", err)
+		}
+
+		st, err := s.validateVersion(ctx, events)
+		if err != nil {
+			return fmt.Errorf("validate version: %w", err)
+		}
+
+		for _, evt := range events {
+			if err := s.insert(ctx, evt); err != nil {
+				if err = ctx.AbortTransaction(ctx); err != nil {
+					return fmt.Errorf("abort transaction: %w", err)
+				}
+				return fmt.Errorf("insert %s:%s: %w", evt.Name(), evt.ID(), err)
+			}
+		}
+
+		if err := s.updateState(ctx, st, events); err != nil {
+			if err = ctx.AbortTransaction(ctx); err != nil {
+				return fmt.Errorf("abort transaction: %w", err)
+			}
+			return fmt.Errorf("update state: %w", err)
+		}
+
+		if err := ctx.CommitTransaction(ctx); err != nil {
+			return fmt.Errorf("commit transaction: %w", err)
+		}
+
+		return nil
+	})
+}
+
+func (s *Store) validateVersion(ctx mongo.SessionContext, events []event.Event) (state, error) {
+	if len(events) == 0 {
+		return state{}, nil
+	}
+
+	aggregateName := events[0].AggregateName()
+	aggregateID := events[0].AggregateID()
+
+	if aggregateName == "" || aggregateID == uuid.Nil {
+		return state{}, nil
+	}
+
+	res := s.states.FindOne(ctx, bson.D{
+		{Key: "aggregateName", Value: aggregateName},
+		{Key: "aggregateId", Value: aggregateID},
+	})
+
+	var st state
+	if err := res.Decode(&st); err != nil {
+		if !errors.Is(err, mongo.ErrNoDocuments) {
+			return state{}, fmt.Errorf("decode state: %w", err)
+		}
+		st = state{
+			AggregateName: aggregateName,
+			AggregageID:   aggregateID,
 		}
 	}
 
+	if st.Version >= events[0].AggregateVersion() {
+		return st, &VersionError{
+			AggregateName:  aggregateName,
+			AggregateID:    aggregateID,
+			CurrentVersion: st.Version,
+			Event:          events[0],
+		}
+	}
+
+	return st, nil
+}
+
+func (s *Store) updateState(ctx mongo.SessionContext, st state, events []event.Event) error {
+	if len(events) == 0 || st.AggregateName == "" || st.AggregageID == uuid.Nil {
+		return nil
+	}
+	st.Version = events[len(events)-1].AggregateVersion()
+	if _, err := s.states.ReplaceOne(
+		ctx,
+		bson.D{
+			{Key: "aggregateName", Value: st.AggregateName},
+			{Key: "aggregateId", Value: st.AggregageID},
+		},
+		st,
+		options.Replace().SetUpsert(true),
+	); err != nil {
+		return fmt.Errorf("mongo: %w", err)
+	}
 	return nil
 }
 
@@ -135,7 +263,8 @@ func (s *Store) insert(ctx context.Context, evt event.Event) error {
 	if err := s.enc.Encode(&data, evt.Data()); err != nil {
 		return fmt.Errorf("encode %q event data: %w", evt.Name(), err)
 	}
-	if _, err := s.col.InsertOne(ctx, entry{
+
+	if _, err := s.entries.InsertOne(ctx, entry{
 		ID:               evt.ID(),
 		Name:             evt.Name(),
 		Time:             evt.Time(),
@@ -155,7 +284,7 @@ func (s *Store) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
-	res := s.col.FindOne(ctx, bson.M{"id": id})
+	res := s.entries.FindOne(ctx, bson.M{"id": id})
 	var e entry
 	if err := res.Decode(&e); err != nil {
 		return nil, fmt.Errorf("decode document: %w", err)
@@ -168,7 +297,7 @@ func (s *Store) Delete(ctx context.Context, evt event.Event) error {
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
-	if _, err := s.col.DeleteOne(ctx, bson.M{"id": evt.ID()}); err != nil {
+	if _, err := s.entries.DeleteOne(ctx, bson.M{"id": evt.ID()}); err != nil {
 		return fmt.Errorf("delete event %q: %w", evt.ID(), err)
 	}
 	return nil
@@ -183,7 +312,7 @@ func (s *Store) Query(ctx context.Context, q event.Query) (event.Stream, error) 
 	opts := options.Find()
 	opts = applySortings(opts, q.Sortings()...)
 
-	cur, err := s.col.Find(ctx, makeFilter(q), opts)
+	cur, err := s.entries.Find(ctx, makeFilter(q), opts)
 	if err != nil {
 		return nil, fmt.Errorf("mongo: %w", err)
 	}
@@ -232,12 +361,13 @@ func (s *Store) connect(ctx context.Context, opts ...*options.ClientOptions) err
 		}
 	}
 	s.db = s.client.Database(s.dbname)
-	s.col = s.db.Collection(s.colname)
+	s.entries = s.db.Collection(s.entriesCol)
+	s.states = s.db.Collection(s.statesCol)
 	return nil
 }
 
 func (s *Store) ensureIndexes(ctx context.Context) error {
-	res, err := s.col.Find(ctx, bson.D{})
+	res, err := s.entries.Find(ctx, bson.D{})
 	if err != nil {
 		return fmt.Errorf("find: %w", err)
 	}
@@ -246,7 +376,7 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 		return fmt.Errorf("cursor: %w", err)
 	}
 
-	if _, err := s.col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+	if _, err = s.entries.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
 			Keys:    bson.D{{Key: "id", Value: 1}},
 			Options: options.Index().SetName("goes_id").SetUnique(true),
@@ -282,8 +412,19 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 				}),
 		},
 	}); err != nil {
-		return fmt.Errorf("create indexes: %w", err)
+		return fmt.Errorf("create indexes (%s): %w", s.entries.Name(), err)
 	}
+
+	if _, err = s.states.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "aggregateName", Value: 1},
+			{Key: "aggregateId", Value: 1},
+		},
+		Options: options.Index().SetName("goes_aggregate"),
+	}); err != nil {
+		return fmt.Errorf("create indexes (%s): %w", s.states.Name(), err)
+	}
+
 	return nil
 }
 
@@ -330,6 +471,14 @@ func (c *stream) Err() error {
 
 func (c *stream) Close(ctx context.Context) error {
 	return c.cur.Close(ctx)
+}
+
+func (err *VersionError) Error() string {
+	return fmt.Sprintf(
+		"event should have version %d, but has version %d",
+		err.CurrentVersion+1,
+		err.Event.AggregateVersion(),
+	)
 }
 
 func makeFilter(q event.Query) bson.D {

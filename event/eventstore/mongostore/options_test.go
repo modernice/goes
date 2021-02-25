@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/mongostore"
 	"github.com/modernice/goes/event/eventstore/mongostore/mongotest"
@@ -54,7 +55,7 @@ func TestDatabase(t *testing.T) {
 
 func TestCollection(t *testing.T) {
 	store := mongotest.NewStore(test.NewEncoder(), mongostore.Collection("custom"))
-	evt := event.New("foo", test.FooEventData{A: "foo"})
+	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 1))
 	if err := store.Insert(context.Background(), evt); err != nil {
 		t.Fatalf("store.Insert: %#v", err)
 	}
