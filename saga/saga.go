@@ -18,25 +18,24 @@ var (
 	// configured.
 	ErrActionNotFound = errors.New("action not found")
 
-	// ErrNilAction is returned when a configured Action is nil.
-	ErrNilAction = errors.New("nil action")
-
 	// ErrEmptyName is returned when an Action is configured with an empty name.
 	ErrEmptyName = errors.New("empty action name")
 )
 
-// A Setup is a reusable configuration for a SAGA.
+// Setup is the setup for a SAGA.
 type Setup interface {
-	// Actions returns the configured Actions.
-	Actions() []action.Action
-
-	// Compensators returns a map of Action names to Action names where the key
-	// is the name of a failed Action and the value is the name of the
-	// compenating Action for that failed Action.
-	Compensators() map[string]string
-
-	// Sequence returns the sequence of Action names that should be run.
+	// Sequence returns the names of the Actions that should be run
+	// sequentially.
 	Sequence() []string
+
+	// Compensator finds and returns the name of the compensating Action for the
+	// Action with the given name. If Compensator returns an empty string, there
+	// is no compensator for the given Action was configured.
+	Compensator(string) string
+
+	// Action returns the Action with the given name. Action returns nil if no
+	// Action with that name was configured.
+	Action(string) action.Action
 }
 
 // A Reporter reports the result of a SAGA.
@@ -52,6 +51,7 @@ type ExecuteOption func(*executor)
 
 type setup struct {
 	actions      []action.Action
+	actionMap    map[string]action.Action
 	sequence     []string
 	compensators map[string]string
 	startWith    string
@@ -66,10 +66,8 @@ type executor struct {
 
 	skipValidate bool
 
-	actions      map[string]action.Action
-	compensators map[string]string
-
-	reports []action.Report
+	sequence []action.Action
+	reports  []action.Report
 }
 
 // Action returns an Option that adds an Action to a SAGA. The first configured
@@ -82,9 +80,11 @@ func Action(name string, run func(action.Context) error) Option {
 // Add adds Actions to the SAGA.
 func Add(acts ...action.Action) Option {
 	return func(s *setup) {
-		s.actions = append(s.actions, acts...)
-		if s.startWith == "" && len(s.actions) > 0 && s.actions[0] != nil {
-			s.startWith = s.actions[0].Name()
+		for _, act := range acts {
+			if act == nil {
+				continue
+			}
+			s.actions = append(s.actions, act)
 		}
 	}
 }
@@ -241,50 +241,41 @@ func CommandBus(bus command.Bus) ExecuteOption {
 //		}),
 //	)
 func New(opts ...Option) Setup {
-	s := setup{compensators: make(map[string]string)}
+	s := setup{
+		actionMap:    make(map[string]action.Action),
+		compensators: make(map[string]string),
+	}
 	for _, opt := range opts {
 		opt(&s)
+	}
+	for _, act := range s.actions {
+		s.actionMap[act.Name()] = act
+	}
+	if s.startWith == "" && len(s.sequence) == 0 && len(s.actions) > 0 && s.actions[0] != nil {
+		s.startWith = s.actions[0].Name()
 	}
 	return &s
 }
 
-// Validate validates that a Setup is configured correctly.
-//
-// Validate returns an error that unwraps to one of the following errors if the
-// Setup is invalid:
-//	- `ErrNilAction` when an Action is nil
-//	- `ErrEmptyName` when the name of an Action is empty or just whitespace
-//	- `ErrActionNotFound` when a non-existing compensator Action is configured
+// Validate validates that a Setup is configured safely and returns an error in
+// the following cases:
+//	- `ErrEmptyName` if an Action has an empty name (or just whitespace)
+//	- `ErrActionNotFound` if the sequence contains an unconfigured Action
+//	- `ErrActionNotFound` if not not every Action has a compensator
 func Validate(s Setup) error {
-	acts := s.Actions()
-	actionNames := make(map[string]bool)
-	for i, act := range acts {
-		if act == nil {
-			return fmt.Errorf("action %d/%d: %w", i+1, len(acts), ErrNilAction)
-		}
-		if strings.TrimSpace(act.Name()) == "" {
-			return fmt.Errorf("action %d/%d: %w", i+1, len(acts), ErrEmptyName)
-		}
-		actionNames[act.Name()] = true
-	}
-
-	comps := s.Compensators()
-	if comps == nil {
-		comps = make(map[string]string)
-	}
-
-	for failed, comp := range comps {
-		if !actionNames[failed] {
-			return fmt.Errorf("%q action: %w", failed, ErrActionNotFound)
-		}
-		if !actionNames[comp] {
-			return fmt.Errorf("%q action: %w", comp, ErrActionNotFound)
-		}
-	}
-
 	for _, name := range s.Sequence() {
-		if !actionNames[name] {
-			return fmt.Errorf("find %q action: %w", name, ErrActionNotFound)
+		if strings.TrimSpace(name) == "" {
+			return fmt.Errorf("%q action: %w", name, ErrEmptyName)
+		}
+
+		if s.Action(name) == nil {
+			return fmt.Errorf("%q action: %w", name, ErrActionNotFound)
+		}
+
+		if cname := s.Compensator(name); cname != "" {
+			if s.Action(cname) == nil {
+				return fmt.Errorf("%q action: %w", cname, ErrActionNotFound)
+			}
 		}
 	}
 
@@ -331,18 +322,10 @@ func Execute(ctx context.Context, s Setup, opts ...ExecuteOption) error {
 }
 
 func newExecutor(s Setup, opts ...ExecuteOption) *executor {
-	acts := s.Actions()
-	comps := s.Compensators()
+	seq := s.Sequence()
 	e := &executor{
-		Setup:        s,
-		actions:      make(map[string]action.Action, len(acts)),
-		compensators: make(map[string]string, len(comps)),
-	}
-	for _, act := range acts {
-		e.actions[act.Name()] = act
-	}
-	for failed, comp := range comps {
-		e.compensators[failed] = comp
+		Setup:    s,
+		sequence: make([]action.Action, 0, len(seq)),
 	}
 	for _, opt := range opts {
 		opt(e)
@@ -366,23 +349,24 @@ func (s *setup) Compensators() map[string]string {
 	return m
 }
 
-func (s *setup) StartWith() string {
-	return s.startWith
+func (s *setup) Compensator(name string) string {
+	return s.compensators[name]
 }
 
 func (s *setup) Sequence() []string {
-	if len(s.sequence) > 0 {
-		return s.sequence
+	if len(s.actions) == 0 {
+		return nil
 	}
-	if s.startWith != "" {
+
+	if len(s.sequence) == 0 && s.startWith != "" {
 		return []string{s.startWith}
 	}
-	return nil
+
+	return s.sequence
 }
 
-func (s *setup) hasCompensator(name string) bool {
-	_, ok := s.compensators[name]
-	return ok
+func (s *setup) Action(name string) action.Action {
+	return s.actionMap[name]
 }
 
 func (e *executor) Execute(ctx context.Context) error {
@@ -394,7 +378,7 @@ func (e *executor) Execute(ctx context.Context) error {
 			return e.finish(start, fmt.Errorf("find %q action: %w", name, err))
 		}
 
-		if err = e.run(ctx, act); err != nil {
+		if err := e.run(ctx, act); err != nil {
 			if !e.shouldRollback() {
 				return e.finish(start, err)
 			}
@@ -402,6 +386,8 @@ func (e *executor) Execute(ctx context.Context) error {
 			if err = e.rollback(ctx); err != nil {
 				return e.finish(start, fmt.Errorf("rollback: %w", err))
 			}
+
+			return e.finish(start, nil)
 		}
 	}
 
@@ -409,8 +395,8 @@ func (e *executor) Execute(ctx context.Context) error {
 }
 
 func (e *executor) action(name string) (action.Action, error) {
-	act, ok := e.actions[name]
-	if !ok {
+	act := e.Action(name)
+	if act == nil {
 		return act, ErrActionNotFound
 	}
 	return act, nil
@@ -470,7 +456,15 @@ func (e *executor) runAction(ctx context.Context, name string) error {
 }
 
 func (e *executor) shouldRollback() bool {
-	return len(e.compensators) > 0
+	if len(e.reports) == 0 {
+		return false
+	}
+	for _, rep := range e.reports {
+		if name := e.Compensator(rep.Action().Name()); name != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *executor) rollback(ctx context.Context) error {
@@ -484,10 +478,13 @@ func (e *executor) rollback(ctx context.Context) error {
 }
 
 func (e *executor) rollbackAction(ctx context.Context, rep action.Report) error {
-	name := e.compensators[rep.Action().Name()]
-	comp, err := e.action(name)
-	if err != nil {
-		return fmt.Errorf("find %q action: %w", name, err)
+	name := e.Compensator(rep.Action().Name())
+	if name == "" {
+		return fmt.Errorf("find compensator for %q: %w", rep.Action().Name(), ErrActionNotFound)
+	}
+	comp := e.Action(name)
+	if comp == nil {
+		return fmt.Errorf("find %q action: %w", name, ErrActionNotFound)
 	}
 	return e.run(ctx, comp)
 }

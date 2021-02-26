@@ -66,19 +66,6 @@ func TestExecute_explicitStartAction(t *testing.T) {
 	}
 }
 
-func TestExecute_explicitStartAction_notFound(t *testing.T) {
-	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
-			return nil
-		}),
-		saga.StartWith("bar"),
-	)
-
-	if err := saga.Execute(context.Background(), s); !errors.Is(err, saga.ErrActionNotFound) {
-		t.Errorf("SAGA should fail with %q; got %q", saga.ErrActionNotFound, err)
-	}
-}
-
 func TestExecute_actionError(t *testing.T) {
 	mockError := errors.New("mock error")
 	s := saga.New(
@@ -378,42 +365,26 @@ func TestValidate(t *testing.T) {
 		wantError error
 	}{
 		{
-			name: "invalid start action",
+			name: "invalid sequence: action not found",
 			opts: []saga.Option{
-				saga.Action("foo", func(c action.Context) error { return nil }),
-				saga.StartWith("bar"),
+				saga.Action("foo", nil),
+				saga.Action("bar", nil),
+				saga.Sequence("foo", "bar", "baz"),
 			},
 			wantError: saga.ErrActionNotFound,
-		},
-		{
-			name: "nil action",
-			opts: []saga.Option{
-				saga.Action("foo", func(c action.Context) error { return nil }),
-				saga.Add(nil),
-				saga.Action("baz", func(c action.Context) error { return nil }),
-			},
-			wantError: saga.ErrNilAction,
 		},
 		{
 			name: "empty name",
 			opts: []saga.Option{
-				saga.Action("   ", func(c action.Context) error { return nil }),
+				saga.Action("   ", nil),
 			},
 			wantError: saga.ErrEmptyName,
 		},
 		{
-			name: "invalid compensator",
+			name: "compensator not found",
 			opts: []saga.Option{
-				saga.Action("foo", func(c action.Context) error { return nil }),
+				saga.Action("foo", nil),
 				saga.Compensate("foo", "bar"),
-			},
-			wantError: saga.ErrActionNotFound,
-		},
-		{
-			name: "invalid compensated",
-			opts: []saga.Option{
-				saga.Action("foo", func(c action.Context) error { return nil }),
-				saga.Compensate("bar", "foo"),
 			},
 			wantError: saga.ErrActionNotFound,
 		},
@@ -425,7 +396,7 @@ func TestValidate(t *testing.T) {
 			err := saga.Validate(s)
 
 			if !errors.Is(err, tt.wantError) {
-				t.Errorf("Validate should fail with %q; got %q", tt.wantError, err)
+				t.Errorf("Validate() should return %q; got %q", tt.wantError, err)
 			}
 		})
 	}
