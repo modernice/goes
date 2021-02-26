@@ -54,8 +54,10 @@ func TestBus_Subscribe_cancelContext(t *testing.T) {
 	}
 
 	select {
-	case err := <-errs:
-		t.Fatalf("didn't expect to receive an error; got %#v", err)
+	case err, ok := <-errs:
+		if ok {
+			t.Fatalf("didn't expect to receive an error; got %#v", err)
+		}
 	case <-time.After(50 * time.Millisecond):
 	}
 }

@@ -14,19 +14,9 @@ func TestEventBus_Errors(t *testing.T) {
 	bus := New(test.NewEncoder())
 	errs := bus.Errors(context.Background())
 
-	// wait for error handling to have started
-	select {
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal(fmt.Errorf("bus.errorHandlingStarted not closed after 100ms"))
-	case _, ok := <-bus.errorHandlingStarted:
-		if ok {
-			t.Fatal(fmt.Errorf("bus.errorHandlingStarted should be closed"))
-		}
-	}
-
 	// when an error happens
 	err := errors.New("foo")
-	bus.error(err)
+	bus.errs.Publish(context.Background(), err)
 
 	// that error should be received
 	select {
@@ -58,16 +48,9 @@ func TestEventBus_Errors_unsubscribe(t *testing.T) {
 	// when subscribed to errors
 	errs := bus.Errors(ctx)
 
-	// wait for error handling
-	select {
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal(fmt.Errorf("bus.errorHandlingStarted not closed after 100ms"))
-	case <-bus.errorHandlingStarted:
-	}
-
 	// when an error happens
 	err := errors.New("foo")
-	bus.error(err)
+	bus.errs.Publish(context.Background(), err)
 
 	// the error should be received
 	select {
@@ -124,7 +107,7 @@ func TestEventBus_error_noSubscribers(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		done := make(chan struct{})
 		go func() {
-			bus.error(err)
+			bus.errs.Publish(context.Background(), err)
 			close(done)
 		}()
 

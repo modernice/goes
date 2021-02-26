@@ -21,13 +21,12 @@ type subscriber struct {
 
 // New returns a new Bus.
 func New() *Bus {
-	bus := Bus{errs: make(chan error)}
-	bus.init()
-	return &bus
+	return &Bus{errs: make(chan error)}
 }
 
 // Publish publishes the error to all subscribers.
 func (b *Bus) Publish(ctx context.Context, err error) error {
+	b.init()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -45,7 +44,9 @@ func (b *Bus) Subscribe(ctx context.Context) <-chan error {
 }
 
 func (b *Bus) init() {
-	go b.handleErrors()
+	b.once.Do(func() {
+		go b.handleErrors()
+	})
 }
 
 func (b *Bus) subscribe(ctx context.Context) subscriber {
@@ -65,6 +66,7 @@ func (b *Bus) subscribe(ctx context.Context) subscriber {
 }
 
 func (b *Bus) unsubscribe(sub subscriber) {
+	defer close(sub.errs)
 	b.subsMux.Lock()
 	defer b.subsMux.Unlock()
 	for i, bsub := range b.subs {
@@ -88,7 +90,6 @@ func (b *Bus) publish(err error) {
 		go func(sub subscriber) {
 			select {
 			case <-sub.ctx.Done():
-				return
 			case sub.errs <- err:
 			}
 		}(sub)

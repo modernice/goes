@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/env"
+	"github.com/modernice/goes/internal/errbus"
 	"github.com/nats-io/nats.go"
 )
 
@@ -30,14 +31,10 @@ type EventBus struct {
 	conn    *nats.Conn
 	subs    map[subscriber]struct{}
 
-	errs                 chan error
-	initErrors           []error
-	errorHandlingStarted chan struct{}
-	errSubsMux           sync.RWMutex
-	errSubs              []errorSubscriber
+	errs       *errbus.Bus
+	initErrors []error
 
 	onceConnect    sync.Once
-	onceErrors     sync.Once
 	onceInitErrors sync.Once
 }
 
@@ -158,10 +155,9 @@ func New(enc event.Encoder, opts ...Option) *EventBus {
 		panic("missing encoder")
 	}
 	bus := EventBus{
-		enc:                  enc,
-		subs:                 make(map[subscriber]struct{}),
-		errs:                 make(chan error),
-		errorHandlingStarted: make(chan struct{}),
+		enc:  enc,
+		subs: make(map[subscriber]struct{}),
+		errs: errbus.New(),
 	}
 	bus.init(opts...)
 
@@ -381,13 +377,14 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 				var env envelope
 				dec := gob.NewDecoder(bytes.NewReader(msg.Data))
 				if err := dec.Decode(&env); err != nil {
-					bus.error(fmt.Errorf("gob decode envelope: %w", err))
+					bus.errs.Publish(context.Background(), fmt.Errorf("gob decode envelope: %w", err))
 					continue
 				}
 
 				data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
 				if err != nil {
-					bus.error(
+					bus.errs.Publish(
+						context.Background(),
 						fmt.Errorf(`encode %q event data: %w`, env.Name, err),
 					)
 					continue
@@ -413,7 +410,7 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 				timer := time.NewTimer(bus.receiveTimeout)
 				select {
 				case <-timer.C:
-					bus.error(fmt.Errorf(
+					bus.errs.Publish(context.Background(), fmt.Errorf(
 						"dropping %q event because it wasn't received after %s",
 						env.Name,
 						bus.receiveTimeout,
@@ -432,7 +429,7 @@ func (bus *EventBus) handleUnsubscribe(ctx context.Context, subs ...subscriber) 
 	<-ctx.Done()
 	for _, sub := range subs {
 		if err := sub.sub.Unsubscribe(); err != nil {
-			bus.error(fmt.Errorf(
+			bus.errs.Publish(context.Background(), fmt.Errorf(
 				`unsubscribe from subject "%s": %w`,
 				sub.sub.Subject,
 				err,
@@ -445,90 +442,13 @@ func (bus *EventBus) handleUnsubscribe(ctx context.Context, subs ...subscriber) 
 // Errors returns an error channel that receives future asynchronous errors from
 // the EventBus. When ctx is canceled, the error channel wil be closed.
 func (bus *EventBus) Errors(ctx context.Context) <-chan error {
-	errs := make(chan error)
-
-	select {
-	case <-ctx.Done():
-		close(errs)
-		return errs
-	default:
-	}
-
-	// start sending errors to subscribers on first subscription
-	bus.onceErrors.Do(bus.goHandleErrors)
-
-	sub := errorSubscriber{
-		ctx:  ctx,
-		errs: errs,
-		mux:  &sync.Mutex{},
-	}
-
-	bus.errSubsMux.Lock()
-	bus.errSubs = append(bus.errSubs, sub)
-	bus.errSubsMux.Unlock()
-
-	go bus.handleErrorUnsubscribe(sub)
-
-	// publish errors that happened in bus.init
-	bus.onceInitErrors.Do(bus.publishInitErrors)
-
-	return errs
-}
-
-func (bus *EventBus) goHandleErrors() {
-	go bus.handleErrors()
-}
-
-func (bus *EventBus) handleErrors() {
-	close(bus.errorHandlingStarted)
-	for err := range bus.errs {
-		bus.errSubsMux.RLock()
-		for _, sub := range bus.errSubs {
-			go func(sub errorSubscriber, err error) {
-				sub.mux.Lock()
-				defer sub.mux.Unlock()
-
-				select {
-				case <-sub.ctx.Done():
-				case sub.errs <- err:
-				}
-			}(sub, err)
-		}
-		bus.errSubsMux.RUnlock()
-	}
-}
-
-func (bus *EventBus) handleErrorUnsubscribe(sub errorSubscriber) {
-	// close the subscription's error channel when done
-	defer sub.close()
-
-	// wait until sub.ctx is canceled
-	<-sub.ctx.Done()
-
-	// remove sub from subscribers
-	bus.errSubsMux.Lock()
-	defer bus.errSubsMux.Unlock()
-
-	for i, errSub := range bus.errSubs {
-		if sub == errSub {
-			bus.errSubs = append(bus.errSubs[:i], bus.errSubs[i+1:]...)
-		}
-	}
+	defer bus.onceInitErrors.Do(bus.publishInitErrors)
+	return bus.errs.Subscribe(ctx)
 }
 
 func (bus *EventBus) publishInitErrors() {
-	go func() {
-		for _, err := range bus.initErrors {
-			bus.error(fmt.Errorf("init: %w", err))
-		}
-	}()
-}
-
-func (bus *EventBus) error(err error) {
-	select {
-	case <-bus.errorHandlingStarted:
-		bus.errs <- err
-	default:
+	for _, err := range bus.initErrors {
+		bus.errs.Publish(context.Background(), fmt.Errorf("init: %w", err))
 	}
 }
 
