@@ -15,17 +15,15 @@ import (
 )
 
 type repository struct {
-	store   event.Store
-	factory aggregate.Factory
+	store event.Store
 }
 
 // New return a Repository for aggregates. The Repository uses the provided
 // store to query the events needed to build the state of aggregates and to
 // insert the aggregate changes in form of events into the Store.
-func New(store event.Store, fac aggregate.Factory) aggregate.Repository {
+func New(store event.Store) aggregate.Repository {
 	return &repository{
-		store:   store,
-		factory: fac,
+		store: store,
 	}
 }
 
@@ -160,9 +158,8 @@ func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.St
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)
 	}
-	return stream.FromEvents(
+	return stream.New(
 		es,
-		stream.Factory(r.factory),
 		stream.Grouped(true),
 		stream.Sorted(true),
 	), nil

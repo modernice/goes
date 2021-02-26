@@ -223,18 +223,33 @@ func (mr *MockStreamMockRecorder) Next(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockStream)(nil).Next), arg0)
 }
 
-// Aggregate mocks base method
-func (m *MockStream) Aggregate() aggregate.Aggregate {
+// Current mocks base method
+func (m *MockStream) Current() (string, uuid.UUID) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Aggregate")
-	ret0, _ := ret[0].(aggregate.Aggregate)
+	ret := m.ctrl.Call(m, "Current")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(uuid.UUID)
+	return ret0, ret1
+}
+
+// Current indicates an expected call of Current
+func (mr *MockStreamMockRecorder) Current() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Current", reflect.TypeOf((*MockStream)(nil).Current))
+}
+
+// Apply mocks base method
+func (m *MockStream) Apply(arg0 aggregate.Aggregate) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", arg0)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Aggregate indicates an expected call of Aggregate
-func (mr *MockStreamMockRecorder) Aggregate() *gomock.Call {
+// Apply indicates an expected call of Apply
+func (mr *MockStreamMockRecorder) Apply(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Aggregate", reflect.TypeOf((*MockStream)(nil).Aggregate))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockStream)(nil).Apply), arg0)
 }
 
 // Err mocks base method

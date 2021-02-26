@@ -11,10 +11,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/aggregate/factory"
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/repository"
-	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
@@ -26,7 +24,7 @@ import (
 )
 
 func TestRepository_Save(t *testing.T) {
-	r := repository.New(memstore.New(), nil)
+	r := repository.New(memstore.New())
 
 	aggregateID := uuid.New()
 	events := []event.Event{
@@ -62,7 +60,7 @@ func TestRepository_Save_rollback(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := mock_event.NewMockStore(ctrl)
-	r := repository.New(mockStore, nil)
+	r := repository.New(mockStore)
 
 	// given 3 events
 	aggregateID := uuid.New()
@@ -107,7 +105,7 @@ func TestRepository_Save_rollbackError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := mock_event.NewMockStore(ctrl)
-	r := repository.New(mockStore, nil)
+	r := repository.New(mockStore)
 
 	// given 3 events
 	aggregateID := uuid.New()
@@ -164,7 +162,7 @@ func TestRepository_Fetch(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(memstore.New(), nil)
+	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -214,7 +212,7 @@ func TestRepository_FetchVersion(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(memstore.New(), nil)
+	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -262,7 +260,7 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(memstore.New(), nil)
+	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -309,7 +307,7 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(memstore.New(), nil)
+	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -353,7 +351,7 @@ func TestRepository_Delete(t *testing.T) {
 	}
 
 	s := memstore.New(changes...)
-	r := repository.New(s, nil)
+	r := repository.New(s)
 
 	if err := r.Fetch(context.Background(), foo); err != nil {
 		t.Fatalf("r.Fetch should not fail: %#v", err)
@@ -386,12 +384,9 @@ func TestRepository_Query_name(t *testing.T) {
 	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 
 	s := memstore.New(events...)
-	f := factory.New(factory.For("foo", func(id uuid.UUID) aggregate.Aggregate {
-		return am[id]
-	}))
-	r := repository.New(s, f)
+	r := repository.New(s)
 
-	result, err := runQuery(r, query.New(query.Name("foo")))
+	result, err := runQuery(r, query.New(query.Name("foo")), makeFactory(am))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -421,17 +416,9 @@ func TestRepository_Query_name_multiple(t *testing.T) {
 	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 
 	s := memstore.New(events...)
-	f := factory.New(
-		factory.For("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		}),
-		factory.For("baz", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		}),
-	)
-	r := repository.New(s, f)
+	r := repository.New(s)
 
-	result, err := runQuery(r, query.New(query.Name("foo", "baz")))
+	result, err := runQuery(r, query.New(query.Name("foo", "baz")), makeFactory(am))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -462,19 +449,11 @@ func TestRepository_Query_id(t *testing.T) {
 	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 
 	s := memstore.New(events...)
-	f := factory.New(
-		factory.For("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		}),
-		factory.For("baz", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		}),
-	)
-	r := repository.New(s, f)
+	r := repository.New(s)
 
 	result, err := runQuery(r, query.New(
 		query.ID(foos[0].AggregateID(), bazs[2].AggregateID()),
-	))
+	), makeFactory(am))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -508,20 +487,9 @@ func TestRepository_Query_version(t *testing.T) {
 	events = xevent.Shuffle(events)
 
 	s := memstore.New(events...)
-	f := factory.New(
-		factory.For("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		}),
-		factory.For("bar", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		}),
-		factory.For("baz", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		}),
-	)
-	r := repository.New(s, f)
+	r := repository.New(s)
 
-	result, err := runQuery(r, query.New(query.Version(version.Exact(10, 20))))
+	result, err := runQuery(r, query.New(query.Version(version.Exact(10, 20))), makeFactory(am))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -546,10 +514,27 @@ func TestRepository_Query_version(t *testing.T) {
 	}
 }
 
-func runQuery(r aggregate.Repository, q query.Query) ([]aggregate.Aggregate, error) {
-	cur, err := r.Query(context.Background(), q)
+func runQuery(r aggregate.Repository, q query.Query, factory func(string, uuid.UUID) aggregate.Aggregate) ([]aggregate.Aggregate, error) {
+	str, err := r.Query(context.Background(), q)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
-	return stream.All(context.Background(), cur)
+	defer str.Close(context.Background())
+
+	var as []aggregate.Aggregate
+	for str.Next(context.Background()) {
+		name, id := str.Current()
+		a := factory(name, id)
+		if err := str.Apply(a); err != nil {
+			return as, err
+		}
+		as = append(as, a)
+	}
+	return as, str.Err()
+}
+
+func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) aggregate.Aggregate {
+	return func(_ string, id uuid.UUID) aggregate.Aggregate {
+		return am[id]
+	}
 }

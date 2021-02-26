@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/consistency"
-	"github.com/modernice/goes/aggregate/factory"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
 	mock_event "github.com/modernice/goes/event/mocks"
@@ -37,14 +36,11 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 	es := estream.InMemory(events...)
 
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 	)
 
-	res, err := drain(str, time.Second)
+	res, err := drain(str, time.Second, makeFactory(am))
 	if err != nil {
 		t.Fatalf("drain stream: %v", err)
 	}
@@ -53,7 +49,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 	test.AssertEqualEvents(t, xevent.FilterAggregate(events, as[0]), applied)
 
 	if len(res) != 1 {
-		t.Errorf("stream should return 1 aggregate; got %d", len(res))
+		t.Fatalf("stream should return 1 aggregate; got %d", len(res))
 	}
 
 	if res[0] != as[0] {
@@ -76,14 +72,11 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 	events = xevent.Shuffle(events)
 	es := estream.InMemory(events...)
 
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 	)
 
-	res, err := drain(str, time.Second)
+	res, err := drain(str, time.Second, makeFactory(am))
 	if err != nil {
 		t.Fatalf("drain stream: %v", err)
 	}
@@ -92,7 +85,7 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 	test.AssertEqualEvents(t, event.Sort(events, event.SortAggregateVersion, event.SortAsc), applied)
 
 	if len(res) != 1 {
-		t.Errorf("stream should return 1 aggregate; got %d", len(res))
+		t.Fatalf("stream should return 1 aggregate; got %d", len(res))
 	}
 
 	if res[0] != as[0] {
@@ -107,14 +100,11 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 	events = xevent.Shuffle(events)
 	es := estream.InMemory(events...)
 
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 	)
 
-	res, err := drain(str, 3*time.Second)
+	res, err := drain(str, 3*time.Second, makeFactory(am))
 	if err != nil {
 		t.Fatalf("drain stream: %v", err)
 	}
@@ -147,17 +137,14 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 
 func TestStream_Next_contextCanceled(t *testing.T) {
 	as, _ := xaggregate.Make(3)
-	am := xaggregate.Map(as)
+	// am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
 
 	es := xstream.Delayed(estream.InMemory(events...), time.Second)
 
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -174,18 +161,15 @@ func TestStream_Next_contextCanceled(t *testing.T) {
 
 func TestStream_Close(t *testing.T) {
 	as, _ := xaggregate.Make(10)
-	am := xaggregate.Map(as)
+	// am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 
 	// delay the event cursor by 1 second, so that the no event can be pulled from
 	// the stream
 	es := xstream.Delayed(estream.InMemory(events...), time.Second)
 
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 	)
 
 	if err := str.Close(context.Background()); err != nil {
@@ -200,25 +184,23 @@ func TestStream_Close(t *testing.T) {
 		t.Errorf("stream should return error %#v; got %#v", stream.ErrClosed, err)
 	}
 
-	if a := str.Aggregate(); a != nil {
-		t.Errorf("stream should not return an aggregate; got %#v", a)
+	name, id := str.Current()
+	if name != "" || id != uuid.Nil {
+		t.Errorf("stream should not return an aggregate; got [%s, %s]", name, id)
 	}
 }
 
 func TestStream_Close_closedEventStream(t *testing.T) {
 	as, _ := xaggregate.Make(10)
-	am := xaggregate.Map(as)
+	// am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 
 	// delay the event cursor by 1 second, so that the no event can be pulled from
 	// the stream
 	es := xstream.Delayed(estream.InMemory(events...), time.Second)
 
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 	)
 
 	if err := es.Close(context.Background()); err != nil {
@@ -233,20 +215,19 @@ func TestStream_Close_closedEventStream(t *testing.T) {
 		t.Errorf("stream should return error %#v; got %#v", estream.ErrClosed, err)
 	}
 
-	if a := str.Aggregate(); a != nil {
-		t.Errorf("stream should not return an aggregate; got %#v", a)
+	name, id := str.Current()
+	if name != "" || id != uuid.Nil {
+		t.Errorf("stream should not return an aggregate; got [%s, %s]", name, id)
 	}
 }
 
 func TestStream_Close_closeEventStream(t *testing.T) {
 	as, _ := xaggregate.Make(10)
-	am := xaggregate.Map(as)
+	// am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 
 	es := estream.InMemory(events...)
-	str := stream.FromEvents(es, stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-		return am[id]
-	})))
+	str := stream.New(es)
 
 	if err := str.Close(context.Background()); err != nil {
 		t.Errorf("stream failed to close: %v", err)
@@ -265,17 +246,15 @@ func TestStream_Close_closeEventStream_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	as, _ := xaggregate.Make(10)
-	am := xaggregate.Map(as)
+	// as, _ := xaggregate.Make(10)
+	// am := xaggregate.Map(as)
 
 	mes := mock_event.NewMockStream(ctrl)
 	mockError := errors.New("mock error")
 	mes.EXPECT().Close(gomock.Any()).Return(mockError)
 	es := xstream.Delayed(mes, time.Second)
 
-	str := stream.FromEvents(es, stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-		return am[id]
-	})))
+	str := stream.New(es)
 
 	if err := str.Close(context.Background()); !errors.Is(err, mockError) {
 		t.Errorf("str.Close should return the event stores error %#v; got %#v", mockError, err)
@@ -284,13 +263,11 @@ func TestStream_Close_closeEventStream_error(t *testing.T) {
 
 func TestStream_Close_closeEventStream_contextCanceled(t *testing.T) {
 	as, _ := xaggregate.Make(10)
-	am := xaggregate.Map(as)
+	// am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 
 	es := estream.InMemory(events...)
-	str := stream.FromEvents(es, stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-		return am[id]
-	})))
+	str := stream.New(es)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -306,18 +283,12 @@ func TestStream_inconsistent(t *testing.T) {
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion(3))
 
 	es := estream.InMemory(events...)
+	str := stream.New(es)
 
-	str := stream.FromEvents(
-		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
-	)
-
-	res, err := stream.All(context.Background(), str)
+	res, err := drain(str, 3*time.Second, makeFactory(am))
 
 	if len(res) != 0 {
-		t.Errorf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
+		t.Fatalf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
 	var cerr *consistency.Error
@@ -344,15 +315,12 @@ func TestSorted(t *testing.T) {
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
 	es := estream.InMemory(events...)
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 		stream.Sorted(true),
 	)
 
-	res, err := stream.All(context.Background(), str)
+	res, err := drain(str, 3*time.Second, makeFactory(am))
 
 	if len(res) != 0 {
 		t.Errorf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
@@ -380,7 +348,7 @@ func TestGrouped(t *testing.T) {
 		aggregate.SortOptions{Sort: aggregate.SortID, Dir: aggregate.SortAsc},
 	)
 
-	am := xaggregate.Map(as)
+	// am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 5, xevent.ForAggregate(as...))
 	events = event.SortMulti(
 		events,
@@ -404,11 +372,8 @@ func TestGrouped(t *testing.T) {
 		return 10 * time.Millisecond
 	})
 
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 		stream.Grouped(true),
 	)
 
@@ -424,9 +389,9 @@ func TestGrouped(t *testing.T) {
 		t.Errorf("stream should return no error; got %#v", err)
 	}
 
-	a := str.Aggregate()
-	if a != as[0] {
-		t.Errorf("str.Aggregate should return %#v; got %#v", as[0], a)
+	name, id := str.Current()
+	if name != as[0].AggregateName() || id != as[0].AggregateID() {
+		t.Errorf("str.Current should return [%s, %s]; got [%s, %s]", as[0].AggregateName(), as[0].AggregateID(), name, id)
 	}
 
 	if str.Next(ctx) {
@@ -453,11 +418,8 @@ func TestValidateConsistency(t *testing.T) {
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
 	es := estream.InMemory(events...)
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(newFactory("foo", func(id uuid.UUID) aggregate.Aggregate {
-			return am[id]
-		})),
 
 		// prevent sorting of events
 		stream.Sorted(true),
@@ -465,7 +427,8 @@ func TestValidateConsistency(t *testing.T) {
 		stream.ValidateConsistency(false),
 	)
 
-	res, err := stream.All(context.Background(), str)
+	res, err := drain(str, 3*time.Second, makeFactory(am))
+
 	if err != nil {
 		t.Errorf("stream should return no error; got %#v", err)
 	}
@@ -479,24 +442,6 @@ func TestValidateConsistency(t *testing.T) {
 	}
 }
 
-func TestFactory(t *testing.T) {
-	as, _ := xaggregate.Make(1)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
-	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
-
-	es := estream.InMemory(events...)
-	f := factory.New()
-	str := stream.FromEvents(es, stream.Factory(f))
-
-	if str.Next(context.Background()) {
-		t.Errorf("str.Next should return %t; got %t", false, true)
-	}
-
-	if err := str.Err(); !errors.Is(err, factory.ErrUnknownName) {
-		t.Errorf("str.Err should return %#v; got %#v", factory.ErrUnknownName, err)
-	}
-}
-
 func TestFilter(t *testing.T) {
 	foos, _ := xaggregate.Make(5, xaggregate.Name("foo"))
 	foobars, _ := xaggregate.Make(5, xaggregate.Name("foobar"))
@@ -507,13 +452,9 @@ func TestFilter(t *testing.T) {
 	events = xevent.Shuffle(events)
 
 	es := estream.InMemory(events...)
-	f := factory.New(factory.For("", func(id uuid.UUID) aggregate.Aggregate {
-		return am[id]
-	}))
 
-	str := stream.FromEvents(
+	str := stream.New(
 		es,
-		stream.Factory(f),
 		stream.Filter(
 			func(evt event.Event) bool {
 				return strings.HasPrefix(evt.AggregateName(), "foo")
@@ -524,7 +465,7 @@ func TestFilter(t *testing.T) {
 		),
 	)
 
-	res, err := stream.All(context.Background(), str)
+	res, err := drain(str, 3*time.Second, makeFactory(am))
 	if err != nil {
 		t.Errorf("stream should not return an error; got %v", err)
 	}
@@ -537,7 +478,7 @@ func TestFilter(t *testing.T) {
 	}
 }
 
-func drain(s aggregate.Stream, timeout time.Duration) ([]aggregate.Aggregate, error) {
+func drain(s aggregate.Stream, timeout time.Duration, factory func(string, uuid.UUID) aggregate.Aggregate) ([]aggregate.Aggregate, error) {
 	type result struct {
 		as  []aggregate.Aggregate
 		err error
@@ -548,9 +489,23 @@ func drain(s aggregate.Stream, timeout time.Duration) ([]aggregate.Aggregate, er
 	res := make(chan result)
 
 	go func() {
-		as, err := stream.All(ctx, s)
-		if err != nil {
-			err = fmt.Errorf("stream returned an error: %w", err)
+		defer s.Close(ctx)
+		var as []aggregate.Aggregate
+		var err error
+		for s.Next(ctx) {
+			name, id := s.Current()
+			a := factory(name, id)
+			if err := s.Apply(a); err != nil {
+				res <- result{
+					as:  as,
+					err: err,
+				}
+				return
+			}
+			as = append(as, a)
+		}
+		if s.Err() != nil {
+			err = fmt.Errorf("stream: %w", err)
 		}
 		res <- result{
 			as:  as,
@@ -566,6 +521,12 @@ func drain(s aggregate.Stream, timeout time.Duration) ([]aggregate.Aggregate, er
 	}
 }
 
-func newFactory(name string, fn func(uuid.UUID) aggregate.Aggregate) aggregate.Factory {
-	return factory.New(factory.For(name, fn))
+func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) aggregate.Aggregate {
+	return func(_ string, id uuid.UUID) aggregate.Aggregate {
+		return am[id]
+	}
 }
+
+// func newFactory(name string, fn func(uuid.UUID) aggregate.Aggregate) aggregate.Factory {
+// 	return factory.New(factory.For(name, fn))
+// }

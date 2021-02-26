@@ -20,8 +20,7 @@ type stream struct {
 	validateConsistency bool
 	filters             []func(event.Event) bool
 
-	events  event.Stream
-	factory aggregate.Factory
+	events event.Stream
 
 	acceptCtx  context.Context
 	stopAccept context.CancelFunc
@@ -31,12 +30,12 @@ type stream struct {
 	queues       map[string]map[uuid.UUID]chan event.Event
 	closedQueues map[chan event.Event]bool
 
-	startedBuildsMux sync.RWMutex
-	startedBuilds    map[string]map[uuid.UUID]bool
-	startQueue       chan aggregate.Aggregate
+	startedDrainsMux sync.RWMutex
+	startedDrains    map[string]map[uuid.UUID]bool
+	drainQueue       chan result
 
-	results chan aggregate.Aggregate
-	current aggregate.Aggregate
+	results chan result
+	current result
 
 	errMux sync.RWMutex
 	err    error
@@ -44,15 +43,10 @@ type stream struct {
 	closed chan struct{}
 }
 
-// Factory returns an Option that provides the aggregate.Factory that's called
-// to make Aggregates.
-//
-// When no aggregate.Factory is provided with Factory, Aggregates are created
-// with aggregate.New (which returns the base Aggregate).
-func Factory(f aggregate.Factory) Option {
-	return func(s *stream) {
-		s.factory = f
-	}
+type result struct {
+	name   string
+	id     uuid.UUID
+	events []event.Event
 }
 
 // Sorted returns an Option that optimizes Aggregate builds by giving the
@@ -132,23 +126,23 @@ func Filter(fns ...func(event.Event) bool) Option {
 	}
 }
 
-// FromEvents returns a Stream from an event.Stream. The returned Stream pulls
-// events from es by calling es.Next until es.Next returns false or s.Err
-// returns a non-nil error. When s.Err returns a non-nil error, that error is
-// also returned from as.Err.
+// New returns a Stream from an event.Stream. The returned Stream pulls Events
+// from es by calling es.Next until es.Next returns false or s.Err returns a
+// non-nil error. When s.Err returns a non-nil error, that error is also returned
+// from as.Err.
 //
 // When the returned Stream is closed, the underlying event.Stream es is also
 // closed.
-func FromEvents(es event.Stream, opts ...Option) (as aggregate.Stream) {
+func New(es event.Stream, opts ...Option) (as aggregate.Stream) {
 	aes := stream{
 		validateConsistency: true,
 		events:              es,
 		acceptDone:          make(chan struct{}),
-		results:             make(chan aggregate.Aggregate),
+		results:             make(chan result),
 		queues:              make(map[string]map[uuid.UUID]chan event.Event),
 		closedQueues:        make(map[chan event.Event]bool),
-		startQueue:          make(chan aggregate.Aggregate),
-		startedBuilds:       make(map[string]map[uuid.UUID]bool),
+		drainQueue:          make(chan result),
+		startedDrains:       make(map[string]map[uuid.UUID]bool),
 		closed:              make(chan struct{}),
 	}
 	for _, opt := range opts {
@@ -156,7 +150,7 @@ func FromEvents(es event.Stream, opts ...Option) (as aggregate.Stream) {
 	}
 	aes.acceptCtx, aes.stopAccept = context.WithCancel(context.Background())
 	go aes.acceptEvents()
-	go aes.buildAggregates()
+	go aes.drainAggregates()
 	return &aes
 }
 
@@ -179,17 +173,27 @@ func (s *stream) Next(ctx context.Context) bool {
 	case <-s.closed:
 		s.forceError(ErrClosed)
 		return false
-	case a, ok := <-s.results:
+	case r, ok := <-s.results:
 		if !ok {
 			return false
 		}
-		s.current = a
+		s.current = r
 		return true
 	}
 }
 
-func (s *stream) Aggregate() aggregate.Aggregate {
-	return s.current
+func (s *stream) Current() (string, uuid.UUID) {
+	return s.current.name, s.current.id
+}
+
+func (s *stream) Apply(a aggregate.Aggregate) error {
+	if s.validateConsistency {
+		if err := consistency.Validate(a, s.current.events...); err != nil {
+			return err
+		}
+	}
+	aggregate.ApplyHistory(a, s.current.events...)
+	return nil
 }
 
 func (s *stream) Err() error {
@@ -244,8 +248,8 @@ func (s *stream) acceptEvents() {
 		name, id := evt.AggregateName(), evt.AggregateID()
 
 		// start building the aggregate if it's the first event of an aggregate
-		if !s.buildStarted(name, id) {
-			if err := s.startBuild(name, id); err != nil {
+		if !s.drainStarted(name, id) {
+			if err := s.startDrain(name, id); err != nil {
 				s.error(fmt.Errorf("start build %s(%s): %w", name, id, err))
 				continue
 			}
@@ -277,39 +281,34 @@ func (s *stream) shouldDiscard(evt event.Event) bool {
 	return false
 }
 
-func (s *stream) buildStarted(name string, id uuid.UUID) bool {
-	s.startedBuildsMux.RLock()
-	defer s.startedBuildsMux.RUnlock()
-	started, ok := s.startedBuilds[name]
+func (s *stream) drainStarted(name string, id uuid.UUID) bool {
+	s.startedDrainsMux.RLock()
+	defer s.startedDrainsMux.RUnlock()
+	started, ok := s.startedDrains[name]
 	if !ok {
 		return false
 	}
 	return started[id]
 }
 
-func (s *stream) startBuild(name string, id uuid.UUID) error {
-	a, err := s.newAggregate(name, id)
-	if err != nil {
-		return fmt.Errorf("new %q aggregate: %w", name, err)
-	}
-
-	s.startedBuildsMux.Lock()
-	defer s.startedBuildsMux.Unlock()
-	started, ok := s.startedBuilds[name]
+func (s *stream) startDrain(name string, id uuid.UUID) error {
+	s.startedDrainsMux.Lock()
+	defer s.startedDrainsMux.Unlock()
+	started, ok := s.startedDrains[name]
 	if !ok {
 		started = make(map[uuid.UUID]bool)
-		s.startedBuilds[name] = started
+		s.startedDrains[name] = started
 	}
 	started[id] = true
 	select {
 	case <-s.closed:
-	case s.startQueue <- a:
+	case s.drainQueue <- result{name: name, id: id}:
 	}
 	return nil
 }
 
 func (s *stream) closeQueues() {
-	close(s.startQueue)
+	close(s.drainQueue)
 	s.queuesMux.RLock()
 	defer s.queuesMux.RUnlock()
 	for _, queues := range s.queues {
@@ -374,30 +373,30 @@ func (s *stream) newQueue(name string, id uuid.UUID) chan event.Event {
 	return q
 }
 
-func (s *stream) buildAggregates() {
+func (s *stream) drainAggregates() {
 	defer close(s.results)
 	var wg sync.WaitGroup
-	for a := range s.startQueue {
+	for r := range s.drainQueue {
 		wg.Add(1)
-		go s.buildAggregate(&wg, a)
+		go s.drainAggregate(&wg, r.name, r.id)
 	}
 	wg.Wait()
 }
 
-func (s *stream) buildAggregate(wg *sync.WaitGroup, a aggregate.Aggregate) {
+func (s *stream) drainAggregate(wg *sync.WaitGroup, name string, id uuid.UUID) {
 	defer wg.Done()
-	if err := s.build(a); err != nil {
-		s.error(err)
-		return
-	}
 	select {
 	case <-s.closed:
-	case s.results <- a:
+	case s.results <- result{
+		name:   name,
+		id:     id,
+		events: s.drainEvents(name, id),
+	}:
 	}
 }
 
-func (s *stream) build(a aggregate.Aggregate) error {
-	q := s.queue(a.AggregateName(), a.AggregateID())
+func (s *stream) drainEvents(name string, id uuid.UUID) []event.Event {
+	q := s.queue(name, id)
 
 	var events []event.Event
 	for evt := range q {
@@ -408,27 +407,7 @@ func (s *stream) build(a aggregate.Aggregate) error {
 		events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 	}
 
-	if s.validateConsistency {
-		if err := consistency.Validate(a, events...); err != nil {
-			return fmt.Errorf("validate consistency: %w", err)
-		}
-	}
-
-	for _, evt := range events {
-		a.ApplyEvent(evt)
-	}
-
-	a.TrackChange(events...)
-	a.FlushChanges()
-
-	return nil
-}
-
-func (s *stream) newAggregate(name string, id uuid.UUID) (aggregate.Aggregate, error) {
-	if s.factory == nil {
-		return aggregate.New(name, id), nil
-	}
-	return s.factory.Make(name, id)
+	return events
 }
 
 // error sets s.err to err if s.err == nil
