@@ -98,7 +98,7 @@ func Test(q aggregate.Query, a aggregate.Aggregate) bool {
 // 		(querying for version 10 of an Aggregate should return Events 1 -> 10)
 // 	- version.Max is passed without modification
 // 	- version.Min is discarded
-// 		(because an Aggregate (normally) cannot start at a version > 1)
+// 		(because an Aggregate cannot start at a version > 1)
 // 	- version.Ranges is rewritten to version.Max
 func EventQueryOpts(q aggregate.Query) []query.Option {
 	var opts []query.Option
