@@ -46,17 +46,17 @@ func (h *Handler) On(
 }
 
 func (h *Handler) handle(ctx command.Context, fn func(context.Context, command.Command) error) {
-	handleError := fn(ctx.Context(), ctx.Command())
+	handleError := fn(ctx, ctx.Command())
 
 	if handleError != nil {
 		h.errs.Publish(
-			ctx.Context(),
+			ctx,
 			fmt.Errorf("handle %q command: %w", ctx.Command().Name(), handleError),
 		)
 	}
 
-	if err := ctx.Done(ctx.Context(), done.WithError(handleError)); err != nil {
-		h.errs.Publish(ctx.Context(), fmt.Errorf("mark as done: %w", err))
+	if err := ctx.MarkDone(ctx, done.WithError(handleError)); err != nil {
+		h.errs.Publish(ctx, fmt.Errorf("mark as done: %w", err))
 	}
 }
 

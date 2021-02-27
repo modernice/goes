@@ -333,7 +333,7 @@ func TestBus_Subscribe_executionError(t *testing.T) {
 	mockError := errors.New("mock error")
 	go func() {
 		for cmd := range commands {
-			if err := cmd.Done(context.Background(), done.WithError(mockError)); err != nil {
+			if err := cmd.MarkDone(context.Background(), done.WithError(mockError)); err != nil {
 				doneError <- fmt.Errorf("mark as done: %w", err)
 			}
 		}
@@ -388,7 +388,7 @@ func TestBus_Subscribe_exactlyOneHandler(t *testing.T) {
 		defer close(handleDone)
 		for cmd := range commands {
 			atomic.AddInt64(&handleCount, 1)
-			if err := cmd.Done(context.Background()); err != nil {
+			if err := cmd.MarkDone(context.Background()); err != nil {
 				panic(err)
 			}
 		}
@@ -440,7 +440,7 @@ func TestBus_Dispatch_synchronous(t *testing.T) {
 	errs := make(chan error, 2)
 	go func() {
 		for cmd := range commands {
-			if err := cmd.Done(context.Background()); err != nil {
+			if err := cmd.MarkDone(context.Background()); err != nil {
 				errs <- err
 			}
 		}
@@ -478,7 +478,7 @@ func TestBus_Dispatch_synchronous_withError(t *testing.T) {
 	mockError := errors.New("mock error")
 	go func() {
 		for cmd := range commands {
-			if err := cmd.Done(context.Background(), done.WithError(mockError)); err != nil {
+			if err := cmd.MarkDone(context.Background(), done.WithError(mockError)); err != nil {
 				errs <- err
 			}
 		}
@@ -526,7 +526,7 @@ func TestBus_Dispatch_report(t *testing.T) {
 	mockRuntime := time.Duration(rand.Intn(1000)) * time.Millisecond
 	go func() {
 		for cmd := range commands {
-			if err := cmd.Done(
+			if err := cmd.MarkDone(
 				context.Background(),
 				done.WithRuntime(mockRuntime),
 				done.WithError(mockError),

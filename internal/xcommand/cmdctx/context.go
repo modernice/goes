@@ -8,7 +8,8 @@ import (
 )
 
 type cmdctx struct {
-	base     context.Context
+	context.Context
+
 	cmd      command.Command
 	whenDone func(context.Context, ...done.Option) error
 }
@@ -27,8 +28,8 @@ func WhenDone(fn func(context.Context, ...done.Option) error) Option {
 // New returns a Context for the given Command.
 func New(base context.Context, cmd command.Command, opts ...Option) command.Context {
 	ctx := cmdctx{
-		base: base,
-		cmd:  cmd,
+		Context: base,
+		cmd:     cmd,
 	}
 	for _, opt := range opts {
 		opt(&ctx)
@@ -36,15 +37,11 @@ func New(base context.Context, cmd command.Command, opts ...Option) command.Cont
 	return &ctx
 }
 
-func (ctx *cmdctx) Context() context.Context {
-	return ctx.base
-}
-
 func (ctx *cmdctx) Command() command.Command {
 	return ctx.cmd
 }
 
-func (ctx *cmdctx) Done(c context.Context, opts ...done.Option) error {
+func (ctx *cmdctx) MarkDone(c context.Context, opts ...done.Option) error {
 	if ctx.whenDone != nil {
 		return ctx.whenDone(c, opts...)
 	}

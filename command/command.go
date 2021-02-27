@@ -1,6 +1,6 @@
 package command
 
-//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus,Context
+//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus
 
 import (
 	"context"
@@ -58,16 +58,15 @@ type Bus interface {
 
 // Context is the context for handling Commands.
 type Context interface {
-	// Context returns the underlying context.Context.
-	Context() context.Context
+	context.Context
 
 	// Command returns the actual Command.
 	Command() Command
 
-	// Done should be called after the execution of the Command to report the
+	// MarkDone should be called after the execution of the Command to report the
 	// execution result. Use Options to add information about the execution to
 	// the report.
-	Done(context.Context, ...done.Option) error
+	MarkDone(context.Context, ...done.Option) error
 }
 
 // Option is a Command option.
