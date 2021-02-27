@@ -356,7 +356,7 @@ func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan CommandE
 	return result, nil
 }
 
-// Handle returns a channel of Command Contexts. That channel is registered as
+// Subscribe returns a channel of Command Contexts. That channel is registered as
 // a handler for Commands which have one of the specified names.
 //
 // When a Command Bus, which uses the same underlying Event Bus as Bus b,
@@ -372,7 +372,7 @@ func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan CommandE
 // are pushed into the Context channel before it is closed. Use the DrainTimeout
 // Option to specify the timeout after which the remaining Commands are being
 // discarded.
-func (b *Bus) Handle(ctx context.Context, names ...string) (<-chan command.Context, error) {
+func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Context, error) {
 	dispatched, err := b.bus.Subscribe(ctx, CommandDispatched)
 	if err != nil {
 		return nil, fmt.Errorf(

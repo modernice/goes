@@ -45,16 +45,15 @@ type Encoder interface {
 
 // A Bus dispatches Commands to the appropriate Handlers.
 type Bus interface {
-	// Dispatch sends the Command to the appropriate Handlers. Which Handlers
-	// receive the Command can vary and depends on the underlying Bus
-	// implementation.
+	// Dispatch sends the Command to the appropriate subscriber. Dispatch must
+	// only return nil if the Command has been successfully received by a
+	// subscriber.
 	Dispatch(context.Context, Command, ...dispatch.Option) error
 
-	// Handle returns a channel of Contexts. When a Command whose name is in
-	// names is dispatched, that Command is received from the Context channel.
-	// Implementations of Bus must ensure that a Command will only be received
-	// by a single channel/handler.
-	Handle(ctx context.Context, names ...string) (<-chan Context, error)
+	// Subscribe subscribes to Commands with the given names and returns a
+	// channel of Contexts. Implementations of Bus must ensure that Commands
+	// won't be handled by multiple subscribers.
+	Subscribe(ctx context.Context, names ...string) (<-chan Context, error)
 }
 
 // Context is the context for handling Commands.

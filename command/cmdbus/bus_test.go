@@ -121,13 +121,13 @@ func TestBus_Dispatch(t *testing.T) {
 	}
 }
 
-func TestBus_Handle(t *testing.T) {
+func TestBus_Subscribe(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
-	commands, err := bus.Handle(context.Background(), "foo", "bar", "baz")
+	commands, err := bus.Subscribe(context.Background(), "foo", "bar", "baz")
 	if err != nil {
 		t.Fatalf("failed to register handler: %v", err)
 	}
@@ -240,13 +240,13 @@ func TestBus_Handle(t *testing.T) {
 	}
 }
 
-func TestBus_Handle_invalidEventData(t *testing.T) {
+func TestBus_Subscribe_invalidEventData(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
-	commands, err := bus.Handle(context.Background(), "foo")
+	commands, err := bus.Subscribe(context.Background(), "foo")
 	if err != nil {
 		t.Fatalf("failed to register command handler: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestBus_Handle_invalidEventData(t *testing.T) {
 	}
 }
 
-func TestBus_Handle_decodeError(t *testing.T) {
+func TestBus_Subscribe_decodeError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -291,7 +291,7 @@ func TestBus_Handle_decodeError(t *testing.T) {
 		})
 	enc.EXPECT().Decode("foo", gomock.Any()).Return(nil, decodeError)
 
-	_, err := bus.Handle(context.Background(), "foo")
+	_, err := bus.Subscribe(context.Background(), "foo")
 	if err != nil {
 		t.Fatalf("failed to register handler: %v", err)
 	}
@@ -318,13 +318,13 @@ func TestBus_Handle_decodeError(t *testing.T) {
 	}
 }
 
-func TestBus_Handle_executionError(t *testing.T) {
+func TestBus_Subscribe_executionError(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
-	commands, err := bus.Handle(context.Background(), "foo")
+	commands, err := bus.Subscribe(context.Background(), "foo")
 	if err != nil {
 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
 	}
@@ -367,7 +367,7 @@ func TestBus_Handle_executionError(t *testing.T) {
 	}
 }
 
-func TestBus_Handle_exactlyOneHandler(t *testing.T) {
+func TestBus_Subscribe_exactlyOneHandler(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
 	ebus := chanbus.New()
@@ -432,7 +432,7 @@ func TestBus_Dispatch_synchronous(t *testing.T) {
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(0))
 
-	commands, err := bus.Handle(context.Background(), "foo")
+	commands, err := bus.Subscribe(context.Background(), "foo")
 	if err != nil {
 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
 	}
@@ -469,7 +469,7 @@ func TestBus_Dispatch_synchronous_withError(t *testing.T) {
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
-	commands, err := bus.Handle(context.Background(), "foo")
+	commands, err := bus.Subscribe(context.Background(), "foo")
 	if err != nil {
 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
 	}
@@ -516,7 +516,7 @@ func TestBus_Dispatch_report(t *testing.T) {
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
-	commands, err := bus.Handle(context.Background(), "foo")
+	commands, err := bus.Subscribe(context.Background(), "foo")
 	if err != nil {
 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
 	}
@@ -619,7 +619,7 @@ func TestDrainTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	commands, err := bus.Handle(ctx, "foo")
+	commands, err := bus.Subscribe(ctx, "foo")
 	if err != nil {
 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
 	}
@@ -680,7 +680,7 @@ func multiSubscribe(ctx context.Context, bus command.Bus, count int, names ...st
 	var wg sync.WaitGroup
 	wg.Add(count)
 	for i := 0; i < count; i++ {
-		cmds, err := bus.Handle(ctx, names...)
+		cmds, err := bus.Subscribe(ctx, names...)
 		if err != nil {
 			return nil, fmt.Errorf("subscribe to %q events: %w", names, err)
 		}

@@ -105,7 +105,7 @@ func TestHandler_On_busError(t *testing.T) {
 	h := handler.New(bus)
 
 	mockError := errors.New("mock error")
-	bus.EXPECT().Handle(gomock.Any(), "foo").Return(nil, mockError)
+	bus.EXPECT().Subscribe(gomock.Any(), "foo").Return(nil, mockError)
 
 	rec := newRecorder(nil)
 
@@ -203,7 +203,9 @@ func newMockBus() *mockBus {
 
 func (b *mockBus) Dispatch(context.Context, command.Command, ...dispatch.Option) error { return nil }
 
-func (b *mockBus) Handle(context.Context, ...string) (<-chan command.Context, error) { return nil, nil }
+func (b *mockBus) Subscribe(context.Context, ...string) (<-chan command.Context, error) {
+	return nil, nil
+}
 
 func (b *mockBus) Errors(ctx context.Context) <-chan error {
 	return b.errs.Subscribe(ctx)

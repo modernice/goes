@@ -7,7 +7,6 @@ package mock_aggregate
 import (
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
-	aggregate "github.com/modernice/goes/aggregate"
 	event "github.com/modernice/goes/event"
 	reflect "reflect"
 )
@@ -129,42 +128,4 @@ func (m *MockAggregate) ApplyEvent(arg0 event.Event) {
 func (mr *MockAggregateMockRecorder) ApplyEvent(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEvent", reflect.TypeOf((*MockAggregate)(nil).ApplyEvent), arg0)
-}
-
-// MockFactory is a mock of Factory interface
-type MockFactory struct {
-	ctrl     *gomock.Controller
-	recorder *MockFactoryMockRecorder
-}
-
-// MockFactoryMockRecorder is the mock recorder for MockFactory
-type MockFactoryMockRecorder struct {
-	mock *MockFactory
-}
-
-// NewMockFactory creates a new mock instance
-func NewMockFactory(ctrl *gomock.Controller) *MockFactory {
-	mock := &MockFactory{ctrl: ctrl}
-	mock.recorder = &MockFactoryMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
-	return m.recorder
-}
-
-// Make mocks base method
-func (m *MockFactory) Make(name string, id uuid.UUID) (aggregate.Aggregate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Make", name, id)
-	ret0, _ := ret[0].(aggregate.Aggregate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Make indicates an expected call of Make
-func (mr *MockFactoryMockRecorder) Make(name, id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Make", reflect.TypeOf((*MockFactory)(nil).Make), name, id)
 }

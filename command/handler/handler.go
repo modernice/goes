@@ -31,7 +31,7 @@ func (h *Handler) On(
 	name string,
 	fn func(context.Context, command.Command) error,
 ) error {
-	commands, err := h.bus.Handle(ctx, name)
+	commands, err := h.bus.Subscribe(ctx, name)
 	if err != nil {
 		return fmt.Errorf("bus: %w", err)
 	}

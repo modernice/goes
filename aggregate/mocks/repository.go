@@ -78,20 +78,6 @@ func (mr *MockRepositoryMockRecorder) FetchVersion(ctx, a, v interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchVersion", reflect.TypeOf((*MockRepository)(nil).FetchVersion), ctx, a, v)
 }
 
-// Delete mocks base method
-func (m *MockRepository) Delete(ctx context.Context, a aggregate.Aggregate) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", ctx, a)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Delete indicates an expected call of Delete
-func (mr *MockRepositoryMockRecorder) Delete(ctx, a interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRepository)(nil).Delete), ctx, a)
-}
-
 // Query mocks base method
 func (m *MockRepository) Query(ctx context.Context, q aggregate.Query) (aggregate.Stream, error) {
 	m.ctrl.T.Helper()
@@ -105,6 +91,20 @@ func (m *MockRepository) Query(ctx context.Context, q aggregate.Query) (aggregat
 func (mr *MockRepositoryMockRecorder) Query(ctx, q interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockRepository)(nil).Query), ctx, q)
+}
+
+// Delete mocks base method
+func (m *MockRepository) Delete(ctx context.Context, a aggregate.Aggregate) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, a)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete
+func (mr *MockRepositoryMockRecorder) Delete(ctx, a interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRepository)(nil).Delete), ctx, a)
 }
 
 // MockQuery is a mock of Query interface

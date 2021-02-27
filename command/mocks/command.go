@@ -202,24 +202,24 @@ func (mr *MockBusMockRecorder) Dispatch(arg0, arg1 interface{}, arg2 ...interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dispatch", reflect.TypeOf((*MockBus)(nil).Dispatch), varargs...)
 }
 
-// Handle mocks base method
-func (m *MockBus) Handle(arg0 context.Context, arg1 ...string) (<-chan command.Context, error) {
+// Subscribe mocks base method
+func (m *MockBus) Subscribe(arg0 context.Context, arg1 ...string) (<-chan command.Context, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "Handle", varargs...)
+	ret := m.ctrl.Call(m, "Subscribe", varargs...)
 	ret0, _ := ret[0].(<-chan command.Context)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Handle indicates an expected call of Handle
-func (mr *MockBusMockRecorder) Handle(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+// Subscribe indicates an expected call of Subscribe
+func (mr *MockBusMockRecorder) Subscribe(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockBus)(nil).Handle), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockBus)(nil).Subscribe), varargs...)
 }
 
 // MockContext is a mock of Context interface
@@ -257,6 +257,20 @@ func (m *MockContext) Command() command.Command {
 func (mr *MockContextMockRecorder) Command() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Command", reflect.TypeOf((*MockContext)(nil).Command))
+}
+
+// Context mocks base method
+func (m *MockContext) Context() context.Context {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Context")
+	ret0, _ := ret[0].(context.Context)
+	return ret0
+}
+
+// Context indicates an expected call of Context
+func (mr *MockContextMockRecorder) Context() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockContext)(nil).Context))
 }
 
 // Done mocks base method
