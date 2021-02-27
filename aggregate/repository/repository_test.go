@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -219,12 +220,12 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 		appliedEvents = append(appliedEvents, evt)
 	}))
 
-	if err := r.FetchVersion(context.Background(), foo, 9999); err != nil {
-		t.Fatalf("r.FetchVersion should not return an error; got %#v", err)
+	if err := r.FetchVersion(context.Background(), foo, 9999); !errors.Is(err, repository.ErrVersionNotFound) {
+		t.Fatalf("r.FetchVersion should fail with %q; got %q", repository.ErrVersionNotFound, err)
 	}
 
 	if len(appliedEvents) != 3 {
-		t.Errorf("no events should have been applied")
+		t.Errorf("3 events should have been applied; got %d", len(appliedEvents))
 	}
 
 	if foo.AggregateVersion() != 3 {

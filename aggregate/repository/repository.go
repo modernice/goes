@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/modernice/goes/aggregate"
@@ -11,6 +12,12 @@ import (
 	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
 	estream "github.com/modernice/goes/event/stream"
+)
+
+var (
+	// ErrVersionNotFound is returned when trying to fetch an Aggregate with a
+	// version higher than the current version of the Aggregate.
+	ErrVersionNotFound = errors.New("version not found")
 )
 
 type repository struct {
@@ -75,10 +82,22 @@ func (r *repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 }
 
 func (r *repository) FetchVersion(ctx context.Context, a aggregate.Aggregate, v int) error {
-	return r.fetch(ctx, a, equery.AggregateVersion(
+	if v < 0 {
+		v = 0
+	}
+
+	if err := r.fetch(ctx, a, equery.AggregateVersion(
 		version.Min(a.AggregateVersion()+1),
 		version.Max(v),
-	))
+	)); err != nil {
+		return err
+	}
+
+	if a.AggregateVersion() != v {
+		return ErrVersionNotFound
+	}
+
+	return nil
 }
 
 func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {

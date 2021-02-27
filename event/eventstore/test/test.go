@@ -24,7 +24,6 @@ type EventStoreFactory func(event.Encoder) event.Store
 func EventStore(t *testing.T, name string, newStore EventStoreFactory) {
 	t.Run(name, func(t *testing.T) {
 		run(t, "Insert", newStore, testInsert)
-		run(t, "Insert", newStore, testInsert)
 		run(t, "Find", newStore, testFind)
 		run(t, "Delete", newStore, testDelete)
 		run(t, "Concurrency", newStore, testConcurrency)
