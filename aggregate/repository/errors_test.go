@@ -24,7 +24,7 @@ func TestSaveError_Error(t *testing.T) {
 		{
 			Aggregate: a,
 			Err:       mockError,
-			Rollbacks: repository.SaveRollbacks{
+			Rollbacks: repository.Rollbacks{
 				{Event: event.New("foo", eventtest.FooEventData{})},
 				{Event: event.New("foo", eventtest.FooEventData{})},
 				{Event: event.New("foo", eventtest.FooEventData{})},
@@ -34,7 +34,7 @@ func TestSaveError_Error(t *testing.T) {
 		{
 			Aggregate: a,
 			Err:       mockError,
-			Rollbacks: repository.SaveRollbacks{
+			Rollbacks: repository.Rollbacks{
 				{Event: event.New("foo", eventtest.FooEventData{}), Err: mockError},
 				{Event: event.New("foo", eventtest.FooEventData{})},
 				{Event: event.New("foo", eventtest.FooEventData{}), Err: mockError},
@@ -44,7 +44,7 @@ func TestSaveError_Error(t *testing.T) {
 		{
 			Aggregate: a,
 			Err:       mockError,
-			Rollbacks: repository.SaveRollbacks{
+			Rollbacks: repository.Rollbacks{
 				{Event: event.New("foo", eventtest.FooEventData{}), Err: mockError},
 				{Event: event.New("foo", eventtest.FooEventData{}), Err: mockError},
 				{Event: event.New("foo", eventtest.FooEventData{}), Err: mockError},

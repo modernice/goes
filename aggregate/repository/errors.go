@@ -15,11 +15,11 @@ type SaveError struct {
 	// Err is the actual error.
 	Err error
 	// Rollbacks contains the rollback results.
-	Rollbacks SaveRollbacks
+	Rollbacks Rollbacks
 }
 
-// SaveRollbacks contains the rollback results for a failed save.
-type SaveRollbacks []struct {
+// Rollbacks contains the rollback results for a failed save.
+type Rollbacks []struct {
 	Event event.Event
 	Err   error
 }

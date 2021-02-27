@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -9,6 +10,12 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/event"
+)
+
+var (
+	// ErrClosed is returned by a Stream when trying to read from it or close it
+	// after it has been closed.
+	ErrClosed = errors.New("stream closed")
 )
 
 // Option is an option for FromEvents.

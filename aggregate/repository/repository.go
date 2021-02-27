@@ -42,14 +42,14 @@ func (r *repository) Save(ctx context.Context, a aggregate.Aggregate) error {
 		return &SaveError{
 			Aggregate: a,
 			Err:       err,
-			Rollbacks: r.rollbackSave(ctx, a),
+			Rollbacks: r.rollback(ctx, a),
 		}
 	}
 	a.FlushChanges()
 	return nil
 }
 
-func (r *repository) rollbackSave(ctx context.Context, a aggregate.Aggregate) SaveRollbacks {
+func (r *repository) rollback(ctx context.Context, a aggregate.Aggregate) Rollbacks {
 	var mux sync.Mutex
 	var wg sync.WaitGroup
 	events := a.AggregateChanges()
@@ -76,7 +76,7 @@ func (r *repository) rollbackSave(ctx context.Context, a aggregate.Aggregate) Sa
 	}
 	wg.Wait()
 
-	rbs := make(SaveRollbacks, len(errs))
+	rbs := make(Rollbacks, len(errs))
 	for i, err := range errs {
 		rbs[i].Event = events[i]
 		rbs[i].Err = err
@@ -102,18 +102,21 @@ func (r *repository) fetch(ctx context.Context, a aggregate.Aggregate, opts ...e
 	if err != nil {
 		return fmt.Errorf("query events: %w", err)
 	}
-	buildAggregate(a, events...)
+
+	if err = aggregate.ApplyHistory(a, events...); err != nil {
+		return fmt.Errorf("apply events: %w", err)
+	}
 
 	return nil
 }
 
 func (r *repository) queryEvents(ctx context.Context, q equery.Query) ([]event.Event, error) {
-	cur, err := r.store.Query(ctx, q)
+	str, err := r.store.Query(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)
 	}
 
-	events, err := estream.All(ctx, cur)
+	events, err := estream.All(ctx, str)
 	if err != nil {
 		return events, fmt.Errorf("stream: %w", err)
 	}
@@ -129,23 +132,23 @@ func (r *repository) FetchVersion(ctx context.Context, a aggregate.Aggregate, v 
 }
 
 func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
-	cur, err := r.store.Query(ctx, equery.New(
+	str, err := r.store.Query(ctx, equery.New(
 		equery.AggregateName(a.AggregateName()),
 		equery.AggregateID(a.AggregateID()),
 	))
 	if err != nil {
 		return fmt.Errorf("query events: %w", err)
 	}
-	defer cur.Close(ctx)
+	defer str.Close(ctx)
 
-	for cur.Next(ctx) {
-		evt := cur.Event()
+	for str.Next(ctx) {
+		evt := str.Event()
 		if err := r.store.Delete(ctx, evt); err != nil {
 			return fmt.Errorf("delete %q event (ID=%s): %w", evt.Name(), evt.ID(), err)
 		}
 	}
 
-	if cur.Err() != nil {
+	if str.Err() != nil {
 		return fmt.Errorf("stream: %w", err)
 	}
 
@@ -163,14 +166,6 @@ func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.St
 		stream.Grouped(true),
 		stream.Sorted(true),
 	), nil
-}
-
-func buildAggregate(a aggregate.Aggregate, events ...event.Event) {
-	for _, evt := range events {
-		a.ApplyEvent(evt)
-	}
-	a.TrackChange(events...)
-	a.FlushChanges()
 }
 
 func makeQueryOptions(q aggregate.Query) []equery.Option {

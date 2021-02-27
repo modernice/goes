@@ -86,7 +86,7 @@ func TestRepository_Save_rollback(t *testing.T) {
 	wantError := &repository.SaveError{
 		Aggregate: a,
 		Err:       mockInsertError,
-		Rollbacks: repository.SaveRollbacks{
+		Rollbacks: repository.Rollbacks{
 			{Event: events[0], Err: nil},
 			{Event: events[1], Err: nil},
 			{Event: events[2], Err: nil},
@@ -136,7 +136,7 @@ func TestRepository_Save_rollbackError(t *testing.T) {
 	wantError := &repository.SaveError{
 		Aggregate: a,
 		Err:       mockInsertError,
-		Rollbacks: repository.SaveRollbacks{
+		Rollbacks: repository.Rollbacks{
 			{Event: events[0], Err: nil},
 			{Event: events[1], Err: mockDeleteError},
 			{Event: events[2], Err: mockDeleteError},
