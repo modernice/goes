@@ -2,6 +2,10 @@ version: '3.8'
 services:
   nats:
     image: nats
+  
+  stan:
+    image: nats-streaming
+
   mongo:
     image: mongo
     command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs01", "--bind_ip_all"]
@@ -13,6 +17,7 @@ services:
   test:
     depends_on:
       - nats
+      - stan
       - mongo
     build:
       context: ..
@@ -21,6 +26,7 @@ services:
         TAGS: nats,mongostore
     environment:
       - NATS_URL=nats://nats:4222
+      - STAN_URL=nats://stan:4222
       - MONGO_URL=mongodb://mongo:27017
     volumes:
       - ../out:/coverage/out
