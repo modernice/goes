@@ -1,4 +1,5 @@
-// Package nats provides an event.Bus implementation using a NATS client for transport.
+// Package nats provides an event.Bus implementation with support for both NATS
+// Core and NATS Streaming.
 package nats
 
 import (
@@ -9,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,19 +18,23 @@ import (
 	"github.com/modernice/goes/internal/env"
 	"github.com/modernice/goes/internal/errbus"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/stan.go"
 )
 
 // EventBus is the NATS event.Bus implementation.
 type EventBus struct {
-	enc            event.Encoder
+	driver Driver
+	enc    event.Encoder
+
 	queueFunc      func(string) string
 	subjectFunc    func(string) string
+	durableFunc    func(string, string) string
 	url            string
 	connectOpts    []nats.Option
 	receiveTimeout time.Duration
 
 	connMux sync.Mutex
-	conn    *nats.Conn
+	conn    connection
 	subs    map[subscriber]struct{}
 
 	errs       *errbus.Bus
@@ -41,10 +47,43 @@ type EventBus struct {
 // Option is an EventBus option.
 type Option func(*EventBus)
 
+// A Driver connects to a NATS cluster. Available Drivers:
+//	- Core() returns the NATS Core Driver
+//	- Streaming() returns the NATS Streaming Driver
+type Driver interface {
+	connect(string) (connection, error)
+}
+
+type connection interface {
+	get() interface{}
+	subscribe(subject string) (subscriber, error)
+	queueSubscribe(subject, queue string) (subscriber, error)
+	publish(string, []byte) error
+}
+
+type core struct{ opts []nats.Option }
+
+type streaming struct {
+	clusterID   string
+	clientID    string
+	opts        []stan.Option
+	durableFunc func(string, string) string
+}
+
+type natsConn struct{ conn *nats.Conn }
+
+type stanConn struct {
+	conn        stan.Conn
+	durableFunc func(string, string) string
+}
+
 type subscriber struct {
-	msgs chan *nats.Msg
-	sub  *nats.Subscription
-	done chan struct{}
+	subject string
+	queue   string
+	natsSub *nats.Subscription
+	stanSub stan.Subscription
+	msgs    chan []byte
+	done    chan struct{}
 }
 
 type errorSubscriber struct {
@@ -61,6 +100,14 @@ type envelope struct {
 	AggregateName    string
 	AggregateID      uuid.UUID
 	AggregateVersion int
+}
+
+// Use returns an Option that specifies which Driver to use to communicate with
+// NATS. Defaults to Core().
+func Use(d Driver) Option {
+	return func(bus *EventBus) {
+		bus.driver = d
+	}
 }
 
 // QueueGroupByFunc returns an Option that sets the NATS queue group for
@@ -105,13 +152,39 @@ func SubjectPrefix(prefix string) Option {
 	})
 }
 
-// ConnectWith returns an Option that adds custom nats.Options when connecting
-// to NATS. Connection to NATS will be established on the first call to
-// bus.Publish or bus.Subscribe.
-func ConnectWith(opts ...nats.Option) Option {
+// DurableFunc returns an Option that sets fn as the function to build the
+// DurableName for the NATS Streaming subscriptions. When fn return an empty
+// string, the subscription will not be made durable.
+//
+// DurableFunc has no effect when using the NATS Core Driver because NATS Core
+// doesn't support durable subscriptions.
+//
+// Can also be set with the "NATS_DURABLE_NAME" environment variable:
+//	`NATS_DURABLE_NAME={{ .Subject }}_{{ .Queue }}`
+//
+// Read more about durable subscriptions:
+// https://docs.nats.io/developing-with-nats-streaming/durables
+func DurableFunc(fn func(subject, queueGroup string) string) Option {
 	return func(bus *EventBus) {
-		bus.connectOpts = append(bus.connectOpts, opts...)
+		bus.durableFunc = fn
 	}
+}
+
+// Durable returns an Option that makes the NATS subscriptions durable.
+//
+// If the queue group is not empty, the durable name is built by concatenating
+// the subject and queue group with an underscore:
+//	fmt.Sprintf("%s_%s", subject, queueGroup)
+//
+// If the queue group is an empty string, the durable name is set to the
+// subject.
+//
+// Can also be set with the "NATS_DURABLE_NAME" environment variable:
+//	`NATS_DURABLE_NAME={{ .Subject }}_{{ .Queue }}`
+//
+// Use DurableFunc instead to control how the durable name is built.
+func Durable() Option {
+	return DurableFunc(defaultDurableName)
 }
 
 // URL returns an Option that sets the connection URL to the NATS server. If no
@@ -125,11 +198,21 @@ func URL(url string) Option {
 	}
 }
 
-// Connection returns an Option that provides the underlying nats.Conn for the
-// EventBus.
-func Connection(conn *nats.Conn) Option {
+// Conn returns an Option that provides the underlying *nats.Conn for the
+// EventBus. When the Conn Option is used, the Use Option has no effect.
+func Conn(conn *nats.Conn) Option {
 	return func(bus *EventBus) {
-		bus.conn = conn
+		bus.conn = &natsConn{conn}
+	}
+}
+
+// StreamingConn returns an Option that provides the underlying stan.Conn for the
+// EventBus. When the StreamingConn Option is used, the Use Option has no effect.
+func StreamingConn(conn stan.Conn) Option {
+	return func(bus *EventBus) {
+		bus.conn = &stanConn{
+			conn: conn,
+		}
 	}
 }
 
@@ -148,16 +231,33 @@ func ReceiveTimeout(d time.Duration) Option {
 	}
 }
 
+// Core returns the NATS Core Driver (at-most-once delivery).
+func Core(opts ...nats.Option) Driver {
+	return &core{opts}
+}
+
+// Streaming returns the NATS Streaming Driver (at-least-once delivery).
+func Streaming(clusterID, clientID string, opts ...stan.Option) Driver {
+	return &streaming{
+		clusterID: clusterID,
+		clientID:  clientID,
+		opts:      opts,
+	}
+}
+
 // New returns a new EventBus that encodes and decodes event.Data using the
 // provided Encoder. New panics if enc is nil.
 func New(enc event.Encoder, opts ...Option) *EventBus {
 	if enc == nil {
-		panic("missing encoder")
+		panic("nil Encoder")
 	}
 	bus := EventBus{
 		enc:  enc,
 		subs: make(map[subscriber]struct{}),
 		errs: errbus.New(),
+	}
+	if bus.driver == nil {
+		bus.driver = Core(bus.connectOpts...)
 	}
 	bus.init(opts...)
 
@@ -172,6 +272,14 @@ func (bus *EventBus) init(opts ...Option) {
 
 	if prefix := strings.TrimSpace(env.String("NATS_SUBJECT_PREFIX")); prefix != "" {
 		envOpts = append(envOpts, SubjectPrefix(prefix))
+	}
+
+	if bus.durableFunc == nil {
+		fn, err := envDurableNameFunc()
+		if err != nil {
+			panic(err)
+		}
+		bus.durableFunc = fn
 	}
 
 	if env.String("NATS_RECEIVE_TIMEOUT") != "" {
@@ -197,6 +305,14 @@ func (bus *EventBus) init(opts ...Option) {
 
 	if bus.subjectFunc == nil {
 		bus.subjectFunc = defaultSubject
+	}
+
+	if d, ok := bus.driver.(*streaming); ok && d != nil {
+		d.durableFunc = bus.durableFunc
+	}
+
+	if c, ok := bus.conn.(*stanConn); ok && c != nil {
+		c.durableFunc = bus.durableFunc
 	}
 }
 
@@ -244,7 +360,7 @@ func (bus *EventBus) publish(ctx context.Context, evt event.Event) error {
 	}
 
 	subject := bus.subjectFunc(env.Name)
-	if err := bus.conn.Publish(subject, buf.Bytes()); err != nil {
+	if err := bus.conn.publish(subject, buf.Bytes()); err != nil {
 		return fmt.Errorf("nats: %w", err)
 	}
 
@@ -269,18 +385,17 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 
 	var subscribeError error
 	for _, name := range names {
-		var (
-			s    *nats.Subscription
-			err  error
-			msgs = make(chan *nats.Msg)
-		)
-
 		subject := bus.subjectFunc(name)
 
+		var (
+			sub subscriber
+			err error
+		)
+
 		if group := bus.queueFunc(name); group != "" {
-			s, err = bus.conn.ChanQueueSubscribe(subject, group, msgs)
+			sub, err = bus.conn.queueSubscribe(subject, group)
 		} else {
-			s, err = bus.conn.ChanSubscribe(subject, msgs)
+			sub, err = bus.conn.subscribe(subject)
 		}
 
 		if err != nil {
@@ -288,11 +403,6 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 			break
 		}
 
-		sub := subscriber{
-			msgs: msgs,
-			sub:  s,
-			done: make(chan struct{}),
-		}
 		subs = append(subs, sub)
 	}
 
@@ -325,8 +435,9 @@ func (bus *EventBus) connect(ctx context.Context) error {
 	go func() {
 		var err error
 		uri := bus.natsURL()
-		if bus.conn, err = nats.Connect(uri, bus.connectOpts...); err != nil {
-			connectError <- fmt.Errorf("nats: %w", err)
+
+		if bus.conn, err = bus.driver.connect(uri); err != nil {
+			connectError <- err
 			return
 		}
 		connectError <- nil
@@ -375,7 +486,7 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 			defer close(sub.done)
 			for msg := range sub.msgs {
 				var env envelope
-				dec := gob.NewDecoder(bytes.NewReader(msg.Data))
+				dec := gob.NewDecoder(bytes.NewReader(msg))
 				if err := dec.Decode(&env); err != nil {
 					bus.errs.Publish(context.Background(), fmt.Errorf("gob decode envelope: %w", err))
 					continue
@@ -428,10 +539,10 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 func (bus *EventBus) handleUnsubscribe(ctx context.Context, subs ...subscriber) {
 	<-ctx.Done()
 	for _, sub := range subs {
-		if err := sub.sub.Unsubscribe(); err != nil {
+		if err := sub.unsubscribe(); err != nil {
 			bus.errs.Publish(context.Background(), fmt.Errorf(
 				`unsubscribe from subject "%s": %w`,
-				sub.sub.Subject,
+				sub.subject,
 				err,
 			))
 		}
@@ -452,10 +563,120 @@ func (bus *EventBus) publishInitErrors() {
 	}
 }
 
+func (sub subscriber) unsubscribe() error {
+	if sub.natsSub != nil {
+		return sub.natsSub.Unsubscribe()
+	}
+	return sub.stanSub.Unsubscribe()
+}
+
 func (sub errorSubscriber) close() {
 	sub.mux.Lock()
 	close(sub.errs)
 	sub.mux.Unlock()
+}
+
+func (d *core) connect(url string) (connection, error) {
+	conn, err := nats.Connect(url, d.opts...)
+	if err != nil {
+		return nil, fmt.Errorf("nats: %w", err)
+	}
+	return &natsConn{conn}, nil
+}
+
+func (d *streaming) connect(url string) (connection, error) {
+	opts := append([]stan.Option{stan.NatsURL(url)}, d.opts...)
+	conn, err := stan.Connect(d.clusterID, d.clientID, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("stan: %w", err)
+	}
+	return &stanConn{
+		conn:        conn,
+		durableFunc: d.durableFunc,
+	}, nil
+}
+
+func (c *natsConn) get() interface{} {
+	return c.conn
+}
+
+func (c *natsConn) subscribe(subject string) (subscriber, error) {
+	msgs := make(chan []byte)
+	sub, err := c.conn.Subscribe(subject, func(msg *nats.Msg) { msgs <- msg.Data })
+	if err != nil {
+		return subscriber{}, fmt.Errorf("nats: %w", err)
+	}
+	return subscriber{
+		subject: subject,
+		natsSub: sub,
+		msgs:    msgs,
+		done:    make(chan struct{}),
+	}, nil
+}
+
+func (c *natsConn) queueSubscribe(subject, queue string) (subscriber, error) {
+	msgs := make(chan []byte)
+	sub, err := c.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) { msgs <- msg.Data })
+	if err != nil {
+		return subscriber{}, fmt.Errorf("nats: %w", err)
+	}
+	return subscriber{
+		subject: subject,
+		queue:   queue,
+		natsSub: sub,
+		msgs:    msgs,
+		done:    make(chan struct{}),
+	}, nil
+}
+
+func (c *natsConn) publish(subject string, data []byte) error {
+	return c.conn.Publish(subject, data)
+}
+
+func (c *stanConn) get() interface{} {
+	return c.conn
+}
+
+func (c *stanConn) subscribe(subject string) (subscriber, error) {
+	msgs := make(chan []byte)
+	sub, err := c.conn.Subscribe(
+		subject,
+		func(msg *stan.Msg) { msgs <- msg.Data },
+		stan.DurableName(c.durableFunc(subject, "")),
+	)
+	if err != nil {
+		return subscriber{}, fmt.Errorf("stan: %w", err)
+	}
+	return subscriber{
+		subject: subject,
+		stanSub: sub,
+		msgs:    msgs,
+		done:    make(chan struct{}),
+	}, nil
+}
+
+func (c *stanConn) queueSubscribe(subject, queue string) (subscriber, error) {
+	msgs := make(chan []byte)
+	sub, err := c.conn.QueueSubscribe(
+		subject,
+		queue,
+		func(msg *stan.Msg) { msgs <- msg.Data },
+		stan.DurableName(c.durableFunc(subject, queue)),
+	)
+	if err != nil {
+		return subscriber{}, fmt.Errorf("stan: %w", err)
+	}
+	return subscriber{
+		subject: subject,
+		queue:   queue,
+		stanSub: sub,
+		msgs:    msgs,
+		done:    make(chan struct{}),
+	}, nil
+}
+
+func (c *stanConn) publish(subject string, data []byte) error {
+	return c.conn.Publish(subject, data)
 }
 
 // noQueue is a no-op that always returns an empty string. It's used as the
@@ -466,4 +687,38 @@ func noQueue(string) (q string) {
 
 func defaultSubject(eventName string) string {
 	return eventName
+}
+
+func defaultDurableName(subject, queue string) string {
+	if queue == "" {
+		return subject
+	}
+	return fmt.Sprintf("%s_%s", subject, queue)
+}
+
+func envDurableNameFunc() (func(string, string) string, error) {
+	type data struct {
+		Subject string
+		Queue   string
+	}
+
+	nameTpl := os.Getenv("NATS_DURABLE_NAME")
+	if nameTpl == "" {
+		return nonDurable, nil
+	}
+	tpl, err := template.New("durableName").Parse(nameTpl)
+	if err != nil {
+		return nil, fmt.Errorf("parse template: %w", err)
+	}
+	return func(subject, queue string) string {
+		var buf strings.Builder
+		if err := tpl.Execute(&buf, data{Subject: subject, Queue: queue}); err != nil {
+			return nonDurable(subject, queue)
+		}
+		return buf.String()
+	}, nil
+}
+
+func nonDurable(_, _ string) string {
+	return ""
 }

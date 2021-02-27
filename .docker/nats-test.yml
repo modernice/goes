@@ -3,9 +3,13 @@ services:
   nats:
     image: nats
   
+  stan:
+    image: nats-streaming
+  
   test:
     depends_on:
       - nats
+      - stan
     build:
       context: ..
       dockerfile: .docker/tag-test.Dockerfile
@@ -13,3 +17,4 @@ services:
         TAGS: nats
     environment:
       - NATS_URL=nats://nats:4222
+      - STAN_URL=nats://stan:4222

@@ -84,30 +84,6 @@ func TestQueueGroupByEvent(t *testing.T) {
 	}
 }
 
-func TestConnectWith(t *testing.T) {
-	bus := New(test.NewEncoder(), ConnectWith(
-		func(opts *nats.Options) error {
-			opts.AllowReconnect = true
-			return nil
-		},
-		func(opts *nats.Options) error {
-			opts.MaxReconnect = 4
-			return nil
-		},
-	))
-
-	var opts nats.Options
-	for _, opt := range bus.connectOpts {
-		opt(&opts)
-	}
-	if !opts.AllowReconnect {
-		t.Error(fmt.Errorf("expected AllowReconnect option to be %v; got %v", true, opts.AllowReconnect))
-	}
-	if opts.MaxReconnect != 4 {
-		t.Error(fmt.Errorf("expected MaxReconnect option to be %v; got %v", 4, opts.MaxReconnect))
-	}
-}
-
 func TestURL(t *testing.T) {
 	url := "foo://bar:123"
 	bus := New(test.NewEncoder(), URL(url))
@@ -141,9 +117,9 @@ func TestEventBus_natsURL(t *testing.T) {
 
 func TestConnection(t *testing.T) {
 	conn := &nats.Conn{}
-	bus := New(test.NewEncoder(), Connection(conn))
+	bus := New(test.NewEncoder(), Conn(conn))
 
-	if bus.conn != conn {
+	if bus.conn.get() != conn {
 		t.Fatal(fmt.Errorf("expected bus.conn to be %#v; got %#v", conn, bus.conn))
 	}
 
@@ -151,7 +127,7 @@ func TestConnection(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected bus.connectOnce not to fail; got %#v", err))
 	}
 
-	if bus.conn != conn {
+	if bus.conn.get() != conn {
 		t.Fatal(fmt.Errorf("expected bus.conn to still be %#v; got %#v", conn, bus.conn))
 	}
 }
@@ -205,6 +181,32 @@ func TestSubjectPrefix(t *testing.T) {
 	want := "prefix.foo"
 	if got := bus.subjectFunc("foo"); got != want {
 		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", want, got))
+	}
+}
+
+func TestDurableFunc(t *testing.T) {
+	// default durable name
+	bus := New(test.NewEncoder())
+	if got := bus.durableFunc("foo", "bar"); got != "" {
+		t.Fatal(fmt.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", "", got))
+	}
+
+	// custom durable func
+	bus = New(test.NewEncoder(), DurableFunc(func(subject, queueGroup string) string {
+		return fmt.Sprintf("prefix.%s.%s", subject, queueGroup)
+	}))
+
+	want := "prefix.foo.bar"
+	if got := bus.durableFunc("foo", "bar"); got != want {
+		t.Fatal(fmt.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", want, got))
+	}
+}
+
+func TestDurable(t *testing.T) {
+	bus := New(test.NewEncoder(), Durable())
+	want := "foo_bar"
+	if got := bus.durableFunc("foo", "bar"); got != want {
+		t.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", want, got)
 	}
 }
 
