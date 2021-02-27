@@ -1,6 +1,6 @@
 // +build nats
 
-package nats
+package natsbus
 
 import (
 	"context"

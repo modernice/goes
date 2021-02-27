@@ -1,6 +1,6 @@
-// Package nats provides an event.Bus implementation with support for both NATS
-// Core and NATS Streaming.
-package nats
+// Package natsbus provides an event.Bus implementation with support for both
+// NATS Core and NATS Streaming.
+package natsbus
 
 import (
 	"bytes"
