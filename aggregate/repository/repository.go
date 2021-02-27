@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
@@ -28,61 +27,12 @@ func New(store event.Store) aggregate.Repository {
 }
 
 // Save saves the changes of Aggregate a into the event store.
-//
-// If the underlying event store fails to insert the events, Save tries to
-// rollback the changes by deleting the successfully stored events from the
-// store and returns a *SaveError which contains the insertion error, the rolled
-// back events and the rollback (deletion) errors for those events.
-//
-// TODO: Figure something out to ensure aggregates aren't being corrupted by a
-// failed rollback
 func (r *repository) Save(ctx context.Context, a aggregate.Aggregate) error {
-	changes := a.AggregateChanges()
-	if err := r.store.Insert(ctx, changes...); err != nil {
-		return &SaveError{
-			Aggregate: a,
-			Err:       err,
-			Rollbacks: r.rollback(ctx, a),
-		}
+	if err := r.store.Insert(ctx, a.AggregateChanges()...); err != nil {
+		return fmt.Errorf("insert events: %w", err)
 	}
 	a.FlushChanges()
 	return nil
-}
-
-func (r *repository) rollback(ctx context.Context, a aggregate.Aggregate) Rollbacks {
-	var mux sync.Mutex
-	var wg sync.WaitGroup
-	events := a.AggregateChanges()
-	wg.Add(len(events))
-	errs := make([]error, len(events))
-	for i, evt := range events {
-		i := i
-		evt := evt
-		go func() {
-			defer wg.Done()
-			evt, err := r.store.Find(ctx, evt.ID())
-			if err != nil {
-				mux.Lock()
-				defer mux.Unlock()
-				errs[i] = fmt.Errorf("find event %s: %w", evt.ID(), err)
-				return
-			}
-			if err := r.store.Delete(ctx, evt); err != nil {
-				mux.Lock()
-				defer mux.Unlock()
-				errs[i] = fmt.Errorf("delete event %q: %w", evt.ID(), err)
-			}
-		}()
-	}
-	wg.Wait()
-
-	rbs := make(Rollbacks, len(errs))
-	for i, err := range errs {
-		rbs[i].Event = events[i]
-		rbs[i].Err = err
-	}
-
-	return rbs
 }
 
 func (r *repository) Fetch(ctx context.Context, a aggregate.Aggregate) error {

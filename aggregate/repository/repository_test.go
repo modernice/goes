@@ -2,13 +2,11 @@ package repository_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
@@ -16,7 +14,6 @@ import (
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
-	mock_event "github.com/modernice/goes/event/mocks"
 	"github.com/modernice/goes/event/query/version"
 	etest "github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/xaggregate"
@@ -53,101 +50,6 @@ func TestRepository_Save(t *testing.T) {
 			t.Fatalf("flushed should be closed")
 		}
 	}
-}
-
-func TestRepository_Save_rollback(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockStore := mock_event.NewMockStore(ctrl)
-	r := repository.New(mockStore)
-
-	// given 3 events
-	aggregateID := uuid.New()
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
-	}
-
-	a := test.NewFoo(aggregateID)
-	a.TrackChange(events...)
-
-	// when the event insert fails
-	mockInsertError := errors.New("mock insert error")
-	mockStore.EXPECT().Insert(gomock.Any(), events).Return(mockInsertError)
-
-	// it should delete the events
-	for _, evt := range events {
-		mockStore.EXPECT().Find(gomock.Any(), evt.ID()).Return(evt, nil)
-		mockStore.EXPECT().Delete(gomock.Any(), evt).Return(nil)
-	}
-
-	wantError := &repository.SaveError{
-		Aggregate: a,
-		Err:       mockInsertError,
-		Rollbacks: repository.Rollbacks{
-			{Event: events[0], Err: nil},
-			{Event: events[1], Err: nil},
-			{Event: events[2], Err: nil},
-		},
-	}
-	if err := r.Save(context.TODO(), a); !errors.Is(err, wantError) {
-		t.Fatalf("r.Save returned wrong error\n\nwant: %#v\n\ngot: %#v\n\n", wantError, err)
-	}
-
-	// the aggregate should keep the changes
-	etest.AssertEqualEvents(t, events, a.AggregateChanges())
-}
-
-func TestRepository_Save_rollbackError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockStore := mock_event.NewMockStore(ctrl)
-	r := repository.New(mockStore)
-
-	// given 3 events
-	aggregateID := uuid.New()
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
-	}
-
-	a := test.NewFoo(aggregateID)
-	a.TrackChange(events...)
-
-	// when the event insert fails
-	mockInsertError := errors.New("mock insert error")
-	mockStore.EXPECT().Insert(gomock.Any(), events).Return(mockInsertError)
-
-	// it should delete the events
-	var mockDeleteError error
-	for i, evt := range events {
-		// all except the first rollback fail
-		if i != 0 {
-			mockDeleteError = errors.New("mock rollback error")
-		}
-		mockStore.EXPECT().Find(gomock.Any(), evt.ID()).Return(evt, nil)
-		mockStore.EXPECT().Delete(gomock.Any(), evt).Return(mockDeleteError)
-	}
-
-	wantError := &repository.SaveError{
-		Aggregate: a,
-		Err:       mockInsertError,
-		Rollbacks: repository.Rollbacks{
-			{Event: events[0], Err: nil},
-			{Event: events[1], Err: mockDeleteError},
-			{Event: events[2], Err: mockDeleteError},
-		},
-	}
-	if err := r.Save(context.TODO(), a); !errors.Is(err, wantError) {
-		t.Fatalf("r.Save returned wrong error\n\nwant: %#v\n\ngot: %#v\n\n", wantError, err)
-	}
-
-	// the aggregate should keep the changes
-	etest.AssertEqualEvents(t, events, a.AggregateChanges())
 }
 
 func TestRepository_Fetch(t *testing.T) {
