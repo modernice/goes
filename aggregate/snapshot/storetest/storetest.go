@@ -278,15 +278,15 @@ func testQuerySorting(t *testing.T, newStore StoreFactory) {
 		return ids[a].String() < ids[b].String()
 	})
 	as := []aggregate.Aggregate{
-		aggregate.New("bar", ids[0], aggregate.Version(1)),
-		aggregate.New("bar", ids[1], aggregate.Version(2)),
-		aggregate.New("bar", ids[2], aggregate.Version(3)),
-		aggregate.New("baz", ids[3], aggregate.Version(1)),
-		aggregate.New("baz", ids[4], aggregate.Version(2)),
-		aggregate.New("baz", ids[5], aggregate.Version(3)),
-		aggregate.New("foo", ids[6], aggregate.Version(1)),
-		aggregate.New("foo", ids[7], aggregate.Version(2)),
-		aggregate.New("foo", ids[8], aggregate.Version(3)),
+		aggregate.New("bar1", ids[0], aggregate.Version(1)),
+		aggregate.New("bar2", ids[1], aggregate.Version(2)),
+		aggregate.New("bar3", ids[2], aggregate.Version(3)),
+		aggregate.New("baz1", ids[3], aggregate.Version(4)),
+		aggregate.New("baz2", ids[4], aggregate.Version(5)),
+		aggregate.New("baz3", ids[5], aggregate.Version(6)),
+		aggregate.New("foo1", ids[6], aggregate.Version(7)),
+		aggregate.New("foo2", ids[7], aggregate.Version(8)),
+		aggregate.New("foo3", ids[8], aggregate.Version(9)),
 	}
 	snaps := makeSnaps(as)
 
@@ -326,31 +326,15 @@ func testQuerySorting(t *testing.T, newStore StoreFactory) {
 		{
 			name: "SortAggregateVersion(asc)",
 			q:    query.New(query.SortBy(aggregate.SortVersion, aggregate.SortAsc)),
-			want: []snapshot.Snapshot{
-				snaps[0], snaps[3], snaps[6],
-				snaps[1], snaps[4], snaps[7],
-				snaps[2], snaps[5], snaps[8],
-			},
+			want: snaps,
 		},
 		{
 			name: "SortAggregateVersion(desc)",
 			q:    query.New(query.SortBy(aggregate.SortVersion, aggregate.SortDesc)),
 			want: []snapshot.Snapshot{
-				snaps[2], snaps[5], snaps[8],
-				snaps[1], snaps[4], snaps[7],
-				snaps[0], snaps[3], snaps[6],
-			},
-		},
-		{
-			name: "SortAggregateName(desc)+SortAggregateVersion(asc)",
-			q: query.New(
-				query.SortByMulti(aggregate.SortOptions{Sort: aggregate.SortName, Dir: aggregate.SortDesc}),
-				query.SortByMulti(aggregate.SortOptions{Sort: aggregate.SortVersion, Dir: aggregate.SortAsc}),
-			),
-			want: []snapshot.Snapshot{
-				snaps[6], snaps[7], snaps[8],
-				snaps[3], snaps[4], snaps[5],
-				snaps[0], snaps[1], snaps[2],
+				snaps[8], snaps[7], snaps[6],
+				snaps[5], snaps[4], snaps[3],
+				snaps[2], snaps[1], snaps[0],
 			},
 		},
 	}
@@ -388,12 +372,11 @@ func testDelete(t *testing.T, newStore StoreFactory) {
 	}
 
 	snap, err := s.Latest(context.Background(), a.AggregateName(), a.AggregateID())
+	if err == nil {
+		t.Errorf("Latest should fail with an error; got %q", err)
+	}
 	if snap != nil {
 		t.Errorf("Latest shouldn't return a Snapshot; got %v", snap)
-	}
-
-	if !errors.Is(err, mongosnap.ErrNotFound) {
-		t.Errorf("Latest should fail with %q; got %q", mongosnap.ErrNotFound, err)
 	}
 }
 

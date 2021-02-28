@@ -1,0 +1,12 @@
+package memsnap_test
+
+import (
+	"testing"
+
+	"github.com/modernice/goes/aggregate/snapshot/memsnap"
+	"github.com/modernice/goes/aggregate/snapshot/storetest"
+)
+
+func TestStore(t *testing.T) {
+	storetest.Run(t, memsnap.New)
+}

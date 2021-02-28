@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,6 +68,40 @@ func New(a aggregate.Aggregate, opts ...Option) (Snapshot, error) {
 		snap.data = b
 	}
 	return &snap, nil
+}
+
+// Sort sorts Snapshot and returns the sorted Snapshots.
+func Sort(snaps []Snapshot, s aggregate.Sorting, dir aggregate.SortDirection) []Snapshot {
+	return SortMulti(snaps, aggregate.SortOptions{Sort: s, Dir: dir})
+}
+
+// SortMulti sorts Snapshots by multiple fields and returns the sorted
+// aggregates.
+func SortMulti(snaps []Snapshot, sorts ...aggregate.SortOptions) []Snapshot {
+	sorted := make([]Snapshot, len(snaps))
+	copy(sorted, snaps)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		for _, opts := range sorts {
+			ai := aggregate.New(
+				sorted[i].AggregateName(),
+				sorted[i].AggregateID(),
+				aggregate.Version(sorted[i].AggregateVersion()),
+			)
+			aj := aggregate.New(
+				sorted[j].AggregateName(),
+				sorted[j].AggregateID(),
+				aggregate.Version(sorted[j].AggregateVersion()),
+			)
+			cmp := opts.Sort.Compare(ai, aj)
+			if cmp != 0 {
+				return opts.Dir.Bool(cmp < 0)
+			}
+		}
+		return true
+	})
+
+	return sorted
 }
 
 func (s *snapshot) Time() time.Time {
