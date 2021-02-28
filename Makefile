@@ -24,13 +24,17 @@ nats-test:
 .PHONY: nats-test
 
 mongo-test:
-	docker-compose -f .docker/mongostore-test.yml up --build --abort-on-container-exit --remove-orphans; \
-	docker-compose -f .docker/mongostore-test.yml down
+	docker-compose -f .docker/mongo-test.yml up --build --abort-on-container-exit --remove-orphans; \
+	docker-compose -f .docker/mongo-test.yml down
 
 .PHONY: mongo-test
 
 coverage:
-	docker-compose -f .docker/coverage.yml up --build --abort-on-container-exit --remove-orphans; \
+	docker-compose \
+		-f .docker/mongo-test.yml \
+		-f .docker/nats-test.yml \
+		-f .docker/coverage.yml up \
+		--build --abort-on-container-exit --remove-orphans; \
 	docker-compose -f .docker/coverage.yml down; \
 	go tool cover -html=out/coverage.out
 

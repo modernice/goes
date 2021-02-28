@@ -1,11 +1,11 @@
+// +build mongosnap
+
 package mongosnap
 
 import (
 	"context"
+	"os"
 	"testing"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestDatabase(t *testing.T) {
@@ -31,25 +31,7 @@ func TestCollection(t *testing.T) {
 }
 
 func newStore(opts ...Option) *Store {
-	client, err := mongo.Connect(context.Background())
-	if err != nil {
-		panic(err)
-	}
-	names, err := client.ListDatabaseNames(context.Background(), bson.M{"name": "snapshot"})
-	if err != nil {
-		panic(err)
-	}
-	for _, name := range names {
-		db := client.Database(name)
-		names, err := db.ListCollectionNames(context.Background(), bson.M{})
-		if err != nil {
-			panic(err)
-		}
-		for _, name := range names {
-			if err = db.Collection(name).Drop(context.Background()); err != nil {
-				panic(err)
-			}
-		}
-	}
+	url := os.Getenv("MONGOSNAP_URL")
+	opts = append([]Option{URL(url)}, opts...)
 	return New(opts...)
 }

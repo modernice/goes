@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	stdtime "time"
 
@@ -23,6 +24,7 @@ var (
 
 // Store is the MongoDB implementation of snapshot.Store.
 type Store struct {
+	url     string
 	dbname  string
 	colname string
 
@@ -49,6 +51,16 @@ type stream struct {
 	cur  *mongo.Cursor
 	snap snapshot.Snapshot
 	err  error
+}
+
+// URL returns an Option that specifies the URL to the MongoDB instance. An
+// empty URL means "use the default".
+//
+// Defaults to the environment variable "MONGO_URL".
+func URL(url string) Option {
+	return func(s *Store) {
+		s.url = url
+	}
 }
 
 // Database returns an Option that specifies the database name for Snapshots.
@@ -239,7 +251,11 @@ func (s *Store) connectOnce(ctx context.Context) error {
 }
 
 func (s *Store) connect(ctx context.Context) error {
-	client, err := mongo.Connect(ctx)
+	uri := s.url
+	if uri == "" {
+		uri = os.Getenv("MONGO_URL")
+	}
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		return fmt.Errorf("mongo: %w", err)
 	}

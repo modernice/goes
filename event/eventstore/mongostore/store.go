@@ -23,6 +23,7 @@ import (
 // Store is the MongoDB event.Store.
 type Store struct {
 	enc        event.Encoder
+	url        string
 	dbname     string
 	entriesCol string
 	statesCol  string
@@ -76,6 +77,16 @@ type stream struct {
 	cur *mongo.Cursor
 	evt event.Event
 	err error
+}
+
+// URL returns an Option that specifies the URL to the MongoDB instance. An
+// empty URL means "use the default".
+//
+// Defaults to the environment variable "MONGO_URL".
+func URL(url string) Option {
+	return func(s *Store) {
+		s.url = url
+	}
 }
 
 // Client returns an Option that specifies the underlying mongo.Client to be
@@ -349,7 +360,10 @@ func (s *Store) connectOnce(ctx context.Context, opts ...*options.ClientOptions)
 
 func (s *Store) connect(ctx context.Context, opts ...*options.ClientOptions) error {
 	if s.client == nil {
-		uri := os.Getenv("MONGO_URL")
+		uri := s.url
+		if uri == "" {
+			uri = os.Getenv("MONGO_URL")
+		}
 		opts = append(
 			[]*options.ClientOptions{options.Client().ApplyURI(uri)},
 			opts...,

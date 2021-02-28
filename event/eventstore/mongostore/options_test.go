@@ -17,7 +17,10 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(os.Getenv("MONGO_URL")))
+	client, err := mongo.Connect(
+		context.Background(),
+		options.Client().ApplyURI(os.Getenv("MONGOSTORE_URL")),
+	)
 	if err != nil {
 		t.Fatalf("mongo.Connect: %v", err)
 	}
@@ -41,7 +44,11 @@ func TestClient(t *testing.T) {
 }
 
 func TestDatabase(t *testing.T) {
-	store := mongostore.New(test.NewEncoder(), mongostore.Database("event_customdb"))
+	store := mongostore.New(
+		test.NewEncoder(),
+		mongostore.Database("event_customdb"),
+		mongostore.URL(os.Getenv("MONGOSTORE_URL")),
+	)
 
 	if _, err := store.Connect(context.Background()); err != nil {
 		t.Fatalf("expected store.Connect to succeed; got %#v", err)
@@ -54,7 +61,11 @@ func TestDatabase(t *testing.T) {
 }
 
 func TestCollection(t *testing.T) {
-	store := mongotest.NewStore(test.NewEncoder(), mongostore.Collection("custom"))
+	store := mongotest.NewStore(
+		test.NewEncoder(),
+		mongostore.Collection("custom"),
+		mongostore.URL(os.Getenv("MONGOSTORE_URL")),
+	)
 	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 1))
 	if err := store.Insert(context.Background(), evt); err != nil {
 		t.Fatalf("store.Insert: %#v", err)

@@ -49,7 +49,7 @@ func TestHandler_On(t *testing.T) {
 		t.Fatalf("failed to dispatch Command: %v", err)
 	}
 
-	timeout, stop := after(time.Second)
+	timeout, stop := after(3 * time.Second)
 	defer stop()
 
 	select {

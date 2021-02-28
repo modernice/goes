@@ -5,6 +5,7 @@ package mongostore_test
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -19,13 +20,13 @@ import (
 
 func TestStore(t *testing.T) {
 	test.EventStore(t, "mongostore", func(enc event.Encoder) event.Store {
-		return mongotest.NewStore(enc)
+		return mongotest.NewStore(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
 	})
 }
 
 func TestStore_Insert_versionError(t *testing.T) {
 	enc := etest.NewEncoder()
-	s := mongostore.New(enc)
+	s := mongostore.New(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
 
 	if _, err := s.Connect(context.Background()); err != nil {
 		t.Fatalf("failed to connect to mongodb: %v", err)

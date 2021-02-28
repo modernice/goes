@@ -417,6 +417,26 @@ func TestRepository_Query_version(t *testing.T) {
 	}
 }
 
+// func TestRepository_Fetch_snapshot(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+
+// 	eventStore := memstore.New()
+// 	mockStore := mock_snapshot.NewMockStore(ctrl)
+// 	r := repository.New(
+// 		eventStore,
+// 		repository.WithSnapshots(snaps),
+// 	)
+
+// 	a := aggregate.New("foo", uuid.New(), aggregate.Version(10))
+// 	snap, _ := snapshot.New(a)
+
+// 	if err := snaps.Save(context.Background(), snap); err != nil {
+// 		t.Fatalf("failed to save Snapshot: %v", err)
+// 	}
+
+// }
+
 func runQuery(r aggregate.Repository, q query.Query, factory func(string, uuid.UUID) aggregate.Aggregate) ([]aggregate.Aggregate, error) {
 	str, err := r.Query(context.Background(), q)
 	if err != nil {

@@ -4,8 +4,10 @@ package mongostore_test
 
 import (
 	"context"
+	"os"
 	"testing"
 
+	"github.com/modernice/goes/event/eventstore/mongostore"
 	"github.com/modernice/goes/event/eventstore/mongostore/mongotest"
 	"github.com/modernice/goes/event/test"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -31,7 +33,7 @@ func TestStore_Connect_options(t *testing.T) {
 
 func TestStore_Connect_client(t *testing.T) {
 	enc := test.NewEncoder()
-	store := mongotest.NewStore(enc)
+	store := mongotest.NewStore(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
 
 	client, err := store.Connect(context.Background())
 	if err != nil {
