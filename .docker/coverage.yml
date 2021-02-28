@@ -1,5 +1,27 @@
 version: '3.8'
 services:
+  nats:
+    image: nats
+  
+  stan:
+    image: nats-streaming
+
+  mongostore:
+    image: mongo
+    command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs01", "--bind_ip_all"]
+    healthcheck:
+      test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
+  
+  mongosnap:
+    image: mongo
+    command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs01", "--bind_ip_all"]
+    healthcheck:
+      test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
+
   test:
     depends_on:
       - nats
