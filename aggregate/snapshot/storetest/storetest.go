@@ -25,6 +25,7 @@ func Run(t *testing.T, newStore StoreFactory) {
 	run(t, "Save", testSave, newStore)
 	run(t, "Latest", testLatest, newStore)
 	run(t, "Version", testVersion, newStore)
+	run(t, "Limit", testLimit, newStore)
 	run(t, "Query", testQuery, newStore)
 	run(t, "Delete", testDelete, newStore)
 }
@@ -184,6 +185,65 @@ func testVersionNotFound(t *testing.T, newStore StoreFactory) {
 
 	if !errors.Is(err, mongosnap.ErrNotFound) {
 		t.Errorf("Version should fail with %q; got %q", mongosnap.ErrNotFound, err)
+	}
+}
+
+func testLimit(t *testing.T, newStore StoreFactory) {
+	run(t, "Basic", testLimitBasic, newStore)
+	run(t, "NotFound", testLimitNotFound, newStore)
+}
+
+func testLimitBasic(t *testing.T, newStore StoreFactory) {
+	s := newStore()
+
+	id := uuid.New()
+	as := []aggregate.Aggregate{
+		aggregate.New("foo", id, aggregate.Version(1)),
+		aggregate.New("foo", id, aggregate.Version(5)),
+		aggregate.New("foo", id, aggregate.Version(10)),
+		aggregate.New("foo", id, aggregate.Version(20)),
+	}
+	snaps := makeSnaps(as)
+
+	for _, snap := range snaps {
+		if err := s.Save(context.Background(), snap); err != nil {
+			t.Fatalf("Save shouldn't fail; failed with %q", err)
+		}
+	}
+
+	snap, err := s.Limit(context.Background(), "foo", id, 19)
+	if err != nil {
+		t.Fatalf("Limit shouldn't fail; failed with %q", err)
+	}
+
+	if snap.AggregateVersion() != 10 {
+		t.Errorf("Limit should return the Snapshot with version %d; got version %d", 10, snap.AggregateVersion())
+	}
+}
+
+func testLimitNotFound(t *testing.T, newStore StoreFactory) {
+	s := newStore()
+
+	id := uuid.New()
+	as := []aggregate.Aggregate{
+		aggregate.New("foo", id, aggregate.Version(10)),
+		aggregate.New("foo", id, aggregate.Version(20)),
+	}
+	snaps := makeSnaps(as)
+
+	for _, snap := range snaps {
+		if err := s.Save(context.Background(), snap); err != nil {
+			t.Fatalf("Save shouldn't fail; failed with %q", err)
+		}
+	}
+
+	snap, err := s.Limit(context.Background(), "foo", id, 9)
+	if err == nil {
+		t.Errorf("Limit should fail!")
+	}
+
+	if snap != nil {
+		t.Errorf("Limit should return no Snapshot; got %v", snap)
 	}
 }
 

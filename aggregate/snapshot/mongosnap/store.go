@@ -129,11 +129,7 @@ func (s *Store) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot
 		return nil, fmt.Errorf("mongo: decode result: %w", err)
 	}
 
-	return snapshot.New(
-		aggregate.New(name, id, aggregate.Version(e.AggregateVersion)),
-		snapshot.Time(stdtime.Unix(0, e.TimeNano)),
-		snapshot.Data(e.Data),
-	)
+	return e.snapshot()
 }
 
 // Version returns the Snapshot for the Aggregate with the given name, UUID and
@@ -158,11 +154,37 @@ func (s *Store) Version(ctx context.Context, name string, id uuid.UUID, version 
 		return nil, fmt.Errorf("mongo: decode result: %w", err)
 	}
 
-	return snapshot.New(
-		aggregate.New(name, id, aggregate.Version(e.AggregateVersion)),
-		snapshot.Time(stdtime.Unix(0, e.TimeNano)),
-		snapshot.Data(e.Data),
+	return e.snapshot()
+}
+
+// Limit returns the latest Snapshot that has a version equal to or lower
+// than the given version.
+//
+// Limit returns ErrNotFound if no such Snapshot can exists in the database.
+func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
+	res := s.col.FindOne(
+		ctx,
+		bson.D{
+			{Key: "aggregateName", Value: name},
+			{Key: "aggregateId", Value: id},
+			{Key: "aggregateVersion", Value: bson.D{
+				{Key: "$lte", Value: v},
+			}},
+		},
+		options.FindOne().SetSort(bson.D{
+			{Key: "aggregateVersion", Value: -1},
+		}),
 	)
+
+	var e entry
+	if err := res.Decode(&e); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("mongo: decode result: %w", err)
+	}
+
+	return e.snapshot()
 }
 
 // Query queries the database for Snapshots and returns a Stream of those
@@ -246,7 +268,7 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 			Keys: bson.D{
 				{Key: "aggregateName", Value: 1},
 				{Key: "aggregateId", Value: 1},
-				{Key: "aggregateVersion", Value: 1},
+				{Key: "aggregateVersion", Value: -1},
 			},
 			Options: options.Index().
 				SetName("goes_aggregate").
@@ -269,15 +291,7 @@ func (s *stream) Next(ctx context.Context) bool {
 		return false
 	}
 
-	snap, err := snapshot.New(
-		aggregate.New(
-			e.AggregateName,
-			e.AggregateID,
-			aggregate.Version(e.AggregateVersion),
-		),
-		snapshot.Time(stdtime.Unix(0, e.TimeNano)),
-		snapshot.Data(e.Data),
-	)
+	snap, err := e.snapshot()
 	if err != nil {
 		s.err = fmt.Errorf("snapshot.New: %w", err)
 		return false
@@ -374,4 +388,16 @@ func applySortings(opts *options.FindOptions, sortings ...aggregate.SortOptions)
 		}
 	}
 	return opts.SetSort(sorts)
+}
+
+func (e entry) snapshot() (snapshot.Snapshot, error) {
+	return snapshot.New(
+		aggregate.New(
+			e.AggregateName,
+			e.AggregateID,
+			aggregate.Version(e.AggregateVersion),
+		),
+		snapshot.Time(stdtime.Unix(0, e.TimeNano)),
+		snapshot.Data(e.Data),
+	)
 }

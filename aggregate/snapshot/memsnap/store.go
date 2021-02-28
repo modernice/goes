@@ -49,7 +49,6 @@ func (s *store) Latest(_ context.Context, name string, id uuid.UUID) (snapshot.S
 	if len(snaps) == 0 {
 		return nil, ErrNotFound
 	}
-
 	var (
 		v    int
 		snap snapshot.Snapshot
@@ -60,7 +59,6 @@ func (s *store) Latest(_ context.Context, name string, id uuid.UUID) (snapshot.S
 			snap = sn
 		}
 	}
-
 	return snap, nil
 }
 
@@ -68,6 +66,27 @@ func (s *store) Version(_ context.Context, name string, id uuid.UUID, v int) (sn
 	snaps := s.get(name, id)
 	snap, ok := snaps[v]
 	if !ok {
+		return nil, ErrNotFound
+	}
+	return snap, nil
+}
+
+func (s *store) Limit(_ context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
+	snaps := s.get(name, id)
+	if len(snaps) == 0 {
+		return nil, ErrNotFound
+	}
+	var (
+		foundV int
+		snap   snapshot.Snapshot
+	)
+	for version, sn := range snaps {
+		if version >= foundV && version <= v {
+			foundV = version
+			snap = sn
+		}
+	}
+	if snap == nil {
 		return nil, ErrNotFound
 	}
 	return snap, nil

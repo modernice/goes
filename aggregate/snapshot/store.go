@@ -1,5 +1,7 @@
 package snapshot
 
+//go:generate mockgen -source=store.go -destination=./mocks/store.go
+
 import (
 	"context"
 
@@ -20,6 +22,11 @@ type Store interface {
 	// with the given name and UUID. Implementations should return an error if
 	// the specified Snapshot does not exist in the Store.
 	Version(context.Context, string, uuid.UUID, int) (Snapshot, error)
+
+	// Limit returns the latest Snapshot that has a version equal to or lower
+	// than the given version. Implementations should return an error if no
+	// such Snapshot can be found.
+	Limit(context.Context, string, uuid.UUID, int) (Snapshot, error)
 
 	// Query queries the Store for Snapshots and returns a Stream for those
 	// Snapshots.
