@@ -1,8 +1,6 @@
 package snapshot
 
-import (
-	"github.com/modernice/goes/aggregate"
-)
+import "github.com/modernice/goes/aggregate"
 
 // A Marshaler can encode itself into bytes.
 type Marshaler interface {
