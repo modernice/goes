@@ -340,6 +340,7 @@ func (s *Store) connectOnce(ctx context.Context, opts ...*options.ClientOptions)
 			return
 		}
 		if err = s.ensureIndexes(ctx); err != nil {
+			err = fmt.Errorf("ensure indexes: %w", err)
 			return
 		}
 	})
@@ -367,16 +368,7 @@ func (s *Store) connect(ctx context.Context, opts ...*options.ClientOptions) err
 }
 
 func (s *Store) ensureIndexes(ctx context.Context) error {
-	res, err := s.entries.Find(ctx, bson.D{})
-	if err != nil {
-		return fmt.Errorf("find: %w", err)
-	}
-	var entries []entry
-	if err := res.All(ctx, &entries); err != nil {
-		return fmt.Errorf("cursor: %w", err)
-	}
-
-	if _, err = s.entries.Indexes().CreateMany(ctx, []mongo.IndexModel{
+	if _, err := s.entries.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
 			Keys:    bson.D{{Key: "id", Value: 1}},
 			Options: options.Index().SetName("goes_id").SetUnique(true),
@@ -415,7 +407,7 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 		return fmt.Errorf("create indexes (%s): %w", s.entries.Name(), err)
 	}
 
-	if _, err = s.states.Indexes().CreateOne(ctx, mongo.IndexModel{
+	if _, err := s.states.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "aggregateName", Value: 1},
 			{Key: "aggregateId", Value: 1},
@@ -538,8 +530,8 @@ func withTimeFilter(filter bson.D, times time.Constraints) bson.D {
 		var or []bson.D
 		for _, r := range ranges {
 			or = append(or, bson.D{{Key: "timeNano", Value: bson.D{
-				{Key: "$gte", Value: r.Start()},
-				{Key: "$lte", Value: r.End()},
+				{Key: "$gte", Value: r.Start().UnixNano()},
+				{Key: "$lte", Value: r.End().UnixNano()},
 			}}})
 		}
 		filter = append(filter, bson.E{Key: "$or", Value: or})
@@ -628,14 +620,14 @@ func applySortings(opts *options.FindOptions, sortings ...event.SortOptions) *op
 		}
 
 		switch opts.Sort {
-		case event.SortTime:
-			sorts[i] = bson.E{Key: "timeNano", Value: v}
 		case event.SortAggregateName:
 			sorts[i] = bson.E{Key: "aggregateName", Value: v}
 		case event.SortAggregateID:
 			sorts[i] = bson.E{Key: "aggregateId", Value: v}
 		case event.SortAggregateVersion:
 			sorts[i] = bson.E{Key: "aggregateVersion", Value: v}
+		case event.SortTime:
+			sorts[i] = bson.E{Key: "timeNano", Value: v}
 		}
 	}
 	return opts.SetSort(sorts)
