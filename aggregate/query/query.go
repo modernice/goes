@@ -24,7 +24,7 @@ type builder struct {
 	versionConstraints []version.Constraint
 }
 
-// New builds a Query from opts.
+// New returns a Query that is built from opts.
 func New(opts ...Option) Query {
 	var b builder
 	return b.build(opts...)
@@ -48,6 +48,20 @@ func ID(ids ...uuid.UUID) Option {
 func Version(constraints ...version.Constraint) Option {
 	return func(b *builder) {
 		b.versionConstraints = append(b.versionConstraints, constraints...)
+	}
+}
+
+// SortBy returns an Option that defines the sorting behaviour for a Query.
+func SortBy(sort aggregate.Sorting, dir aggregate.SortDirection) Option {
+	return func(b *builder) {
+		b.sortings = []aggregate.SortOptions{{Sort: sort, Dir: dir}}
+	}
+}
+
+// SortByMulti returns an Option that defines the sorting behaviour for a Query.
+func SortByMulti(sorts ...aggregate.SortOptions) Option {
+	return func(b *builder) {
+		b.sortings = append(b.sortings, sorts...)
 	}
 }
 
