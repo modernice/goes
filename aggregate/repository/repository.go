@@ -7,6 +7,7 @@ import (
 
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
+	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
 	equery "github.com/modernice/goes/event/query"
@@ -20,17 +21,30 @@ var (
 	ErrVersionNotFound = errors.New("version not found")
 )
 
+// Option is a repository option.
+type Option func(*repository)
+
 type repository struct {
-	store event.Store
+	store     event.Store
+	snapshots snapshot.Store
+}
+
+// WithSnapshots returns an Option that add a Snapshot Store to a Repository.
+func WithSnapshots(s snapshot.Store) Option {
+	return func(r *repository) {
+		r.snapshots = s
+	}
 }
 
 // New return a Repository for aggregates. The Repository uses the provided
 // store to query the events needed to build the state of aggregates and to
 // insert the aggregate changes in form of events into the Store.
-func New(store event.Store) aggregate.Repository {
-	return &repository{
-		store: store,
+func New(store event.Store, opts ...Option) aggregate.Repository {
+	r := repository{store: store}
+	for _, opt := range opts {
+		opt(&r)
 	}
+	return &r
 }
 
 // Save saves the changes of Aggregate a into the event store.
@@ -43,6 +57,26 @@ func (r *repository) Save(ctx context.Context, a aggregate.Aggregate) error {
 }
 
 func (r *repository) Fetch(ctx context.Context, a aggregate.Aggregate) error {
+	if r.snapshots != nil {
+		return r.fetchLatestWithSnapshot(ctx, a)
+	}
+	return r.fetch(ctx, a, equery.AggregateVersion(
+		version.Min(a.AggregateVersion()+1),
+	))
+}
+
+func (r *repository) fetchLatestWithSnapshot(ctx context.Context, a aggregate.Aggregate) error {
+	snap, err := r.snapshots.Latest(ctx, a.AggregateName(), a.AggregateID())
+	if err != nil || snap == nil {
+		return r.fetch(ctx, a, equery.AggregateVersion(
+			version.Min(a.AggregateVersion()+1),
+		))
+	}
+
+	if err := snapshot.Unmarshal(snap, a); err != nil {
+		return fmt.Errorf("unmarshal snapshot: %w", err)
+	}
+
 	return r.fetch(ctx, a, equery.AggregateVersion(
 		version.Min(a.AggregateVersion()+1),
 	))
@@ -86,6 +120,27 @@ func (r *repository) FetchVersion(ctx context.Context, a aggregate.Aggregate, v 
 		v = 0
 	}
 
+	if r.snapshots != nil {
+		return r.fetchVersionWithSnapshot(ctx, a, v)
+	}
+
+	return r.fetchVersion(ctx, a, v)
+}
+
+func (r *repository) fetchVersionWithSnapshot(ctx context.Context, a aggregate.Aggregate, v int) error {
+	snap, err := r.snapshots.Limit(ctx, a.AggregateName(), a.AggregateID(), v)
+	if err != nil || snap == nil {
+		return r.fetchVersion(ctx, a, v)
+	}
+
+	if err = snapshot.Unmarshal(snap, a); err != nil {
+		return fmt.Errorf("unmarshal snapshot: %w", err)
+	}
+
+	return r.fetchVersion(ctx, a, v)
+}
+
+func (r *repository) fetchVersion(ctx context.Context, a aggregate.Aggregate, v int) error {
 	if err := r.fetch(ctx, a, equery.AggregateVersion(
 		version.Min(a.AggregateVersion()+1),
 		version.Max(v),

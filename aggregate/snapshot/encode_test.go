@@ -68,16 +68,17 @@ func TestUnmarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal shouldn't fail; failed with %q", err)
 	}
+	snap, _ := snapshot.New(a, snapshot.Data(b))
 
-	snap := &mockAggregate{Aggregate: aggregate.New("foo", uuid.New())}
+	unmarshaled := &mockAggregate{Aggregate: aggregate.New("foo", uuid.New())}
 
-	if err = snapshot.Unmarshal(b, snap); err != nil {
+	if err = snapshot.Unmarshal(snap, unmarshaled); err != nil {
 		t.Fatalf("Unmarshal shouldn't fail; failed with %q", err)
 	}
 
 	var want mockState
-	if snap.mockState != want {
-		t.Errorf("unmarshaled state should be zero value. want=%v got=%v", want, snap.mockState)
+	if unmarshaled.mockState != want {
+		t.Errorf("unmarshaled state should be zero value. want=%v got=%v", want, unmarshaled.mockState)
 	}
 }
 
@@ -95,15 +96,16 @@ func TestUnmarshal_unmarshaler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal shouldn't fail; failed with %q", err)
 	}
+	snap, _ := snapshot.New(a, snapshot.Data(b))
 
-	snap := &mockSnapshot{Aggregate: aggregate.New("foo", uuid.New())}
+	unmarshaled := &mockSnapshot{Aggregate: aggregate.New("foo", uuid.New())}
 
-	if err = snapshot.Unmarshal(b, snap); err != nil {
+	if err = snapshot.Unmarshal(snap, unmarshaled); err != nil {
 		t.Fatalf("Unmarshal shouldn't fail; failed with %q", err)
 	}
 
-	if snap.mockState != a.mockState {
-		t.Errorf("unmarshaled state differs from original. want=%v got=%v", a.mockState, snap.mockState)
+	if unmarshaled.mockState != a.mockState {
+		t.Errorf("unmarshaled state differs from original. want=%v got=%v", a.mockState, unmarshaled.mockState)
 	}
 }
 

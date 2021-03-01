@@ -1,6 +1,8 @@
 package snapshot
 
-import "github.com/modernice/goes/aggregate"
+import (
+	"github.com/modernice/goes/aggregate"
+)
 
 // A Marshaler can encode itself into bytes.
 type Marshaler interface {
@@ -25,9 +27,12 @@ func Marshal(a aggregate.Aggregate) ([]byte, error) {
 // Unmarshal decodes the Snapshot in p into the Aggregate a by calling
 // a.UnmarshalSnapshot(p). Unmarshal always returns nil if the Aggregate does
 // not implement Unmarshaler.
-func Unmarshal(p []byte, a aggregate.Aggregate) error {
+func Unmarshal(s Snapshot, a aggregate.Aggregate) error {
+	a.SetVersion(s.AggregateVersion())
 	if u, ok := a.(Unmarshaler); ok {
-		return u.UnmarshalSnapshot(p)
+		if err := u.UnmarshalSnapshot(s.Data()); err != nil {
+			return err
+		}
 	}
 	return nil
 }

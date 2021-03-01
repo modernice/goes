@@ -129,3 +129,15 @@ func (mr *MockAggregateMockRecorder) ApplyEvent(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEvent", reflect.TypeOf((*MockAggregate)(nil).ApplyEvent), arg0)
 }
+
+// SetVersion mocks base method
+func (m *MockAggregate) SetVersion(arg0 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetVersion", arg0)
+}
+
+// SetVersion indicates an expected call of SetVersion
+func (mr *MockAggregateMockRecorder) SetVersion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVersion", reflect.TypeOf((*MockAggregate)(nil).SetVersion), arg0)
+}

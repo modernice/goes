@@ -80,6 +80,21 @@ func (mr *MockStoreMockRecorder) Version(arg0, arg1, arg2, arg3 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockStore)(nil).Version), arg0, arg1, arg2, arg3)
 }
 
+// Limit mocks base method
+func (m *MockStore) Limit(arg0 context.Context, arg1 string, arg2 uuid.UUID, arg3 int) (snapshot.Snapshot, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Limit", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(snapshot.Snapshot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Limit indicates an expected call of Limit
+func (mr *MockStoreMockRecorder) Limit(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Limit", reflect.TypeOf((*MockStore)(nil).Limit), arg0, arg1, arg2, arg3)
+}
+
 // Query mocks base method
 func (m *MockStore) Query(arg0 context.Context, arg1 aggregate.Query) (snapshot.Stream, error) {
 	m.ctrl.T.Helper()

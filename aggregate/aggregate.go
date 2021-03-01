@@ -34,6 +34,10 @@ type Aggregate interface {
 
 	// ApplyEvent applies the Event on the Aggregate.
 	ApplyEvent(event.Event)
+
+	// SetVersion sets the current version of the Aggregate (without uncommitted
+	// Events).
+	SetVersion(int)
 }
 
 // Option is an aggregate option.
@@ -141,3 +145,9 @@ func (b *base) FlushChanges() {
 
 // ApplyEvent does nothing. Structs that embed base should implement ApplyEvent.
 func (*base) ApplyEvent(event.Event) {}
+
+// SetVersion sets the base version (version without uncommitted Events) of the
+// Aggregate.
+func (b *base) SetVersion(v int) {
+	b.version = v
+}

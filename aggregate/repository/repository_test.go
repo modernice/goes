@@ -8,13 +8,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/repository"
+	"github.com/modernice/goes/aggregate/snapshot"
+	"github.com/modernice/goes/aggregate/snapshot/memsnap"
+	mock_snapshot "github.com/modernice/goes/aggregate/snapshot/mocks"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
+	mock_event "github.com/modernice/goes/event/mocks"
+	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
 	etest "github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/xaggregate"
@@ -417,25 +423,111 @@ func TestRepository_Query_version(t *testing.T) {
 	}
 }
 
-// func TestRepository_Fetch_snapshot(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
+func TestRepository_Fetch_snapshot(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// 	eventStore := memstore.New()
-// 	mockStore := mock_snapshot.NewMockStore(ctrl)
-// 	r := repository.New(
-// 		eventStore,
-// 		repository.WithSnapshots(snaps),
-// 	)
+	eventStore := memstore.New()
+	mockEventStore := mock_event.NewMockStore(ctrl)
+	snapStore := memsnap.New()
+	mockStore := mock_snapshot.NewMockStore(ctrl)
+	r := repository.New(
+		mockEventStore,
+		repository.WithSnapshots(mockStore),
+	)
 
-// 	a := aggregate.New("foo", uuid.New(), aggregate.Version(10))
-// 	snap, _ := snapshot.New(a)
+	a := aggregate.New("foo", uuid.New(), aggregate.Version(10))
+	snap, _ := snapshot.New(a)
+	a = aggregate.New(a.AggregateName(), a.AggregateID())
+	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
 
-// 	if err := snaps.Save(context.Background(), snap); err != nil {
-// 		t.Fatalf("failed to save Snapshot: %v", err)
-// 	}
+	if err := eventStore.Insert(context.Background(), events...); err != nil {
+		t.Fatalf("failed to insert Events: %v", err)
+	}
 
-// }
+	if err := snapStore.Save(context.Background(), snap); err != nil {
+		t.Fatalf("failed to save Snapshot: %v", err)
+	}
+
+	mockStore.EXPECT().
+		Latest(gomock.Any(), a.AggregateName(), a.AggregateID()).
+		DoAndReturn(func(ctx context.Context, name string, id uuid.UUID) (snapshot.Snapshot, error) {
+			return snapStore.Latest(ctx, name, id)
+		})
+
+	mockEventStore.EXPECT().
+		Query(gomock.Any(), equery.New(
+			equery.AggregateName(a.AggregateName()),
+			equery.AggregateID(a.AggregateID()),
+			equery.AggregateVersion(version.Min(11)),
+			equery.SortBy(event.SortAggregateVersion, event.SortAsc),
+		)).
+		DoAndReturn(func(ctx context.Context, q event.Query) (event.Stream, error) {
+			return eventStore.Query(ctx, q)
+		})
+
+	res := aggregate.New(a.AggregateName(), a.AggregateID())
+	if err := r.Fetch(context.Background(), res); err != nil {
+		t.Fatalf("Fetch shouldn't fail; failed with %q", err)
+	}
+
+	if res.AggregateVersion() != 30 {
+		t.Errorf("Aggregate should have version %d; is %d", 30, res.AggregateVersion())
+	}
+}
+
+func TestRepository_FetchVersion_snapshot(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	eventStore := memstore.New()
+	mockEventStore := mock_event.NewMockStore(ctrl)
+	snapStore := memsnap.New()
+	mockStore := mock_snapshot.NewMockStore(ctrl)
+	r := repository.New(
+		mockEventStore,
+		repository.WithSnapshots(mockStore),
+	)
+
+	a := aggregate.New("foo", uuid.New(), aggregate.Version(10))
+	snap, _ := snapshot.New(a)
+	a = aggregate.New(a.AggregateName(), a.AggregateID())
+	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
+
+	if err := eventStore.Insert(context.Background(), events...); err != nil {
+		t.Fatalf("failed to insert Events: %v", err)
+	}
+
+	if err := snapStore.Save(context.Background(), snap); err != nil {
+		t.Fatalf("failed to save Snapshot: %v", err)
+	}
+
+	mockStore.EXPECT().
+		Limit(gomock.Any(), a.AggregateName(), a.AggregateID(), 25).
+		DoAndReturn(func(ctx context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
+			return snapStore.Limit(ctx, name, id, v)
+		})
+
+	mockEventStore.EXPECT().
+		Query(gomock.Any(), equery.New(
+			equery.AggregateName(a.AggregateName()),
+			equery.AggregateID(a.AggregateID()),
+			equery.AggregateVersion(version.Min(11), version.Max(25)),
+			equery.SortBy(event.SortAggregateVersion, event.SortAsc),
+		)).
+		DoAndReturn(func(ctx context.Context, q event.Query) (event.Stream, error) {
+			return eventStore.Query(ctx, q)
+		})
+
+	res := aggregate.New(a.AggregateName(), a.AggregateID())
+	if err := r.FetchVersion(context.Background(), res, 25); err != nil {
+		t.Fatalf("Fetch shouldn't fail; failed with %q", err)
+	}
+
+	if res.AggregateVersion() != 25 {
+		t.Errorf("Aggregate should have version %d; is %d", 25, res.AggregateVersion())
+	}
+}
 
 func runQuery(r aggregate.Repository, q query.Query, factory func(string, uuid.UUID) aggregate.Aggregate) ([]aggregate.Aggregate, error) {
 	str, err := r.Query(context.Background(), q)
