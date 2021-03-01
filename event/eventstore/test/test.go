@@ -514,7 +514,7 @@ func runQuery(s event.Store, q event.Query) ([]event.Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)
 	}
-	result, err := stream.All(context.Background(), cur)
+	result, err := stream.Drain(context.Background(), cur)
 	if err != nil {
 		return nil, fmt.Errorf("expected cursor.All to succeed; got %w", err)
 	}

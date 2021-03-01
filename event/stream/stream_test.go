@@ -59,13 +59,13 @@ func TestStream_Next_closed(t *testing.T) {
 	}
 }
 
-func TestAll(t *testing.T) {
+func TestDrain(t *testing.T) {
 	events := makeEvents()
 	cur := stream.InMemory(events...)
 
-	all, err := stream.All(context.Background(), cur)
+	all, err := stream.Drain(context.Background(), cur)
 	if err != nil {
-		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %#v", err))
+		t.Fatal(fmt.Errorf("expected cursor.Drain not to return an error; got %#v", err))
 	}
 
 	au := cmp.AllowUnexported(event.New("foo", test.FooEventData{}))
@@ -87,16 +87,16 @@ func TestAll(t *testing.T) {
 	}
 }
 
-func TestAll_partial(t *testing.T) {
+func TestDrain_partial(t *testing.T) {
 	events := makeEvents()
 	cur := stream.InMemory(events...)
 	if !cur.Next(context.Background()) {
 		t.Fatal(fmt.Errorf("cur.Next: %w", cur.Err()))
 	}
 
-	all, err := stream.All(context.Background(), cur)
+	all, err := stream.Drain(context.Background(), cur)
 	if err != nil {
-		t.Fatal(fmt.Errorf("expected cursor.All not to return an error; got %v", err))
+		t.Fatal(fmt.Errorf("expected cursor.Drain not to return an error; got %v", err))
 	}
 
 	au := cmp.AllowUnexported(event.New("foo", test.FooEventData{}))
@@ -110,7 +110,7 @@ func TestAll_partial(t *testing.T) {
 	}
 }
 
-func TestAll_closed(t *testing.T) {
+func TestDrain_closed(t *testing.T) {
 	events := makeEvents()
 	cur := stream.InMemory(events...)
 
@@ -118,8 +118,8 @@ func TestAll_closed(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected cur.Close not to return an error; got %#v", err))
 	}
 
-	if _, err := stream.All(context.Background(), cur); !errors.Is(err, stream.ErrClosed) {
-		t.Errorf("expected cursor.All to return %#v; got %#v", stream.ErrClosed, err)
+	if _, err := stream.Drain(context.Background(), cur); !errors.Is(err, stream.ErrClosed) {
+		t.Errorf("expected cursor.Drain to return %#v; got %#v", stream.ErrClosed, err)
 	}
 }
 

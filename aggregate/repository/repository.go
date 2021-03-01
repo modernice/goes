@@ -107,7 +107,7 @@ func (r *repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 		return nil, fmt.Errorf("query events: %w", err)
 	}
 
-	events, err := estream.All(ctx, str)
+	events, err := estream.Drain(ctx, str)
 	if err != nil {
 		return events, fmt.Errorf("stream: %w", err)
 	}

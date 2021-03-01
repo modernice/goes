@@ -30,10 +30,10 @@ func InMemory(events ...event.Event) event.Stream {
 	}
 }
 
-// All iterates over the Stream s and returns its Events. If a call to
+// Drain iterates over the Stream s and returns its Events. If a call to
 // s.Next causes an error, the already fetched Events and that error are
-// returned. All automatically calls s.Close(ctx) when done.
-func All(ctx context.Context, s event.Stream) (events []event.Event, err error) {
+// returned. Drain automatically calls s.Close(ctx) when done.
+func Drain(ctx context.Context, s event.Stream) (events []event.Event, err error) {
 	defer func() {
 		if cerr := s.Close(ctx); cerr != nil {
 			if err != nil {
