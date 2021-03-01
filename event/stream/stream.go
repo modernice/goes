@@ -46,9 +46,7 @@ func Drain(ctx context.Context, s event.Stream) (events []event.Event, err error
 	for s.Next(ctx) {
 		events = append(events, s.Event())
 	}
-	if err = s.Err(); err != nil {
-		return
-	}
+	err = s.Err()
 	return
 }
 

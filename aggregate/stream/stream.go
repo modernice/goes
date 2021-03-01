@@ -167,6 +167,38 @@ func New(es event.Stream, opts ...Option) (as aggregate.Stream) {
 	return &aes
 }
 
+// Drain drains the given Stream and returns its Aggregates. Drain returns any
+// error that is returned by s.Err. Drain automatically calls s.Close(ctx) when
+// done.
+func Drain(
+	ctx context.Context,
+	s aggregate.Stream,
+	factory func(string, uuid.UUID) aggregate.Aggregate,
+) (as []aggregate.Aggregate, err error) {
+	if factory == nil {
+		panic("nil factory")
+	}
+	defer func() {
+		if cerr := s.Close(ctx); cerr != nil {
+			if err != nil {
+				err = fmt.Errorf("[0] %w\n[1] %s", err, cerr)
+				return
+			}
+			err = cerr
+		}
+	}()
+	for s.Next(ctx) {
+		name, id := s.Current()
+		a := factory(name, id)
+		if err = s.Apply(a); err != nil {
+			return as, fmt.Errorf("apply aggregate: %w", err)
+		}
+		as = append(as, a)
+	}
+	err = s.Err()
+	return
+}
+
 func (s *stream) Next(ctx context.Context) bool {
 	// first check if the stream has been closed to ensure ErrClosed
 	select {
