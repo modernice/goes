@@ -13,6 +13,15 @@ import (
 	"github.com/modernice/goes/event/stream"
 )
 
+var (
+	// ErrNotFound is returned when an Event cannot be found in the Store.
+	ErrNotFound = errors.New("event not found")
+
+	// ErrDuplicate is returned when trying to insert an Event that already
+	// exists in the Store.
+	ErrDuplicate = errors.New("duplicate event")
+)
+
 type store struct {
 	mux    sync.RWMutex
 	events []event.Event
@@ -38,7 +47,7 @@ func (s *store) Insert(ctx context.Context, events ...event.Event) error {
 
 func (s *store) insert(ctx context.Context, evt event.Event) error {
 	if _, err := s.Find(ctx, evt.ID()); err == nil {
-		return errors.New("")
+		return ErrDuplicate
 	}
 	defer s.reslice()
 	s.mux.Lock()
@@ -53,7 +62,7 @@ func (s *store) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 	if evt := s.idMap[id]; evt != nil {
 		return evt, nil
 	}
-	return nil, errors.New("")
+	return nil, ErrNotFound
 }
 
 func (s *store) Query(ctx context.Context, q event.Query) (event.Stream, error) {
@@ -80,9 +89,8 @@ func (s *store) Delete(ctx context.Context, evt event.Event) error {
 func (s *store) reslice() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	events := s.events[:0]
+	s.events = s.events[:0]
 	for _, evt := range s.idMap {
-		events = append(events, evt)
+		s.events = append(s.events, evt)
 	}
-	s.events = events
 }

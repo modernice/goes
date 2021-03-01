@@ -27,19 +27,16 @@ type stream struct {
 	validateConsistency bool
 	filters             []func(event.Event) bool
 
-	events event.Stream
+	stream event.Stream
 
 	acceptCtx  context.Context
 	stopAccept context.CancelFunc
 	acceptDone chan struct{}
 
-	queuesMux    sync.RWMutex
-	queues       map[string]map[uuid.UUID]chan event.Event
-	closedQueues map[chan event.Event]bool
+	events   chan event.Event
+	complete chan job
 
-	startedDrainsMux sync.RWMutex
-	startedDrains    map[string]map[uuid.UUID]bool
-	drainQueue       chan result
+	groupReqs chan groupRequest
 
 	results chan result
 	current result
@@ -50,9 +47,18 @@ type stream struct {
 	closed chan struct{}
 }
 
+type job struct {
+	name string
+	id   uuid.UUID
+}
+
+type groupRequest struct {
+	job
+	out chan []event.Event
+}
+
 type result struct {
-	name   string
-	id     uuid.UUID
+	job
 	events []event.Event
 }
 
@@ -143,13 +149,12 @@ func Filter(fns ...func(event.Event) bool) Option {
 func New(es event.Stream, opts ...Option) (as aggregate.Stream) {
 	aes := stream{
 		validateConsistency: true,
-		events:              es,
+		stream:              es,
 		acceptDone:          make(chan struct{}),
+		events:              make(chan event.Event),
+		complete:            make(chan job),
+		groupReqs:           make(chan groupRequest),
 		results:             make(chan result),
-		queues:              make(map[string]map[uuid.UUID]chan event.Event),
-		closedQueues:        make(map[chan event.Event]bool),
-		drainQueue:          make(chan result),
-		startedDrains:       make(map[string]map[uuid.UUID]bool),
 		closed:              make(chan struct{}),
 	}
 	for _, opt := range opts {
@@ -157,16 +162,14 @@ func New(es event.Stream, opts ...Option) (as aggregate.Stream) {
 	}
 	aes.acceptCtx, aes.stopAccept = context.WithCancel(context.Background())
 	go aes.acceptEvents()
-	go aes.drainAggregates()
+	go aes.groupEvents()
+	go aes.sortEvents()
 	return &aes
 }
 
 func (s *stream) Next(ctx context.Context) bool {
 	// first check if the stream has been closed to ensure ErrClosed
 	select {
-	case <-ctx.Done():
-		s.error(ctx.Err())
-		return false
 	case <-s.closed:
 		s.forceError(ErrClosed)
 		return false
@@ -199,7 +202,11 @@ func (s *stream) Apply(a aggregate.Aggregate) error {
 			return err
 		}
 	}
-	aggregate.ApplyHistory(a, s.current.events...)
+	for _, evt := range s.current.events {
+		a.ApplyEvent(evt)
+	}
+	a.TrackChange(s.current.events...)
+	a.FlushChanges()
 	return nil
 }
 
@@ -220,18 +227,15 @@ func (s *stream) Close(ctx context.Context) error {
 	default:
 	}
 
-	// stop accepting events
 	s.stopAccept()
 
-	// wait until event stream is not used anymore
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-s.acceptDone:
 	}
 
-	// then close the event stream
-	if err := s.events.Close(ctx); err != nil {
+	if err := s.stream.Close(ctx); err != nil {
 		return fmt.Errorf("close event stream: %w", err)
 	}
 
@@ -242,41 +246,46 @@ func (s *stream) Close(ctx context.Context) error {
 
 func (s *stream) acceptEvents() {
 	defer close(s.acceptDone)
-	defer s.closeQueues()
+	defer close(s.events)
 
-	var prev event.Event
-	for s.events.Next(s.acceptCtx) {
-		evt := s.events.Event()
+	pending := make(map[job]bool)
+
+	var prev job
+	for s.stream.Next(s.acceptCtx) {
+		evt := s.stream.Event()
 
 		if s.shouldDiscard(evt) {
 			continue
 		}
 
-		name, id := evt.AggregateName(), evt.AggregateID()
+		s.events <- evt
 
-		// start building the aggregate if it's the first event of an aggregate
-		if !s.drainStarted(name, id) {
-			if err := s.startDrain(name, id); err != nil {
-				s.error(fmt.Errorf("start build %s(%s): %w", name, id, err))
-				continue
-			}
+		j := job{
+			name: evt.AggregateName(),
+			id:   evt.AggregateID(),
 		}
-		s.queueEvent(evt)
+		pending[j] = true
 
-		// if the event stream is grouped, check if prev belongs to another
-		// aggregate: if so, close the previous aggregates event queue
-		if s.isGrouped && prev != nil &&
-			(prev.AggregateName() != evt.AggregateName() ||
-				prev.AggregateID() != evt.AggregateID()) {
-			s.closeQueue(s.queue(prev.AggregateName(), prev.AggregateID()))
+		if s.isGrouped && prev.name != "" && prev != j {
+			s.complete <- prev
+			delete(pending, prev)
 		}
 
-		prev = evt
+		prev = j
 	}
 
-	if err := s.events.Err(); err != nil {
+	if err := s.stream.Err(); err != nil {
 		s.error(fmt.Errorf("event stream: %w", err))
+		close(s.complete)
+		return
 	}
+
+	go func() {
+		defer close(s.complete)
+		for j := range pending {
+			s.complete <- j
+		}
+	}()
 }
 
 func (s *stream) shouldDiscard(evt event.Event) bool {
@@ -288,133 +297,55 @@ func (s *stream) shouldDiscard(evt event.Event) bool {
 	return false
 }
 
-func (s *stream) drainStarted(name string, id uuid.UUID) bool {
-	s.startedDrainsMux.RLock()
-	defer s.startedDrainsMux.RUnlock()
-	started, ok := s.startedDrains[name]
-	if !ok {
-		return false
-	}
-	return started[id]
-}
+func (s *stream) groupEvents() {
+	groups := make(map[job][]event.Event)
+	events := s.events
+	groupReqs := s.groupReqs
+	for {
+		if events == nil && groupReqs == nil {
+			return
+		}
 
-func (s *stream) startDrain(name string, id uuid.UUID) error {
-	s.startedDrainsMux.Lock()
-	defer s.startedDrainsMux.Unlock()
-	started, ok := s.startedDrains[name]
-	if !ok {
-		started = make(map[uuid.UUID]bool)
-		s.startedDrains[name] = started
-	}
-	started[id] = true
-	select {
-	case <-s.closed:
-	case s.drainQueue <- result{name: name, id: id}:
-	}
-	return nil
-}
-
-func (s *stream) closeQueues() {
-	close(s.drainQueue)
-	s.queuesMux.RLock()
-	defer s.queuesMux.RUnlock()
-	for _, queues := range s.queues {
-		for _, q := range queues {
-			s.queuesMux.RUnlock()
-			s.closeQueue(q)
-			s.queuesMux.RLock()
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				events = nil
+				break
+			}
+			j := job{evt.AggregateName(), evt.AggregateID()}
+			groups[j] = append(groups[j], evt)
+		case req, ok := <-groupReqs:
+			if !ok {
+				groupReqs = nil
+				break
+			}
+			req.out <- groups[req.job]
+			delete(groups, req.job)
 		}
 	}
 }
 
-func (s *stream) closeQueue(q chan event.Event) {
-	if !s.queueClosed(q) {
-		s.queuesMux.Lock()
-		defer s.queuesMux.Unlock()
-		s.closedQueues[q] = true
-		close(q)
-	}
-}
-
-func (s *stream) queueClosed(q chan event.Event) bool {
-	s.queuesMux.RLock()
-	defer s.queuesMux.RUnlock()
-	return s.closedQueues[q]
-}
-
-func (s *stream) queueEvent(evt event.Event) {
-	s.queue(evt.AggregateName(), evt.AggregateID()) <- evt
-}
-
-func (s *stream) queue(name string, id uuid.UUID) chan event.Event {
-	if q, ok := s.getQueue(name, id); ok {
-		return q
-	}
-	return s.newQueue(name, id)
-}
-
-func (s *stream) getQueue(name string, id uuid.UUID) (chan event.Event, bool) {
-	s.queuesMux.RLock()
-	defer s.queuesMux.RUnlock()
-	queues, ok := s.queues[name]
-	if !ok {
-		return nil, false
-	}
-	q, ok := queues[id]
-	return q, ok
-}
-
-func (s *stream) newQueue(name string, id uuid.UUID) chan event.Event {
-	s.queuesMux.Lock()
-	defer s.queuesMux.Unlock()
-	queues, ok := s.queues[name]
-	if !ok {
-		queues = make(map[uuid.UUID]chan event.Event)
-		s.queues[name] = queues
-	}
-	q, ok := queues[id]
-	if !ok {
-		q = make(chan event.Event)
-		queues[id] = q
-	}
-	return q
-}
-
-func (s *stream) drainAggregates() {
+func (s *stream) sortEvents() {
 	defer close(s.results)
-	var wg sync.WaitGroup
-	for r := range s.drainQueue {
-		wg.Add(1)
-		go s.drainAggregate(&wg, r.name, r.id)
+	defer close(s.groupReqs)
+
+	for j := range s.complete {
+		req := groupRequest{
+			job: j,
+			out: make(chan []event.Event),
+		}
+		s.groupReqs <- req
+		events := <-req.out
+
+		if !s.isSorted {
+			events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
+		}
+
+		s.results <- result{
+			job:    j,
+			events: events,
+		}
 	}
-	wg.Wait()
-}
-
-func (s *stream) drainAggregate(wg *sync.WaitGroup, name string, id uuid.UUID) {
-	defer wg.Done()
-	select {
-	case <-s.closed:
-	case s.results <- result{
-		name:   name,
-		id:     id,
-		events: s.drainEvents(name, id),
-	}:
-	}
-}
-
-func (s *stream) drainEvents(name string, id uuid.UUID) []event.Event {
-	q := s.queue(name, id)
-
-	var events []event.Event
-	for evt := range q {
-		events = append(events, evt)
-	}
-
-	if !s.isSorted {
-		events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
-	}
-
-	return events
 }
 
 // error sets s.err to err if s.err == nil
