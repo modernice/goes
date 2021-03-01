@@ -631,10 +631,11 @@ func (b *Bus) stopAccept(ctx context.Context, done chan struct{}, cancel context
 	// ctx canceled, now accept remaining commands
 	case <-ctx.Done():
 	}
-	var timeout chan time.Time
+	var timeout <-chan time.Time
 	if b.drainTimeout > 0 {
 		timer := time.NewTimer(b.drainTimeout)
 		defer timer.Stop()
+		timeout = timer.C
 	}
 	select {
 	// wait until all commands are accepted
