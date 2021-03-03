@@ -1,6 +1,6 @@
 package command
 
-//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus
+//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus,Registry
 
 import (
 	"context"
@@ -41,6 +41,17 @@ type Encoder interface {
 
 	// Decode decodes the Payload in the Reader.
 	Decode(string, io.Reader) (Payload, error)
+}
+
+// A Registry is an Encoder that also allows to register new Commands.
+type Registry interface {
+	Encoder
+
+	// Register registers the Payload factory for Commands with the given name.
+	Register(string, func() Payload)
+
+	// New makes and returns a fresh Payload for a Command with the given name.
+	New(string) (Payload, error)
 }
 
 // A Bus dispatches Commands to the appropriate Handlers.
