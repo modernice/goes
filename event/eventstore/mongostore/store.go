@@ -124,7 +124,7 @@ func StateCollection(name string) Option {
 // Transactions returns an Option that, if tx is true, configures a Store to use
 // MongoDB Transactions when inserting Events.
 //
-// Transactions can only be used in replica sets or shareded clusters:
+// Transactions can only be used in replica sets or sharded clusters:
 // https://docs.mongodb.com/manual/core/transactions/
 func Transactions(tx bool) Option {
 	return func(s *Store) {
