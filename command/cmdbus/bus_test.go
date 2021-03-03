@@ -35,7 +35,9 @@ type mockPayload struct {
 func TestBus_Dispatch(t *testing.T) {
 	ebus := chanbus.New()
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(100*time.Millisecond))
 
 	var _ command.Bus = bus
@@ -123,7 +125,9 @@ func TestBus_Dispatch(t *testing.T) {
 
 func TestBus_Subscribe(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
@@ -242,7 +246,9 @@ func TestBus_Subscribe(t *testing.T) {
 
 func TestBus_Subscribe_invalidEventData(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
@@ -284,8 +290,8 @@ func TestBus_Subscribe_decodeError(t *testing.T) {
 
 	decodeError := errors.New("decode error")
 	enc.EXPECT().
-		Encode(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(w io.Writer, _ command.Payload) error {
+		Encode(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(w io.Writer, _ string, _ command.Payload) error {
 			w.Write([]byte{})
 			return nil
 		})
@@ -320,7 +326,9 @@ func TestBus_Subscribe_decodeError(t *testing.T) {
 
 func TestBus_Subscribe_executionError(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	subBus := cmdbus.New(enc, ebus)
 	pubBus := cmdbus.New(enc, ebus)
@@ -370,7 +378,9 @@ func TestBus_Subscribe_executionError(t *testing.T) {
 
 func TestBus_Subscribe_exactlyOneHandler(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
@@ -429,7 +439,9 @@ func TestBus_Subscribe_exactlyOneHandler(t *testing.T) {
 
 func TestBus_Dispatch_synchronous(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(0))
 
@@ -466,7 +478,9 @@ func TestBus_Dispatch_synchronous(t *testing.T) {
 
 func TestBus_Dispatch_synchronous_withError(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
@@ -513,7 +527,9 @@ func TestBus_Dispatch_synchronous_withError(t *testing.T) {
 
 func TestBus_Dispatch_report(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 
@@ -595,7 +611,9 @@ func TestAssignTimeout(t *testing.T) {
 	defer ctrl.Finish()
 
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := mock_event.NewMockBus(ctrl)
 	dur := 50 * time.Millisecond
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(dur))

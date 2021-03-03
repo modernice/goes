@@ -146,17 +146,17 @@ func (mr *MockEncoderMockRecorder) Decode(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Encode mocks base method
-func (m *MockEncoder) Encode(arg0 io.Writer, arg1 command.Payload) error {
+func (m *MockEncoder) Encode(arg0 io.Writer, arg1 string, arg2 command.Payload) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Encode", arg0, arg1)
+	ret := m.ctrl.Call(m, "Encode", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Encode indicates an expected call of Encode
-func (mr *MockEncoderMockRecorder) Encode(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockEncoderMockRecorder) Encode(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockEncoder)(nil).Encode), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockEncoder)(nil).Encode), arg0, arg1, arg2)
 }
 
 // MockBus is a mock of Bus interface

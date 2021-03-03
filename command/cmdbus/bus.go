@@ -157,7 +157,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 	}
 
 	var load bytes.Buffer
-	if err := b.enc.Encode(&load, cmd.Payload()); err != nil {
+	if err := b.enc.Encode(&load, cmd.Name(), cmd.Payload()); err != nil {
 		return fmt.Errorf("encode payload: %w", err)
 	}
 

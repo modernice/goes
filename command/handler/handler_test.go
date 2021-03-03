@@ -36,7 +36,9 @@ type mockBus struct {
 
 func TestHandler_On(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 	h := handler.New(bus)
@@ -68,7 +70,9 @@ func TestHandler_On(t *testing.T) {
 
 func TestHandler_On_cancelContext(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(500*time.Millisecond))
 	h := handler.New(bus)
@@ -142,7 +146,9 @@ func TestHandler_busError(t *testing.T) {
 
 func TestHandler_done(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", mockPayload{})
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
 	h := handler.New(bus)

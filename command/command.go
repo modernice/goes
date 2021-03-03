@@ -37,10 +37,10 @@ type Payload interface{}
 // An Encoder encodes and decodes Payloads.
 type Encoder interface {
 	// Encode encodes the given Payload and writes the result into the Writer.
-	Encode(io.Writer, Payload) error
+	Encode(io.Writer, string, Payload) error
 
-	// Decode decodes the Payload in Reader r.
-	Decode(name string, r io.Reader) (Payload, error)
+	// Decode decodes the Payload in the Reader.
+	Decode(string, io.Reader) (Payload, error)
 }
 
 // A Bus dispatches Commands to the appropriate Handlers.
