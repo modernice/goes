@@ -20,11 +20,14 @@ func TestEventBus_STAN(t *testing.T) {
 	var id int64 = 1
 	test.EventBus(t, func(enc event.Encoder) event.Bus {
 		n := atomic.AddInt64(&id, 1)
-		return natsbus.New(enc, natsbus.Use(natsbus.Streaming(
-			"test-cluster",
-			fmt.Sprintf("stan-test-%d", n),
-			stan.NatsURL(os.Getenv("STAN_URL")),
-		)))
+		return natsbus.New(
+			enc,
+			natsbus.Use(natsbus.Streaming(
+				"test-cluster",
+				fmt.Sprintf("stan-test-%d", n),
+				stan.NatsURL(os.Getenv("STAN_URL")),
+			)),
+		)
 	})
 }
 

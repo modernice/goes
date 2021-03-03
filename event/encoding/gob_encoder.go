@@ -27,7 +27,7 @@ func (enc *GobEncoder) Register(name string, new func() event.Data) {
 	if new == nil {
 		panic("nil factory")
 	}
-	gob.Register(new())
+	gobRegister(name, new())
 	enc.mux.Lock()
 	defer enc.mux.Unlock()
 	enc.new[name] = new
@@ -45,7 +45,10 @@ func (enc *GobEncoder) New(name string) (event.Data, error) {
 }
 
 // Encode encodes data using "encoding/gob" and writes the result into w.
-func (enc *GobEncoder) Encode(w io.Writer, _ string, data event.Data) error {
+func (enc *GobEncoder) Encode(w io.Writer, name string, data event.Data) error {
+	if !enc.registered(name) {
+		return ErrUnregisteredEvent
+	}
 	if err := gob.NewEncoder(w).Encode(&data); err != nil {
 		return fmt.Errorf("gob encode %v: %w", data, err)
 	}
@@ -65,7 +68,7 @@ func (enc *GobEncoder) Decode(name string, r io.Reader) (event.Data, error) {
 	defer enc.mux.RUnlock()
 
 	if err := gob.NewDecoder(r).Decode(&data); err != nil {
-		return nil, fmt.Errorf("gob decode %v: %w", data, err)
+		return nil, fmt.Errorf("gob decode %#v: %w", data, err)
 	}
 
 	return data, nil
@@ -76,4 +79,12 @@ func (enc *GobEncoder) registered(name string) bool {
 	defer enc.mux.RUnlock()
 	_, ok := enc.new[name]
 	return ok
+}
+
+func gobRegister(name string, d event.Data) {
+	gob.RegisterName(gobName(name), d)
+}
+
+func gobName(name string) string {
+	return "goes.event." + name
 }

@@ -8,15 +8,13 @@ import (
 	"github.com/modernice/goes/command/encoding"
 )
 
-type mockPayload struct{ A string }
-
 func TestRegister(t *testing.T) {
 	encoding.Register("foo", func() command.Payload {
-		return mockPayload{}
+		return mockPayloadA{}
 	})
 
 	var buf bytes.Buffer
-	want := mockPayload{A: "foo"}
+	want := mockPayloadA{B: "foo"}
 	if err := encoding.DefaultRegistry.Encode(&buf, "foo", want); err != nil {
 		t.Fatalf("DefaultRegistry.Encode shouldn't fail; failed with %q", err)
 	}

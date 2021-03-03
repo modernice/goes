@@ -488,7 +488,7 @@ func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
 				var env envelope
 				dec := gob.NewDecoder(bytes.NewReader(msg))
 				if err := dec.Decode(&env); err != nil {
-					bus.errs.Publish(context.Background(), fmt.Errorf("gob decode envelope: %w", err))
+					bus.errs.Publish(context.Background(), fmt.Errorf("decode envelope: %w", err))
 					continue
 				}
 

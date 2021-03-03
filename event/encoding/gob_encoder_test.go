@@ -34,7 +34,7 @@ type moreEventData struct {
 
 func TestGobEncoder(t *testing.T) {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", func() event.Data {
+	enc.Register("x-foo", func() event.Data {
 		return eventDataA{}
 	})
 
@@ -44,12 +44,12 @@ func TestGobEncoder(t *testing.T) {
 		B: moreEventData{A: true},
 	}
 
-	err := enc.Encode(&encoded, "foo", data)
+	err := enc.Encode(&encoded, "x-foo", data)
 	if err != nil {
 		t.Fatal(fmt.Errorf("encode: %w", err))
 	}
 
-	decoded, err := enc.Decode("foo", &encoded)
+	decoded, err := enc.Decode("x-foo", &encoded)
 	if err != nil {
 		t.Fatal(fmt.Errorf("decode: %w", err))
 	}
@@ -62,7 +62,7 @@ func TestGobEncoder(t *testing.T) {
 func TestGobEncoder_New(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 
-	data, err := enc.New("foo")
+	data, err := enc.New("x-foo")
 	if !errors.Is(err, encoding.ErrUnregisteredEvent) {
 		t.Fatal(fmt.Errorf("expected encoding.ErrUnregisteredEvent error; got %#v", err))
 	}
@@ -71,16 +71,16 @@ func TestGobEncoder_New(t *testing.T) {
 		t.Fatal(fmt.Errorf("data should be nil; got %#v", data))
 	}
 
-	enc.Register("foo", func() event.Data {
-		return eventDataA{A: "foo"}
+	enc.Register("x-foo", func() event.Data {
+		return eventDataA{A: "x-foo"}
 	})
 
-	data, err = enc.New("foo")
+	data, err = enc.New("x-foo")
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected err to be nil; got %#v", err))
 	}
 
-	want := eventDataA{A: "foo"}
+	want := eventDataA{A: "x-foo"}
 	if data != want {
 		t.Fatal(fmt.Errorf("expected event data to equal %#v; got %#v", want, data))
 	}
@@ -90,10 +90,10 @@ func TestGobEncoder_Decode_unregistered(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 
 	var buf bytes.Buffer
-	enc.Register("foo", func() event.Data {
+	enc.Register("x-foo", func() event.Data {
 		return eventDataA{}
 	})
-	err := enc.Encode(&buf, "foo", eventDataA{})
+	err := enc.Encode(&buf, "x-foo", eventDataA{})
 
 	if err != nil {
 		t.Fatal(fmt.Errorf("encode: %w", err))
@@ -101,7 +101,7 @@ func TestGobEncoder_Decode_unregistered(t *testing.T) {
 
 	dec := encoding.NewGobEncoder()
 
-	if _, err = dec.Decode("foo", &buf); !errors.Is(err, encoding.ErrUnregisteredEvent) {
+	if _, err = dec.Decode("x-foo", &buf); !errors.Is(err, encoding.ErrUnregisteredEvent) {
 		t.Fatal(fmt.Errorf("expected encoding.ErrUnregisterdEvent; got %v", err))
 	}
 }

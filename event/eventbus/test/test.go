@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ type EventBusFactory func(event.Encoder) event.Bus
 // EventBus tests an event.Bus implementation.
 func EventBus(t *testing.T, newBus EventBusFactory) {
 	t.Run("basic test", func(t *testing.T) {
-		testEventStore(t, newBus)
+		testEventBus(t, newBus)
 	})
 
 	t.Run("subscribe to multiple event names", func(t *testing.T) {
@@ -40,8 +41,8 @@ func EventBus(t *testing.T, newBus EventBusFactory) {
 	})
 }
 
-func testEventStore(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(test.NewEncoder())
+func testEventBus(t *testing.T, newBus EventBusFactory) {
+	bus := newBus(encoder())
 
 	// given 5 subscribers who listen for "foo" events
 	subscribers := make([]<-chan event.Event, 5)
@@ -92,7 +93,7 @@ func testEventStore(t *testing.T, newBus EventBusFactory) {
 }
 
 func testSubscribeMultipleItems(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(test.NewEncoder())
+	bus := newBus(encoder())
 
 	// given a subscriber who listens for "foo" and "bar" events
 	events, err := bus.Subscribe(context.Background(), "foo", "bar")
@@ -126,7 +127,7 @@ func testSubscribeMultipleItems(t *testing.T, newBus EventBusFactory) {
 }
 
 func testCancelSubscription(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(test.NewEncoder())
+	bus := newBus(encoder())
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -158,7 +159,7 @@ func testCancelSubscription(t *testing.T, newBus EventBusFactory) {
 }
 
 func testSubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(test.NewEncoder())
+	bus := newBus(encoder())
 
 	// given a canceled context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -217,7 +218,7 @@ func testPublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bus := newBus(test.NewEncoder())
+			bus := newBus(encoder())
 			ctx := context.Background()
 
 			events, err := bus.Subscribe(ctx, tt.subscribe...)
@@ -281,4 +282,19 @@ func expectEvent(name string, events <-chan event.Event) error {
 		}
 	}
 	return nil
+}
+
+var (
+	encMux sync.Mutex
+	enc    event.Encoder
+)
+
+func encoder() event.Encoder {
+	encMux.Lock()
+	defer encMux.Unlock()
+	if enc != nil {
+		return enc
+	}
+	enc = test.NewEncoder()
+	return enc
 }

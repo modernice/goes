@@ -9,11 +9,6 @@ import (
 	"github.com/modernice/goes/command"
 )
 
-var (
-	gobRegisteredMux      sync.RWMutex
-	gobRegisteredCommands = make(map[string]bool)
-)
-
 // GobEncoder encodes Command Payloads using the "encoding/gob" package.
 type GobEncoder struct {
 	mux sync.RWMutex
@@ -28,7 +23,10 @@ func NewGobEncoder() *GobEncoder {
 }
 
 // Encode encodes the given Payload and writes the result into w.
-func (enc *GobEncoder) Encode(w io.Writer, _ string, pl command.Payload) error {
+func (enc *GobEncoder) Encode(w io.Writer, name string, pl command.Payload) error {
+	if !enc.registered(name) {
+		return ErrUnregisteredCommand
+	}
 	if err := gob.NewEncoder(w).Encode(&pl); err != nil {
 		return fmt.Errorf("gob encode %v: %w", pl, err)
 	}
@@ -42,11 +40,8 @@ func (enc *GobEncoder) Decode(name string, r io.Reader) (command.Payload, error)
 		return nil, err
 	}
 
-	enc.mux.RLock()
-	defer enc.mux.RUnlock()
-
 	if err := gob.NewDecoder(r).Decode(&pl); err != nil {
-		return nil, fmt.Errorf("gob decode %v: %w", pl, err)
+		return nil, fmt.Errorf("gob decode %#v: %w", pl, err)
 	}
 
 	return pl, nil
@@ -57,8 +52,7 @@ func (enc *GobEncoder) Register(name string, new func() command.Payload) {
 	if new == nil {
 		panic("nil factory")
 	}
-	l := new()
-	gob.Register(l)
+	gobRegister(name, new())
 	enc.mux.Lock()
 	defer enc.mux.Unlock()
 	enc.new[name] = new
@@ -79,4 +73,12 @@ func (enc *GobEncoder) registered(name string) bool {
 	defer enc.mux.RUnlock()
 	_, ok := enc.new[name]
 	return ok
+}
+
+func gobRegister(name string, load command.Payload) {
+	gob.RegisterName(gobName(name), load)
+}
+
+func gobName(name string) string {
+	return "goes.cmd." + name
 }

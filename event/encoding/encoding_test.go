@@ -26,6 +26,6 @@ func TestRegister(t *testing.T) {
 	}
 
 	if data != d {
-		t.Errorf("DefaultRegistry.Decode should return %v; got %v", d, data)
+		t.Errorf("DefaultRegistry.Decode should return %#v; got %#v", d, data)
 	}
 }
