@@ -24,6 +24,7 @@ import (
 	mock_command "github.com/modernice/goes/command/mocks"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
+	mock_event "github.com/modernice/goes/event/mocks"
 )
 
 type mockPayload struct {
@@ -35,7 +36,7 @@ func TestBus_Dispatch(t *testing.T) {
 	ebus := chanbus.New()
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
-	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(time.Second))
+	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(100*time.Millisecond))
 
 	var _ command.Bus = bus
 
@@ -321,9 +322,12 @@ func TestBus_Subscribe_executionError(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
 	ebus := chanbus.New()
-	bus := cmdbus.New(enc, ebus)
+	subBus := cmdbus.New(enc, ebus)
+	pubBus := cmdbus.New(enc, ebus)
 
-	commands, err := bus.Subscribe(context.Background(), "foo")
+	errs := subBus.Errors(context.Background())
+
+	commands, err := subBus.Subscribe(context.Background(), "foo")
 	if err != nil {
 		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
 	}
@@ -338,17 +342,15 @@ func TestBus_Subscribe_executionError(t *testing.T) {
 		}
 	}()
 
-	errs := bus.Errors(context.Background())
-
 	cmd := command.New("foo", mockPayload{})
-	if err := bus.Dispatch(context.Background(), cmd); err != nil {
+	if err := pubBus.Dispatch(context.Background(), cmd); err != nil {
 		t.Fatalf("failed to dispatch %q command: %v", cmd.Name(), err)
 	}
 
 	var execError *cmdbus.ExecutionError
 	select {
-	case <-time.After(time.Second):
-		t.Fatalf("didn't receive error after %s", time.Second)
+	case <-time.After(5 * time.Second):
+		t.Fatalf("didn't receive error after %s", 5*time.Second)
 	case err := <-doneError:
 		t.Fatal(err)
 	case err := <-errs:
@@ -589,16 +591,33 @@ func TestBus_Dispatch_report(t *testing.T) {
 }
 
 func TestAssignTimeout(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	enc := encoding.NewGobEncoder()
-	ebus := chanbus.New()
+	enc.Register("foo", mockPayload{})
+	ebus := mock_event.NewMockBus(ctrl)
 	dur := 50 * time.Millisecond
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(dur))
 	cmd := command.New("foo", mockPayload{})
 
+	ebus.EXPECT().
+		Subscribe(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, ...string) (<-chan event.Event, error) {
+			events := make(chan event.Event)
+			return events, nil
+		}).
+		AnyTimes()
+
+	ebus.EXPECT().
+		Publish(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, ...event.Event) error {
+			return nil
+		}).
+		AnyTimes()
+
 	errc := make(chan error)
-	go func() {
-		errc <- bus.Dispatch(context.Background(), cmd)
-	}()
+	go func() { errc <- bus.Dispatch(context.Background(), cmd) }()
 
 	select {
 	case err := <-errc:
@@ -607,56 +626,6 @@ func TestAssignTimeout(t *testing.T) {
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("didn't receive error after %s", 100*time.Millisecond)
-	}
-}
-
-func TestDrainTimeout(t *testing.T) {
-	enc := encoding.NewGobEncoder()
-	ebus := chanbus.New()
-	bus := cmdbus.New(enc, ebus, cmdbus.DrainTimeout(500*time.Millisecond), cmdbus.AssignTimeout(0))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	commands, err := bus.Subscribe(ctx, "foo")
-	if err != nil {
-		t.Fatalf("failed to subscribe to %q commands: %v", "foo", err)
-	}
-
-	cmd1 := command.New("foo", mockPayload{})
-	cmd2 := command.New("foo", mockPayload{})
-	errc := make(chan error, 2)
-	go func() {
-		if err := bus.Dispatch(context.Background(), cmd1); err != nil {
-			errc <- fmt.Errorf("failed to dispatch %q command: %w", "foo", err)
-		}
-		if err := bus.Dispatch(context.Background(), cmd2); err != nil {
-			errc <- fmt.Errorf("failed to dispatch %q command: %w", "foo", err)
-		}
-	}()
-
-	select {
-	case err := <-errc:
-		t.Fatal(err)
-	case <-time.After(50 * time.Millisecond):
-		cancel()
-	}
-
-	select {
-	case err := <-errc:
-		t.Fatal(err)
-	case <-time.After(time.Second):
-	}
-
-	<-commands
-
-	select {
-	case <-time.After(50 * time.Millisecond):
-		t.Fatalf("commands channel not closed after %s", 50*time.Millisecond)
-	case _, ok := <-commands:
-		if ok {
-			t.Fatalf("commands channel should be closed")
-		}
 	}
 }
 

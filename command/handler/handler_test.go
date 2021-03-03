@@ -70,7 +70,7 @@ func TestHandler_On_cancelContext(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", mockPayload{})
 	ebus := chanbus.New()
-	bus := cmdbus.New(enc, ebus)
+	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(500*time.Millisecond))
 	h := handler.New(bus)
 
 	rec := newRecorder(nil)
@@ -80,14 +80,16 @@ func TestHandler_On_cancelContext(t *testing.T) {
 	h.On(ctx, "foo", rec.Handle)
 	cancel()
 
-	<-time.After(10 * time.Millisecond)
+	timeout, stop := after(10 * time.Millisecond)
+	defer stop()
+	<-timeout
 
 	cmd := command.New("foo", mockPayload{})
 	if err := bus.Dispatch(context.Background(), cmd); err == nil {
 		t.Fatal("dispatch should have failed, but didn't!")
 	}
 
-	timeout, stop := after(10 * time.Millisecond)
+	timeout, stop = after(10 * time.Millisecond)
 	defer stop()
 
 	select {

@@ -63,7 +63,7 @@ func AssignTimeout(dur time.Duration) Option {
 }
 
 // DrainTimeout returns an Option that configures the timeout when accepting the
-// remaining Commands after the Context that's used to subscribe to Command is
+// remaining Commands after the Context that's used to subscribe to Commands is
 // canceled.
 //
 // A zero Duration means no timeout. The default timeout is 10s.
