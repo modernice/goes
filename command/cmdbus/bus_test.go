@@ -24,7 +24,6 @@ import (
 	mock_command "github.com/modernice/goes/command/mocks"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
-	mock_event "github.com/modernice/goes/event/mocks"
 )
 
 type mockPayload struct {
@@ -659,20 +658,6 @@ func TestDrainTimeout(t *testing.T) {
 			t.Fatalf("commands channel should be closed")
 		}
 	}
-}
-
-func TestRegisterEvents(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	reg := mock_event.NewMockRegistry(ctrl)
-	reg.EXPECT().Register(cmdbus.CommandDispatched, cmdbus.CommandDispatchedData{})
-	reg.EXPECT().Register(cmdbus.CommandRequested, cmdbus.CommandRequestedData{})
-	reg.EXPECT().Register(cmdbus.CommandAssigned, cmdbus.CommandAssignedData{})
-	reg.EXPECT().Register(cmdbus.CommandAccepted, cmdbus.CommandAcceptedData{})
-	reg.EXPECT().Register(cmdbus.CommandExecuted, cmdbus.CommandExecutedData{})
-
-	cmdbus.RegisterEvents(reg)
 }
 
 func multiSubscribe(ctx context.Context, bus command.Bus, count int, names ...string) (<-chan command.Context, error) {

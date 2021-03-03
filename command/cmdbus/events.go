@@ -74,9 +74,19 @@ type CommandExecutedData struct {
 
 // RegisterEvents registers the Command Events into the Registry.
 func RegisterEvents(reg event.Registry) {
-	reg.Register(CommandDispatched, CommandDispatchedData{})
-	reg.Register(CommandRequested, CommandRequestedData{})
-	reg.Register(CommandAssigned, CommandAssignedData{})
-	reg.Register(CommandAccepted, CommandAcceptedData{})
-	reg.Register(CommandExecuted, CommandExecutedData{})
+	reg.Register(CommandDispatched, func() event.Data {
+		return CommandDispatchedData{}
+	})
+	reg.Register(CommandRequested, func() event.Data {
+		return CommandRequestedData{}
+	})
+	reg.Register(CommandAssigned, func() event.Data {
+		return CommandAssignedData{}
+	})
+	reg.Register(CommandAccepted, func() event.Data {
+		return CommandAcceptedData{}
+	})
+	reg.Register(CommandExecuted, func() event.Data {
+		return CommandExecutedData{}
+	})
 }

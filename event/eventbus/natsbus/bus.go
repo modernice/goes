@@ -340,7 +340,7 @@ func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 
 func (bus *EventBus) publish(ctx context.Context, evt event.Event) error {
 	var buf bytes.Buffer
-	if err := bus.enc.Encode(&buf, evt.Data()); err != nil {
+	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w", err)
 	}
 

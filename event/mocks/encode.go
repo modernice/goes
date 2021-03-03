@@ -35,17 +35,17 @@ func (m *MockEncoder) EXPECT() *MockEncoderMockRecorder {
 }
 
 // Encode mocks base method
-func (m *MockEncoder) Encode(w io.Writer, d event.Data) error {
+func (m *MockEncoder) Encode(w io.Writer, name string, d event.Data) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Encode", w, d)
+	ret := m.ctrl.Call(m, "Encode", w, name, d)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Encode indicates an expected call of Encode
-func (mr *MockEncoderMockRecorder) Encode(w, d interface{}) *gomock.Call {
+func (mr *MockEncoderMockRecorder) Encode(w, name, d interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockEncoder)(nil).Encode), w, d)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockEncoder)(nil).Encode), w, name, d)
 }
 
 // Decode mocks base method
@@ -87,17 +87,17 @@ func (m *MockRegistry) EXPECT() *MockRegistryMockRecorder {
 }
 
 // Encode mocks base method
-func (m *MockRegistry) Encode(w io.Writer, d event.Data) error {
+func (m *MockRegistry) Encode(w io.Writer, name string, d event.Data) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Encode", w, d)
+	ret := m.ctrl.Call(m, "Encode", w, name, d)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Encode indicates an expected call of Encode
-func (mr *MockRegistryMockRecorder) Encode(w, d interface{}) *gomock.Call {
+func (mr *MockRegistryMockRecorder) Encode(w, name, d interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockRegistry)(nil).Encode), w, d)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockRegistry)(nil).Encode), w, name, d)
 }
 
 // Decode mocks base method
@@ -116,13 +116,28 @@ func (mr *MockRegistryMockRecorder) Decode(name, r interface{}) *gomock.Call {
 }
 
 // Register mocks base method
-func (m *MockRegistry) Register(name string, d event.Data) {
+func (m *MockRegistry) Register(name string, new func() event.Data) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Register", name, d)
+	m.ctrl.Call(m, "Register", name, new)
 }
 
 // Register indicates an expected call of Register
-func (mr *MockRegistryMockRecorder) Register(name, d interface{}) *gomock.Call {
+func (mr *MockRegistryMockRecorder) Register(name, new interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockRegistry)(nil).Register), name, d)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockRegistry)(nil).Register), name, new)
+}
+
+// New mocks base method
+func (m *MockRegistry) New(name string) (event.Data, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "New", name)
+	ret0, _ := ret[0].(event.Data)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// New indicates an expected call of New
+func (mr *MockRegistryMockRecorder) New(name interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "New", reflect.TypeOf((*MockRegistry)(nil).New), name)
 }

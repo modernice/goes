@@ -22,8 +22,14 @@ type UnregisteredEventData struct{ A string }
 // "baz" events.
 func NewEncoder() event.Encoder {
 	enc := encoding.NewGobEncoder()
-	enc.Register("foo", FooEventData{})
-	enc.Register("bar", BarEventData{})
-	enc.Register("baz", BazEventData{})
+	enc.Register("foo", func() event.Data {
+		return FooEventData{}
+	})
+	enc.Register("bar", func() event.Data {
+		return BarEventData{}
+	})
+	enc.Register("baz", func() event.Data {
+		return BazEventData{}
+	})
 	return enc
 }

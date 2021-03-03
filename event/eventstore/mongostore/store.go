@@ -271,7 +271,7 @@ func (s *Store) updateState(ctx mongo.SessionContext, st state, events []event.E
 
 func (s *Store) insert(ctx context.Context, evt event.Event) error {
 	var data bytes.Buffer
-	if err := s.enc.Encode(&data, evt.Data()); err != nil {
+	if err := s.enc.Encode(&data, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode %q event data: %w", evt.Name(), err)
 	}
 
