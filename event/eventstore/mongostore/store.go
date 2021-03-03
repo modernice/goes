@@ -22,11 +22,12 @@ import (
 
 // Store is the MongoDB event.Store.
 type Store struct {
-	enc        event.Encoder
-	url        string
-	dbname     string
-	entriesCol string
-	statesCol  string
+	enc          event.Encoder
+	url          string
+	dbname       string
+	entriesCol   string
+	statesCol    string
+	transactions bool
 
 	client  *mongo.Client
 	db      *mongo.Database
@@ -120,6 +121,17 @@ func StateCollection(name string) Option {
 	}
 }
 
+// Transactions returns an Option that, if tx is true, configures a Store to use
+// MongoDB Transactions when inserting Events.
+//
+// Transactions can only be used in replica sets or shareded clusters:
+// https://docs.mongodb.com/manual/core/transactions/
+func Transactions(tx bool) Option {
+	return func(s *Store) {
+		s.transactions = tx
+	}
+}
+
 // New returns a MongoDB event.Store.
 func New(enc event.Encoder, opts ...Option) *Store {
 	s := Store{enc: enc}
@@ -177,8 +189,10 @@ func (s *Store) Insert(ctx context.Context, events ...event.Event) error {
 	}
 
 	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) error {
-		if err := ctx.StartTransaction(); err != nil {
-			return fmt.Errorf("start transaction: %w", err)
+		if s.transactions {
+			if err := ctx.StartTransaction(); err != nil {
+				return fmt.Errorf("start transaction: %w", err)
+			}
 		}
 
 		st, err := s.validateVersion(ctx, events)
@@ -188,22 +202,28 @@ func (s *Store) Insert(ctx context.Context, events ...event.Event) error {
 
 		for _, evt := range events {
 			if err := s.insert(ctx, evt); err != nil {
-				if err = ctx.AbortTransaction(ctx); err != nil {
-					return fmt.Errorf("abort transaction: %w", err)
+				if s.transactions {
+					if err = ctx.AbortTransaction(ctx); err != nil {
+						return fmt.Errorf("abort transaction: %w", err)
+					}
 				}
 				return fmt.Errorf("insert %s:%s: %w", evt.Name(), evt.ID(), err)
 			}
 		}
 
 		if err := s.updateState(ctx, st, events); err != nil {
-			if err = ctx.AbortTransaction(ctx); err != nil {
-				return fmt.Errorf("abort transaction: %w", err)
+			if s.transactions {
+				if err = ctx.AbortTransaction(ctx); err != nil {
+					return fmt.Errorf("abort transaction: %w", err)
+				}
 			}
 			return fmt.Errorf("update state: %w", err)
 		}
 
-		if err := ctx.CommitTransaction(ctx); err != nil {
-			return fmt.Errorf("commit transaction: %w", err)
+		if s.transactions {
+			if err := ctx.CommitTransaction(ctx); err != nil {
+				return fmt.Errorf("commit transaction: %w", err)
+			}
 		}
 
 		return nil

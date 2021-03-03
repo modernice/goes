@@ -8,6 +8,10 @@ services:
 
   mongostore:
     image: mongo
+    command: ["--quiet", "--logpath", "/dev/null", "--bind_ip_all"]
+
+  mongostore_replicaset:
+    image: mongo
     command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs01", "--bind_ip_all"]
     healthcheck:
       test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo --quiet) -eq 1
@@ -16,17 +20,14 @@ services:
   
   mongosnap:
     image: mongo
-    command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs01", "--bind_ip_all"]
-    healthcheck:
-      test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo --quiet) -eq 1
-      interval: 10s
-      start_period: 30s
+    command: ["--quiet", "--logpath", "/dev/null", "--bind_ip_all"]
 
   test:
     depends_on:
       - nats
       - stan
       - mongostore
+      - mongostore_replicaset
       - mongosnap
     build:
       context: ..
@@ -37,6 +38,7 @@ services:
       - NATS_URL=nats://nats:4222
       - STAN_URL=nats://stan:4222
       - MONGOSTORE_URL=mongodb://mongostore:27017
+      - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
       - MONGOSNAP_URL=mongodb://mongosnap:27017
     volumes:
       - ../out:/coverage/out

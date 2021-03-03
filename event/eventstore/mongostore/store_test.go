@@ -19,8 +19,20 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	test.EventStore(t, "mongostore", func(enc event.Encoder) event.Store {
-		return mongotest.NewStore(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
+	t.Run("Default", func(t *testing.T) {
+		test.EventStore(t, "mongostore", func(enc event.Encoder) event.Store {
+			return mongotest.NewStore(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
+		})
+	})
+
+	t.Run("ReplicaSet", func(t *testing.T) {
+		test.EventStore(t, "mongostore", func(enc event.Encoder) event.Store {
+			return mongotest.NewStore(
+				enc,
+				mongostore.URL(os.Getenv("MONGOREPLSTORE_URL")),
+				mongostore.Transactions(true),
+			)
+		})
 	})
 }
 
