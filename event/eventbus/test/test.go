@@ -137,14 +137,37 @@ func testCancelSubscription(t *testing.T, newBus EventBusFactory) {
 		t.Fatal(fmt.Errorf("subscribe: %w", err))
 	}
 
-	// when the ctx is canceled
-	cancel()
-	// wait 10ms to ensure cancellation has propagated
-	<-time.After(10 * time.Millisecond)
+	evt := event.New("foo", test.FooEventData{})
+	// when 5 events are published
+	for i := 0; i < 5; i++ {
+		if err = bus.Publish(context.Background(), evt); err != nil {
+			t.Fatal(fmt.Errorf("publish: %w", err))
+		}
+	}
 
-	// when a "foo" event is published
-	if err = bus.Publish(context.Background(), event.New("foo", test.FooEventData{})); err != nil {
+	// when the ctx is canceled
+	<-time.After(50 * time.Millisecond)
+	cancel()
+	<-time.After(50 * time.Millisecond)
+
+	// when another event is published
+	if err = bus.Publish(context.Background(), evt); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
+	}
+
+	// 5 events should be received
+	for i := 0; i < 5; i++ {
+		select {
+		case <-time.After(20 * time.Millisecond):
+			t.Fatalf("didn't receive Event after %s", 20*time.Millisecond)
+		case e, ok := <-events:
+			if !ok {
+				t.Fatalf("Event channel shouldn't be closed!")
+			}
+			if e != evt {
+				t.Fatalf("received wrong Event. want=%v got=%v", evt, e)
+			}
+		}
 	}
 
 	// events should be closed
