@@ -2,24 +2,16 @@ package project
 
 import (
 	"github.com/google/uuid"
-	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/aggregate"
 )
 
 // A Projection projects an Aggregate on itself.
 type Projection interface {
-	// AggregateName returns the projected Aggregates name.
-	AggregateName() string
-
-	// AggregateID returns the projected Aggregates UUID.
-	AggregateID() uuid.UUID
-
-	// ApplyEvent applies the given Event on the Projection.
-	ApplyEvent(evt event.Event)
+	aggregate.Aggregate
 }
 
 type projection struct {
-	aggregateName string
-	aggregateID   uuid.UUID
+	aggregate.Aggregate
 }
 
 // New returns a new Projection.
@@ -39,17 +31,6 @@ type projection struct {
 //	}
 func New(name string, id uuid.UUID) Projection {
 	return &projection{
-		aggregateName: name,
-		aggregateID:   id,
+		Aggregate: aggregate.New(name, id),
 	}
 }
-
-func (p *projection) AggregateName() string {
-	return p.aggregateName
-}
-
-func (p *projection) AggregateID() uuid.UUID {
-	return p.aggregateID
-}
-
-func (p *projection) ApplyEvent(evt event.Event) {}

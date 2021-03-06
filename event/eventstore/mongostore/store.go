@@ -420,22 +420,16 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 			Options: options.Index().SetName("goes_time_nano"),
 		},
 		{
-			Keys: bson.D{
-				{Key: "aggregateName", Value: 1},
-				{Key: "aggregateId", Value: 1},
-				{Key: "aggregateVersion", Value: 1},
-			},
-			Options: options.Index().
-				SetName("goes_aggregate").
-				SetUnique(true).
-				SetPartialFilterExpression(bson.D{
-					{Key: "aggregateName", Value: bson.D{
-						{Key: "$gt", Value: ""},
-					}},
-					{Key: "aggregateId", Value: bson.D{
-						{Key: "$gt", Value: uuid.Nil},
-					}},
-				}),
+			Keys:    bson.D{{Key: "aggregateName", Value: 1}},
+			Options: options.Index().SetName("goes_aggregate_name"),
+		},
+		{
+			Keys:    bson.D{{Key: "aggregateId", Value: 1}},
+			Options: options.Index().SetName("goes_aggregate_id"),
+		},
+		{
+			Keys:    bson.D{{Key: "aggregateVersion", Value: 1}},
+			Options: options.Index().SetName("goes_aggregate_version"),
 		},
 	}); err != nil {
 		return fmt.Errorf("create indexes (%s): %w", s.entries.Name(), err)

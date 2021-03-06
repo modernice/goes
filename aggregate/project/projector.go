@@ -59,8 +59,11 @@ func (proj *projector) Project(ctx context.Context, p Projection) error {
 	defer str.Close(ctx)
 
 	for str.Next(ctx) {
-		p.ApplyEvent(str.Event())
+		evt := str.Event()
+		p.ApplyEvent(evt)
+		p.TrackChange(evt)
 	}
+	p.FlushChanges()
 
 	if err = str.Err(); err != nil {
 		return fmt.Errorf("event stream: %w", err)

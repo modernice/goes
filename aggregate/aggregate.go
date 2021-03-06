@@ -140,7 +140,7 @@ func (b *base) FlushChanges() {
 	// b.TrackChange guarantees a correct event order, so we can safely assume
 	// the last element has the highest version.
 	b.version = b.changes[len(b.changes)-1].AggregateVersion()
-	b.changes = nil
+	b.changes = b.changes[:0]
 }
 
 // ApplyEvent does nothing. Structs that embed base should implement ApplyEvent.

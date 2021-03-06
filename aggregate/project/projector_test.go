@@ -2,7 +2,6 @@ package project_test
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -37,8 +36,10 @@ func TestProjector_Project(t *testing.T) {
 		t.Errorf("Project shouldn't fail; failed with %q", err)
 	}
 
-	if !reflect.DeepEqual(mp.events, events) {
-		t.Errorf("ApplyEvent should be called with\n%v\nwas called with\n%v\n", events, mp.events)
+	test.AssertEqualEvents(t, mp.events, events)
+
+	if mp.AggregateVersion() != 5 {
+		t.Errorf("Projection should be at version %d; is at version %d", 5, mp.AggregateVersion())
 	}
 }
 

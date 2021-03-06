@@ -17,6 +17,11 @@ func EqualEvents(events ...[]event.Event) bool {
 	if len(events) < 2 {
 		return true
 	}
+	for i, evts := range events {
+		if len(evts) == 0 {
+			events[i] = nil
+		}
+	}
 	first := events[0]
 	var opts []cmp.Option
 	if len(first) > 0 {
