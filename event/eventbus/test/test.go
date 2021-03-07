@@ -18,36 +18,14 @@ import (
 // EventBusFactory creates an event.Bus from an event.Encoder.
 type EventBusFactory func(event.Encoder) event.Bus
 
-// EventBus tests an event.Bus implementation.
+// EventBus tests the core functionality of an event.Bus.
 func EventBus(t *testing.T, newBus EventBusFactory) {
-	t.Run("basic test", func(t *testing.T) {
-		testEventBus(t, newBus)
-	})
-
-	t.Run("subscribe to multiple event names", func(t *testing.T) {
-		testSubscribeMultipleItems(t, newBus)
-	})
-
-	t.Run("cancel subscription", func(t *testing.T) {
-		testCancelSubscription(t, newBus)
-	})
-
-	t.Run("subscribe with canceled context", func(t *testing.T) {
-		testSubscribeCanceledContext(t, newBus)
-	})
-
-	t.Run("publish multiple events", func(t *testing.T) {
-		testPublishMultipleEvents(t, newBus)
-	})
-}
-
-func testEventBus(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(encoder())
 
 	// given 5 subscribers who listen for "foo" events
 	subscribers := make([]<-chan event.Event, 5)
 	for i := 0; i < 5; i++ {
-		events, err := bus.Subscribe(context.Background(), "foo")
+		events, _, err := bus.Subscribe(context.Background(), "foo")
 		if err != nil {
 			t.Fatal(fmt.Errorf("[%d] subscribe: %w", i, err))
 		}
@@ -92,11 +70,13 @@ func testEventBus(t *testing.T, newBus EventBusFactory) {
 	}
 }
 
-func testSubscribeMultipleItems(t *testing.T, newBus EventBusFactory) {
+// SubscribeMultipleEvents tests if an event.Bus supports subscribing to
+// multiple Events at once.
+func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(encoder())
 
 	// given a subscriber who listens for "foo" and "bar" events
-	events, err := bus.Subscribe(context.Background(), "foo", "bar")
+	events, _, err := bus.Subscribe(context.Background(), "foo", "bar")
 	if err != nil {
 		t.Fatal(fmt.Errorf("subscribe: %w", err))
 	}
@@ -126,62 +106,90 @@ func testSubscribeMultipleItems(t *testing.T, newBus EventBusFactory) {
 	}
 }
 
-func testCancelSubscription(t *testing.T, newBus EventBusFactory) {
+// CancelSubscription tests if subscriptions are cancellable through the
+// provided Context.
+func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(encoder())
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// when subscribed to "foo" events
-	events, err := bus.Subscribe(ctx, "foo")
+	events, _, err := bus.Subscribe(ctx, "foo")
 	if err != nil {
 		t.Fatal(fmt.Errorf("subscribe: %w", err))
 	}
 
-	evt := event.New("foo", test.FooEventData{})
 	// when 5 events are published
-	for i := 0; i < 5; i++ {
-		if err = bus.Publish(context.Background(), evt); err != nil {
-			t.Fatal(fmt.Errorf("publish: %w", err))
+	want := make([]event.Event, 5)
+	pubErr := make(chan error)
+	var wg sync.WaitGroup
+	wg.Add(5)
+	go func() {
+		for i := range want {
+			defer wg.Done()
+			want[i] = event.New("foo", test.FooEventData{})
+			if err = bus.Publish(context.Background(), want[i]); err != nil {
+				pubErr <- fmt.Errorf("publish: %w", err)
+			}
+			<-time.After(10 * time.Millisecond)
 		}
-	}
-
-	// when the ctx is canceled
-	<-time.After(50 * time.Millisecond)
-	cancel()
-	<-time.After(50 * time.Millisecond)
-
-	// when another event is published
-	if err = bus.Publish(context.Background(), evt); err != nil {
-		t.Fatal(fmt.Errorf("publish: %w", err))
-	}
+	}()
 
 	// 5 events should be received
 	for i := 0; i < 5; i++ {
 		select {
-		case <-time.After(20 * time.Millisecond):
-			t.Fatalf("didn't receive Event after %s", 20*time.Millisecond)
+		case <-time.After(50 * time.Millisecond):
+			t.Fatalf("[%d] didn't receive Event after %s", i, 50*time.Millisecond)
+		case err := <-pubErr:
+			t.Fatal(err)
 		case e, ok := <-events:
 			if !ok {
 				t.Fatalf("Event channel shouldn't be closed!")
 			}
-			if e != evt {
-				t.Fatalf("received wrong Event. want=%v got=%v", evt, e)
+			var correct bool
+			for _, evt := range want {
+				if evt.ID() == e.ID() {
+					correct = true
+					break
+				}
+			}
+			if !correct {
+				t.Fatal("received wrong Event")
 			}
 		}
 	}
 
+	wg.Wait()
+
+	// when the ctx is canceled
+	cancel()
+	<-time.After(50 * time.Millisecond)
+
+	go func() {
+		// and another event is published
+		evt := event.New("foo", test.FooEventData{})
+		if err = bus.Publish(context.Background(), evt); err != nil {
+			pubErr <- fmt.Errorf("publish: %w", err)
+		}
+	}()
+
 	// events should be closed
 	select {
+	case err := <-pubErr:
+		t.Fatal(err)
 	case evt, ok := <-events:
 		if ok {
 			t.Fatal(fmt.Errorf("event channel should be closed; got %v", evt))
 		}
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("didn't receive from events channel after 100ms")
+	case <-time.After(time.Second):
+		t.Fatal("didn't receive from events channel after 1s", time.Now())
 	}
 }
 
-func testSubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
+// SubscribeCanceledContext tests the behaviour of an event.Bus when subscribing
+// with an already canceled Context.
+func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(encoder())
 
 	// given a canceled context
@@ -189,7 +197,7 @@ func testSubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 	cancel()
 
 	// when subscribing to "foo" events
-	events, err := bus.Subscribe(ctx, "foo")
+	events, _, err := bus.Subscribe(ctx, "foo")
 
 	// it should fail with context.Canceled
 	if !errors.Is(err, context.Canceled) {
@@ -202,7 +210,9 @@ func testSubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 	}
 }
 
-func testPublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
+// PublishMultipleEvents tests if an event.Store behaves correctly when
+// publishing many Events at once.
+func PublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	foo := event.New("foo", test.FooEventData{A: "foo"})
 	bar := event.New("bar", test.BarEventData{A: "bar"})
 	baz := event.New("baz", test.BazEventData{A: "baz"})
@@ -244,7 +254,7 @@ func testPublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 			bus := newBus(encoder())
 			ctx := context.Background()
 
-			events, err := bus.Subscribe(ctx, tt.subscribe...)
+			events, _, err := bus.Subscribe(ctx, tt.subscribe...)
 			if err != nil {
 				t.Fatal(fmt.Errorf("subscribe to %v: %w", tt.subscribe, err))
 			}

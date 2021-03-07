@@ -42,7 +42,7 @@ func TestBus_Dispatch(t *testing.T) {
 
 	var _ command.Bus = bus
 
-	events, err := ebus.Subscribe(
+	events, _, err := ebus.Subscribe(
 		context.Background(),
 		cmdbus.CommandDispatched,
 	)
@@ -136,17 +136,17 @@ func TestBus_Subscribe(t *testing.T) {
 		t.Fatalf("failed to register handler: %v", err)
 	}
 
-	commandRequested, err := ebus.Subscribe(context.Background(), cmdbus.CommandRequested)
+	commandRequested, _, err := ebus.Subscribe(context.Background(), cmdbus.CommandRequested)
 	if err != nil {
 		t.Fatalf("failed to subscribe %q event: %v", cmdbus.CommandRequested, err)
 	}
 
-	commandAssigned, err := ebus.Subscribe(context.Background(), cmdbus.CommandAssigned)
+	commandAssigned, _, err := ebus.Subscribe(context.Background(), cmdbus.CommandAssigned)
 	if err != nil {
 		t.Fatalf("failed to subscribe %q event: %v", cmdbus.CommandAssigned, err)
 	}
 
-	commandAccepted, err := ebus.Subscribe(context.Background(), cmdbus.CommandAccepted)
+	commandAccepted, _, err := ebus.Subscribe(context.Background(), cmdbus.CommandAccepted)
 	if err != nil {
 		t.Fatalf("failed to subscribe to %q event: %v", cmdbus.CommandAccepted, err)
 	}
@@ -395,27 +395,28 @@ func TestBus_Subscribe_exactlyOneHandler(t *testing.T) {
 
 	var handleCount int64
 	handleDone := make(chan struct{})
+	handleErr := make(chan error)
 	go func() {
 		defer close(handleDone)
 		for cmd := range commands {
 			atomic.AddInt64(&handleCount, 1)
 			if err := cmd.MarkDone(context.Background()); err != nil {
-				panic(err)
+				handleErr <- err
 			}
 		}
 	}()
 
 	cmd := command.New("foo", mockPayload{})
-	dispatchErrc := make(chan error)
+	dispatchErrc := make(chan error, 1)
 	go func() {
-		dispatchErrc <- bus.Dispatch(
-			context.Background(),
-			cmd,
-			dispatch.Synchronous(), // make synchronous to avoid flakyness
-		)
+		dispatchErrc <- bus.Dispatch(context.Background(), cmd, dispatch.Synchronous())
 	}()
 
 	select {
+	case <-time.After(2 * time.Second):
+		t.Fatalf("didn't receive from any channel after %s", 2*time.Second)
+	case err := <-handleErr:
+		t.Fatal(err)
 	case err := <-busErrors:
 		t.Fatal(err)
 	case err := <-dispatchErrc:
@@ -621,9 +622,9 @@ func TestAssignTimeout(t *testing.T) {
 
 	ebus.EXPECT().
 		Subscribe(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, ...string) (<-chan event.Event, error) {
+		DoAndReturn(func(context.Context, ...string) (<-chan event.Event, <-chan error, error) {
 			events := make(chan event.Event)
-			return events, nil
+			return events, nil, nil
 		}).
 		AnyTimes()
 

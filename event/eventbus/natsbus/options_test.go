@@ -4,6 +4,7 @@ package natsbus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -24,7 +25,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 	// given 5 "foo" subscribers
 	subs := make([]<-chan event.Event, 5)
 	for i := range subs {
-		events, err := bus.Subscribe(context.Background(), "foo")
+		events, _, err := bus.Subscribe(context.Background(), "foo")
 		if err != nil {
 			t.Fatal(fmt.Errorf("[%d] subscribe to %q events: %w", i, "foo", err))
 		}
@@ -137,7 +138,7 @@ func TestSubjectFunc(t *testing.T) {
 		return "prefix." + eventName
 	}))
 
-	events, err := bus.Subscribe(context.Background(), "foo")
+	events, _, err := bus.Subscribe(context.Background(), "foo")
 	if err != nil {
 		t.Fatal(fmt.Errorf("subscribe to %q events: %w", "foo", err))
 	}
@@ -214,10 +215,9 @@ func TestReceiveTimeout(t *testing.T) {
 	// given a receive timeout of 100ms
 	timeout := 100 * time.Millisecond
 	bus := New(test.NewEncoder(), ReceiveTimeout(timeout))
-	errs := bus.Errors(context.Background())
 
 	// given a "foo" and "bar" subscription
-	events, err := bus.Subscribe(context.Background(), "foo", "bar")
+	events, errs, err := bus.Subscribe(context.Background(), "foo", "bar")
 	if err != nil {
 		t.Fatal(fmt.Errorf("subscribe to %q events: %w", "foo", err))
 	}
@@ -244,7 +244,7 @@ func TestReceiveTimeout(t *testing.T) {
 	}
 
 	// when there's no receive from events for at least 100ms
-	<-time.After(200 * time.Millisecond) // 200ms just to be sure
+	<-time.After(150 * time.Millisecond)
 
 	// the "foo" event should be dropped
 	select {
@@ -259,9 +259,8 @@ func TestReceiveTimeout(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal(fmt.Errorf("didn't receive from errs after 100ms"))
 	case err := <-errs:
-		want := fmt.Sprintf("dropping %q event because it wasn't received after %s", "foo", timeout)
-		if err.Error() != want {
-			t.Fatal(fmt.Errorf("wrong error message\nexpected: %s\ngot: %s", want, err.Error()))
+		if !errors.Is(err, ErrReceiveTimeout) {
+			t.Fatalf("expected to receive %q error; got %q", ErrReceiveTimeout, err)
 		}
 	}
 

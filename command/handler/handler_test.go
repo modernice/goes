@@ -56,7 +56,7 @@ func TestHandler_On(t *testing.T) {
 
 	select {
 	case <-timeout:
-		t.Fatalf("didn't receive Command after %s", time.Second)
+		t.Fatalf("didn't receive Command after %s", 3*time.Second)
 	case p := <-rec.params:
 		if p.ctx == nil {
 			t.Errorf("handler received <nil> Context!")
@@ -153,7 +153,7 @@ func TestHandler_done(t *testing.T) {
 	bus := cmdbus.New(enc, ebus)
 	h := handler.New(bus)
 
-	events, err := ebus.Subscribe(context.Background(), cmdbus.CommandExecuted)
+	events, _, err := ebus.Subscribe(context.Background(), cmdbus.CommandExecuted)
 	if err != nil {
 		t.Fatalf("failed to subscribe to %q events: %v", "foo", err)
 	}

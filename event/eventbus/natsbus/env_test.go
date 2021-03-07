@@ -3,7 +3,6 @@
 package natsbus
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -92,21 +91,17 @@ func TestEventBus_envReceiveTimeout(t *testing.T) {
 
 	defer env.Temp("NATS_RECEIVE_TIMEOUT", "invalid")()
 
-	bus = New(test.NewEncoder())
-	errs := bus.Errors(context.Background())
-
-	timer := time.NewTimer(3 * time.Second)
-	defer timer.Stop()
-
-	select {
-	case <-timer.C:
-		t.Fatalf("didn't receive error after %s", 3*time.Second)
-	case err := <-errs:
+	defer func() {
+		err := recover()
+		if err == nil {
+			t.Fatalf("recover should return an error!")
+		}
 		_, parseError := time.ParseDuration("invalid")
 		want := fmt.Errorf("init: parse environment variable %q: %w", "NATS_RECEIVE_TIMEOUT", parseError).Error()
-		if err.Error() != want {
-			t.Fatalf("expected error message %q; got %q", want, err.Error())
+		if err.(error).Error() != want {
+			t.Fatalf("expected error message %q; got %q", want, err.(error).Error())
 		}
-		return
-	}
+	}()
+
+	bus = New(test.NewEncoder())
 }

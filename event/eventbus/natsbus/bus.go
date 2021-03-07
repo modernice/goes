@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -16,15 +17,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/env"
-	"github.com/modernice/goes/internal/errbus"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/stan.go"
 )
 
-// EventBus is the NATS event.Bus implementation.
-type EventBus struct {
+var (
+	// ErrReceiveTimeout is returned when an Event is not received from a
+	// subscriber Event channel after the configured ReceiveTimeout.
+	ErrReceiveTimeout = errors.New("receive timed out")
+)
+
+// Bus is the NATS event.Bus implementation.
+type Bus struct {
 	driver Driver
 	enc    event.Encoder
+
+	eatErrors bool
 
 	queueFunc      func(string) string
 	subjectFunc    func(string) string
@@ -37,18 +45,14 @@ type EventBus struct {
 	conn    connection
 	subs    map[subscriber]struct{}
 
-	errs       *errbus.Bus
-	initErrors []error
-
-	onceConnect    sync.Once
-	onceInitErrors sync.Once
+	onceConnect sync.Once
 }
 
 // Option is an EventBus option.
-type Option func(*EventBus)
+type Option func(*Bus)
 
 // A Driver connects to a NATS cluster. Available Drivers:
-//	- Core() returns the NATS Core Driver
+//	- Core() returns the NATS Core Driver (default)
 //	- Streaming() returns the NATS Streaming Driver
 type Driver interface {
 	connect(string) (connection, error)
@@ -78,18 +82,14 @@ type stanConn struct {
 }
 
 type subscriber struct {
-	subject string
-	queue   string
-	natsSub *nats.Subscription
-	stanSub stan.Subscription
-	msgs    chan []byte
-	done    chan struct{}
-}
-
-type errorSubscriber struct {
-	ctx  context.Context
-	errs chan error
-	mux  *sync.Mutex
+	subject      string
+	queue        string
+	natsSub      *nats.Subscription
+	stanSub      stan.Subscription
+	msgs         chan []byte
+	events       chan<- event.Event
+	errs         chan<- error
+	unsubscribed chan struct{}
 }
 
 type envelope struct {
@@ -105,7 +105,10 @@ type envelope struct {
 // Use returns an Option that specifies which Driver to use to communicate with
 // NATS. Defaults to Core().
 func Use(d Driver) Option {
-	return func(bus *EventBus) {
+	if d == nil {
+		panic("nil Driver")
+	}
+	return func(bus *Bus) {
 		bus.driver = d
 	}
 }
@@ -116,7 +119,7 @@ func Use(d Driver) Option {
 //
 // Read more about queue groups: https://docs.nats.io/nats-concepts/queue
 func QueueGroupByFunc(fn func(eventName string) string) Option {
-	return func(bus *EventBus) {
+	return func(bus *Bus) {
 		bus.queueFunc = fn
 	}
 }
@@ -137,7 +140,7 @@ func QueueGroupByEvent() Option {
 // SubjectFunc returns an Option that sets the NATS subject for subscriptions
 // and outgoing Events by calling fn with the name of the handled Event.
 func SubjectFunc(fn func(eventName string) string) Option {
-	return func(bus *EventBus) {
+	return func(bus *Bus) {
 		bus.subjectFunc = fn
 	}
 }
@@ -165,7 +168,7 @@ func SubjectPrefix(prefix string) Option {
 // Read more about durable subscriptions:
 // https://docs.nats.io/developing-with-nats-streaming/durables
 func DurableFunc(fn func(subject, queueGroup string) string) Option {
-	return func(bus *EventBus) {
+	return func(bus *Bus) {
 		bus.durableFunc = fn
 	}
 }
@@ -193,7 +196,7 @@ func Durable() Option {
 //
 // Can also be set with the "NATS_URL" environment variable.
 func URL(url string) Option {
-	return func(bus *EventBus) {
+	return func(bus *Bus) {
 		bus.url = url
 	}
 }
@@ -201,7 +204,7 @@ func URL(url string) Option {
 // Conn returns an Option that provides the underlying *nats.Conn for the
 // EventBus. When the Conn Option is used, the Use Option has no effect.
 func Conn(conn *nats.Conn) Option {
-	return func(bus *EventBus) {
+	return func(bus *Bus) {
 		bus.conn = &natsConn{conn}
 	}
 }
@@ -209,7 +212,7 @@ func Conn(conn *nats.Conn) Option {
 // StreamingConn returns an Option that provides the underlying stan.Conn for the
 // EventBus. When the StreamingConn Option is used, the Use Option has no effect.
 func StreamingConn(conn stan.Conn) Option {
-	return func(bus *EventBus) {
+	return func(bus *Bus) {
 		bus.conn = &stanConn{
 			conn: conn,
 		}
@@ -219,15 +222,25 @@ func StreamingConn(conn stan.Conn) Option {
 // ReceiveTimeout returns an Option that limits the duration the EventBus tries
 // to send Events into the channel returned by bus.Subscribe. When d is exceeded
 // the Event will be dropped and an error will be sent to channels returned by
-// bus.Errors. A duration of 0 means no timeout and is the default.
+// bus.Errors. The default is a duration of 0 and means no timeout.
 //
 // Can also be set with the "NATS_RECEIVE_TIMEOUT" environment variable in a
 // format understood by time.ParseDuration. If the environment value is not
 // parseable by time.ParseDuration, no timeout will be used and an error will be
 // sent to the first channel(s) returned by bus.Errors.
 func ReceiveTimeout(d time.Duration) Option {
-	return func(bus *EventBus) {
+	return func(bus *Bus) {
 		bus.receiveTimeout = d
+	}
+}
+
+// EatErrors returns an Option that makes the Bus start a goroutine to range
+// over and discard any errors from the returned error channel, so that they
+// don't have to be received manually if there's no interest in handling those
+// errors.
+func EatErrors() Option {
+	return func(bus *Bus) {
+		bus.eatErrors = true
 	}
 }
 
@@ -246,15 +259,17 @@ func Streaming(clusterID, clientID string, opts ...stan.Option) Driver {
 }
 
 // New returns a new EventBus that encodes and decodes event.Data using the
-// provided Encoder. New panics if enc is nil.
-func New(enc event.Encoder, opts ...Option) *EventBus {
+// provided Encoder.
+//
+// New panics if enc is nil or initialization fails because of a malformed
+// environment variable.
+func New(enc event.Encoder, opts ...Option) *Bus {
 	if enc == nil {
 		panic("nil Encoder")
 	}
-	bus := EventBus{
+	bus := Bus{
 		enc:  enc,
 		subs: make(map[subscriber]struct{}),
-		errs: errbus.New(),
 	}
 	if bus.driver == nil {
 		bus.driver = Core(bus.connectOpts...)
@@ -264,7 +279,7 @@ func New(enc event.Encoder, opts ...Option) *EventBus {
 	return &bus
 }
 
-func (bus *EventBus) init(opts ...Option) {
+func (bus *Bus) init(opts ...Option) {
 	var envOpts []Option
 	if env.Bool("NATS_QUEUE_GROUP_BY_EVENT") {
 		envOpts = append(envOpts, QueueGroupByEvent())
@@ -286,8 +301,8 @@ func (bus *EventBus) init(opts ...Option) {
 		if d, err := env.Duration("NATS_RECEIVE_TIMEOUT"); err == nil {
 			envOpts = append(envOpts, ReceiveTimeout(d))
 		} else {
-			bus.initErrors = append(bus.initErrors, fmt.Errorf(
-				"parse environment variable %q: %w",
+			panic(fmt.Errorf(
+				"init: parse environment variable %q: %w",
 				"NATS_RECEIVE_TIMEOUT",
 				err,
 			))
@@ -316,20 +331,19 @@ func (bus *EventBus) init(opts ...Option) {
 	}
 }
 
-// Publish sends each Event evt in events to subscribers who subscribed to
-// Events with a name of evt.Name().
-func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
+// Publish implements event.Bus.
+func (bus *Bus) Publish(ctx context.Context, events ...event.Event) error {
 	if err := bus.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
-
 	for _, evt := range events {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if err := bus.publish(ctx, evt); err != nil {
 			return fmt.Errorf(`publish "%s" event: %w`, evt.Name(), err)
 		}
@@ -338,7 +352,7 @@ func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 	return nil
 }
 
-func (bus *EventBus) publish(ctx context.Context, evt event.Event) error {
+func (bus *Bus) publish(ctx context.Context, evt event.Event) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w", err)
@@ -367,21 +381,24 @@ func (bus *EventBus) publish(ctx context.Context, evt event.Event) error {
 	return nil
 }
 
-// Subscribe returns a channel of Events. For every published Event evt where
-// evt.Name() is one of names, that Event will be received from the returned
-// Event channel. When ctx is canceled, events will be closed.
-func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, error) {
+// Subscribe implements event.Bus.
+//
+// Callers must ensure to range over the error channel if the EatErrors Option
+// is not used; otherwise the subscription will block forever and no further
+// Events will be received when the first async error happens.
+func (bus *Bus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
 	if err := bus.connectOnce(ctx); err != nil {
-		return nil, fmt.Errorf("connect: %w", err)
+		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
 
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, nil, ctx.Err()
 	default:
 	}
 
 	subs := make([]subscriber, 0, len(names))
+	out, errs := make(chan event.Event), make(chan error)
 
 	var subscribeError error
 	for _, name := range names {
@@ -403,6 +420,9 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 			break
 		}
 
+		sub.events = out
+		sub.errs = errs
+
 		subs = append(subs, sub)
 	}
 
@@ -416,16 +436,22 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 
 	go bus.handleUnsubscribe(ctx, subs...)
 
-	return bus.fanIn(subs...), nil
+	bus.fanIn(out, errs, subs...)
+
+	if bus.eatErrors {
+		go drainErrors(errs)
+	}
+
+	return out, errs, nil
 }
 
-func (bus *EventBus) connectOnce(ctx context.Context) error {
+func (bus *Bus) connectOnce(ctx context.Context) error {
 	var err error
 	bus.onceConnect.Do(func() { err = bus.connect(ctx) })
 	return err
 }
 
-func (bus *EventBus) connect(ctx context.Context) error {
+func (bus *Bus) connect(ctx context.Context) error {
 	// user provided a nats.Conn
 	if bus.conn != nil {
 		return nil
@@ -450,7 +476,7 @@ func (bus *EventBus) connect(ctx context.Context) error {
 	}
 }
 
-func (bus *EventBus) natsURL() string {
+func (bus *Bus) natsURL() string {
 	url := nats.DefaultURL
 	if bus.url != "" {
 		url = bus.url
@@ -460,120 +486,86 @@ func (bus *EventBus) natsURL() string {
 	return url
 }
 
-func (bus *EventBus) fanIn(subs ...subscriber) <-chan event.Event {
-	events := make(chan event.Event)
-
+func (bus *Bus) fanIn(events chan<- event.Event, errs chan<- error, subs ...subscriber) {
 	var wg sync.WaitGroup
 	wg.Add(len(subs))
 
-	// close events channel when all subscribers done
 	go func() {
 		wg.Wait()
 		close(events)
+		close(errs)
 	}()
 
-	// for every subscriber sub wait until sub.done is closed, then decrement
-	// wait counter
 	for _, sub := range subs {
-		go func(sub subscriber) {
-			defer wg.Done()
-			<-sub.done
-		}(sub)
+		go bus.workSubscriber(sub, &wg)
 	}
+}
 
-	for _, sub := range subs {
-		go func(sub subscriber) {
-			defer close(sub.done)
-			for msg := range sub.msgs {
-				var env envelope
-				dec := gob.NewDecoder(bytes.NewReader(msg))
-				if err := dec.Decode(&env); err != nil {
-					bus.errs.Publish(context.Background(), fmt.Errorf("decode envelope: %w", err))
-					continue
-				}
+func (bus *Bus) workSubscriber(sub subscriber, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for msg := range sub.msgs {
+		var env envelope
+		dec := gob.NewDecoder(bytes.NewReader(msg))
+		if err := dec.Decode(&env); err != nil {
+			sub.errs <- fmt.Errorf("decode envelope: %w", err)
+			continue
+		}
 
-				data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
-				if err != nil {
-					bus.errs.Publish(
-						context.Background(),
-						fmt.Errorf(`encode %q event data: %w`, env.Name, err),
-					)
-					continue
-				}
+		data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
+		if err != nil {
+			sub.errs <- fmt.Errorf("encode %q event data: %w", env.Name, err)
+			continue
+		}
 
-				evt := event.New(
-					env.Name,
-					data,
-					event.ID(env.ID),
-					event.Time(env.Time),
-					event.Aggregate(
-						env.AggregateName,
-						env.AggregateID,
-						env.AggregateVersion,
-					),
-				)
+		evt := event.New(
+			env.Name,
+			data,
+			event.ID(env.ID),
+			event.Time(env.Time),
+			event.Aggregate(
+				env.AggregateName,
+				env.AggregateID,
+				env.AggregateVersion,
+			),
+		)
 
-				if bus.receiveTimeout == 0 {
-					events <- evt
-					continue
-				}
+		if bus.receiveTimeout == 0 {
+			sub.events <- evt
+			continue
+		}
 
-				timer := time.NewTimer(bus.receiveTimeout)
-				select {
-				case <-timer.C:
-					bus.errs.Publish(context.Background(), fmt.Errorf(
-						"dropping %q event because it wasn't received after %s",
-						env.Name,
-						bus.receiveTimeout,
-					))
-				case events <- evt:
-					timer.Stop()
-				}
-			}
-		}(sub)
+		timer := time.NewTimer(bus.receiveTimeout)
+		select {
+		case <-timer.C:
+			sub.errs <- fmt.Errorf("dropping %q event because: %w", env.Name, ErrReceiveTimeout)
+		case sub.events <- evt:
+			timer.Stop()
+		}
 	}
-	return events
 }
 
 // handleUnsubscribe unsubscribes subs when ctx is canceled
-func (bus *EventBus) handleUnsubscribe(ctx context.Context, subs ...subscriber) {
+func (bus *Bus) handleUnsubscribe(ctx context.Context, subs ...subscriber) {
 	<-ctx.Done()
 	for _, sub := range subs {
 		if err := sub.unsubscribe(); err != nil {
-			bus.errs.Publish(context.Background(), fmt.Errorf(
-				`unsubscribe from subject "%s": %w`,
-				sub.subject,
-				err,
-			))
+			go func() {
+				sub.errs <- fmt.Errorf(
+					`unsubscribe from subject "%s": %w`,
+					sub.subject,
+					err,
+				)
+			}()
 		}
-		close(sub.msgs)
-	}
-}
-
-// Errors returns an error channel that receives future asynchronous errors from
-// the EventBus. When ctx is canceled, the error channel wil be closed.
-func (bus *EventBus) Errors(ctx context.Context) <-chan error {
-	defer bus.onceInitErrors.Do(bus.publishInitErrors)
-	return bus.errs.Subscribe(ctx)
-}
-
-func (bus *EventBus) publishInitErrors() {
-	for _, err := range bus.initErrors {
-		bus.errs.Publish(context.Background(), fmt.Errorf("init: %w", err))
 	}
 }
 
 func (sub subscriber) unsubscribe() error {
+	defer close(sub.unsubscribed)
 	if sub.natsSub != nil {
 		return sub.natsSub.Unsubscribe()
 	}
 	return sub.stanSub.Unsubscribe()
-}
-
-func (sub errorSubscriber) close() {
-	sub.mux.Lock()
-	close(sub.errs)
-	sub.mux.Unlock()
 }
 
 func (d *core) connect(url string) (connection, error) {
@@ -602,31 +594,55 @@ func (c *natsConn) get() interface{} {
 
 func (c *natsConn) subscribe(subject string) (subscriber, error) {
 	msgs := make(chan []byte)
-	sub, err := c.conn.Subscribe(subject, func(msg *nats.Msg) { msgs <- msg.Data })
+	nmsgs := make(chan *nats.Msg)
+	sub, err := c.conn.ChanSubscribe(subject, nmsgs)
 	if err != nil {
 		return subscriber{}, fmt.Errorf("nats: %w", err)
 	}
+	go func() {
+		defer close(msgs)
+		for msg := range nmsgs {
+			msgs <- msg.Data
+		}
+	}()
+	s := newSubscriber(subject, "", msgs)
+	s.natsSub = sub
+	go func() {
+		<-s.unsubscribed
+		close(nmsgs)
+	}()
+	return s, nil
+}
+
+func newSubscriber(subject, queue string, msgs chan []byte) subscriber {
 	return subscriber{
-		subject: subject,
-		natsSub: sub,
-		msgs:    msgs,
-		done:    make(chan struct{}),
-	}, nil
+		subject:      subject,
+		queue:        queue,
+		msgs:         msgs,
+		unsubscribed: make(chan struct{}),
+	}
 }
 
 func (c *natsConn) queueSubscribe(subject, queue string) (subscriber, error) {
 	msgs := make(chan []byte)
-	sub, err := c.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) { msgs <- msg.Data })
+	nmsgs := make(chan *nats.Msg)
+	sub, err := c.conn.ChanQueueSubscribe(subject, queue, nmsgs)
 	if err != nil {
 		return subscriber{}, fmt.Errorf("nats: %w", err)
 	}
-	return subscriber{
-		subject: subject,
-		queue:   queue,
-		natsSub: sub,
-		msgs:    msgs,
-		done:    make(chan struct{}),
-	}, nil
+	go func() {
+		defer close(msgs)
+		for msg := range nmsgs {
+			msgs <- msg.Data
+		}
+	}()
+	s := newSubscriber(subject, queue, msgs)
+	s.natsSub = sub
+	go func() {
+		<-s.unsubscribed
+		close(nmsgs)
+	}()
+	return s, nil
 }
 
 func (c *natsConn) publish(subject string, data []byte) error {
@@ -647,32 +663,31 @@ func (c *stanConn) subscribe(subject string) (subscriber, error) {
 	if err != nil {
 		return subscriber{}, fmt.Errorf("stan: %w", err)
 	}
-	return subscriber{
-		subject: subject,
-		stanSub: sub,
-		msgs:    msgs,
-		done:    make(chan struct{}),
-	}, nil
+	s := newSubscriber(subject, "", msgs)
+	s.stanSub = sub
+	go func() {
+		<-s.unsubscribed
+		close(msgs)
+	}()
+	return s, nil
 }
 
 func (c *stanConn) queueSubscribe(subject, queue string) (subscriber, error) {
 	msgs := make(chan []byte)
 	sub, err := c.conn.QueueSubscribe(
-		subject,
-		queue,
-		func(msg *stan.Msg) { msgs <- msg.Data },
+		subject, queue, func(msg *stan.Msg) { msgs <- msg.Data },
 		stan.DurableName(c.durableFunc(subject, queue)),
 	)
 	if err != nil {
 		return subscriber{}, fmt.Errorf("stan: %w", err)
 	}
-	return subscriber{
-		subject: subject,
-		queue:   queue,
-		stanSub: sub,
-		msgs:    msgs,
-		done:    make(chan struct{}),
-	}, nil
+	s := newSubscriber(subject, queue, msgs)
+	s.stanSub = sub
+	go func() {
+		<-s.unsubscribed
+		close(msgs)
+	}()
+	return s, nil
 }
 
 func (c *stanConn) publish(subject string, data []byte) error {
@@ -721,4 +736,11 @@ func envDurableNameFunc() (func(string, string) string, error) {
 
 func nonDurable(_, _ string) string {
 	return ""
+}
+
+func drainErrors(errs <-chan error) {
+	var n int
+	for range errs {
+		n++
+	}
 }

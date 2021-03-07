@@ -264,7 +264,7 @@ func (b *Bus) assignHandler(
 		ctx, cancel = context.WithCancel(ctx)
 	}
 
-	requested, err := b.bus.Subscribe(ctx, CommandRequested)
+	requested, errs, err := b.bus.Subscribe(ctx, CommandRequested)
 	if err != nil {
 		cancel()
 		return nil, nil, fmt.Errorf(
@@ -277,37 +277,37 @@ func (b *Bus) assignHandler(
 	go func() {
 		defer cancel()
 		for {
-			var (
-				evt event.Event
-				ok  bool
-			)
-
 			select {
 			case <-ctx.Done():
 				errc <- ctx.Err()
 				return
-			case evt, ok = <-requested:
+			case err, ok := <-errs:
+				if !ok {
+					return
+				}
+				errc <- fmt.Errorf("event bus: %w", err)
+			case evt, ok := <-requested:
 				if !ok {
 					errc <- ErrAssignTimeout
 					return
 				}
-			}
 
-			data := evt.Data().(CommandRequestedData)
-			if data.ID != cmdID {
-				continue
-			}
+				data := evt.Data().(CommandRequestedData)
+				if data.ID != cmdID {
+					continue
+				}
 
-			if err := b.assignHandlerTo(
-				ctx,
-				cmdID,
-				data.HandlerID,
-			); err != nil {
-				errc <- fmt.Errorf("assign handler: %w", err)
+				if err := b.assignHandlerTo(
+					ctx,
+					cmdID,
+					data.HandlerID,
+				); err != nil {
+					errc <- fmt.Errorf("assign handler: %w", err)
+					return
+				}
+				close(assigned)
 				return
 			}
-			close(assigned)
-			return
 		}
 	}()
 
@@ -320,7 +320,7 @@ func (b *Bus) assignHandlerTo(ctx context.Context, cmdID, handlerID uuid.UUID) e
 		HandlerID: handlerID,
 	})
 	if err := b.bus.Publish(ctx, evt); err != nil {
-		return fmt.Errorf("publish %q events: %w", CommandAssigned, err)
+		return fmt.Errorf("publish %q event: %w", CommandAssigned, err)
 	}
 	return nil
 }
@@ -328,7 +328,7 @@ func (b *Bus) assignHandlerTo(ctx context.Context, cmdID, handlerID uuid.UUID) e
 func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan CommandExecutedData, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	events, err := b.bus.Subscribe(ctx, CommandExecuted)
+	events, _, err := b.bus.Subscribe(ctx, CommandExecuted)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("subscribe to %q events: %w", CommandExecuted, err)
@@ -373,7 +373,7 @@ func (b *Bus) awaitResult(ctx context.Context, cmdID uuid.UUID) (<-chan CommandE
 // Option to specify the timeout after which the remaining Commands are being
 // discarded.
 func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Context, error) {
-	dispatched, err := b.bus.Subscribe(ctx, CommandDispatched)
+	dispatched, _, err := b.bus.Subscribe(ctx, CommandDispatched)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"subscribe to %q events: %w",
@@ -518,7 +518,7 @@ func (b *Bus) selfAssign(
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	events, err := b.bus.Subscribe(ctx, CommandAssigned)
+	events, _, err := b.bus.Subscribe(ctx, CommandAssigned)
 	if err != nil {
 		return fmt.Errorf("subscribe to %q events: %w", CommandAssigned, err)
 	}
