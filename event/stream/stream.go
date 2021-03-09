@@ -7,8 +7,8 @@ import (
 	"github.com/modernice/goes/internal/xerror"
 )
 
-// Slice takes a slice of Events and returns an Event channel which is filled
-// with the given Events in a separate goroutine and closed afterwards.
+// Slice returns an Event channel that is filled and closed with the provided
+// Events in a separate goroutine.
 func Slice(events ...event.Event) <-chan event.Event {
 	out := make(chan event.Event)
 	go func() {
@@ -27,14 +27,14 @@ func Slice(events ...event.Event) <-chan event.Event {
 // already drained Events and that error are returned. Similarly, when ctx is
 // canceled, the drained Events and ctx.Err() are returned.
 //
-// It is not necessary for the error channels to be closed by the caller because
-// Drain automatically cleans up its goroutines when returning the result.
+// Drain returns when the provided Event channel is closed or it encounters an
+// error from an error channel and does not wait for the error channels to be
+// closed.
 func Drain(ctx context.Context, events <-chan event.Event, errs ...<-chan error) ([]event.Event, error) {
 	errChan, stop := xerror.FanIn(errs...)
 	defer stop()
 
 	out := make([]event.Event, 0, len(events))
-
 	for {
 		select {
 		case <-ctx.Done():
