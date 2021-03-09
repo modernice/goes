@@ -14,7 +14,13 @@ type Config struct {
 	// Command to Reporter by calling Reporter.Report().
 	//
 	// A non-nil Reporter makes the dispatch synchronous.
-	Reporter report.Reporter
+	Reporter Reporter
+}
+
+// A Reporter reports execution results of Commands.
+type Reporter interface {
+	// Report reports the execution result of a Command.
+	Report(report.Report)
 }
 
 // Option is a dispatch option.
@@ -25,6 +31,9 @@ func Configure(opts ...Option) Config {
 	var cfg Config
 	for _, opt := range opts {
 		opt(&cfg)
+	}
+	if cfg.Reporter != nil {
+		cfg.Synchronous = true
 	}
 	return cfg
 }
@@ -41,7 +50,7 @@ func Synchronous() Option {
 
 // Report returns an Option that makes the Command Bus report the executon
 // result of a Command to the Reporter r.
-func Report(r report.Reporter) Option {
+func Report(r Reporter) Option {
 	return func(cfg *Config) {
 		cfg.Reporter = r
 	}

@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/modernice/goes/command"
+	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/cmdbus/report"
 )
 
-var _ report.Reporter = &report.Report{}
+var _ dispatch.Reporter = &report.Report{}
 
 type mockPayload struct{}
 
@@ -40,7 +41,10 @@ func TestReport_Report(t *testing.T) {
 	cmd := command.New("foo", mockPayload{})
 	err := errors.New("mock error")
 	d := 10 * time.Second
-	r.Report(cmd, report.Runtime(d), report.Error(err))
+
+	want := report.New(cmd, report.Runtime(d), report.Error(err))
+
+	r.Report(want)
 
 	if r.Command() != cmd {
 		t.Errorf("r.Command() should return %v; got %v", cmd, r.Command())

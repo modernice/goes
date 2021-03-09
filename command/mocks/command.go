@@ -202,7 +202,7 @@ func (mr *MockBusMockRecorder) Dispatch(arg0, arg1 interface{}, arg2 ...interfac
 }
 
 // Subscribe mocks base method
-func (m *MockBus) Subscribe(arg0 context.Context, arg1 ...string) (<-chan command.Context, error) {
+func (m *MockBus) Subscribe(arg0 context.Context, arg1 ...string) (<-chan command.Context, <-chan error, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
@@ -210,8 +210,9 @@ func (m *MockBus) Subscribe(arg0 context.Context, arg1 ...string) (<-chan comman
 	}
 	ret := m.ctrl.Call(m, "Subscribe", varargs...)
 	ret0, _ := ret[0].(<-chan command.Context)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(<-chan error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Subscribe indicates an expected call of Subscribe

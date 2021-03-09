@@ -64,7 +64,7 @@ type Bus interface {
 	// Subscribe subscribes to Commands with the given names and returns a
 	// channel of Contexts. Implementations of Bus must ensure that Commands
 	// won't be handled by multiple subscribers.
-	Subscribe(ctx context.Context, names ...string) (<-chan Context, error)
+	Subscribe(ctx context.Context, names ...string) (<-chan Context, <-chan error, error)
 }
 
 // Context is the context for handling Commands.

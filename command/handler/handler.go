@@ -31,18 +31,36 @@ func (h *Handler) On(
 	name string,
 	fn func(context.Context, command.Command) error,
 ) error {
-	commands, err := h.bus.Subscribe(ctx, name)
+	commands, errs, err := h.bus.Subscribe(ctx, name)
 	if err != nil {
 		return fmt.Errorf("bus: %w", err)
 	}
 
+	errc := make(chan error)
 	go func() {
-		for ctx := range commands {
-			h.handle(ctx, fn)
+		defer close(errc)
+		for {
+			select {
+			case err, ok := <-errs:
+				if !ok {
+					errs = nil
+					break
+				}
+				select {
+				case <-ctx.Done():
+				case errc <- err:
+				}
+				return
+			case ctx, ok := <-commands:
+				if !ok {
+					return
+				}
+				h.handle(ctx, fn)
+			}
 		}
 	}()
 
-	return nil
+	return <-errc
 }
 
 func (h *Handler) handle(ctx command.Context, fn func(context.Context, command.Command) error) {

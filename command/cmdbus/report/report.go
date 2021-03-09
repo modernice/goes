@@ -6,12 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// A Reporter reports execution results of Commands.
-type Reporter interface {
-	// Report reports the execution result of a Command.
-	Report(Command, ...Option)
-}
-
 // A Report provides information about the execution of a Command. A *Report is
 // also a Reporter.
 type Report struct {
@@ -33,8 +27,8 @@ type Command interface {
 // Option is a Report option.
 type Option func(*Report)
 
-// Fill creates a new Report and fills it with the information from opts.
-func Fill(cmd Command, opts ...Option) Report {
+// New returns a new Report that is filled with the information from opts.
+func New(cmd Command, opts ...Option) Report {
 	r := Report{cmd: cmd}
 	for _, opt := range opts {
 		opt(&r)
@@ -71,7 +65,7 @@ func (r Report) Error() error {
 	return r.err
 }
 
-// Report fills the Report with the given Command and information from opts.
-func (r *Report) Report(cmd Command, opts ...Option) {
-	*r = Fill(cmd, opts...)
+// Report fills the Report r with the data in Report rep.
+func (r *Report) Report(rep Report) {
+	*r = New(rep.Command(), Runtime(rep.runtime), Error(rep.Error()))
 }
