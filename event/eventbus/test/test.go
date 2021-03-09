@@ -3,7 +3,6 @@ package test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -197,16 +196,23 @@ func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 	cancel()
 
 	// when subscribing to "foo" events
-	events, _, err := bus.Subscribe(ctx, "foo")
+	events, errs, err := bus.Subscribe(ctx, "foo")
 
-	// it should fail with context.Canceled
-	if !errors.Is(err, context.Canceled) {
-		t.Error(fmt.Errorf("err should be context.Canceled; got %v", err))
+	// some implementations may return an error, some may not
+	_ = err
+
+	<-time.After(50 * time.Millisecond)
+
+	if events != nil {
+		if _, ok := <-events; ok {
+			t.Errorf("Event channel should be closed!")
+		}
 	}
 
-	// events should be nil
-	if events != nil {
-		t.Error(fmt.Errorf("events should be nil"))
+	if errs != nil {
+		if _, ok := <-errs; ok {
+			t.Errorf("error channel should be closed!")
+		}
 	}
 }
 

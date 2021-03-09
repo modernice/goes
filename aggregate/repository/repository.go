@@ -102,12 +102,12 @@ func (r *repository) fetch(ctx context.Context, a aggregate.Aggregate, opts ...e
 }
 
 func (r *repository) queryEvents(ctx context.Context, q equery.Query) ([]event.Event, error) {
-	str, err := r.store.Query(ctx, q)
+	str, errs, err := r.store.Query(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)
 	}
 
-	events, err := estream.Drain(ctx, str)
+	events, err := estream.Drain(ctx, str, errs)
 	if err != nil {
 		return events, fmt.Errorf("stream: %w", err)
 	}
@@ -156,40 +156,47 @@ func (r *repository) fetchVersion(ctx context.Context, a aggregate.Aggregate, v 
 }
 
 func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
-	str, err := r.store.Query(ctx, equery.New(
+	str, errs, err := r.store.Query(ctx, equery.New(
 		equery.AggregateName(a.AggregateName()),
 		equery.AggregateID(a.AggregateID()),
 	))
 	if err != nil {
 		return fmt.Errorf("query events: %w", err)
 	}
-	defer str.Close(ctx)
 
-	for str.Next(ctx) {
-		evt := str.Event()
-		if err := r.store.Delete(ctx, evt); err != nil {
-			return fmt.Errorf("delete %q event (ID=%s): %w", evt.Name(), evt.ID(), err)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err, ok := <-errs:
+			if !ok {
+				return nil
+			}
+			return fmt.Errorf("event stream: %w", err)
+		case evt, ok := <-str:
+			if !ok {
+				return nil
+			}
+			if err = r.store.Delete(ctx, evt); err != nil {
+				return fmt.Errorf("delete %q event (ID=%s): %w", evt.Name(), evt.ID(), err)
+			}
 		}
 	}
-
-	if str.Err() != nil {
-		return fmt.Errorf("stream: %w", err)
-	}
-
-	return nil
 }
 
-func (r *repository) Query(ctx context.Context, q aggregate.Query) (aggregate.Stream, error) {
+func (r *repository) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.Applier, <-chan error, error) {
 	opts := makeQueryOptions(q)
-	es, err := r.store.Query(ctx, equery.New(opts...))
+	events, errs, err := r.store.Query(ctx, equery.New(opts...))
 	if err != nil {
-		return nil, fmt.Errorf("query events: %w", err)
+		return nil, nil, fmt.Errorf("query events: %w", err)
 	}
-	return stream.New(
-		es,
+	out, outErrors := stream.New(
+		events,
+		stream.Errors(errs),
 		stream.Grouped(true),
 		stream.Sorted(true),
-	), nil
+	)
+	return out, outErrors, nil
 }
 
 func makeQueryOptions(q aggregate.Query) []equery.Option {

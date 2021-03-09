@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
-	"github.com/modernice/goes/event/stream"
 )
 
 var (
@@ -65,7 +64,7 @@ func (s *store) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 	return nil, ErrNotFound
 }
 
-func (s *store) Query(ctx context.Context, q event.Query) (event.Stream, error) {
+func (s *store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	var events []event.Event
@@ -75,7 +74,19 @@ func (s *store) Query(ctx context.Context, q event.Query) (event.Stream, error) 
 		}
 	}
 	events = event.SortMulti(events, q.Sortings()...)
-	return stream.InMemory(events...), nil
+
+	out := make(chan event.Event)
+	errs := make(chan error)
+
+	go func() {
+		defer close(errs)
+		defer close(out)
+		for _, evt := range events {
+			out <- evt
+		}
+	}()
+
+	return out, errs, nil
 }
 
 func (s *store) Delete(ctx context.Context, evt event.Event) error {

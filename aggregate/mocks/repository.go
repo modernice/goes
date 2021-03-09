@@ -79,12 +79,13 @@ func (mr *MockRepositoryMockRecorder) FetchVersion(ctx, a, v interface{}) *gomoc
 }
 
 // Query mocks base method
-func (m *MockRepository) Query(ctx context.Context, q aggregate.Query) (aggregate.Stream, error) {
+func (m *MockRepository) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.Applier, <-chan error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Query", ctx, q)
-	ret0, _ := ret[0].(aggregate.Stream)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(<-chan aggregate.Applier)
+	ret1, _ := ret[1].(<-chan error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Query indicates an expected call of Query
@@ -186,96 +187,65 @@ func (mr *MockQueryMockRecorder) Sortings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sortings", reflect.TypeOf((*MockQuery)(nil).Sortings))
 }
 
-// MockStream is a mock of Stream interface
-type MockStream struct {
+// MockApplier is a mock of Applier interface
+type MockApplier struct {
 	ctrl     *gomock.Controller
-	recorder *MockStreamMockRecorder
+	recorder *MockApplierMockRecorder
 }
 
-// MockStreamMockRecorder is the mock recorder for MockStream
-type MockStreamMockRecorder struct {
-	mock *MockStream
+// MockApplierMockRecorder is the mock recorder for MockApplier
+type MockApplierMockRecorder struct {
+	mock *MockApplier
 }
 
-// NewMockStream creates a new mock instance
-func NewMockStream(ctrl *gomock.Controller) *MockStream {
-	mock := &MockStream{ctrl: ctrl}
-	mock.recorder = &MockStreamMockRecorder{mock}
+// NewMockApplier creates a new mock instance
+func NewMockApplier(ctrl *gomock.Controller) *MockApplier {
+	mock := &MockApplier{ctrl: ctrl}
+	mock.recorder = &MockApplierMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockStream) EXPECT() *MockStreamMockRecorder {
+func (m *MockApplier) EXPECT() *MockApplierMockRecorder {
 	return m.recorder
 }
 
-// Next mocks base method
-func (m *MockStream) Next(arg0 context.Context) bool {
+// AggregateName mocks base method
+func (m *MockApplier) AggregateName() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Next", arg0)
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "AggregateName")
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// Next indicates an expected call of Next
-func (mr *MockStreamMockRecorder) Next(arg0 interface{}) *gomock.Call {
+// AggregateName indicates an expected call of AggregateName
+func (mr *MockApplierMockRecorder) AggregateName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockStream)(nil).Next), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateName", reflect.TypeOf((*MockApplier)(nil).AggregateName))
 }
 
-// Current mocks base method
-func (m *MockStream) Current() (string, uuid.UUID) {
+// AggregateID mocks base method
+func (m *MockApplier) AggregateID() uuid.UUID {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Current")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(uuid.UUID)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "AggregateID")
+	ret0, _ := ret[0].(uuid.UUID)
+	return ret0
 }
 
-// Current indicates an expected call of Current
-func (mr *MockStreamMockRecorder) Current() *gomock.Call {
+// AggregateID indicates an expected call of AggregateID
+func (mr *MockApplierMockRecorder) AggregateID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Current", reflect.TypeOf((*MockStream)(nil).Current))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateID", reflect.TypeOf((*MockApplier)(nil).AggregateID))
 }
 
 // Apply mocks base method
-func (m *MockStream) Apply(arg0 aggregate.Aggregate) error {
+func (m *MockApplier) Apply(arg0 aggregate.Aggregate) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Apply", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "Apply", arg0)
 }
 
 // Apply indicates an expected call of Apply
-func (mr *MockStreamMockRecorder) Apply(arg0 interface{}) *gomock.Call {
+func (mr *MockApplierMockRecorder) Apply(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockStream)(nil).Apply), arg0)
-}
-
-// Err mocks base method
-func (m *MockStream) Err() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Err")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Err indicates an expected call of Err
-func (mr *MockStreamMockRecorder) Err() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockStream)(nil).Err))
-}
-
-// Close mocks base method
-func (m *MockStream) Close(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Close", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Close indicates an expected call of Close
-func (mr *MockStreamMockRecorder) Close(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockStream)(nil).Close), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockApplier)(nil).Apply), arg0)
 }

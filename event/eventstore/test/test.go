@@ -510,11 +510,11 @@ func makeStore(newStore EventStoreFactory, events ...event.Event) (event.Store, 
 }
 
 func runQuery(s event.Store, q event.Query) ([]event.Event, error) {
-	cur, err := s.Query(context.Background(), q)
+	events, _, err := s.Query(context.Background(), q)
 	if err != nil {
 		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)
 	}
-	result, err := stream.Drain(context.Background(), cur)
+	result, err := stream.Drain(context.Background(), events)
 	if err != nil {
 		return nil, fmt.Errorf("expected cursor.All to succeed; got %w", err)
 	}

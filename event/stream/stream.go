@@ -2,84 +2,54 @@ package stream
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/internal/xerror"
 )
 
-var (
-	// ErrClosed is returned by a Stream when trying to read from it after it
-	// has been closed.
-	ErrClosed = errors.New("stream closed")
-)
-
-type memstream struct {
-	events []event.Event
-	event  event.Event
-	pos    int
-	err    error
-	closed chan struct{}
-}
-
-// InMemory returns an in-memory Stream filled with the provided events.
-func InMemory(events ...event.Event) event.Stream {
-	return &memstream{
-		events: events,
-		closed: make(chan struct{}),
-	}
-}
-
-// Drain iterates over the Stream s and returns its Events. If a call to
-// s.Next causes an error, the already fetched Events and that error are
-// returned. Drain automatically calls s.Close(ctx) when done.
-func Drain(ctx context.Context, s event.Stream) (events []event.Event, err error) {
-	defer func() {
-		if cerr := s.Close(ctx); cerr != nil {
-			if err != nil {
-				err = fmt.Errorf("[0] %w\n[1] %s", err, cerr)
-				return
-			}
-			err = cerr
+// Slice takes a slice of Events and returns an Event channel which is filled
+// with the given Events in a separate goroutine and closed afterwards.
+func Slice(events ...event.Event) <-chan event.Event {
+	out := make(chan event.Event)
+	go func() {
+		defer close(out)
+		for _, evt := range events {
+			out <- evt
 		}
 	}()
-	for s.Next(ctx) {
-		events = append(events, s.Event())
-	}
-	err = s.Err()
-	return
+	return out
 }
 
-func (c *memstream) Next(ctx context.Context) bool {
-	select {
-	case <-c.closed:
-		c.err = ErrClosed
-		return false
-	default:
-		c.err = nil
+// Drain drains the given Event channel and returns its Events.
+//
+// Drain accepts optional error channels which will cause Drain to fail on any
+// error. When Drain encounters an error from any of the error channels, the
+// already drained Events and that error are returned. Similarly, when ctx is
+// canceled, the drained Events and ctx.Err() are returned.
+//
+// It is not necessary for the error channels to be closed by the caller because
+// Drain automatically cleans up its goroutines when returning the result.
+func Drain(ctx context.Context, events <-chan event.Event, errs ...<-chan error) ([]event.Event, error) {
+	errChan, stop := xerror.FanIn(errs...)
+	defer stop()
+
+	out := make([]event.Event, 0, len(events))
+
+	for {
+		select {
+		case <-ctx.Done():
+			return out, ctx.Err()
+		case err, ok := <-errChan:
+			if !ok {
+				errChan = nil
+				break
+			}
+			return out, err
+		case evt, ok := <-events:
+			if !ok {
+				return out, nil
+			}
+			out = append(out, evt)
+		}
 	}
-
-	if len(c.events) <= c.pos {
-		return false
-	}
-	c.event = c.events[c.pos]
-	c.pos++
-	return true
-}
-
-func (c *memstream) Event() event.Event {
-	return c.event
-}
-
-func (c *memstream) Err() error {
-	return c.err
-}
-
-func (c *memstream) Close(context.Context) error {
-	select {
-	case <-c.closed:
-	default:
-		close(c.closed)
-	}
-	return nil
 }

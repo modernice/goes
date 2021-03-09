@@ -11,7 +11,7 @@ type cmdctx struct {
 	context.Context
 
 	cmd      command.Command
-	whenDone func(context.Context, ...done.Option) error
+	whenDone func(context.Context, done.Config) error
 }
 
 // Option is a Context option.
@@ -19,7 +19,7 @@ type Option func(*cmdctx)
 
 // WhenDone returns an Option that makes the delegates calls to ctx.Done() to
 // fn.
-func WhenDone(fn func(context.Context, ...done.Option) error) Option {
+func WhenDone(fn func(context.Context, done.Config) error) Option {
 	return func(ctx *cmdctx) {
 		ctx.whenDone = fn
 	}
@@ -43,7 +43,7 @@ func (ctx *cmdctx) Command() command.Command {
 
 func (ctx *cmdctx) MarkDone(c context.Context, opts ...done.Option) error {
 	if ctx.whenDone != nil {
-		return ctx.whenDone(c, opts...)
+		return ctx.whenDone(c, done.Configure(opts...))
 	}
 	return nil
 }

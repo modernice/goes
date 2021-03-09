@@ -462,7 +462,7 @@ func TestRepository_Fetch_snapshot(t *testing.T) {
 			equery.AggregateVersion(version.Min(11)),
 			equery.SortBy(event.SortAggregateVersion, event.SortAsc),
 		)).
-		DoAndReturn(func(ctx context.Context, q event.Query) (event.Stream, error) {
+		DoAndReturn(func(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 			return eventStore.Query(ctx, q)
 		})
 
@@ -515,7 +515,7 @@ func TestRepository_FetchVersion_snapshot(t *testing.T) {
 			equery.AggregateVersion(version.Min(11), version.Max(25)),
 			equery.SortBy(event.SortAggregateVersion, event.SortAsc),
 		)).
-		DoAndReturn(func(ctx context.Context, q event.Query) (event.Stream, error) {
+		DoAndReturn(func(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 			return eventStore.Query(ctx, q)
 		})
 
@@ -530,22 +530,29 @@ func TestRepository_FetchVersion_snapshot(t *testing.T) {
 }
 
 func runQuery(r aggregate.Repository, q query.Query, factory func(string, uuid.UUID) aggregate.Aggregate) ([]aggregate.Aggregate, error) {
-	str, err := r.Query(context.Background(), q)
+	appliers, errs, err := r.Query(context.Background(), q)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
-	defer str.Close(context.Background())
 
-	var as []aggregate.Aggregate
-	for str.Next(context.Background()) {
-		name, id := str.Current()
-		a := factory(name, id)
-		if err := str.Apply(a); err != nil {
-			return as, err
+	out := make([]aggregate.Aggregate, 0, len(appliers))
+	for {
+		select {
+		case err, ok := <-errs:
+			if !ok {
+				errs = nil
+				break
+			}
+			return out, err
+		case apply, ok := <-appliers:
+			if !ok {
+				return out, nil
+			}
+			a := factory(apply.AggregateName(), apply.AggregateID())
+			apply.Apply(a)
+			out = append(out, a)
 		}
-		as = append(as, a)
 	}
-	return as, str.Err()
 }
 
 func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) aggregate.Aggregate {

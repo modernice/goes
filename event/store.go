@@ -36,7 +36,7 @@ type Store interface {
 
 	// Query queries the database for events filtered by Query q and returns a
 	// Stream for those events.
-	Query(context.Context, Query) (Stream, error)
+	Query(context.Context, Query) (<-chan Event, <-chan error, error)
 
 	// Delete deletes the specified event from the store.
 	Delete(context.Context, Event) error
@@ -65,27 +65,6 @@ type Query interface {
 
 	// Sorting returns the SortConfigs for the query.
 	Sortings() []SortOptions
-}
-
-// A Stream provides streaming over events.
-type Stream interface {
-	// Next should fetch the next Event from the underlying Store and return
-	// true if the next call to Stream.Event would return that Event. If an
-	// error occurred during Next, Stream.Err should return that error and
-	// Stream.Event should return nil.
-	Next(context.Context) bool
-
-	// Event should return the current Event from the Stream or nil if
-	// Stream.Next hasn't been called yet or because an error occurred during
-	// Stream.Next.
-	Event() Event
-
-	// Err should return the error that occurred during the last call to
-	// Stream.Next.
-	Err() error
-
-	// Close closes the stream.
-	Close(context.Context) error
 }
 
 // SortOptions defines the sorting behaviour for a Query.

@@ -336,21 +336,53 @@ func (s *Store) Delete(ctx context.Context, evt event.Event) error {
 
 // Query queries the database for events filtered by Query q and returns an
 // event.Stream for those events.
-func (s *Store) Query(ctx context.Context, q event.Query) (event.Stream, error) {
+func (s *Store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	if err := s.connectOnce(ctx); err != nil {
-		return nil, fmt.Errorf("connect: %w", err)
+		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
 	opts := options.Find()
 	opts = applySortings(opts, q.Sortings()...)
 
 	cur, err := s.entries.Find(ctx, makeFilter(q), opts)
 	if err != nil {
-		return nil, fmt.Errorf("mongo: %w", err)
+		return nil, nil, fmt.Errorf("mongo: %w", err)
 	}
-	return &stream{
-		enc: s.enc,
-		cur: cur,
-	}, nil
+
+	events := make(chan event.Event)
+	errs := make(chan error)
+
+	go func() {
+		defer close(events)
+		defer close(errs)
+
+		for cur.Next(ctx) {
+			var e entry
+			if err := cur.Decode(&e); err != nil {
+				select {
+				case <-ctx.Done():
+					return
+				case errs <- err:
+				}
+				continue
+			}
+			evt, err := e.event(s.enc)
+			if err != nil {
+				errs <- err
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case events <- evt:
+			}
+		}
+
+		if err = cur.Err(); err != nil {
+			errs <- fmt.Errorf("mongo: %w", err)
+		}
+	}()
+
+	return events, errs, nil
 }
 
 // Connect establishes the connection to the underlying MongoDB and returns the

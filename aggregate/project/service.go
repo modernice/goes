@@ -182,7 +182,7 @@ func (sub *subscription) handleCancel() {
 }
 
 func (c *continously) jobs(ctx context.Context) (<-chan job, <-chan error, error) {
-	events, err := c.bus.Subscribe(ctx, c.events...)
+	events, _, err := c.bus.Subscribe(ctx, c.events...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("subscribe to %v events: %w", c.events, err)
 	}
@@ -233,12 +233,13 @@ func (p *periodically) handleTicks(
 ) {
 	defer close(jobs)
 	defer close(errs)
+L:
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker:
-			str, err := p.store.Query(ctx, query.New(
+			str, serrs, err := p.store.Query(ctx, query.New(
 				query.AggregateName(p.names...),
 				query.AggregateVersion(version.Exact(0)),
 			))
@@ -247,27 +248,34 @@ func (p *periodically) handleTicks(
 				return
 			}
 
-			for str.Next(ctx) {
-				evt := str.Event()
-				if shouldDiscard(evt, p.filter) {
-					continue
-				}
-
+			for {
 				select {
 				case <-ctx.Done():
 					return
-				case jobs <- job{
-					aggregateName: evt.AggregateName(),
-					aggregateID:   evt.AggregateID(),
-				}:
+				case err, ok := <-serrs:
+					if !ok {
+						serrs = nil
+						break
+					}
+					errs <- fmt.Errorf("event stream: %w", err)
+				case evt, ok := <-str:
+					if !ok {
+						continue L
+					}
+
+					if shouldDiscard(evt, p.filter) {
+						continue
+					}
+
+					select {
+					case <-ctx.Done():
+						return
+					case jobs <- job{
+						aggregateName: evt.AggregateName(),
+						aggregateID:   evt.AggregateID(),
+					}:
+					}
 				}
-			}
-			if err = str.Err(); err != nil {
-				errs <- fmt.Errorf("event stream: %w", err)
-				return
-			}
-			if err = str.Close(ctx); err != nil {
-				errs <- fmt.Errorf("close event stream: %w", err)
 			}
 		}
 	}

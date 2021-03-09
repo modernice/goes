@@ -1,7 +1,6 @@
 package stream_test
 
 import (
-	"context"
 	"math/rand"
 	"testing"
 	"time"
@@ -138,26 +137,32 @@ func run(b *testing.B, naggregates, nevents int, grouped, sorted bool) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	var err error
+	var gerr error
+L:
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		var as []aggregate.Aggregate
-		estr := estream.InMemory(events...)
+		estr := estream.Slice(events...)
 		b.StartTimer()
 
-		str := stream.New(estr, opts...)
-		for str.Next(context.Background()) {
-			name, id := str.Current()
-			a := &mockAggregate{Aggregate: aggregate.New(name, id)}
-			as = append(as, a)
-		}
-		if err = str.Err(); err != nil {
-			b.Fatalf("stream: %v", err)
-		}
-		if err = str.Close(context.Background()); err != nil {
-			b.Fatalf("close stream: %v", err)
+		str, errs := stream.New(estr, opts...)
+		for {
+			select {
+			case err, ok := <-errs:
+				if !ok {
+					continue L
+				}
+				gerr = err
+			case res, ok := <-str:
+				if !ok {
+					continue L
+				}
+				a := &mockAggregate{Aggregate: aggregate.New(res.AggregateName(), res.AggregateID())}
+				as = append(as, a)
+			}
 		}
 	}
+	_ = gerr
 }
 
 func (a *mockAggregate) ApplyEvent(evt event.Event) {

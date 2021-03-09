@@ -44,7 +44,7 @@ type Repository interface {
 
 	// Query queries the event store for aggregates filtered by Query q and
 	// returns a Stream for those aggregates.
-	Query(ctx context.Context, q Query) (Stream, error)
+	Query(ctx context.Context, q Query) (<-chan Applier, <-chan error, error)
 
 	// Delete deletes an Aggregate by deleting the events of the aggregate.
 	Delete(ctx context.Context, a Aggregate) error
@@ -65,28 +65,10 @@ type Query interface {
 	Sortings() []SortOptions
 }
 
-// A Stream iterates over aggregates.
-type Stream interface {
-	// Next fetches the Events of the next Aggregate and returns true if the
-	// fetch was successful. When Next returns true, a call to Apply applies
-	// those Events on the provided Aggregate. When Next returns false, Err
-	// returns the error that made the fetch fail or nil if the Stream reached
-	// the end.
-	Next(context.Context) bool
-
-	// Current returns the name and UUID of the current Aggregate.
-	Current() (string, uuid.UUID)
-
-	// Apply applies the Events of the current Aggregate in the Stream on the
-	// given Aggregate. Apply return an error if the Stream fails to validate
-	// the consistency of the Aggregate before applying the Events.
-	Apply(Aggregate) error
-
-	// Err returns the last error from the Stream that happened during Next.
-	Err() error
-
-	// Close should close the Stream.
-	Close(context.Context) error
+type Applier interface {
+	AggregateName() string
+	AggregateID() uuid.UUID
+	Apply(Aggregate)
 }
 
 // SortOptions defines the sorting behaviour for a Query.

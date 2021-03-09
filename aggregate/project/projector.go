@@ -44,7 +44,7 @@ func NewProjector(events event.Store) Projector {
 }
 
 func (proj *projector) Project(ctx context.Context, p Projection) error {
-	str, err := proj.events.Query(ctx, equery.New(
+	str, errs, err := proj.events.Query(ctx, equery.New(
 		equery.AggregateName(p.AggregateName()),
 		equery.AggregateID(p.AggregateID()),
 		equery.SortByMulti(
@@ -56,18 +56,24 @@ func (proj *projector) Project(ctx context.Context, p Projection) error {
 	if err != nil {
 		return fmt.Errorf("query events: %w", err)
 	}
-	defer str.Close(ctx)
 
-	for str.Next(ctx) {
-		evt := str.Event()
-		p.ApplyEvent(evt)
-		p.TrackChange(evt)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err, ok := <-errs:
+			if !ok {
+				errs = nil
+				break
+			}
+			return fmt.Errorf("event stream: %w", err)
+		case evt, ok := <-str:
+			if !ok {
+				p.FlushChanges()
+				return nil
+			}
+			p.ApplyEvent(evt)
+			p.TrackChange(evt)
+		}
 	}
-	p.FlushChanges()
-
-	if err = str.Err(); err != nil {
-		return fmt.Errorf("event stream: %w", err)
-	}
-
-	return nil
 }
