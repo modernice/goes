@@ -40,11 +40,10 @@ func Drain(ctx context.Context, events <-chan event.Event, errs ...<-chan error)
 		case <-ctx.Done():
 			return out, ctx.Err()
 		case err, ok := <-errChan:
-			if !ok {
-				errChan = nil
-				break
+			if ok {
+				return out, err
 			}
-			return out, err
+			errChan = nil
 		case evt, ok := <-events:
 			if !ok {
 				return out, nil
