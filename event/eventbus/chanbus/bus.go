@@ -9,27 +9,29 @@ import (
 )
 
 type eventBus struct {
-	subsMux sync.RWMutex
-	subs    map[string][]*subscription
-	queue   chan event.Event
+	mux    sync.Mutex
+	subs   map[string][]*subscription
+	queue  chan event.Event
+	add    chan *subscription
+	remove chan *subscription
 }
 
 type subscription struct {
-	mux     sync.Mutex
-	wg      sync.WaitGroup
-	bus     *eventBus
-	ctx     context.Context
-	names   []string
-	out     chan event.Event
-	errs    chan error
-	removed chan struct{}
+	wg    sync.WaitGroup
+	bus   *eventBus
+	ctx   context.Context
+	names []string
+	out   chan event.Event
+	errs  chan error
 }
 
 // New returns a Bus that communicates over channels.
 func New() event.Bus {
 	bus := &eventBus{
-		subs:  make(map[string][]*subscription),
-		queue: make(chan event.Event),
+		subs:   make(map[string][]*subscription),
+		queue:  make(chan event.Event),
+		add:    make(chan *subscription),
+		remove: make(chan *subscription),
 	}
 	go bus.work()
 	return bus
@@ -56,17 +58,58 @@ func (bus *eventBus) publish(ctx context.Context, evt event.Event) error {
 }
 
 func (bus *eventBus) work() {
-	for evt := range bus.queue {
-		subs := bus.subscriptions(evt.Name())
-		for _, sub := range subs {
-			go sub.publish(evt)
+	for {
+		select {
+		case sub := <-bus.add:
+			bus.addSub(sub)
+		case sub := <-bus.remove:
+			sub.wg.Wait()
+			bus.removeSub(sub)
+		case evt := <-bus.queue:
+			bus.doPublish(evt)
 		}
 	}
 }
 
-func (bus *eventBus) subscriptions(name string) []*subscription {
-	bus.subsMux.Lock()
-	defer bus.subsMux.Unlock()
+func (bus *eventBus) addSub(sub *subscription) {
+	bus.mux.Lock()
+	defer bus.mux.Unlock()
+	for _, name := range sub.names {
+		bus.subs[name] = append(bus.subs[name], sub)
+	}
+}
+
+func (bus *eventBus) removeSub(sub *subscription) {
+	bus.mux.Lock()
+	defer bus.mux.Unlock()
+
+	close(sub.out)
+	close(sub.errs)
+
+	for _, name := range sub.names {
+		for i, s := range bus.subs[name] {
+			if s == sub {
+				bus.subs[name] = append(bus.subs[name][:i], bus.subs[name][i+1:]...)
+				break
+			}
+		}
+	}
+}
+
+func (bus *eventBus) doPublish(evt event.Event) {
+	subs := bus.subscribers(evt.Name())
+	for _, sub := range subs {
+		sub.wg.Add(1)
+		go func(sub *subscription) {
+			sub.out <- evt
+			sub.wg.Done()
+		}(sub)
+	}
+}
+
+func (bus *eventBus) subscribers(name string) []*subscription {
+	bus.mux.Lock()
+	defer bus.mux.Unlock()
 	return bus.subs[name]
 }
 
@@ -78,76 +121,24 @@ func (bus *eventBus) subscriptions(name string) []*subscription {
 //
 // When ctx is canceled, the both the Event and error channel are closed.
 func (bus *eventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
-	select {
-	case <-ctx.Done():
-		return nil, nil, ctx.Err()
-	default:
-	}
-
 	sub := bus.newSubscription(ctx, names)
 	return sub.out, sub.errs, nil
 }
 
-func (bus *eventBus) add(sub *subscription) {
-	bus.subsMux.Lock()
-	defer bus.subsMux.Unlock()
-	for _, name := range sub.names {
-		bus.subs[name] = append(bus.subs[name], sub)
-	}
-}
-
-func (bus *eventBus) remove(sub *subscription) {
-	sub.mux.Lock()
-	bus.subsMux.Lock()
-	defer func() {
-		sub.mux.Unlock()
-		bus.subsMux.Unlock()
-	}()
-	for _, name := range sub.names {
-	L:
-		for i, s := range bus.subs[name] {
-			if s == sub {
-				newSubs := make([]*subscription, len(bus.subs[name])-1)
-				newSubs = append(newSubs, bus.subs[name][:i]...)
-				newSubs = append(newSubs, bus.subs[name][i+1:]...)
-				bus.subs[name] = newSubs
-				close(s.removed)
-				close(s.out)
-
-				break L
-			}
-		}
-	}
-}
-
-func (sub *subscription) publish(evt event.Event) {
-	sub.mux.Lock()
-	go func() {
-		defer sub.mux.Unlock()
-		select {
-		case <-sub.removed:
-			return
-		default:
-			sub.out <- evt
-		}
-	}()
-}
-
 func (sub *subscription) handleCancel() {
 	<-sub.ctx.Done()
-	sub.bus.remove(sub)
+	sub.bus.remove <- sub
 }
 
 func (bus *eventBus) newSubscription(ctx context.Context, names []string) *subscription {
 	sub := &subscription{
-		bus:     bus,
-		ctx:     ctx,
-		names:   names,
-		out:     make(chan event.Event),
-		errs:    make(chan error),
-		removed: make(chan struct{}),
+		bus:   bus,
+		ctx:   ctx,
+		names: names,
+		out:   make(chan event.Event),
+		errs:  make(chan error),
 	}
-	bus.add(sub)
+	bus.add <- sub
 	go sub.handleCancel()
 	return sub
 }
