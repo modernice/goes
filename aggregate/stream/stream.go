@@ -198,55 +198,6 @@ func Drain(ctx context.Context, str <-chan aggregate.Applier, errs ...<-chan err
 	}
 }
 
-// func (s *stream) Next(ctx context.Context) bool {
-// 	// first check if the stream has been closed to ensure ErrClosed
-// 	select {
-// 	case <-s.closed:
-// 		s.forceError(ErrClosed)
-// 		return false
-// 	default:
-// 	}
-
-// 	select {
-// 	case <-ctx.Done():
-// 		s.error(ctx.Err())
-// 		return false
-// 	case <-s.closed:
-// 		s.forceError(ErrClosed)
-// 		return false
-// 	case r, ok := <-s.results:
-// 		if !ok {
-// 			return false
-// 		}
-// 		s.current = r
-// 		return true
-// 	}
-// }
-
-// func (s *stream) Current() (string, uuid.UUID) {
-// 	return s.current.name, s.current.id
-// }
-
-// func (s *stream) Apply(a aggregate.Aggregate) error {
-// 	if s.validateConsistency {
-// 		if err := consistency.Validate(a, s.current.events...); err != nil {
-// 			return err
-// 		}
-// 	}
-// 	for _, evt := range s.current.events {
-// 		a.ApplyEvent(evt)
-// 	}
-// 	a.TrackChange(s.current.events...)
-// 	a.FlushChanges()
-// 	return nil
-// }
-
-// func (s *stream) Err() error {
-// 	s.errMux.RLock()
-// 	defer s.errMux.RUnlock()
-// 	return s.err
-// }
-
 func (s *stream) acceptEvents() {
 	defer close(s.acceptDone)
 	defer close(s.events)
