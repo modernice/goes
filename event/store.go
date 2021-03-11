@@ -36,14 +36,26 @@ type Store interface {
 
 	// Query queries the database for events filtered by Query q and returns a
 	// Stream for those events.
+
+	// Query queries the Store for Events that fit the given Query and returns a
+	// channel of Events and a channel of errors.
+	//
+	// Example:
+	//
+	//	var store event.Store
+	//	events, errs, err := store.Query(context.TODO(), query.New())
+	//	// handle err
+	//	err := stream.Walk(context.TODO(), func(evt event.Event) {
+	//		log.Println(fmt.Sprintf("Queried Event: %v", evt))
+	//	}, events, errs)
+	//	// handle err
 	Query(context.Context, Query) (<-chan Event, <-chan error, error)
 
-	// Delete deletes the specified event from the store.
+	// Delete deletes the specified event from the Store.
 	Delete(context.Context, Event) error
 }
 
-// A Query is used by a Store to query Events and provides the filters for the
-// query.
+// A Query is used by Stores to query Events.
 type Query interface {
 	// Names returns the event names to query for.
 	Names() []string
@@ -67,7 +79,7 @@ type Query interface {
 	Sortings() []SortOptions
 }
 
-// SortOptions defines the sorting behaviour for a Query.
+// SortOptions defines the sorting behaviour of a Query.
 type SortOptions struct {
 	Sort Sorting
 	Dir  SortDirection

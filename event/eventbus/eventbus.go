@@ -18,8 +18,9 @@ type busWithStore struct {
 	storeFilter []func(event.Event) bool
 }
 
-// WithStore returns a Bus that inserts events into Store s before publishing
-// them through Bus b.
+// WithStore decorates an Event Bus with an Event Store. Events are inserted
+// into the Store before they are published through the Bus. Events won't be
+// published if the insertion into the Store fails.
 func WithStore(b event.Bus, s event.Store, opts ...WithStoreOption) event.Bus {
 	bs := &busWithStore{
 		Bus: b,
@@ -32,20 +33,19 @@ func WithStore(b event.Bus, s event.Store, opts ...WithStoreOption) event.Bus {
 }
 
 // StoreFilter returns a WithStoreOption that adds the provided filter to the
-// Bus. Use this option to prevent events from being inserted into the event
-// store before they are published. Events that are published with b.Publish
+// Bus. Use this Option to prevent Events from being inserted into the Event
+// Store before they are published. Events that are published through the Bus
 // are passed to every filter until one of them returns false. If a filter
 // returns false for an Event, that Event won't be inserted into the event
-// store and only sent through the underlying Bus.
+// store and will only be published through the Bus.
 func StoreFilter(filter ...func(event.Event) bool) WithStoreOption {
 	return func(b *busWithStore) {
 		b.storeFilter = append(b.storeFilter, filter...)
 	}
 }
 
-// RequireAggregate returns a WithStoreOption that prevents events that don't
-// belong to an aggregate to be inserted into the event store before they're
-// published through the event bus.
+// RequireAggregate returns a WithStoreOption that prevents Events that don't
+// belong to an Aggregate to be inserted into the Event Store.
 func RequireAggregate() WithStoreOption {
 	return StoreFilter(func(evt event.Event) bool {
 		return evt.AggregateName() != "" && evt.AggregateID() != uuid.Nil

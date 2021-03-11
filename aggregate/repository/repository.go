@@ -30,15 +30,22 @@ type repository struct {
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
+//
+// A Repository using Snapshots will use those as the base state when fetching a
+// single Aggregate.
+//
+// Aggregates must implement snapshot.Marshaler & snapshot.Unmarshaler in order
+// for Snapshots to work.
+//
+// TODO: store Snapshots
 func WithSnapshots(s snapshot.Store) Option {
 	return func(r *repository) {
 		r.snapshots = s
 	}
 }
 
-// New return a Repository for aggregates. The Repository uses the provided
-// store to query the events needed to build the state of aggregates and to
-// insert the aggregate changes in form of events into the Store.
+// New returns an event-sourced Aggregate Repository. It uses the provided Event
+// Store to persist and query Aggregates.
 func New(store event.Store, opts ...Option) aggregate.Repository {
 	r := repository{store: store}
 	for _, opt := range opts {
@@ -47,7 +54,6 @@ func New(store event.Store, opts ...Option) aggregate.Repository {
 	return &r
 }
 
-// Save saves the changes of Aggregate a into the event store.
 func (r *repository) Save(ctx context.Context, a aggregate.Aggregate) error {
 	if err := r.store.Insert(ctx, a.AggregateChanges()...); err != nil {
 		return fmt.Errorf("insert events: %w", err)
@@ -184,7 +190,7 @@ func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
 	}
 }
 
-func (r *repository) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.Applier, <-chan error, error) {
+func (r *repository) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.History, <-chan error, error) {
 	opts := makeQueryOptions(q)
 	events, errs, err := r.store.Query(ctx, equery.New(opts...))
 	if err != nil {

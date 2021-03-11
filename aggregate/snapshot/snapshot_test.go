@@ -35,8 +35,8 @@ func TestNew(t *testing.T) {
 		t.Errorf("Time should return ~%v; got %v", now, st)
 	}
 
-	if snap.Data() != nil {
-		t.Errorf("Data should return %v; got %v", nil, snap.Data())
+	if snap.State() != nil {
+		t.Errorf("Data should return %v; got %v", nil, snap.State())
 	}
 }
 
@@ -52,8 +52,8 @@ func TestNew_marshaler(t *testing.T) {
 		t.Fatalf("Marshal shouldn't fail; failed with %q", err)
 	}
 
-	if !bytes.Equal(snap.Data(), b) {
-		t.Errorf("Data should return %v; got %v", b, snap.Data())
+	if !bytes.Equal(snap.State(), b) {
+		t.Errorf("Data should return %v; got %v", b, snap.State())
 	}
 }
 
@@ -78,7 +78,7 @@ func TestData(t *testing.T) {
 		t.Fatalf("New shouldn't fail; failed with %q", err)
 	}
 
-	if !bytes.Equal(snap.Data(), data) {
-		t.Errorf("Data should return %v; got %v", data, snap.Data())
+	if !bytes.Equal(snap.State(), data) {
+		t.Errorf("Data should return %v; got %v", data, snap.State())
 	}
 }

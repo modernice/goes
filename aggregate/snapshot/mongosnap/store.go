@@ -105,7 +105,7 @@ func (s *Store) Save(ctx context.Context, snap snapshot.Snapshot) error {
 		AggregateVersion: snap.AggregateVersion(),
 		Time:             snap.Time(),
 		TimeNano:         snap.Time().UnixNano(),
-		Data:             snap.Data(),
+		Data:             snap.State(),
 	}
 
 	if _, err := s.col.ReplaceOne(ctx, bson.D{

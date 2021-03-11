@@ -300,7 +300,7 @@ func TestFilter(t *testing.T) {
 }
 
 func drain(
-	s <-chan aggregate.Applier,
+	s <-chan aggregate.History,
 	errs <-chan error,
 	timeout time.Duration,
 	factory func(string, uuid.UUID) aggregate.Aggregate,

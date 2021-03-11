@@ -23,8 +23,8 @@ type Snapshot interface {
 	// Time returns the Time of the Snapshot.
 	Time() time.Time
 
-	// Data returns the encoded data of the Aggregate.
-	Data() []byte
+	// State returns the encoded state of the Aggregate.
+	State() []byte
 }
 
 // Option is a Snapshot option.
@@ -33,8 +33,8 @@ type Option func(*snapshot)
 type snapshot struct {
 	aggregate.Aggregate
 
-	time time.Time
-	data []byte
+	time  time.Time
+	state []byte
 }
 
 // Time returns an Option that sets the Time of a Snapshot.
@@ -47,7 +47,7 @@ func Time(t time.Time) Option {
 // Data returns an Option that overrides the encoded data of a Snapshot.
 func Data(b []byte) Option {
 	return func(s *snapshot) {
-		s.data = b
+		s.state = b
 	}
 }
 
@@ -60,12 +60,12 @@ func New(a aggregate.Aggregate, opts ...Option) (Snapshot, error) {
 	for _, opt := range opts {
 		opt(&snap)
 	}
-	if snap.data == nil {
+	if snap.state == nil {
 		b, err := Marshal(a)
 		if err != nil {
 			return nil, fmt.Errorf("marshal snapshot: %w", err)
 		}
-		snap.data = b
+		snap.state = b
 	}
 	return &snap, nil
 }
@@ -108,6 +108,6 @@ func (s *snapshot) Time() time.Time {
 	return s.time
 }
 
-func (s *snapshot) Data() []byte {
-	return s.data
+func (s *snapshot) State() []byte {
+	return s.state
 }

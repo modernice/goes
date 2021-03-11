@@ -1,5 +1,5 @@
 // Package natsbus provides an event.Bus implementation with support for both
-// NATS Core and NATS Streaming.
+// NATS Core and NATS Streaming as the backend.
 package natsbus
 
 import (
@@ -48,7 +48,7 @@ type Bus struct {
 	onceConnect sync.Once
 }
 
-// Option is an EventBus option.
+// Option is a Bus option.
 type Option func(*Bus)
 
 // A Driver connects to a NATS cluster. Available Drivers:

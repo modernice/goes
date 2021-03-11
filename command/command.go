@@ -11,7 +11,9 @@ import (
 	"github.com/modernice/goes/command/done"
 )
 
-// A Command is a (domain) command that can be dispatched through a Bus.
+// A Command represents a command in the business model of an application or
+// service. Commands can be dispatched through a Bus to handlers of such
+// Commands.
 type Command interface {
 	// ID returns the Command ID.
 	ID() uuid.UUID
@@ -31,19 +33,22 @@ type Command interface {
 	AggregateID() uuid.UUID
 }
 
-// Payload is the payload for a Command.
+// Payload is the payload of a Command.
 type Payload interface{}
 
 // An Encoder encodes and decodes Payloads.
 type Encoder interface {
-	// Encode encodes the given Payload and writes the result into the Writer.
+	// Encode encodes the given Payload for a Command with the given name and
+	// writes the result into the Writer.
 	Encode(io.Writer, string, Payload) error
 
-	// Decode decodes the Payload in the Reader.
+	// Decode decodes the Payload for a Command with the given name from the
+	// provided Reader.
 	Decode(string, io.Reader) (Payload, error)
 }
 
-// A Registry is an Encoder that also allows to register new Commands.
+// A Registry is an Encoder that also allows to register new Commands into it
+// and instantiate Payloads from Command names.
 type Registry interface {
 	Encoder
 
@@ -54,7 +59,7 @@ type Registry interface {
 	New(string) (Payload, error)
 }
 
-// A Bus dispatches Commands to the appropriate Handlers.
+// A Bus dispatches Commands to appropriate handlers.
 type Bus interface {
 	// Dispatch sends the Command to the appropriate subscriber. Dispatch must
 	// only return nil if the Command has been successfully received by a
@@ -63,7 +68,7 @@ type Bus interface {
 
 	// Subscribe subscribes to Commands with the given names and returns a
 	// channel of Contexts. Implementations of Bus must ensure that Commands
-	// won't be handled by multiple subscribers.
+	// aren't received by multiple subscribers.
 	Subscribe(ctx context.Context, names ...string) (<-chan Context, <-chan error, error)
 }
 
@@ -77,13 +82,23 @@ type Context interface {
 	// MarkDone should be called after the execution of the Command to report the
 	// execution result. Use Options to add information about the execution to
 	// the report.
+
+	// MarkDone should be called after the Command has been handled so that the
+	// Bus that dispatched the Command can be notified about the execution
+	// result.
+	//
+	// Depending on the implementation, is may or may not be necessary to call
+	// MarkDone for the overall Command Bus system to work. The current event-
+	// driven implementation doesn't require a call to MarkDone unless the
+	// dispatch is made synchronous using the dispatch.Synchronous or
+	// dispatch.Report Options.
 	MarkDone(context.Context, ...done.Option) error
 }
 
 // Option is a Command option.
-type Option func(*base)
+type Option func(*command)
 
-type base struct {
+type command struct {
 	id            uuid.UUID
 	name          string
 	payload       Payload
@@ -93,14 +108,14 @@ type base struct {
 
 // ID returns an Option that overrides the auto-generated UUID of a Command.
 func ID(id uuid.UUID) Option {
-	return func(b *base) {
+	return func(b *command) {
 		b.id = id
 	}
 }
 
 // Aggregate returns an Option that links a Command to an Aggregate.
 func Aggregate(name string, id uuid.UUID) Option {
-	return func(b *base) {
+	return func(b *command) {
 		b.aggregateName = name
 		b.aggregateID = id
 	}
@@ -108,7 +123,7 @@ func Aggregate(name string, id uuid.UUID) Option {
 
 // New returns a new Command with the given name and Payload.
 func New(name string, pl Payload, opts ...Option) Command {
-	cmd := base{
+	cmd := command{
 		id:      uuid.New(),
 		name:    name,
 		payload: pl,
@@ -116,25 +131,25 @@ func New(name string, pl Payload, opts ...Option) Command {
 	for _, opt := range opts {
 		opt(&cmd)
 	}
-	return &cmd
+	return cmd
 }
 
-func (cmd *base) ID() uuid.UUID {
+func (cmd command) ID() uuid.UUID {
 	return cmd.id
 }
 
-func (cmd *base) Name() string {
+func (cmd command) Name() string {
 	return cmd.name
 }
 
-func (cmd *base) Payload() Payload {
+func (cmd command) Payload() Payload {
 	return cmd.payload
 }
 
-func (cmd *base) AggregateName() string {
+func (cmd command) AggregateName() string {
 	return cmd.aggregateName
 }
 
-func (cmd *base) AggregateID() uuid.UUID {
+func (cmd command) AggregateID() uuid.UUID {
 	return cmd.aggregateID
 }

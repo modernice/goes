@@ -79,10 +79,10 @@ func (mr *MockRepositoryMockRecorder) FetchVersion(ctx, a, v interface{}) *gomoc
 }
 
 // Query mocks base method
-func (m *MockRepository) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.Applier, <-chan error, error) {
+func (m *MockRepository) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.History, <-chan error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Query", ctx, q)
-	ret0, _ := ret[0].(<-chan aggregate.Applier)
+	ret0, _ := ret[0].(<-chan aggregate.History)
 	ret1, _ := ret[1].(<-chan error)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -187,31 +187,31 @@ func (mr *MockQueryMockRecorder) Sortings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sortings", reflect.TypeOf((*MockQuery)(nil).Sortings))
 }
 
-// MockApplier is a mock of Applier interface
-type MockApplier struct {
+// MockHistory is a mock of History interface
+type MockHistory struct {
 	ctrl     *gomock.Controller
-	recorder *MockApplierMockRecorder
+	recorder *MockHistoryMockRecorder
 }
 
-// MockApplierMockRecorder is the mock recorder for MockApplier
-type MockApplierMockRecorder struct {
-	mock *MockApplier
+// MockHistoryMockRecorder is the mock recorder for MockHistory
+type MockHistoryMockRecorder struct {
+	mock *MockHistory
 }
 
-// NewMockApplier creates a new mock instance
-func NewMockApplier(ctrl *gomock.Controller) *MockApplier {
-	mock := &MockApplier{ctrl: ctrl}
-	mock.recorder = &MockApplierMockRecorder{mock}
+// NewMockHistory creates a new mock instance
+func NewMockHistory(ctrl *gomock.Controller) *MockHistory {
+	mock := &MockHistory{ctrl: ctrl}
+	mock.recorder = &MockHistoryMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockApplier) EXPECT() *MockApplierMockRecorder {
+func (m *MockHistory) EXPECT() *MockHistoryMockRecorder {
 	return m.recorder
 }
 
 // AggregateName mocks base method
-func (m *MockApplier) AggregateName() string {
+func (m *MockHistory) AggregateName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AggregateName")
 	ret0, _ := ret[0].(string)
@@ -219,13 +219,13 @@ func (m *MockApplier) AggregateName() string {
 }
 
 // AggregateName indicates an expected call of AggregateName
-func (mr *MockApplierMockRecorder) AggregateName() *gomock.Call {
+func (mr *MockHistoryMockRecorder) AggregateName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateName", reflect.TypeOf((*MockApplier)(nil).AggregateName))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateName", reflect.TypeOf((*MockHistory)(nil).AggregateName))
 }
 
 // AggregateID mocks base method
-func (m *MockApplier) AggregateID() uuid.UUID {
+func (m *MockHistory) AggregateID() uuid.UUID {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AggregateID")
 	ret0, _ := ret[0].(uuid.UUID)
@@ -233,19 +233,19 @@ func (m *MockApplier) AggregateID() uuid.UUID {
 }
 
 // AggregateID indicates an expected call of AggregateID
-func (mr *MockApplierMockRecorder) AggregateID() *gomock.Call {
+func (mr *MockHistoryMockRecorder) AggregateID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateID", reflect.TypeOf((*MockApplier)(nil).AggregateID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateID", reflect.TypeOf((*MockHistory)(nil).AggregateID))
 }
 
 // Apply mocks base method
-func (m *MockApplier) Apply(arg0 aggregate.Aggregate) {
+func (m *MockHistory) Apply(arg0 aggregate.Aggregate) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Apply", arg0)
 }
 
 // Apply indicates an expected call of Apply
-func (mr *MockApplierMockRecorder) Apply(arg0 interface{}) *gomock.Call {
+func (mr *MockHistoryMockRecorder) Apply(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockApplier)(nil).Apply), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockHistory)(nil).Apply), arg0)
 }

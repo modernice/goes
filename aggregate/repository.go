@@ -42,11 +42,28 @@ type Repository interface {
 	// untouched.
 	FetchVersion(ctx context.Context, a Aggregate, v int) error
 
-	// Query queries the event store for aggregates filtered by Query q and
-	// returns a Stream for those aggregates.
-	Query(ctx context.Context, q Query) (<-chan Applier, <-chan error, error)
+	// Query queries the Event Store for Aggregates and returns a channel of
+	// Histories and an error channel. If the query fails, Query returns nil
+	// channels and an error.
+	//
+	// A History can be applied on an Aggregate to reconstruct its state from
+	// the History.
+	//
+	// The Drain function in the aggregate/stream package can be used to get the
+	// result of the stream as slice and a single error:
+	//
+	//	res, errs, err := r.Query(context.TODO(), query.New())
+	//	// handle err
+	//	appliers, err := stream.Drain(context.TODO(), res, errs)
+	//	// handle err
+	//	for _, app := range appliers {
+	//		// Initialize your Aggregate.
+	//		var a Aggregate = newAggregate(app.AggregateName(), app.AggregateID())
+	//		a.Apply(a)
+	//	}
+	Query(ctx context.Context, q Query) (<-chan History, <-chan error, error)
 
-	// Delete deletes an Aggregate by deleting the events of the aggregate.
+	// Delete deletes an Aggregate by deleting its Events from the Event Store.
 	Delete(ctx context.Context, a Aggregate) error
 }
 
@@ -65,12 +82,6 @@ type Query interface {
 	Sortings() []SortOptions
 }
 
-type Applier interface {
-	AggregateName() string
-	AggregateID() uuid.UUID
-	Apply(Aggregate)
-}
-
 // SortOptions defines the sorting behaviour for a Query.
 type SortOptions struct {
 	Sort Sorting
@@ -82,6 +93,20 @@ type Sorting int
 
 // SortDirection is a sorting direction.
 type SortDirection int
+
+// A History is the history of an Aggregate that can be applied to it using the
+// Apply method.
+type History interface {
+	// AggregateName returns the name of the Historys Aggregate.
+	AggregateName() string
+
+	// AggregateID returns the UUID of the Historys Aggregate.
+	AggregateID() uuid.UUID
+
+	// Apply applies the History on an Aggregate. Callers are responsible for
+	// providing an Aggregate that can make use of the Events in the History.
+	Apply(Aggregate)
+}
 
 // Compare compares a and b and returns -1 if a < b, 0 if a == b or 1 if a > b.
 func (s Sorting) Compare(a, b Aggregate) (cmp int8) {

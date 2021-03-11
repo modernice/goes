@@ -12,7 +12,7 @@ import (
 	"github.com/modernice/goes/internal/xerror"
 )
 
-// Option is an option for FromEvents.
+// Option is a Stream option.
 type Option func(*stream)
 
 type stream struct {
@@ -34,8 +34,7 @@ type stream struct {
 
 	groupReqs chan groupRequest
 
-	// results   chan result
-	out       chan aggregate.Applier
+	out       chan aggregate.History
 	outErrors chan error
 
 	errMux sync.RWMutex
@@ -60,6 +59,9 @@ type applier struct {
 	apply func(aggregate.Aggregate)
 }
 
+// Errors returns an Option that provides a Stream with error channels. A Stream
+// will cancel its operation as soon as an error can be received from one of the
+// error channels.
 func Errors(errs ...<-chan error) Option {
 	return func(s *stream) {
 		s.streamErrors = append(s.streamErrors, errs...)
@@ -143,7 +145,21 @@ func Filter(fns ...func(event.Event) bool) Option {
 	}
 }
 
-func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.Applier, <-chan error) {
+// New takes a channel of Events and returns both a channel of Aggregate
+// Histories and an error channel. A History apply itself on an Aggregate to
+// build the current state of the Aggregate.
+//
+// Use the Drain function to get the Histories as a slice and a single error:
+//
+//	var events <-chan event.Event
+//	res, errs := stream.New(events)
+//	histories, err := stream.Drain(context.TODO(), res, errs)
+//	// handle err
+//	for _, h := range histories {
+//		foo := newFoo(h.AggregateID())
+//		h.Apply(foo)
+//	}
+func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <-chan error) {
 	if events == nil {
 		evts := make(chan event.Event)
 		close(evts)
@@ -157,7 +173,7 @@ func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.Applier, <
 		events:              make(chan event.Event),
 		complete:            make(chan job),
 		groupReqs:           make(chan groupRequest),
-		out:                 make(chan aggregate.Applier),
+		out:                 make(chan aggregate.History),
 		outErrors:           make(chan error),
 		closed:              make(chan struct{}),
 	}
@@ -174,11 +190,21 @@ func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.Applier, <
 	return aes.out, aes.outErrors
 }
 
-func Drain(ctx context.Context, str <-chan aggregate.Applier, errs ...<-chan error) ([]aggregate.Applier, error) {
+// Drain drains the given History channel (lol) and returns its Histories.
+//
+// Drain accepts optional error channels which will cause Drain to fail on any
+// error. When Drain encounters an error from any of the error channels, the
+// already drained Histories and that error are returned. Similarly, when ctx is
+// canceled, the drained Histories and ctx.Err() are returned.
+//
+// Drain returns when the provided History channel is closed or it encounters an
+// error from an error channel and does not wait for the error channels to be
+// closed.
+func Drain(ctx context.Context, str <-chan aggregate.History, errs ...<-chan error) ([]aggregate.History, error) {
 	errChan, stop := xerror.FanIn(errs...)
 	defer stop()
 
-	out := make([]aggregate.Applier, 0, len(str))
+	out := make([]aggregate.History, 0, len(str))
 	for {
 		select {
 		case <-ctx.Done():

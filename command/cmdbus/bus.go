@@ -68,7 +68,7 @@ func DrainTimeout(dur time.Duration) Option {
 	}
 }
 
-// New returns an Event-driven Command Bus.
+// New returns an event-driven Command Bus.
 func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 	b := Bus{
 		assignTimeout: DefaultAssignTimeout,
@@ -122,8 +122,8 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 // CommandExecuted Event before returning.
 //
 // Errors that happen during the excecution of the Command are then also
-// returned by Dispatch as an *ExecutionError. Call ExecError() with
-// that error as the argument to unwrap the underlying *ExecutionError:
+// returned by Dispatch as an *ExecutionError. Call ExecError with that error as
+// the argument to unwrap the underlying *ExecutionError:
 //	err := b.Dispatch(context.TODO(), cmd)
 //	if execError, ok := ExecError(err); ok {
 //		log.Println(execError.Cmd)
@@ -311,8 +311,12 @@ func (b *Bus) assignCommand(ctx context.Context, cmd command.Command, data Comma
 	return nil
 }
 
-// Subscribe returns a channel of Command Contexts. That channel is registered as
-// a handler for Commands which have one of the specified names.
+// Subscribe returns a channel of Command Contexts and an error channel. The
+// Context channel channel is registered as a handler for Commands which have
+// one of the specified names.
+//
+// Callers of Subscribe are responsible for receiving from the returned error
+// channel to prevent a deadlock.
 //
 // When a Command Bus, which uses the same underlying Event Bus as Bus b,
 // dispatches a Command, Bus b tries to assign itself as the handler for that

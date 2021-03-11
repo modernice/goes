@@ -9,30 +9,30 @@ import (
 	"github.com/google/uuid"
 )
 
-// An Event unifies two different concepts: It's either an event from the event
-// stream of an event-sourced aggregate or it's an event that doesn't belong to
-// an aggregate. This is determined by the return values of AggregateName and
-// AggregateID; if they're both non-zero, the Event belongs to the aggregate.
+// An Event unifies two different concepts of events: It can be an Event in the
+// history of an event-sourced Aggregate or it can be a generic application or
+// integration Event that doesn't belong to an Aggregate.
 //
 // Publish & Subscribe
 //
-// An Event can be published through a Bus and sent to subscribers of events
-// with the same name. A subscriber who listens for "foo" events would receive
+// An Event can be published through a Bus and sent to subscribers of Events
+// with the same name; a subscriber who listens for "foo" events would receive
 // the published Event e if e.Name() returns "foo".
 //
-// Example (Publish):
+// Example (publish):
 // 	var b Bus
 // 	evt := New("foo", someData{})
 // 	err := b.Publish(context.TODO(), evt)
 // 	// handle err
 //
-// Example (Subscribe):
+// Example (subscribe):
 // 	var b Bus
-// 	events, err := b.Subscribe(context.TODO(), "foo")
+// 	res, errs, err := b.Subscribe(context.TODO(), "foo")
 // 	// handle err
-// 	for evt := range events {
-// 	    log.Println(fmt.Sprintf("received %q event: %#v", evt.Name(), evt))
-// 	}
+//	err := stream.Walk(context.TODO(), func(e event.Event) {
+// 	    log.Println(fmt.Sprintf("Received %q event: %v", e.Name(), e))
+//	}, res, errs)
+//	// handle err
 type Event interface {
 	// ID returns the unique id of the Event.
 	ID() uuid.UUID
@@ -76,29 +76,27 @@ func New(name string, data Data, opts ...Option) Event {
 		time: time.Now(),
 		data: data,
 	}
-
 	for _, opt := range opts {
 		opt(&evt)
 	}
-
 	return evt
 }
 
-// ID returns an Option that sets the UUID of an Event.
+// ID returns an Option that overrides the auto-generated UUID of an Event.
 func ID(id uuid.UUID) Option {
 	return func(evt *event) {
 		evt.id = id
 	}
 }
 
-// Time returns an Option that sets the timestamp of an Event.
+// Time returns an Option that overrides the auto-generated timestamp of an Event.
 func Time(t time.Time) Option {
 	return func(evt *event) {
 		evt.time = t
 	}
 }
 
-// Aggregate returns an Option that adds Aggregate information to an Event.
+// Aggregate returns an Option that links an Event to an Aggregate.
 func Aggregate(name string, id uuid.UUID, version int) Option {
 	return func(evt *event) {
 		evt.aggregateName = name

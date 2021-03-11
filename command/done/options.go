@@ -8,10 +8,10 @@ type Config struct {
 	Runtime time.Duration
 }
 
-// Option is a done option
+// Option is a Config option
 type Option func(*Config)
 
-// Configure returns a Config from Options.
+// Configure returns a Config from the provided Options.
 func Configure(opts ...Option) Config {
 	var cfg Config
 	for _, opt := range opts {
@@ -20,16 +20,14 @@ func Configure(opts ...Option) Config {
 	return cfg
 }
 
-// WithError returns an Option that adds reports the execution error of a
-// Command.
+// WithError returns an Option that adds an error to a Config.
 func WithError(err error) Option {
 	return func(cfg *Config) {
 		cfg.Err = err
 	}
 }
 
-// WithRuntime returns an Option that overrides the measured execution time of a
-// Command.
+// WithRuntime returns an Option that adds the execution runtime to a Config.
 func WithRuntime(d time.Duration) Option {
 	return func(cfg *Config) {
 		cfg.Runtime = d

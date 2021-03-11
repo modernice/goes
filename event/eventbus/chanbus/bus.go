@@ -1,4 +1,4 @@
-// Package chanbus provides a simple event.Bus implementation using channels.
+// Package chanbus provides an event.Bus implementation using channels.
 package chanbus
 
 import (

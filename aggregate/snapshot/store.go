@@ -37,6 +37,8 @@ type Store interface {
 }
 
 // A Stream iterates over Snapshots.
+//
+// TODO: remove
 type Stream interface {
 	// Next fetches the next Snapshot from the Stream and returns whether the
 	// fetch was successful. When Next returns false, Err should return the

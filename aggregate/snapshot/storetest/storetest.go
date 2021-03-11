@@ -85,8 +85,8 @@ func testLatest(t *testing.T, newStore StoreFactory) {
 		t.Errorf("Time should return %v; got %v", wantTime, latest.Time())
 	}
 
-	if !bytes.Equal(snap.Data(), latest.Data()) {
-		t.Errorf("Data should return %v; got %v", snap.Data(), latest.Data())
+	if !bytes.Equal(snap.State(), latest.State()) {
+		t.Errorf("Data should return %v; got %v", snap.State(), latest.State())
 	}
 }
 
@@ -128,8 +128,8 @@ func testLatestMultipleAvailable(t *testing.T, newStore StoreFactory) {
 		t.Errorf("Time should return %v; got %v", wantTime, latest.Time())
 	}
 
-	if !bytes.Equal(snap20.Data(), latest.Data()) {
-		t.Errorf("Data should return %v; got %v", snap20.Data(), latest.Data())
+	if !bytes.Equal(snap20.State(), latest.State()) {
+		t.Errorf("Data should return %v; got %v", snap20.State(), latest.State())
 	}
 }
 

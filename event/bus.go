@@ -6,15 +6,15 @@ import "context"
 
 // Bus is the pub-sub client for Events.
 type Bus interface {
-	// Publish sends the given Events to subscribers of those Events.
+	// Publish sends the given Events to subscribers of such Events.
 	Publish(ctx context.Context, events ...Event) error
 
 	// Subscribe returns a channel of Events and a channel of asynchronous errors.
 	// Only Events whose name is one of the provided names will be received from the
 	// returned Event channel.
 	//
-	// When Subscribe fails create the subscription, the returned channels will
-	// be nil and an error is returned.
+	// When Subscribe fails to create the subscription, the returned channels
+	// are nil and an error is returned.
 	//
 	// When ctx is canceled, both the Event and error channel are closed.
 	//
@@ -23,8 +23,5 @@ type Bus interface {
 	// Callers of Subscribe must ensure that errors are received from the
 	// returned error channel; otherwise the Bus may be blocked by the error
 	// channel.
-	//
-	// Depending on the implementation, the returned error channel may never
-	// receive any errors.
 	Subscribe(ctx context.Context, names ...string) (<-chan Event, <-chan error, error)
 }

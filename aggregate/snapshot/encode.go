@@ -4,7 +4,30 @@ import (
 	"github.com/modernice/goes/aggregate"
 )
 
-// A Marshaler can encode itself into bytes.
+// A Marshaler can encode itself into bytes. Aggregates must implement Marshaler
+// & Unmarshaler for Snapshots to work.
+//
+// Example using encoding/gob:
+//
+//	type foo struct {
+//		aggregate.Aggregate
+//		state
+//	}
+//
+//	type state struct {
+//		Name string
+//		Age uint8
+//	}
+//
+//	func (f *foo) MarshalSnapshot() ([]byte, error) {
+//		var buf bytes.Buffer
+//		err := gob.NewEncoder(&buf).Encode(f.state)
+//		return buf.Bytes(), err
+//	}
+//
+//	func (f *foo) UnmarshalSnapshot(p []byte) error {
+//		return gob.NewDecoder(bytes.NewReader(p)).Decode(&f.state)
+//	}
 type Marshaler interface {
 	MarshalSnapshot() ([]byte, error)
 }
@@ -14,7 +37,7 @@ type Unmarshaler interface {
 	UnmarshalSnapshot([]byte) error
 }
 
-// Marshal encodes th given Aggregate into a byte slice. Implementations of
+// Marshal encodes the given Aggregate into a byte slice. Implementations of
 // Aggregate must implement Marshaler for Marshal to return anything other than
 // nil. If the Aggregate does not implement Marshaler, Marshal returns nil, nil.
 func Marshal(a aggregate.Aggregate) ([]byte, error) {
@@ -30,7 +53,7 @@ func Marshal(a aggregate.Aggregate) ([]byte, error) {
 func Unmarshal(s Snapshot, a aggregate.Aggregate) error {
 	a.SetVersion(s.AggregateVersion())
 	if u, ok := a.(Unmarshaler); ok {
-		if err := u.UnmarshalSnapshot(s.Data()); err != nil {
+		if err := u.UnmarshalSnapshot(s.State()); err != nil {
 			return err
 		}
 	}
