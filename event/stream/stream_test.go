@@ -2,6 +2,7 @@ package stream_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -71,6 +72,46 @@ func TestDrain_partial(t *testing.T) {
 			cmp.Diff(events[1:], result, au),
 		)
 	}
+}
+
+func TestWalk(t *testing.T) {
+	events := makeEvents()
+	str := stream.Slice(events...)
+
+	var walked []event.Event
+	err := stream.Walk(context.Background(), func(evt event.Event) {
+		walked = append(walked, evt)
+	}, str)
+
+	if err != nil {
+		t.Fatalf("Walk shouldn't fail; failed with %q", err)
+	}
+
+	test.AssertEqualEvents(t, walked, events)
+}
+
+func TestWalk_error(t *testing.T) {
+	events := makeEvents()
+	errs := make(chan error, 1)
+	mockError := errors.New("mock error")
+	str := stream.Slice(events...)
+
+	var walked []event.Event
+	var iter int
+	err := stream.Walk(context.Background(), func(evt event.Event) {
+		walked = append(walked, evt)
+		iter++
+
+		if iter == 2 {
+			errs <- mockError
+		}
+	}, str, errs)
+
+	if !errors.Is(err, mockError) {
+		t.Errorf("Walk should fail with %q; got %q", mockError, err)
+	}
+
+	test.AssertEqualEvents(t, walked, events[:2])
 }
 
 func makeEvents() []event.Event {

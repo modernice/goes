@@ -52,3 +52,46 @@ func Drain(ctx context.Context, events <-chan event.Event, errs ...<-chan error)
 		}
 	}
 }
+
+// Walk retrieves from the given Event channel until it is closed, ctx is closed
+// or any of the provided error channels receives an error. For every Event e
+// that is received from the Event channel, walkFn(e) is called. Should ctx be
+// canceled before the Event channel is closed, ctx.Err() is returned. Should
+// an error be received from one of the optional error channels, that error is
+// returned. Otherwise Walk returns nil.
+//
+// Example:
+//
+//	var bus event.Bus
+//	events, errs, err := bus.Subscribe(context.TODO(), "foo", "bar", "baz")
+//	// handle err
+//	err := stream.Walk(context.TODO(), func(e event.Event) {
+//		log.Println(fmt.Sprintf("Received %q Event: %v", e.Name(), e))
+//	}, events, errs)
+//	// handle err
+func Walk(
+	ctx context.Context,
+	walkFn func(event.Event),
+	events <-chan event.Event,
+	errs ...<-chan error,
+) error {
+	errChan, stop := xerror.FanIn(errs...)
+	defer stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err, ok := <-errChan:
+			if ok {
+				return err
+			}
+			errChan = nil
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			walkFn(evt)
+		}
+	}
+}
