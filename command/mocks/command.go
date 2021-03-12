@@ -9,7 +9,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
 	command "github.com/modernice/goes/command"
-	dispatch "github.com/modernice/goes/command/cmdbus/dispatch"
 	io "io"
 	reflect "reflect"
 )
@@ -183,7 +182,7 @@ func (m *MockBus) EXPECT() *MockBusMockRecorder {
 }
 
 // Dispatch mocks base method
-func (m *MockBus) Dispatch(arg0 context.Context, arg1 command.Command, arg2 ...dispatch.Option) error {
+func (m *MockBus) Dispatch(arg0 context.Context, arg1 command.Command, arg2 ...command.DispatchOption) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {

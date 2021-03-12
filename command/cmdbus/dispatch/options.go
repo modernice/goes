@@ -1,34 +1,10 @@
 package dispatch
 
-import "github.com/modernice/goes/command/cmdbus/report"
-
-// Config is the configuration for dispatching a Command.
-type Config struct {
-	// A synchronous dispatch waits for the execution of the Command to finish
-	// and returns the execution error if there was any.
-	//
-	// A dispatch is automatically made synchronous when Repoter is non-nil.
-	Synchronous bool
-
-	// If Reporter is not nil, the Bus will report the execution result of a
-	// Command to Reporter by calling Reporter.Report().
-	//
-	// A non-nil Reporter makes the dispatch synchronous.
-	Reporter Reporter
-}
-
-// A Reporter reports execution results of Commands.
-type Reporter interface {
-	// Report reports the execution result of a Command.
-	Report(report.Report)
-}
-
-// Option is a dispatch option.
-type Option func(*Config)
+import "github.com/modernice/goes/command"
 
 // Configure returns a Config from Options.
-func Configure(opts ...Option) Config {
-	var cfg Config
+func Configure(opts ...command.DispatchOption) command.DispatchConfig {
+	var cfg command.DispatchConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -42,16 +18,16 @@ func Configure(opts ...Option) Config {
 //
 // A synchronous dispatch also returns errors that happen during the execution
 // of a Command.
-func Synchronous() Option {
-	return func(cfg *Config) {
+func Synchronous() command.DispatchOption {
+	return func(cfg *command.DispatchConfig) {
 		cfg.Synchronous = true
 	}
 }
 
 // Report returns an Option that makes the Command Bus report the executon
 // result of a Command to the Reporter r.
-func Report(r Reporter) Option {
-	return func(cfg *Config) {
+func Report(r command.Reporter) command.DispatchOption {
+	return func(cfg *command.DispatchConfig) {
 		cfg.Reporter = r
 	}
 }

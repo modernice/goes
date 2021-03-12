@@ -28,10 +28,12 @@ const (
 )
 
 var (
-	// ErrAssignTimeout is returned by the Bus when it fails to assign a Command
-	// to a Handler before a specified deadline.
+	// ErrAssignTimeout is returned by a Bus when it fails to assign a Command
+	// to a Handler before a given deadline.
 	ErrAssignTimeout = errors.New("failed to assign command because of timeout")
 
+	// ErrDispatchCanceled is returned by a Bus when the dispatch was canceled
+	// by the provided Context.
 	ErrDispatchCanceled = errors.New("dispatch canceled")
 )
 
@@ -146,7 +148,7 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 // 	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
 // 	log.Println(fmt.Sprintf("Error: %v", rep.Error()))
-func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatch.Option) error {
+func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) error {
 	cfg := dispatch.Configure(opts...)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -227,7 +229,7 @@ func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 
 func (b *Bus) workDispatch(
 	ctx context.Context,
-	cfg dispatch.Config,
+	cfg command.DispatchConfig,
 	cmd command.Command,
 	events <-chan event.Event,
 	errs <-chan error,
@@ -240,10 +242,10 @@ func (b *Bus) workDispatch(
 		case <-assignTimeout:
 			return ErrAssignTimeout
 		case err, ok := <-errs:
-			if !ok {
-				errs = nil
+			if ok {
+				return fmt.Errorf("event stream: %w", err)
 			}
-			return fmt.Errorf("event stream: %w", err)
+			errs = nil
 		case evt, ok := <-events:
 			if !ok {
 				return ErrDispatchCanceled
@@ -264,7 +266,7 @@ func (b *Bus) workDispatch(
 
 func (b *Bus) handleDispatchEvent(
 	ctx context.Context,
-	cfg dispatch.Config,
+	cfg command.DispatchConfig,
 	cmd command.Command,
 	evt event.Event,
 	accepted chan struct{},

@@ -3,32 +3,21 @@ package report
 import (
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes/command"
 )
 
-// A Report provides information about the execution of a Command. A *Report is
-// also a Reporter.
+// A Report provides information about the execution of a Command.
 type Report struct {
-	cmd     Command
+	cmd     command.Command
 	runtime time.Duration
 	err     error
-}
-
-// Command is a subset of command.Command. Redeclared here to avoid import
-// cycles.
-type Command interface {
-	// ID returns the UUID of the Command.
-	ID() uuid.UUID
-
-	// Name returns the name of the Command.
-	Name() string
 }
 
 // Option is a Report option.
 type Option func(*Report)
 
 // New returns a new Report that is filled with the information from opts.
-func New(cmd Command, opts ...Option) Report {
+func New(cmd command.Command, opts ...Option) Report {
 	r := Report{cmd: cmd}
 	for _, opt := range opts {
 		opt(&r)
@@ -43,29 +32,26 @@ func Runtime(d time.Duration) Option {
 	}
 }
 
-// Error returns an Option that specifies the execution error of a Command.
+// Error returns a ReportOption that adds the execution error of a Command to a
+// Report.
 func Error(err error) Option {
 	return func(r *Report) {
 		r.err = err
 	}
 }
 
-// Command returns the Command.
-func (r Report) Command() Command {
+func (r Report) Command() command.Command {
 	return r.cmd
 }
 
-// Runtime returns the runtime of the Command.
 func (r Report) Runtime() time.Duration {
 	return r.runtime
 }
 
-// Error returns the execution error of the Command.
-func (r Report) Error() error {
+func (r Report) Err() error {
 	return r.err
 }
 
-// Report fills the Report r with the data in Report rep.
-func (r *Report) Report(rep Report) {
-	*r = New(rep.Command(), Runtime(rep.runtime), Error(rep.Error()))
+func (r *Report) Report(rep command.Report) {
+	*r = New(rep.Command(), Runtime(rep.Runtime()), Error(rep.Err()))
 }

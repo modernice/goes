@@ -5,9 +5,9 @@ package command
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/done"
 )
 
@@ -64,12 +64,47 @@ type Bus interface {
 	// Dispatch sends the Command to the appropriate subscriber. Dispatch must
 	// only return nil if the Command has been successfully received by a
 	// subscriber.
-	Dispatch(context.Context, Command, ...dispatch.Option) error
+	Dispatch(context.Context, Command, ...DispatchOption) error
 
 	// Subscribe subscribes to Commands with the given names and returns a
 	// channel of Contexts. Implementations of Bus must ensure that Commands
 	// aren't received by multiple subscribers.
 	Subscribe(ctx context.Context, names ...string) (<-chan Context, <-chan error, error)
+}
+
+// Config is the configuration for dispatching a Command.
+type DispatchConfig struct {
+	// A synchronous dispatch waits for the execution of the Command to finish
+	// and returns the execution error if there was any.
+	//
+	// A dispatch is automatically made synchronous when Repoter is non-nil.
+	Synchronous bool
+
+	// If Reporter is not nil, the Bus will report the execution result of a
+	// Command to Reporter by calling Reporter.Report().
+	//
+	// A non-nil Reporter makes the dispatch synchronous.
+	Reporter Reporter
+}
+
+// DispatchOption is an option for dispatching Commands.
+type DispatchOption func(*DispatchConfig)
+
+// A Reporter reports execution results of a Command.
+type Reporter interface {
+	Report(Report)
+}
+
+// A Report provides information about the execution of a Command.
+type Report interface {
+	// Command returns the executed Command.
+	Command() Command
+
+	// Runtime returns the runtime of the execution.
+	Runtime() time.Duration
+
+	// Err returns the error that made the execution fail.
+	Err() error
 }
 
 // Context is the context for handling Commands.

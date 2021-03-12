@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/modernice/goes/command"
-	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/internal/errbus"
 )
 
@@ -201,7 +200,9 @@ func newMockBus() *mockBus {
 	}
 }
 
-func (b *mockBus) Dispatch(context.Context, command.Command, ...dispatch.Option) error { return nil }
+func (b *mockBus) Dispatch(context.Context, command.Command, ...command.DispatchOption) error {
+	return nil
+}
 
 func (b *mockBus) Subscribe(context.Context, ...string) (<-chan command.Context, <-chan error, error) {
 	return nil, nil, nil
