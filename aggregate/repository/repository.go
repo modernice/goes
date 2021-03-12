@@ -12,7 +12,6 @@ import (
 	"github.com/modernice/goes/event"
 	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
-	estream "github.com/modernice/goes/event/stream"
 )
 
 var (
@@ -113,7 +112,7 @@ func (r *repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 		return nil, fmt.Errorf("query events: %w", err)
 	}
 
-	events, err := estream.Drain(ctx, str, errs)
+	events, err := event.Drain(ctx, str, errs)
 	if err != nil {
 		return events, fmt.Errorf("stream: %w", err)
 	}

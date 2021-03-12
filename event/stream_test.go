@@ -1,4 +1,4 @@
-package stream_test
+package event_test
 
 import (
 	"context"
@@ -8,15 +8,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/stream"
 	"github.com/modernice/goes/event/test"
 )
 
-func TestSlice(t *testing.T) {
+func TestStream(t *testing.T) {
 	events := makeEvents()
-	str := stream.Slice(events...)
+	str := event.Stream(events...)
 
-	result, err := stream.Drain(context.Background(), str)
+	result, err := event.Drain(context.Background(), str)
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected cur.Err to return %#v; got %#v", error(nil), err))
 	}
@@ -34,9 +33,9 @@ func TestSlice(t *testing.T) {
 
 func TestDrain(t *testing.T) {
 	events := makeEvents()
-	str := stream.Slice(events...)
+	str := event.Stream(events...)
 
-	result, err := stream.Drain(context.Background(), str)
+	result, err := event.Drain(context.Background(), str)
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected cursor.Drain not to return an error; got %#v", err))
 	}
@@ -54,11 +53,11 @@ func TestDrain(t *testing.T) {
 
 func TestDrain_partial(t *testing.T) {
 	events := makeEvents()
-	str := stream.Slice(events...)
+	str := event.Stream(events...)
 
 	<-str
 
-	result, err := stream.Drain(context.Background(), str)
+	result, err := event.Drain(context.Background(), str)
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected cursor.Drain not to return an error; got %v", err))
 	}
@@ -76,10 +75,10 @@ func TestDrain_partial(t *testing.T) {
 
 func TestWalk(t *testing.T) {
 	events := makeEvents()
-	str := stream.Slice(events...)
+	str := event.Stream(events...)
 
 	var walked []event.Event
-	err := stream.Walk(context.Background(), func(evt event.Event) {
+	err := event.Walk(context.Background(), func(evt event.Event) {
 		walked = append(walked, evt)
 	}, str)
 
@@ -94,24 +93,16 @@ func TestWalk_error(t *testing.T) {
 	events := makeEvents()
 	errs := make(chan error, 1)
 	mockError := errors.New("mock error")
-	str := stream.Slice(events...)
+	str := event.Stream(events...)
 
-	var walked []event.Event
-	var iter int
-	err := stream.Walk(context.Background(), func(evt event.Event) {
-		walked = append(walked, evt)
-		iter++
+	errs <- mockError
+	close(errs)
 
-		if iter == 2 {
-			errs <- mockError
-		}
-	}, str, errs)
+	err := event.Walk(context.Background(), func(evt event.Event) {}, str, errs)
 
 	if !errors.Is(err, mockError) {
 		t.Errorf("Walk should fail with %q; got %q", mockError, err)
 	}
-
-	test.AssertEqualEvents(t, walked, events[:2])
 }
 
 func makeEvents() []event.Event {

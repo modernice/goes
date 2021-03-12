@@ -13,7 +13,6 @@ import (
 	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
-	estream "github.com/modernice/goes/event/stream"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/xaggregate"
 	"github.com/modernice/goes/internal/xevent"
@@ -31,7 +30,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
-	es := estream.Slice(events...)
+	es := event.Stream(events...)
 
 	str, errs := stream.New(es)
 
@@ -65,7 +64,7 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
-	es := estream.Slice(events...)
+	es := event.Stream(events...)
 
 	str, errs := stream.New(es)
 
@@ -91,7 +90,7 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
-	es := estream.Slice(events...)
+	es := event.Stream(events...)
 
 	str, errs := stream.New(es)
 
@@ -131,7 +130,7 @@ func TestStream_inconsistent(t *testing.T) {
 	am := xaggregate.Map(as)
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion(3))
 
-	es := estream.Slice(events...)
+	es := event.Stream(events...)
 	str, errs := stream.New(es)
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
@@ -163,7 +162,7 @@ func TestSorted(t *testing.T) {
 	// swap first and last event, so they're unordered
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
-	es := estream.Slice(events...)
+	es := event.Stream(events...)
 	str, errs := stream.New(es, stream.Sorted(true))
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
@@ -201,7 +200,7 @@ func TestGrouped(t *testing.T) {
 		event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
 	)
 
-	es := estream.Slice(events...)
+	es := event.Stream(events...)
 	es = xstream.Delayed(100*time.Millisecond, es)
 
 	str, errs := stream.New(es, stream.Grouped(true))
@@ -239,7 +238,7 @@ func TestValidateConsistency(t *testing.T) {
 	// swap first and last event, so they're unordered
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
-	es := estream.Slice(events...)
+	es := event.Stream(events...)
 	str, errs := stream.New(
 		es,
 		// prevent sorting of events
@@ -272,7 +271,7 @@ func TestFilter(t *testing.T) {
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
 
-	es := estream.Slice(events...)
+	es := event.Stream(events...)
 
 	str, errs := stream.New(
 		es,

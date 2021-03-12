@@ -12,7 +12,6 @@ import (
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
-	"github.com/modernice/goes/event/stream"
 	"github.com/modernice/goes/event/test"
 	"golang.org/x/sync/errgroup"
 )
@@ -514,7 +513,7 @@ func runQuery(s event.Store, q event.Query) ([]event.Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)
 	}
-	result, err := stream.Drain(context.Background(), events)
+	result, err := event.Drain(context.Background(), events)
 	if err != nil {
 		return nil, fmt.Errorf("expected cursor.All to succeed; got %w", err)
 	}

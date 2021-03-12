@@ -1,16 +1,15 @@
-package stream
+package event
 
 import (
 	"context"
 
-	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/xerror"
 )
 
-// Slice returns an Event channel that is filled and closed with the provided
+// Stream returns an Event channel that is filled and closed with the provided
 // Events in a separate goroutine.
-func Slice(events ...event.Event) <-chan event.Event {
-	out := make(chan event.Event)
+func Stream(events ...Event) <-chan Event {
+	out := make(chan Event)
 	go func() {
 		defer close(out)
 		for _, evt := range events {
@@ -30,9 +29,9 @@ func Slice(events ...event.Event) <-chan event.Event {
 // Drain returns when the provided Event channel is closed or it encounters an
 // error from an error channel and does not wait for the error channels to be
 // closed.
-func Drain(ctx context.Context, events <-chan event.Event, errs ...<-chan error) ([]event.Event, error) {
-	out := make([]event.Event, 0, len(events))
-	err := Walk(ctx, func(e event.Event) { out = append(out, e) }, events, errs...)
+func Drain(ctx context.Context, events <-chan Event, errs ...<-chan error) ([]Event, error) {
+	out := make([]Event, 0, len(events))
+	err := Walk(ctx, func(e Event) { out = append(out, e) }, events, errs...)
 	return out, err
 }
 
@@ -45,17 +44,17 @@ func Drain(ctx context.Context, events <-chan event.Event, errs ...<-chan error)
 //
 // Example:
 //
-//	var bus event.Bus
+//	var bus Bus
 //	events, errs, err := bus.Subscribe(context.TODO(), "foo", "bar", "baz")
 //	// handle err
-//	err := stream.Walk(context.TODO(), func(e event.Event) {
+//	err := stream.Walk(context.TODO(), func(e Event) {
 //		log.Println(fmt.Sprintf("Received %q Event: %v", e.Name(), e))
 //	}, events, errs)
 //	// handle err
 func Walk(
 	ctx context.Context,
-	walkFn func(event.Event),
-	events <-chan event.Event,
+	walkFn func(Event),
+	events <-chan Event,
 	errs ...<-chan error,
 ) error {
 	errChan, stop := xerror.FanIn(errs...)

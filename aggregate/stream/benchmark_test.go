@@ -9,7 +9,6 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
-	estream "github.com/modernice/goes/event/stream"
 	"github.com/modernice/goes/event/test"
 )
 
@@ -142,7 +141,7 @@ L:
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		var as []aggregate.Aggregate
-		estr := estream.Slice(events...)
+		estr := event.Stream(events...)
 		b.StartTimer()
 
 		str, errs := stream.New(estr, opts...)
