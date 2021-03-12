@@ -354,7 +354,7 @@ func (b *Bus) subscribeSubscribe(ctx context.Context) (<-chan event.Event, <-cha
 }
 
 func (b *Bus) workSubscription(
-	ctx context.Context,
+	parentCtx context.Context,
 	events <-chan event.Event,
 	errs <-chan error,
 	out chan<- command.Context,
@@ -365,8 +365,13 @@ func (b *Bus) workSubscription(
 		time time.Time
 	}
 
+	isDone := make(chan struct{})
+	defer close(isDone)
+
 	defer close(out)
 	defer close(outErrs)
+
+	ctx := b.newSubscriptionContext(parentCtx, isDone)
 
 	requested := make(map[uuid.UUID]commandRequest)
 
@@ -427,16 +432,46 @@ func (b *Bus) workSubscription(
 					break
 				}
 
-				out <- cmdctx.New(
+				select {
+				case <-ctx.Done():
+					return
+				case out <- cmdctx.New(
 					context.Background(),
 					req.cmd,
 					cmdctx.WhenDone(func(ctx context.Context, cfg done.Config) error {
 						return b.markDone(ctx, req.cmd, cfg)
 					}),
-				)
+				):
+				}
 			}
 		}
 	}
+}
+
+func (b *Bus) newSubscriptionContext(parent context.Context, done <-chan struct{}) context.Context {
+	if b.drainTimeout == 0 {
+		return context.Background()
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		defer cancel()
+		select {
+		case <-done:
+			return
+		case <-parent.Done():
+		}
+
+		timer := time.NewTimer(b.drainTimeout)
+		defer timer.Stop()
+
+		select {
+		case <-done:
+		case <-timer.C:
+		}
+	}()
+
+	return ctx
 }
 
 func (b *Bus) requestCommand(ctx context.Context, cmd command.Command) error {
