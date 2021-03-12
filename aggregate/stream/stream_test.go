@@ -315,7 +315,7 @@ func drain(
 	}
 	defer cancel()
 
-	results, err := stream.Drain(ctx, s, errs)
+	results, err := aggregate.Drain(ctx, s, errs)
 	if err != nil {
 		return nil, err
 	}

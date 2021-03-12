@@ -13,7 +13,6 @@ import (
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/mongosnap"
-	"github.com/modernice/goes/aggregate/snapshot/stream"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/internal/xaggregate"
 )
@@ -446,7 +445,7 @@ func runQuery(s snapshot.Store, q aggregate.Query) ([]snapshot.Snapshot, error) 
 	if err != nil {
 		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)
 	}
-	return stream.Drain(context.Background(), str, errs)
+	return snapshot.Drain(context.Background(), str, errs)
 }
 
 func makeSnaps(as []aggregate.Aggregate) []snapshot.Snapshot {

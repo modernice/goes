@@ -1,9 +1,8 @@
-package stream
+package snapshot
 
 import (
 	"context"
 
-	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/internal/xerror"
 )
 
@@ -19,13 +18,13 @@ import (
 // closed.
 func Drain(
 	ctx context.Context,
-	snaps <-chan snapshot.Snapshot,
+	snaps <-chan Snapshot,
 	errs ...<-chan error,
-) ([]snapshot.Snapshot, error) {
-	out := make([]snapshot.Snapshot, 0, len(snaps))
+) ([]Snapshot, error) {
+	out := make([]Snapshot, 0, len(snaps))
 	err := Walk(
 		ctx,
-		func(s snapshot.Snapshot) { out = append(out, s) },
+		func(s Snapshot) { out = append(out, s) },
 		snaps,
 		errs...,
 	)
@@ -50,8 +49,8 @@ func Drain(
 //	// handle err
 func Walk(
 	ctx context.Context,
-	walkFn func(snapshot.Snapshot),
-	snaps <-chan snapshot.Snapshot,
+	walkFn func(Snapshot),
+	snaps <-chan Snapshot,
 	errs ...<-chan error,
 ) error {
 	errChan, stop := xerror.FanIn(errs...)
