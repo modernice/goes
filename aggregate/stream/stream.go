@@ -201,25 +201,50 @@ func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <
 // error from an error channel and does not wait for the error channels to be
 // closed.
 func Drain(ctx context.Context, str <-chan aggregate.History, errs ...<-chan error) ([]aggregate.History, error) {
+	out := make([]aggregate.History, 0, len(str))
+	err := Walk(ctx, func(h aggregate.History) { out = append(out, h) }, str, errs...)
+	return out, err
+}
+
+// Walk retrieves from the given History channel until it is closed, ctx is
+// closed or any of the provided error channels receives an error. For every
+// History h that is received from the History channel, walkFn(h) is called.
+// Should ctx be canceled before the History channel is closed, ctx.Err() is
+// returned. Should an error be received from one of the optional error
+// channels, that error is returned. Otherwise Walk returns nil.
+//
+// Example:
+//
+//	var repo aggregate.Repository
+//	str, errs, err := repo.Query(context.TODO(), query.New())
+//	// handle err
+//	err := stream.Walk(context.TODO(), func(h aggregate.History) {
+//		log.Println(fmt.Sprintf("Received History: %v", h))
+//	}, str, errs)
+//	// handle err
+func Walk(
+	ctx context.Context,
+	walkFn func(aggregate.History),
+	str <-chan aggregate.History,
+	errs ...<-chan error,
+) error {
 	errChan, stop := xerror.FanIn(errs...)
 	defer stop()
 
-	out := make([]aggregate.History, 0, len(str))
 	for {
 		select {
 		case <-ctx.Done():
-			return out, ctx.Err()
+			return ctx.Err()
 		case err, ok := <-errChan:
-			if !ok {
-				errChan = nil
-				break
+			if ok {
+				return err
 			}
-			return out, err
-		case res, ok := <-str:
+			errChan = nil
+		case his, ok := <-str:
 			if !ok {
-				return out, nil
+				return nil
 			}
-			out = append(out, res)
+			walkFn(his)
 		}
 	}
 }

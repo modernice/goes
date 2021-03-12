@@ -92,20 +92,35 @@ func (s *store) Limit(_ context.Context, name string, id uuid.UUID, v int) (snap
 	return snap, nil
 }
 
-func (s *store) Query(_ context.Context, q aggregate.Query) (snapshot.Stream, error) {
-	var out []snapshot.Snapshot
+func (s *store) Query(ctx context.Context, q aggregate.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
+	var snaps []snapshot.Snapshot
 	for name, idsnaps := range s.snaps {
 		for id, vsnaps := range idsnaps {
 			for v, snap := range vsnaps {
 				if !query.Test(q, aggregate.New(name, id, aggregate.Version(v))) {
 					continue
 				}
-				out = append(out, snap)
+				snaps = append(snaps, snap)
 			}
 		}
 	}
-	out = snapshot.SortMulti(out, q.Sortings()...)
-	return &stream{snaps: out}, nil
+	snaps = snapshot.SortMulti(snaps, q.Sortings()...)
+
+	out, outErrs := make(chan snapshot.Snapshot), make(chan error)
+
+	go func() {
+		defer close(out)
+		defer close(outErrs)
+		for _, snap := range snaps {
+			select {
+			case <-ctx.Done():
+				return
+			case out <- snap:
+			}
+		}
+	}()
+
+	return out, outErrs, nil
 }
 
 func (s *store) Delete(_ context.Context, snap snapshot.Snapshot) error {

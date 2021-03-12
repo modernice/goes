@@ -47,12 +47,6 @@ type entry struct {
 	Data             []byte       `bson:"data"`
 }
 
-type stream struct {
-	cur  *mongo.Cursor
-	snap snapshot.Snapshot
-	err  error
-}
-
 // URL returns an Option that specifies the URL to the MongoDB instance. An
 // empty URL means "use the default".
 //
@@ -172,7 +166,7 @@ func (s *Store) Version(ctx context.Context, name string, id uuid.UUID, version 
 // Limit returns the latest Snapshot that has a version equal to or lower
 // than the given version.
 //
-// Limit returns ErrNotFound if no such Snapshot can exists in the database.
+// Limit returns ErrNotFound if no such Snapshot can be found in the database.
 func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
 	res := s.col.FindOne(
 		ctx,
@@ -199,17 +193,46 @@ func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (sn
 	return e.snapshot()
 }
 
-// Query queries the database for Snapshots and returns a Stream of those
-// Snapshots.
-func (s *Store) Query(ctx context.Context, q aggregate.Query) (snapshot.Stream, error) {
+func (s *Store) Query(ctx context.Context, q aggregate.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
 	filter := makeFilter(q)
 	opts := options.Find()
 	applySortings(opts, q.Sortings()...)
 	cur, err := s.col.Find(ctx, filter, opts)
 	if err != nil {
-		return nil, fmt.Errorf("mongo: %w", err)
+		return nil, nil, fmt.Errorf("mongo: %w", err)
 	}
-	return &stream{cur: cur}, nil
+
+	out, outErrs := make(chan snapshot.Snapshot), make(chan error)
+
+	go func() {
+		defer close(out)
+		defer close(outErrs)
+
+		for cur.Next(ctx) {
+			var e entry
+			if err = cur.Decode(&e); err != nil {
+				outErrs <- fmt.Errorf("decode mongo result: %w", err)
+				continue
+			}
+
+			snap, err := e.snapshot()
+			if err != nil {
+				outErrs <- err
+				continue
+			}
+			out <- snap
+		}
+
+		if cur.Err() != nil {
+			outErrs <- fmt.Errorf("mongo cursor: %w", err)
+		}
+
+		if err := cur.Close(ctx); err != nil {
+			outErrs <- fmt.Errorf("close mongo cursor: %w", err)
+		}
+	}()
+
+	return out, outErrs, nil
 }
 
 // Delete deletes a Snapshot from the database.
@@ -292,41 +315,6 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 		},
 	})
 	return err
-}
-
-func (s *stream) Next(ctx context.Context) bool {
-	s.err = nil
-	if !s.cur.Next(ctx) {
-		s.err = s.cur.Err()
-		return false
-	}
-
-	var e entry
-	if err := s.cur.Decode(&e); err != nil {
-		s.err = fmt.Errorf("decode: %w", err)
-		return false
-	}
-
-	snap, err := e.snapshot()
-	if err != nil {
-		s.err = fmt.Errorf("snapshot.New: %w", err)
-		return false
-	}
-	s.snap = snap
-
-	return true
-}
-
-func (s *stream) Snapshot() snapshot.Snapshot {
-	return s.snap
-}
-
-func (s *stream) Err() error {
-	return s.err
-}
-
-func (s *stream) Close(ctx context.Context) error {
-	return s.cur.Close(ctx)
 }
 
 func makeFilter(q aggregate.Query) bson.D {

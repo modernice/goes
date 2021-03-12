@@ -13,6 +13,7 @@ import (
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/mongosnap"
+	"github.com/modernice/goes/aggregate/snapshot/stream"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/internal/xaggregate"
 )
@@ -441,18 +442,11 @@ func testDelete(t *testing.T, newStore StoreFactory) {
 }
 
 func runQuery(s snapshot.Store, q aggregate.Query) ([]snapshot.Snapshot, error) {
-	str, err := s.Query(context.Background(), q)
+	str, errs, err := s.Query(context.Background(), q)
 	if err != nil {
 		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)
 	}
-	var snaps []snapshot.Snapshot
-	for str.Next(context.Background()) {
-		snaps = append(snaps, str.Snapshot())
-	}
-	if err := str.Err(); err != nil {
-		return nil, fmt.Errorf("stream: %w", err)
-	}
-	return snaps, nil
+	return stream.Drain(context.Background(), str, errs)
 }
 
 func makeSnaps(as []aggregate.Aggregate) []snapshot.Snapshot {

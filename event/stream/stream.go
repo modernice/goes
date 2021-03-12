@@ -31,26 +31,9 @@ func Slice(events ...event.Event) <-chan event.Event {
 // error from an error channel and does not wait for the error channels to be
 // closed.
 func Drain(ctx context.Context, events <-chan event.Event, errs ...<-chan error) ([]event.Event, error) {
-	errChan, stop := xerror.FanIn(errs...)
-	defer stop()
-
 	out := make([]event.Event, 0, len(events))
-	for {
-		select {
-		case <-ctx.Done():
-			return out, ctx.Err()
-		case err, ok := <-errChan:
-			if ok {
-				return out, err
-			}
-			errChan = nil
-		case evt, ok := <-events:
-			if !ok {
-				return out, nil
-			}
-			out = append(out, evt)
-		}
-	}
+	err := Walk(ctx, func(e event.Event) { out = append(out, e) }, events, errs...)
+	return out, err
 }
 
 // Walk retrieves from the given Event channel until it is closed, ctx is closed

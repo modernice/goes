@@ -28,30 +28,23 @@ type Store interface {
 	// such Snapshot can be found.
 	Limit(context.Context, string, uuid.UUID, int) (Snapshot, error)
 
-	// Query queries the Store for Snapshots and returns a Stream for those
-	// Snapshots.
-	Query(context.Context, aggregate.Query) (Stream, error)
+	// Query queries the Store for Snapshots that fit the given Query and
+	// returns a channel of Snapshots and a channel of errors.
+	//
+	// Example:
+	//
+	//	var store snapshot.Store
+	//	snaps, errs, err := store.Query(context.TODO(), query.New())
+	//	// handle err
+	//	err := snapshot.Walk(context.TODO(), func(snap snapshot.Snapshot) {
+	//		log.Println(fmt.Sprintf("Queried Snapshot: %v", snap))
+	//		foo := newFoo(snap.AggregateID())
+	//		err := snapshot.Unmarshal(snap, foo)
+	//		// handke err
+	//	}, snaps, errs)
+	//	// handle err
+	Query(context.Context, aggregate.Query) (<-chan Snapshot, <-chan error, error)
 
 	// Delete deletes a Snapshot from the Store.
 	Delete(context.Context, Snapshot) error
-}
-
-// A Stream iterates over Snapshots.
-//
-// TODO: remove
-type Stream interface {
-	// Next fetches the next Snapshot from the Stream and returns whether the
-	// fetch was successful. When Next returns false, Err should return the
-	// error that made the fetch fail. Otherwise Snapshot returns the current
-	// Snapshot.
-	Next(context.Context) bool
-
-	// Snapshot returns the current Snapshot from the Stream.
-	Snapshot() Snapshot
-
-	// Err returns the current error from the Stream.
-	Err() error
-
-	// Close closes the Stream.
-	Close(context.Context) error
 }

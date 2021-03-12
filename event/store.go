@@ -34,9 +34,6 @@ type Store interface {
 	// Find fetches the Event with the specified UUID from the store.
 	Find(context.Context, uuid.UUID) (Event, error)
 
-	// Query queries the database for events filtered by Query q and returns a
-	// Stream for those events.
-
 	// Query queries the Store for Events that fit the given Query and returns a
 	// channel of Events and a channel of errors.
 	//

@@ -19,7 +19,9 @@ var (
 )
 
 func TestStore(t *testing.T) {
-	storetest.Run(t, newStore)
+	t.Run("mongodb", func(t *testing.T) {
+		storetest.Run(t, newStore)
+	})
 }
 
 func TestStore_Connect(t *testing.T) {
