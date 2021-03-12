@@ -31,6 +31,8 @@ var (
 	// ErrAssignTimeout is returned by the Bus when it fails to assign a Command
 	// to a Handler before a specified deadline.
 	ErrAssignTimeout = errors.New("failed to assign command because of timeout")
+
+	ErrDispatchCanceled = errors.New("dispatch canceled")
 )
 
 // Bus is an Event-driven Command Bus.
@@ -152,11 +154,11 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 
 	events, errs, err := b.subscribeDispatch(ctx, cfg.Synchronous)
 	if err != nil {
-		return err
+		return b.dispatchError(err)
 	}
 
 	if err := b.dispatch(ctx, cmd); err != nil {
-		return err
+		return b.dispatchError(err)
 	}
 
 	var assignTimeout <-chan time.Time
@@ -166,7 +168,26 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...dispatc
 		assignTimeout = timer.C
 	}
 
-	return b.workDispatch(ctx, cfg, cmd, events, errs, assignTimeout)
+	return b.dispatchError(b.workDispatch(
+		ctx,
+		cfg,
+		cmd,
+		events,
+		errs,
+		assignTimeout,
+	))
+}
+
+func (b *Bus) dispatchError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, context.Canceled) {
+		return ErrDispatchCanceled
+	}
+
+	return err
 }
 
 func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Event, <-chan error, error) {
@@ -225,8 +246,7 @@ func (b *Bus) workDispatch(
 			return fmt.Errorf("event stream: %w", err)
 		case evt, ok := <-events:
 			if !ok {
-				// TODO: change error
-				return errors.New("event stream closed")
+				return ErrDispatchCanceled
 			}
 
 			if done, err := b.handleDispatchEvent(ctx, cfg, cmd, evt, accepted); done {

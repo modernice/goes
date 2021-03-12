@@ -67,7 +67,7 @@ L:
 	assertEqualCommands(t, ctx.Command(), cmd)
 }
 
-func TestDispatch_Report(t *testing.T) {
+func TestBus_Dispatch_Report(t *testing.T) {
 	bus, _, _ := newBus()
 
 	commands, errs, err := bus.Subscribe(context.Background(), "foo-cmd")
@@ -129,6 +129,21 @@ func TestDispatch_Report(t *testing.T) {
 
 	if rep.Runtime() != dur {
 		t.Errorf("Report has wrong runtime. want=%s got=%s", dur, rep.Runtime())
+	}
+}
+
+func TestBus_Dispatch_cancel(t *testing.T) {
+	bus, _, _ := newBus()
+
+	cmd := command.New("foo-cmd", mockPayload{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := bus.Dispatch(ctx, cmd)
+
+	if !errors.Is(err, cmdbus.ErrDispatchCanceled) {
+		t.Fatalf("Dispatch should fail with %q; got %q", cmdbus.ErrDispatchCanceled, err)
 	}
 }
 
