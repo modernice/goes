@@ -233,7 +233,6 @@ func (p *periodically) handleTicks(
 ) {
 	defer close(jobs)
 	defer close(errs)
-L:
 	for {
 		select {
 		case <-ctx.Done():
@@ -248,34 +247,20 @@ L:
 				return
 			}
 
-			for {
+			if err = event.Walk(ctx, func(evt event.Event) {
+				if shouldDiscard(evt, p.filter) {
+					return
+				}
+
 				select {
 				case <-ctx.Done():
-					return
-				case err, ok := <-serrs:
-					if !ok {
-						serrs = nil
-						break
-					}
-					errs <- fmt.Errorf("event stream: %w", err)
-				case evt, ok := <-str:
-					if !ok {
-						continue L
-					}
-
-					if shouldDiscard(evt, p.filter) {
-						continue
-					}
-
-					select {
-					case <-ctx.Done():
-						return
-					case jobs <- job{
-						aggregateName: evt.AggregateName(),
-						aggregateID:   evt.AggregateID(),
-					}:
-					}
+				case jobs <- job{
+					aggregateName: evt.AggregateName(),
+					aggregateID:   evt.AggregateID(),
+				}:
 				}
+			}, str, serrs); err != nil {
+				errs <- fmt.Errorf("event stream: %w", err)
 			}
 		}
 	}

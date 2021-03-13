@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/snapshot"
+	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -193,7 +194,7 @@ func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (sn
 	return e.snapshot()
 }
 
-func (s *Store) Query(ctx context.Context, q aggregate.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
+func (s *Store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
 	filter := makeFilter(q)
 	opts := options.Find()
 	applySortings(opts, q.Sortings()...)
@@ -317,11 +318,12 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 	return err
 }
 
-func makeFilter(q aggregate.Query) bson.D {
+func makeFilter(q snapshot.Query) bson.D {
 	filter := make(bson.D, 0)
 	filter = withNameFilter(filter, q.Names())
 	filter = withIDFilter(filter, q.IDs())
 	filter = withVersionFilter(filter, q.Versions())
+	filter = withTimeFilter(filter, q.Times())
 	return filter
 }
 
@@ -372,6 +374,52 @@ func withVersionFilter(filter bson.D, versions version.Constraints) bson.D {
 		filter = append(filter, bson.E{Key: "$or", Value: or})
 	}
 	return filter
+}
+
+func withTimeFilter(filter bson.D, times time.Constraints) bson.D {
+	if times == nil {
+		return filter
+	}
+
+	if exact := times.Exact(); len(exact) > 0 {
+		filter = append(filter, bson.E{
+			Key:   "timeNano",
+			Value: bson.D{{Key: "$in", Value: nanoTimes(exact...)}},
+		})
+	}
+
+	if min := times.Min(); !min.IsZero() {
+		filter = append(filter, bson.E{Key: "timeNano", Value: bson.D{{
+			Key: "$gte", Value: min.UnixNano(),
+		}}})
+	}
+
+	if max := times.Max(); !max.IsZero() {
+		filter = append(filter, bson.E{Key: "timeNano", Value: bson.D{{
+			Key: "$lte", Value: max.UnixNano(),
+		}}})
+	}
+
+	if ranges := times.Ranges(); len(ranges) > 0 {
+		var or []bson.D
+		for _, r := range ranges {
+			or = append(or, bson.D{{Key: "timeNano", Value: bson.D{
+				{Key: "$gte", Value: r.Start().UnixNano()},
+				{Key: "$lte", Value: r.End().UnixNano()},
+			}}})
+		}
+		filter = append(filter, bson.E{Key: "$or", Value: or})
+	}
+
+	return filter
+}
+
+func nanoTimes(ts ...stdtime.Time) []int64 {
+	nano := make([]int64, len(ts))
+	for i, t := range ts {
+		nano[i] = t.UnixNano()
+	}
+	return nano
 }
 
 func applySortings(opts *options.FindOptions, sortings ...aggregate.SortOptions) *options.FindOptions {

@@ -3,16 +3,16 @@ package storetest
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"testing"
+	stdtime "time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/snapshot"
-	"github.com/modernice/goes/aggregate/snapshot/mongosnap"
+	"github.com/modernice/goes/aggregate/snapshot/query"
+	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/internal/xaggregate"
 )
@@ -24,7 +24,10 @@ type StoreFactory func() snapshot.Store
 func Run(t *testing.T, newStore StoreFactory) {
 	run(t, "Save", testSave, newStore)
 	run(t, "Latest", testLatest, newStore)
+	run(t, "Latest (multiple available)", testLatestMultipleAvailable, newStore)
+	run(t, "Latest (not found)", testLatestNotFound, newStore)
 	run(t, "Version", testVersion, newStore)
+	run(t, "Version (not found)", testVersionNotFound, newStore)
 	run(t, "Limit", testLimit, newStore)
 	run(t, "Query", testQuery, newStore)
 	run(t, "Delete", testDelete, newStore)
@@ -140,8 +143,8 @@ func testLatestNotFound(t *testing.T, newStore StoreFactory) {
 		t.Errorf("Latest should return no Snapshot; got %v", snap)
 	}
 
-	if !errors.Is(err, mongosnap.ErrNotFound) {
-		t.Errorf("Latest should fail with %q; got %q", mongosnap.ErrNotFound, err)
+	if err == nil {
+		t.Errorf("Latest should fail; got %q", err)
 	}
 }
 
@@ -183,8 +186,8 @@ func testVersionNotFound(t *testing.T, newStore StoreFactory) {
 		t.Errorf("Version should return no Snapshot; got %v", snap)
 	}
 
-	if !errors.Is(err, mongosnap.ErrNotFound) {
-		t.Errorf("Version should fail with %q; got %q", mongosnap.ErrNotFound, err)
+	if err == nil {
+		t.Errorf("Version should fail; got %q", err)
 	}
 }
 
@@ -251,6 +254,7 @@ func testQuery(t *testing.T, newStore StoreFactory) {
 	run(t, "Name", testQueryName, newStore)
 	run(t, "ID", testQueryID, newStore)
 	run(t, "Version", testQueryVersion, newStore)
+	run(t, "Time", testQueryTime, newStore)
 	run(t, "Sorting", testQuerySorting, newStore)
 }
 
@@ -327,6 +331,41 @@ func testQueryVersion(t *testing.T, newStore StoreFactory) {
 		snaps[0],
 		snaps[2],
 	}, result)
+}
+
+func testQueryTime(t *testing.T, newStore StoreFactory) {
+	s := newStore()
+	as := []aggregate.Aggregate{
+		aggregate.New("foo", uuid.New()),
+		aggregate.New("foo", uuid.New()),
+		aggregate.New("foo", uuid.New()),
+	}
+	snaps := make([]snapshot.Snapshot, len(as))
+	for i := range as {
+		var err error
+		var opts []snapshot.Option
+		if i == 2 {
+			opts = append(opts, snapshot.Time(stdtime.Now().Add(-stdtime.Minute)))
+		}
+		if snaps[i], err = snapshot.New(as[i], opts...); err != nil {
+			t.Fatalf("failed to make Snapshot: %v", err)
+		}
+	}
+
+	for _, snap := range snaps {
+		if err := s.Save(context.Background(), snap); err != nil {
+			t.Fatalf("Save shouldn't fail; failed with %q", err)
+		}
+	}
+
+	result, err := runQuery(s, query.New(
+		query.Time(time.After(stdtime.Now().Add(-stdtime.Second))),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertSame(t, snaps[:2], result)
 }
 
 func testQuerySorting(t *testing.T, newStore StoreFactory) {
@@ -440,7 +479,7 @@ func testDelete(t *testing.T, newStore StoreFactory) {
 	}
 }
 
-func runQuery(s snapshot.Store, q aggregate.Query) ([]snapshot.Snapshot, error) {
+func runQuery(s snapshot.Store, q snapshot.Query) ([]snapshot.Snapshot, error) {
 	str, errs, err := s.Query(context.Background(), q)
 	if err != nil {
 		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)

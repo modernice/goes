@@ -6,9 +6,8 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/snapshot"
+	"github.com/modernice/goes/aggregate/snapshot/query"
 )
 
 var (
@@ -23,13 +22,7 @@ type store struct {
 	snaps map[string]map[uuid.UUID]map[int]snapshot.Snapshot
 }
 
-type stream struct {
-	snaps []snapshot.Snapshot
-	index int
-	snap  snapshot.Snapshot
-	err   error
-}
-
+// New returns an in-memory Snapshot Store.
 func New() snapshot.Store {
 	return &store{
 		snaps: make(map[string]map[uuid.UUID]map[int]snapshot.Snapshot),
@@ -92,12 +85,12 @@ func (s *store) Limit(_ context.Context, name string, id uuid.UUID, v int) (snap
 	return snap, nil
 }
 
-func (s *store) Query(ctx context.Context, q aggregate.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
+func (s *store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
 	var snaps []snapshot.Snapshot
-	for name, idsnaps := range s.snaps {
-		for id, vsnaps := range idsnaps {
-			for v, snap := range vsnaps {
-				if !query.Test(q, aggregate.New(name, id, aggregate.Version(v))) {
+	for _, idsnaps := range s.snaps {
+		for _, vsnaps := range idsnaps {
+			for _, snap := range vsnaps {
+				if !query.Test(q, snap) {
 					continue
 				}
 				snaps = append(snaps, snap)
@@ -145,25 +138,4 @@ func (s *store) get(name string, id uuid.UUID) map[int]snapshot.Snapshot {
 		snaps[id] = isnaps
 	}
 	return isnaps
-}
-
-func (s *stream) Next(context.Context) bool {
-	if s.index < len(s.snaps) {
-		s.snap = s.snaps[s.index]
-		s.index++
-		return true
-	}
-	return false
-}
-
-func (s *stream) Snapshot() snapshot.Snapshot {
-	return s.snap
-}
-
-func (s *stream) Err() error {
-	return nil
-}
-
-func (s *stream) Close(context.Context) error {
-	return nil
 }

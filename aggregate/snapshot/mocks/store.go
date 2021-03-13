@@ -6,51 +6,54 @@ package mock_snapshot
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
 	aggregate "github.com/modernice/goes/aggregate"
 	snapshot "github.com/modernice/goes/aggregate/snapshot"
-	reflect "reflect"
+	time "github.com/modernice/goes/event/query/time"
+	version "github.com/modernice/goes/event/query/version"
 )
 
-// MockStore is a mock of Store interface
+// MockStore is a mock of Store interface.
 type MockStore struct {
 	ctrl     *gomock.Controller
 	recorder *MockStoreMockRecorder
 }
 
-// MockStoreMockRecorder is the mock recorder for MockStore
+// MockStoreMockRecorder is the mock recorder for MockStore.
 type MockStoreMockRecorder struct {
 	mock *MockStore
 }
 
-// NewMockStore creates a new mock instance
+// NewMockStore creates a new mock instance.
 func NewMockStore(ctrl *gomock.Controller) *MockStore {
 	mock := &MockStore{ctrl: ctrl}
 	mock.recorder = &MockStoreMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 	return m.recorder
 }
 
-// Save mocks base method
-func (m *MockStore) Save(arg0 context.Context, arg1 snapshot.Snapshot) error {
+// Delete mocks base method.
+func (m *MockStore) Delete(arg0 context.Context, arg1 snapshot.Snapshot) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Save", arg0, arg1)
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Save indicates an expected call of Save
-func (mr *MockStoreMockRecorder) Save(arg0, arg1 interface{}) *gomock.Call {
+// Delete indicates an expected call of Delete.
+func (mr *MockStoreMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockStore)(nil).Save), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStore)(nil).Delete), arg0, arg1)
 }
 
-// Latest mocks base method
+// Latest mocks base method.
 func (m *MockStore) Latest(arg0 context.Context, arg1 string, arg2 uuid.UUID) (snapshot.Snapshot, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Latest", arg0, arg1, arg2)
@@ -59,28 +62,13 @@ func (m *MockStore) Latest(arg0 context.Context, arg1 string, arg2 uuid.UUID) (s
 	return ret0, ret1
 }
 
-// Latest indicates an expected call of Latest
+// Latest indicates an expected call of Latest.
 func (mr *MockStoreMockRecorder) Latest(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Latest", reflect.TypeOf((*MockStore)(nil).Latest), arg0, arg1, arg2)
 }
 
-// Version mocks base method
-func (m *MockStore) Version(arg0 context.Context, arg1 string, arg2 uuid.UUID, arg3 int) (snapshot.Snapshot, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Version", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(snapshot.Snapshot)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Version indicates an expected call of Version
-func (mr *MockStoreMockRecorder) Version(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockStore)(nil).Version), arg0, arg1, arg2, arg3)
-}
-
-// Limit mocks base method
+// Limit mocks base method.
 func (m *MockStore) Limit(arg0 context.Context, arg1 string, arg2 uuid.UUID, arg3 int) (snapshot.Snapshot, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Limit", arg0, arg1, arg2, arg3)
@@ -89,14 +77,14 @@ func (m *MockStore) Limit(arg0 context.Context, arg1 string, arg2 uuid.UUID, arg
 	return ret0, ret1
 }
 
-// Limit indicates an expected call of Limit
+// Limit indicates an expected call of Limit.
 func (mr *MockStoreMockRecorder) Limit(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Limit", reflect.TypeOf((*MockStore)(nil).Limit), arg0, arg1, arg2, arg3)
 }
 
-// Query mocks base method
-func (m *MockStore) Query(arg0 context.Context, arg1 aggregate.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
+// Query mocks base method.
+func (m *MockStore) Query(arg0 context.Context, arg1 snapshot.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Query", arg0, arg1)
 	ret0, _ := ret[0].(<-chan snapshot.Snapshot)
@@ -105,22 +93,130 @@ func (m *MockStore) Query(arg0 context.Context, arg1 aggregate.Query) (<-chan sn
 	return ret0, ret1, ret2
 }
 
-// Query indicates an expected call of Query
+// Query indicates an expected call of Query.
 func (mr *MockStoreMockRecorder) Query(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockStore)(nil).Query), arg0, arg1)
 }
 
-// Delete mocks base method
-func (m *MockStore) Delete(arg0 context.Context, arg1 snapshot.Snapshot) error {
+// Save mocks base method.
+func (m *MockStore) Save(arg0 context.Context, arg1 snapshot.Snapshot) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
+	ret := m.ctrl.Call(m, "Save", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Delete indicates an expected call of Delete
-func (mr *MockStoreMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+// Save indicates an expected call of Save.
+func (mr *MockStoreMockRecorder) Save(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStore)(nil).Delete), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockStore)(nil).Save), arg0, arg1)
+}
+
+// Version mocks base method.
+func (m *MockStore) Version(arg0 context.Context, arg1 string, arg2 uuid.UUID, arg3 int) (snapshot.Snapshot, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Version", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(snapshot.Snapshot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Version indicates an expected call of Version.
+func (mr *MockStoreMockRecorder) Version(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockStore)(nil).Version), arg0, arg1, arg2, arg3)
+}
+
+// MockQuery is a mock of Query interface.
+type MockQuery struct {
+	ctrl     *gomock.Controller
+	recorder *MockQueryMockRecorder
+}
+
+// MockQueryMockRecorder is the mock recorder for MockQuery.
+type MockQueryMockRecorder struct {
+	mock *MockQuery
+}
+
+// NewMockQuery creates a new mock instance.
+func NewMockQuery(ctrl *gomock.Controller) *MockQuery {
+	mock := &MockQuery{ctrl: ctrl}
+	mock.recorder = &MockQueryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockQuery) EXPECT() *MockQueryMockRecorder {
+	return m.recorder
+}
+
+// IDs mocks base method.
+func (m *MockQuery) IDs() []uuid.UUID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IDs")
+	ret0, _ := ret[0].([]uuid.UUID)
+	return ret0
+}
+
+// IDs indicates an expected call of IDs.
+func (mr *MockQueryMockRecorder) IDs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IDs", reflect.TypeOf((*MockQuery)(nil).IDs))
+}
+
+// Names mocks base method.
+func (m *MockQuery) Names() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Names")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// Names indicates an expected call of Names.
+func (mr *MockQueryMockRecorder) Names() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Names", reflect.TypeOf((*MockQuery)(nil).Names))
+}
+
+// Sortings mocks base method.
+func (m *MockQuery) Sortings() []aggregate.SortOptions {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sortings")
+	ret0, _ := ret[0].([]aggregate.SortOptions)
+	return ret0
+}
+
+// Sortings indicates an expected call of Sortings.
+func (mr *MockQueryMockRecorder) Sortings() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sortings", reflect.TypeOf((*MockQuery)(nil).Sortings))
+}
+
+// Times mocks base method.
+func (m *MockQuery) Times() time.Constraints {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Times")
+	ret0, _ := ret[0].(time.Constraints)
+	return ret0
+}
+
+// Times indicates an expected call of Times.
+func (mr *MockQueryMockRecorder) Times() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Times", reflect.TypeOf((*MockQuery)(nil).Times))
+}
+
+// Versions mocks base method.
+func (m *MockQuery) Versions() version.Constraints {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Versions")
+	ret0, _ := ret[0].(version.Constraints)
+	return ret0
+}
+
+// Versions indicates an expected call of Versions.
+func (mr *MockQueryMockRecorder) Versions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Versions", reflect.TypeOf((*MockQuery)(nil).Versions))
 }

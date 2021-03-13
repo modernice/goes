@@ -6,35 +6,36 @@ package mock_event
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	event "github.com/modernice/goes/event"
-	reflect "reflect"
 )
 
-// MockBus is a mock of Bus interface
+// MockBus is a mock of Bus interface.
 type MockBus struct {
 	ctrl     *gomock.Controller
 	recorder *MockBusMockRecorder
 }
 
-// MockBusMockRecorder is the mock recorder for MockBus
+// MockBusMockRecorder is the mock recorder for MockBus.
 type MockBusMockRecorder struct {
 	mock *MockBus
 }
 
-// NewMockBus creates a new mock instance
+// NewMockBus creates a new mock instance.
 func NewMockBus(ctrl *gomock.Controller) *MockBus {
 	mock := &MockBus{ctrl: ctrl}
 	mock.recorder = &MockBusMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBus) EXPECT() *MockBusMockRecorder {
 	return m.recorder
 }
 
-// Publish mocks base method
+// Publish mocks base method.
 func (m *MockBus) Publish(ctx context.Context, events ...event.Event) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx}
@@ -46,14 +47,14 @@ func (m *MockBus) Publish(ctx context.Context, events ...event.Event) error {
 	return ret0
 }
 
-// Publish indicates an expected call of Publish
+// Publish indicates an expected call of Publish.
 func (mr *MockBusMockRecorder) Publish(ctx interface{}, events ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx}, events...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockBus)(nil).Publish), varargs...)
 }
 
-// Subscribe mocks base method
+// Subscribe mocks base method.
 func (m *MockBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx}
@@ -67,7 +68,7 @@ func (m *MockBus) Subscribe(ctx context.Context, names ...string) (<-chan event.
 	return ret0, ret1, ret2
 }
 
-// Subscribe indicates an expected call of Subscribe
+// Subscribe indicates an expected call of Subscribe.
 func (mr *MockBusMockRecorder) Subscribe(ctx interface{}, names ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx}, names...)

@@ -18,6 +18,7 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/memsnap"
 	mock_snapshot "github.com/modernice/goes/aggregate/snapshot/mocks"
+	squery "github.com/modernice/goes/aggregate/snapshot/query"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
@@ -81,9 +82,9 @@ func TestRepository_Save_Snapshot(t *testing.T) {
 		t.Fatalf("Save shouldn't fail; failed with %q", err)
 	}
 
-	res, errs, err := snapstore.Query(context.Background(), query.New(
-		query.Name(foo.AggregateName()),
-		query.ID(foo.AggregateID()),
+	res, errs, err := snapstore.Query(context.Background(), squery.New(
+		squery.Name(foo.AggregateName()),
+		squery.ID(foo.AggregateID()),
 	))
 	if err != nil {
 		t.Fatalf("Query shouldn't fail; failed with %q", err)

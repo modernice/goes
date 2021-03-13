@@ -5,50 +5,37 @@
 package mock_event
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	event "github.com/modernice/goes/event"
 	io "io"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	event "github.com/modernice/goes/event"
 )
 
-// MockEncoder is a mock of Encoder interface
+// MockEncoder is a mock of Encoder interface.
 type MockEncoder struct {
 	ctrl     *gomock.Controller
 	recorder *MockEncoderMockRecorder
 }
 
-// MockEncoderMockRecorder is the mock recorder for MockEncoder
+// MockEncoderMockRecorder is the mock recorder for MockEncoder.
 type MockEncoderMockRecorder struct {
 	mock *MockEncoder
 }
 
-// NewMockEncoder creates a new mock instance
+// NewMockEncoder creates a new mock instance.
 func NewMockEncoder(ctrl *gomock.Controller) *MockEncoder {
 	mock := &MockEncoder{ctrl: ctrl}
 	mock.recorder = &MockEncoderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEncoder) EXPECT() *MockEncoderMockRecorder {
 	return m.recorder
 }
 
-// Encode mocks base method
-func (m *MockEncoder) Encode(w io.Writer, name string, d event.Data) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Encode", w, name, d)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Encode indicates an expected call of Encode
-func (mr *MockEncoderMockRecorder) Encode(w, name, d interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockEncoder)(nil).Encode), w, name, d)
-}
-
-// Decode mocks base method
+// Decode mocks base method.
 func (m *MockEncoder) Decode(name string, r io.Reader) (event.Data, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Decode", name, r)
@@ -57,50 +44,50 @@ func (m *MockEncoder) Decode(name string, r io.Reader) (event.Data, error) {
 	return ret0, ret1
 }
 
-// Decode indicates an expected call of Decode
+// Decode indicates an expected call of Decode.
 func (mr *MockEncoderMockRecorder) Decode(name, r interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decode", reflect.TypeOf((*MockEncoder)(nil).Decode), name, r)
 }
 
-// MockRegistry is a mock of Registry interface
-type MockRegistry struct {
-	ctrl     *gomock.Controller
-	recorder *MockRegistryMockRecorder
-}
-
-// MockRegistryMockRecorder is the mock recorder for MockRegistry
-type MockRegistryMockRecorder struct {
-	mock *MockRegistry
-}
-
-// NewMockRegistry creates a new mock instance
-func NewMockRegistry(ctrl *gomock.Controller) *MockRegistry {
-	mock := &MockRegistry{ctrl: ctrl}
-	mock.recorder = &MockRegistryMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockRegistry) EXPECT() *MockRegistryMockRecorder {
-	return m.recorder
-}
-
-// Encode mocks base method
-func (m *MockRegistry) Encode(w io.Writer, name string, d event.Data) error {
+// Encode mocks base method.
+func (m *MockEncoder) Encode(w io.Writer, name string, d event.Data) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Encode", w, name, d)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Encode indicates an expected call of Encode
-func (mr *MockRegistryMockRecorder) Encode(w, name, d interface{}) *gomock.Call {
+// Encode indicates an expected call of Encode.
+func (mr *MockEncoderMockRecorder) Encode(w, name, d interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockRegistry)(nil).Encode), w, name, d)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockEncoder)(nil).Encode), w, name, d)
 }
 
-// Decode mocks base method
+// MockRegistry is a mock of Registry interface.
+type MockRegistry struct {
+	ctrl     *gomock.Controller
+	recorder *MockRegistryMockRecorder
+}
+
+// MockRegistryMockRecorder is the mock recorder for MockRegistry.
+type MockRegistryMockRecorder struct {
+	mock *MockRegistry
+}
+
+// NewMockRegistry creates a new mock instance.
+func NewMockRegistry(ctrl *gomock.Controller) *MockRegistry {
+	mock := &MockRegistry{ctrl: ctrl}
+	mock.recorder = &MockRegistryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRegistry) EXPECT() *MockRegistryMockRecorder {
+	return m.recorder
+}
+
+// Decode mocks base method.
 func (m *MockRegistry) Decode(name string, r io.Reader) (event.Data, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Decode", name, r)
@@ -109,25 +96,27 @@ func (m *MockRegistry) Decode(name string, r io.Reader) (event.Data, error) {
 	return ret0, ret1
 }
 
-// Decode indicates an expected call of Decode
+// Decode indicates an expected call of Decode.
 func (mr *MockRegistryMockRecorder) Decode(name, r interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decode", reflect.TypeOf((*MockRegistry)(nil).Decode), name, r)
 }
 
-// Register mocks base method
-func (m *MockRegistry) Register(name string, new func() event.Data) {
+// Encode mocks base method.
+func (m *MockRegistry) Encode(w io.Writer, name string, d event.Data) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Register", name, new)
+	ret := m.ctrl.Call(m, "Encode", w, name, d)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Register indicates an expected call of Register
-func (mr *MockRegistryMockRecorder) Register(name, new interface{}) *gomock.Call {
+// Encode indicates an expected call of Encode.
+func (mr *MockRegistryMockRecorder) Encode(w, name, d interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockRegistry)(nil).Register), name, new)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockRegistry)(nil).Encode), w, name, d)
 }
 
-// New mocks base method
+// New mocks base method.
 func (m *MockRegistry) New(name string) (event.Data, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "New", name)
@@ -136,8 +125,20 @@ func (m *MockRegistry) New(name string) (event.Data, error) {
 	return ret0, ret1
 }
 
-// New indicates an expected call of New
+// New indicates an expected call of New.
 func (mr *MockRegistryMockRecorder) New(name interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "New", reflect.TypeOf((*MockRegistry)(nil).New), name)
+}
+
+// Register mocks base method.
+func (m *MockRegistry) Register(name string, new func() event.Data) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Register", name, new)
+}
+
+// Register indicates an expected call of Register.
+func (mr *MockRegistryMockRecorder) Register(name, new interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockRegistry)(nil).Register), name, new)
 }

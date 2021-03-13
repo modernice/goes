@@ -1,12 +1,13 @@
 package snapshot
 
-//go:generate mockgen -source=store.go -destination=./mocks/store.go
+//go:generate mockgen -source=store.go -destination=./mocks/store.go Store,Query
 
 import (
 	"context"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/event/query/time"
 )
 
 // Store is a database for Snapshots.
@@ -43,8 +44,14 @@ type Store interface {
 	//		// handle err
 	//	}, snaps, errs)
 	//	// handle err
-	Query(context.Context, aggregate.Query) (<-chan Snapshot, <-chan error, error)
+	Query(context.Context, Query) (<-chan Snapshot, <-chan error, error)
 
 	// Delete deletes a Snapshot from the Store.
 	Delete(context.Context, Snapshot) error
+}
+
+type Query interface {
+	aggregate.Query
+
+	Times() time.Constraints
 }
