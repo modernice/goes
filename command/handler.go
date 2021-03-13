@@ -1,21 +1,20 @@
-package handler
+package command
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/done"
 )
 
 // A Handler handles Commands.
 type Handler struct {
-	bus command.Bus
+	bus Bus
 }
 
-// New returns a new Command Handler. The Handler subscribes to Commands using
+// NewHandler returns a new Command Handler. The Handler subscribes to Commands using
 // the provided Bus.
-func New(bus command.Bus) *Handler {
+func NewHandler(bus Bus) *Handler {
 	return &Handler{
 		bus: bus,
 	}
@@ -26,7 +25,7 @@ func New(bus command.Bus) *Handler {
 func (h *Handler) On(
 	ctx context.Context,
 	name string,
-	fn func(context.Context, command.Command) error,
+	fn func(context.Context, Command) error,
 ) (<-chan error, error) {
 	commands, errs, err := h.bus.Subscribe(ctx, name)
 	if err != nil {
@@ -67,7 +66,7 @@ func (h *Handler) On(
 	return out, nil
 }
 
-func (h *Handler) handle(ctx command.Context, fn func(context.Context, command.Command) error) error {
+func (h *Handler) handle(ctx Context, fn func(context.Context, Command) error) error {
 	handleError := fn(ctx, ctx.Command())
 
 	if err := ctx.MarkDone(ctx, done.WithError(handleError)); err != nil {

@@ -1,4 +1,4 @@
-package handler_test
+package command_test
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/encoding"
-	"github.com/modernice/goes/command/handler"
 	mock_command "github.com/modernice/goes/command/mocks"
 	"github.com/modernice/goes/event/eventbus/chanbus"
 )
@@ -26,8 +25,6 @@ type handlerParams struct {
 	cmd command.Command
 }
 
-type mockPayload struct{}
-
 func TestHandler_On(t *testing.T) {
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo", func() command.Payload {
@@ -35,7 +32,7 @@ func TestHandler_On(t *testing.T) {
 	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
-	h := handler.New(bus)
+	h := command.NewHandler(bus)
 
 	rec := newRecorder(nil)
 	errs, err := h.On(context.Background(), "foo", rec.Handle)
@@ -76,7 +73,7 @@ func TestHandler_On_cancelContext(t *testing.T) {
 	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(500*time.Millisecond))
-	h := handler.New(bus)
+	h := command.NewHandler(bus)
 
 	rec := newRecorder(nil)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -116,7 +113,7 @@ func TestHandler_On_subscribeError(t *testing.T) {
 	defer ctrl.Finish()
 
 	bus := mock_command.NewMockBus(ctrl)
-	h := handler.New(bus)
+	h := command.NewHandler(bus)
 
 	mockError := errors.New("mock error")
 	bus.EXPECT().Subscribe(gomock.Any(), "foo").Return(nil, nil, mockError)
@@ -134,7 +131,7 @@ func TestHandler_busError(t *testing.T) {
 	defer ctrl.Finish()
 
 	bus := mock_command.NewMockBus(ctrl)
-	h := handler.New(bus)
+	h := command.NewHandler(bus)
 
 	mockCmds := make(chan command.Context)
 	mockErrs := make(chan error)
