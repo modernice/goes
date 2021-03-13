@@ -1,3 +1,4 @@
+// TODO: move to eventstore package: eventstore.WithBus(store, bus)
 package eventbus
 
 import (

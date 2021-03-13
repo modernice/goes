@@ -61,6 +61,55 @@ func TestRepository_Save(t *testing.T) {
 	}
 }
 
+func TestRepository_Save_Snapshot(t *testing.T) {
+	store := memstore.New()
+	snapstore := memsnap.New()
+	r := repository.New(
+		store,
+		repository.WithSnapshots(snapstore, snapshot.Every(3)),
+	)
+
+	foo := &mockAggregate{Aggregate: aggregate.New("foo", uuid.New())}
+	events := xevent.Make("foo", etest.FooEventData{}, 3, xevent.ForAggregate(foo))
+
+	for _, evt := range events {
+		foo.ApplyEvent(evt)
+		foo.TrackChange(evt)
+	}
+
+	if err := r.Save(context.Background(), foo); err != nil {
+		t.Fatalf("Save shouldn't fail; failed with %q", err)
+	}
+
+	res, errs, err := snapstore.Query(context.Background(), query.New(
+		query.Name(foo.AggregateName()),
+		query.ID(foo.AggregateID()),
+	))
+	if err != nil {
+		t.Fatalf("Query shouldn't fail; failed with %q", err)
+	}
+
+	snaps, err := snapshot.Drain(context.Background(), res, errs)
+	if err != nil {
+		t.Fatalf("Drain shouldn't fail; failed with %q", err)
+	}
+
+	if len(snaps) != 1 {
+		t.Fatalf("Query should return exactly 1 Snapshot; got %d", len(snaps))
+	}
+
+	snap := snaps[0]
+	if snap.AggregateName() != foo.AggregateName() {
+		t.Errorf("Snapshot has wrong AggregateName. want=%q got=%q", foo.AggregateName(), snap.AggregateName())
+	}
+	if snap.AggregateID() != foo.AggregateID() {
+		t.Errorf("Snapshot has wrong AggregateID. want=%s got=%s", foo.AggregateID(), snap.AggregateID())
+	}
+	if snap.AggregateVersion() != foo.AggregateVersion() {
+		t.Errorf("Snapshot has wrong AggregateVersion. want=%d got=%d", foo.AggregateVersion(), snap.AggregateVersion())
+	}
+}
+
 func TestRepository_Fetch(t *testing.T) {
 	aggregateName := "foo"
 	aggregateID := uuid.New()
@@ -435,7 +484,7 @@ func TestRepository_Fetch_Snapshot(t *testing.T) {
 	mockStore := mock_snapshot.NewMockStore(ctrl)
 	r := repository.New(
 		mockEventStore,
-		repository.WithSnapshots(mockStore),
+		repository.WithSnapshots(mockStore, nil),
 	)
 
 	a := aggregate.New("foo", uuid.New(), aggregate.Version(10))
@@ -488,7 +537,7 @@ func TestRepository_FetchVersion_Snapshot(t *testing.T) {
 	mockStore := mock_snapshot.NewMockStore(ctrl)
 	r := repository.New(
 		mockEventStore,
-		repository.WithSnapshots(mockStore),
+		repository.WithSnapshots(mockStore, nil),
 	)
 
 	a := aggregate.New("foo", uuid.New(), aggregate.Version(10))

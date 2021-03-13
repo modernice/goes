@@ -24,23 +24,35 @@ var (
 type Option func(*repository)
 
 type repository struct {
-	store     event.Store
-	snapshots snapshot.Store
+	store        event.Store
+	snapshots    snapshot.Store
+	snapSchedule snapshot.Schedule
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
 //
-// A Repository using Snapshots will use those as the base state when fetching a
-// single Aggregate.
+// A Repository that has a Snapshot Store will fetch the latest valid Snapshot
+// for an Aggregate before fetching the necessary Events to reconstruct the
+// state of the Agrgegate.
+//
+// An optional Snapshot Schedule can be provided to instruct the Repository to
+// make and save Snapshots into the Snapshot Store when appropriate:
+//
+//	var store snapshot.Store
+//	r := repository.New(store, snapshot.Every(3))
+//
+// The example above will make a Snapshot of an Aggregate every third version of
+// the Aggregate.
 //
 // Aggregates must implement snapshot.Marshaler & snapshot.Unmarshaler in order
 // for Snapshots to work.
-func WithSnapshots(s snapshot.Store) Option {
-	if s == nil {
+func WithSnapshots(store snapshot.Store, s snapshot.Schedule) Option {
+	if store == nil {
 		panic("nil Store")
 	}
 	return func(r *repository) {
-		r.snapshots = s
+		r.snapshots = store
+		r.snapSchedule = s
 	}
 }
 
@@ -55,10 +67,33 @@ func New(store event.Store, opts ...Option) aggregate.Repository {
 }
 
 func (r *repository) Save(ctx context.Context, a aggregate.Aggregate) error {
+	var snap bool
+	if r.snapSchedule != nil && r.snapSchedule.Test(a) {
+		snap = true
+	}
+
 	if err := r.store.Insert(ctx, a.AggregateChanges()...); err != nil {
 		return fmt.Errorf("insert events: %w", err)
 	}
 	a.FlushChanges()
+
+	if snap {
+		if err := r.makeSnapshot(ctx, a); err != nil {
+			return fmt.Errorf("make snapshot: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *repository) makeSnapshot(ctx context.Context, a aggregate.Aggregate) error {
+	snap, err := snapshot.New(a)
+	if err != nil {
+		return err
+	}
+	if err = r.snapshots.Save(ctx, snap); err != nil {
+		return fmt.Errorf("save snapshot: %w", err)
+	}
 	return nil
 }
 
