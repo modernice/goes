@@ -519,10 +519,14 @@ func (b *Bus) acceptCommand(ctx context.Context, cmd command.Command) error {
 }
 
 func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg done.Config) error {
+	var errmsg string
+	if cfg.Err != nil {
+		errmsg = cfg.Err.Error()
+	}
 	evt := event.New(CommandExecuted, CommandExecutedData{
 		ID:      cmd.ID(),
 		Runtime: cfg.Runtime,
-		Error:   cfg.Err.Error(),
+		Error:   errmsg,
 	})
 	if err := b.bus.Publish(ctx, evt); err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
