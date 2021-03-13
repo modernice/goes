@@ -11,6 +11,7 @@ import (
 	"github.com/modernice/goes/event/query/version"
 )
 
+// Query is used by Snapshot Stores to filter Snapshots.
 type Query struct {
 	query.Query
 
@@ -26,28 +27,28 @@ type builder struct {
 	timeConstraints []time.Constraint
 }
 
-// Name returns an Option that filters aggregates by their names.
+// Name returns an Option that filters Snapshots by their AggregateName.
 func Name(names ...string) Option {
 	return func(b *builder) {
 		b.opts = append(b.opts, query.Name(names...))
 	}
 }
 
-// ID returns an Option that filters aggregates by their ids.
+// ID returns an Option that filters Snapshots by their AggregateID:
 func ID(ids ...uuid.UUID) Option {
 	return func(b *builder) {
 		b.opts = append(b.opts, query.ID(ids...))
 	}
 }
 
-// Version returns an Option that filters aggregates by their versions.
+// Version returns an Option that filters Snapshots by their AggregateVersion.
 func Version(constraints ...version.Constraint) Option {
 	return func(b *builder) {
 		b.opts = append(b.opts, query.Version(constraints...))
 	}
 }
 
-// Time returns an Option that filters aggregates by their time.
+// Time returns an Option that filters Snapshots by the time they were created.
 func Time(constraints ...time.Constraint) Option {
 	return func(b *builder) {
 		b.timeConstraints = append(b.timeConstraints, constraints...)
@@ -106,6 +107,7 @@ func Test(q snapshot.Query, s snapshot.Snapshot) bool {
 	return true
 }
 
+// Times returns the time.Constraints of the Query.
 func (q Query) Times() time.Constraints {
 	return q.times
 }

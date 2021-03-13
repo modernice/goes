@@ -114,10 +114,6 @@ type Context interface {
 	// Command returns the actual Command.
 	Command() Command
 
-	// MarkDone should be called after the execution of the Command to report the
-	// execution result. Use Options to add information about the execution to
-	// the report.
-
 	// MarkDone should be called after the Command has been handled so that the
 	// Bus that dispatched the Command can be notified about the execution
 	// result.

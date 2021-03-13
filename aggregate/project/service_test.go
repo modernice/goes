@@ -21,8 +21,8 @@ func TestContinuously(t *testing.T) {
 
 	sub, _, err := project.Subscribe(
 		context.Background(),
-		proj,
 		project.Continuously(bus, []string{"foo"}),
+		proj,
 	)
 	if err != nil {
 		t.Fatalf("Subscribe shouldn't fail; failed with %q", err)
@@ -66,8 +66,8 @@ func TestContinuously_Project(t *testing.T) {
 
 	sub, _, err := project.Subscribe(
 		context.Background(),
-		proj,
 		project.Continuously(bus, []string{"foo"}),
+		proj,
 	)
 
 	if err != nil {
@@ -130,8 +130,8 @@ func TestPeriodically(t *testing.T) {
 
 	sub, _, err := project.Subscribe(
 		context.Background(),
-		proj,
 		project.Periodically(store, 20*time.Millisecond, []string{"foo"}),
+		proj,
 	)
 	if err != nil {
 		t.Fatalf("Periodically shouldn't fail; failed with %q", err)
@@ -165,8 +165,8 @@ func TestStopTimeout(t *testing.T) {
 
 	sub, _, err := project.Subscribe(
 		ctx,
-		proj,
 		project.Continuously(bus, []string{"foo"}),
+		proj,
 		project.StopTimeout(50*time.Millisecond),
 	)
 
@@ -206,8 +206,8 @@ func TestStopTimeout_infinite(t *testing.T) {
 
 	sub, _, err := project.Subscribe(
 		ctx,
-		proj,
 		project.Continuously(bus, []string{"foo"}),
+		proj,
 		project.StopTimeout(0),
 	)
 
@@ -246,10 +246,10 @@ func TestFilterEvents(t *testing.T) {
 
 	sub, _, err := project.Subscribe(
 		context.Background(),
-		proj,
 		project.Continuously(bus, []string{"foo"}, project.FilterEvents(
 			query.AggregateVersion(version.Exact(3)),
 		)),
+		proj,
 	)
 
 	if err != nil {
@@ -280,14 +280,6 @@ func TestFilterEvents(t *testing.T) {
 
 func newStoreBus() (event.Store, event.Bus) {
 	return memstore.New(), chanbus.New()
-}
-
-func makeUUIDs(n int) []uuid.UUID {
-	ids := make([]uuid.UUID, n)
-	for i := range ids {
-		ids[i] = uuid.New()
-	}
-	return ids
 }
 
 func makeEvents(n int) []event.Event {

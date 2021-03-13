@@ -11,12 +11,17 @@ import (
 	"github.com/modernice/goes/event/query/version"
 )
 
+// Context is the context for projecting Aggregates.
 type Context interface {
 	context.Context
 
+	// AggregateName returns the name of the Aggregate that is being projected.
 	AggregateName() string
+
+	// AggregateID returns the UUID of the Aggregate that is being projected.
 	AggregateID() uuid.UUID
 
+	// Project runs the projection on the provided Projection.
 	Project(context.Context, Projection) error
 }
 
@@ -28,10 +33,12 @@ type pcontext struct {
 	aggregateID   uuid.UUID
 }
 
+// A Schedule decides when to run projections.
 type Schedule interface {
 	jobs(context.Context) (<-chan job, <-chan error, error)
 }
 
+// SubscribeOption is an option for Subscribe.
 type SubscribeOption func(*subscription)
 
 type subscription struct {
@@ -51,6 +58,7 @@ type subscription struct {
 	handleDone chan struct{}
 }
 
+// ScheduleOption is an option for creating Schedules.
 type ScheduleOption func(*scheduleConfig)
 
 type scheduleConfig struct {
@@ -75,6 +83,8 @@ type job struct {
 	aggregateID   uuid.UUID
 }
 
+// Continuously returns a Schedule that instructs to project Aggregates on every
+// change.
 func Continuously(bus event.Bus, events []string, opts ...ScheduleOption) Schedule {
 	cfg := newScheduleConfig(opts...)
 	c := &continously{
@@ -93,6 +103,10 @@ func newScheduleConfig(opts ...ScheduleOption) scheduleConfig {
 	return cfg
 }
 
+// Periodically returns a Schedule that instructs to project Aggregates
+// periodically every Duration d. If no Aggregate names are provided, every
+// Aggregate will be projected; otherwise only Aggregates with one of the
+// provided names will be projected.
 func Periodically(store event.Store, d time.Duration, aggregates []string, opts ...ScheduleOption) Schedule {
 	cfg := newScheduleConfig(opts...)
 	return &periodically{
@@ -103,22 +117,29 @@ func Periodically(store event.Store, d time.Duration, aggregates []string, opts 
 	}
 }
 
+// StopTimeout returns a SubscribeOption that defines the timeout for projecting
+// remaining Aggregates after a subscription has been canceled.
 func StopTimeout(d time.Duration) SubscribeOption {
 	return func(s *subscription) {
 		s.stopTimeout = d
 	}
 }
 
+// FilterEvents returns a ScheduleOption that filters Events of Aggregates when
+// determining if an Event should trigger a projection. Events that match the
+// Query won't trigger a projection.
 func FilterEvents(opts ...query.Option) ScheduleOption {
 	return func(cfg *scheduleConfig) {
 		cfg.filter = append(cfg.filter, opts...)
 	}
 }
 
+// Subscribe subscribes to the Schedule s and returns a channel of Contexts and
+// an error channel.
 func Subscribe(
 	ctx context.Context,
-	proj Projector,
 	s Schedule,
+	proj Projector,
 	opts ...SubscribeOption,
 ) (<-chan Context, <-chan error, error) {
 	sub := newSubscription(ctx, proj, s, opts...)
@@ -159,7 +180,6 @@ func (sub *subscription) handleErrors(errs <-chan error) {
 	defer close(sub.errs)
 	for err := range errs {
 		sub.errs <- err
-		// TODO: timeout + buffer
 	}
 }
 
