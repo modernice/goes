@@ -77,6 +77,10 @@ func TestBase_FlushChanges(t *testing.T) {
 	}
 }
 
+func TestBase_NewEvent(t *testing.T) {
+
+}
+
 func TestApplyHistory(t *testing.T) {
 	var applied []event.Event
 	var flushed bool
@@ -129,5 +133,27 @@ func TestCurrentVersion(t *testing.T) {
 
 	if v := aggregate.CurrentVersion(a); v != 2 {
 		t.Errorf("current aggregate version should be %d; got %d", 2, v)
+	}
+}
+
+func TestNextEvent(t *testing.T) {
+	a := aggregate.New("foo", uuid.New(), aggregate.Version(3))
+	data := etest.FooEventData{A: "foo"}
+	evt := aggregate.NextEvent(a, "bar", data)
+
+	if evt.AggregateName() != a.AggregateName() {
+		t.Errorf("Event should have AggregateName %q; is %q", a.AggregateName(), evt.AggregateName())
+	}
+
+	if evt.AggregateID() != a.AggregateID() {
+		t.Errorf("Event should have AggregateID %s; is %s", a.AggregateID(), evt.AggregateID())
+	}
+
+	if evt.AggregateVersion() != 4 {
+		t.Errorf("Event should have AggregateVersion 4; is %d", evt.AggregateVersion())
+	}
+
+	if evt.Data() != data {
+		t.Errorf("Event should have data %v; got %v", data, evt.Data())
 	}
 }

@@ -107,10 +107,28 @@ func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 	return sorted
 }
 
-// CurrentVersion returns the version of Aggregate a including the uncommitted
+// CurrentVersion returns the version of Aggregate a, including any uncommitted
 // changes.
 func CurrentVersion(a Aggregate) int {
 	return a.AggregateVersion() + len(a.AggregateChanges())
+}
+
+// NextVersion returns the next version of the given Aggregate (CurrentVersion(a) + 1).
+func NextVersion(a Aggregate) int {
+	return CurrentVersion(a) + 1
+}
+
+// NextEvent makes and returns the next Event e for the given Aggregate. NextEvent
+// calls a.ApplyEvent(e) and a.TrackChange(e) before returning the Event.
+func NextEvent(a Aggregate, name string, data event.Data) event.Event {
+	evt := event.New(name, data, event.Aggregate(
+		a.AggregateName(),
+		a.AggregateID(),
+		NextVersion(a),
+	))
+	a.ApplyEvent(evt)
+	a.TrackChange(evt)
+	return evt
 }
 
 func (b *base) AggregateID() uuid.UUID {
