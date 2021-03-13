@@ -1,7 +1,9 @@
 package repository_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"reflect"
@@ -423,7 +425,7 @@ func TestRepository_Query_version(t *testing.T) {
 	}
 }
 
-func TestRepository_Fetch_snapshot(t *testing.T) {
+func TestRepository_Fetch_Snapshot(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -476,7 +478,7 @@ func TestRepository_Fetch_snapshot(t *testing.T) {
 	}
 }
 
-func TestRepository_FetchVersion_snapshot(t *testing.T) {
+func TestRepository_FetchVersion_Snapshot(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -559,4 +561,24 @@ func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) a
 	return func(_ string, id uuid.UUID) aggregate.Aggregate {
 		return am[id]
 	}
+}
+
+type mockAggregate struct {
+	aggregate.Aggregate
+
+	mockState
+}
+
+type mockState struct {
+	A string
+}
+
+func (a *mockAggregate) MarshalSnapshot() ([]byte, error) {
+	var buf bytes.Buffer
+	err := gob.NewEncoder(&buf).Encode(a.mockState)
+	return buf.Bytes(), err
+}
+
+func (a *mockAggregate) UnmarshalSnapshot(p []byte) error {
+	return gob.NewDecoder(bytes.NewReader(p)).Decode(&a.mockState)
 }

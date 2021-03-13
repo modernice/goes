@@ -35,9 +35,10 @@ type repository struct {
 //
 // Aggregates must implement snapshot.Marshaler & snapshot.Unmarshaler in order
 // for Snapshots to work.
-//
-// TODO: store Snapshots
 func WithSnapshots(s snapshot.Store) Option {
+	if s == nil {
+		panic("nil Store")
+	}
 	return func(r *repository) {
 		r.snapshots = s
 	}

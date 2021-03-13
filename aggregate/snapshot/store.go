@@ -40,7 +40,7 @@ type Store interface {
 	//		log.Println(fmt.Sprintf("Queried Snapshot: %v", snap))
 	//		foo := newFoo(snap.AggregateID())
 	//		err := snapshot.Unmarshal(snap, foo)
-	//		// handke err
+	//		// handle err
 	//	}, snaps, errs)
 	//	// handle err
 	Query(context.Context, aggregate.Query) (<-chan Snapshot, <-chan error, error)
