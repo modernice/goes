@@ -3,44 +3,44 @@ package handler
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/done"
-	"github.com/modernice/goes/internal/errbus"
 )
 
-// TODO: add docs
+// A Handler handles Commands.
 type Handler struct {
-	bus  command.Bus
-	errs *errbus.Bus
+	bus command.Bus
 }
 
-// New returns a new Handler that handles Commands using the provided Bus.
+// New returns a new Command Handler. The Handler subscribes to Commands using
+// the provided Bus.
 func New(bus command.Bus) *Handler {
 	return &Handler{
-		bus:  bus,
-		errs: errbus.New(),
+		bus: bus,
 	}
 }
 
-// On subscribes to Commands with the given name and executes by calling fn with
-// the received Command.
+// On subscribes to Commands with the given name and executes them by calling fn
+// with the received Command.
 func (h *Handler) On(
 	ctx context.Context,
 	name string,
 	fn func(context.Context, command.Command) error,
-) error {
+) (<-chan error, error) {
 	commands, errs, err := h.bus.Subscribe(ctx, name)
 	if err != nil {
-		return fmt.Errorf("bus: %w", err)
+		return nil, fmt.Errorf("command bus: %w", err)
 	}
 
-	errc := make(chan error)
+	out := make(chan error)
+
 	go func() {
-		defer close(errc)
+		defer close(out)
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case err, ok := <-errs:
 				if !ok {
 					errs = nil
@@ -48,67 +48,31 @@ func (h *Handler) On(
 				}
 				select {
 				case <-ctx.Done():
-				case errc <- err:
+				case out <- err:
 				}
-				return
 			case ctx, ok := <-commands:
 				if !ok {
 					return
 				}
-				h.handle(ctx, fn)
+				if err := h.handle(ctx, fn); err != nil {
+					select {
+					case <-ctx.Done():
+					case out <- err:
+					}
+				}
 			}
 		}
 	}()
 
-	return <-errc
+	return out, nil
 }
 
-func (h *Handler) handle(ctx command.Context, fn func(context.Context, command.Command) error) {
+func (h *Handler) handle(ctx command.Context, fn func(context.Context, command.Command) error) error {
 	handleError := fn(ctx, ctx.Command())
 
-	if handleError != nil {
-		h.errs.Publish(
-			ctx,
-			fmt.Errorf("handle %q command: %w", ctx.Command().Name(), handleError),
-		)
-	}
-
 	if err := ctx.MarkDone(ctx, done.WithError(handleError)); err != nil {
-		h.errs.Publish(ctx, fmt.Errorf("mark as done: %w", err))
-	}
-}
-
-// Errors returns a channel of asynchronous errors.
-func (h *Handler) Errors(ctx context.Context) <-chan error {
-	out := make(chan error, 1)
-	errs := h.errs.Subscribe(ctx)
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for err := range errs {
-			out <- err
-		}
-	}()
-
-	if bus, ok := h.bus.(interface {
-		Errors(context.Context) <-chan error
-	}); ok {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			errs := bus.Errors(ctx)
-			for err := range errs {
-				out <- err
-			}
-		}()
+		return fmt.Errorf("mark as done: %w", err)
 	}
 
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-
-	return out
+	return handleError
 }
