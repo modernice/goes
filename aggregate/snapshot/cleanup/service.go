@@ -19,6 +19,10 @@ var (
 	ErrStopped = errors.New("service stopped")
 )
 
+var (
+	errNilStore = errors.New("nil Store")
+)
+
 // Service is a Snapshot cleanup service which deletes Snapshots that exceed a
 // given age.
 type Service struct {
@@ -73,8 +77,7 @@ func NewService(every, maxAge stdtime.Duration) *Service {
 //	}()
 func (c *Service) Start(store snapshot.Store) (<-chan error, error) {
 	if store == nil {
-		// TODO: maybe add error to API (?)
-		return nil, errors.New("nil Store")
+		return nil, errNilStore
 	}
 
 	if c.started {
