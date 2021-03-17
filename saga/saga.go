@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/saga/action"
@@ -63,6 +64,7 @@ type executor struct {
 	reporter Reporter
 	eventBus event.Bus
 	cmdBus   command.Bus
+	repo     aggregate.Repository
 
 	skipValidate bool
 
@@ -145,6 +147,18 @@ func SkipValidation() ExecuteOption {
 // EventBus returns an ExecuteOption that provides a SAGA with an event.Bus.
 // Actions within that SAGA that receive an action.Context may publish Events
 // through that Context over the provided Bus.
+//
+// Example:
+//
+//	s := saga.New(saga.Action("foo", func(ctx action.Context) {
+//		evt := event.New("foo", fooData{})
+//		err := ctx.Publish(ctx, evt)
+//		// handle err
+//	}))
+//
+//	var bus event.Bus
+//	err := saga.Execute(context.TODO(), s, saga.EventBus(bus))
+//	// handle err
 func EventBus(bus event.Bus) ExecuteOption {
 	return func(e *executor) {
 		e.eventBus = bus
@@ -154,9 +168,42 @@ func EventBus(bus event.Bus) ExecuteOption {
 // CommandBus returns an ExecuteOption that provides a SAGA with an command.Bus.
 // Actions within that SAGA that receive an action.Context may dispatch Commands
 // through that Context over the provided Bus.
+//
+// Example:
+//
+//	s := saga.New(saga.Action("foo", func(ctx action.Context) {
+//		cmd := command.New("foo", fooPayload{})
+//		err := ctx.Dispatch(ctx, cmd)
+//		// handle err
+//	}))
+//
+//	var bus command.Bus
+//	err := saga.Execute(context.TODO(), s, saga.CommandBus(bus))
+//	// handle err
 func CommandBus(bus command.Bus) ExecuteOption {
 	return func(e *executor) {
 		e.cmdBus = bus
+	}
+}
+
+// Repository returns an ExecuteOption that provides a SAGA with an
+// aggregate.Repository. Action within that SAGA that receive an action.Context
+// may fetch Aggregates through that Context from the provided Repository.
+//
+// Example:
+//
+//	s := saga.New(saga.Action("foo", func(ctx action.Context) {
+//		foo := newFooAggregate()
+//		err := ctx.Fetch(ctx, foo)
+//		// handle err
+//	}))
+//
+//	var repo aggregate.Repository
+//	err := saga.Execute(context.TODO(), s, saga.Repository(repo))
+//	// handle err
+func Repository(r aggregate.Repository) ExecuteOption {
+	return func(e *executor) {
+		e.repo = r
 	}
 }
 
@@ -428,6 +475,7 @@ func (e *executor) newActionContext(ctx context.Context, act action.Action) acti
 		action.WithRunner(e.runAction),
 		action.WithEventBus(e.eventBus),
 		action.WithCommandBus(e.cmdBus),
+		action.WithRepository(e.repo),
 	)
 }
 

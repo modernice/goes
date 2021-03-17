@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
+	mock_aggregate "github.com/modernice/goes/aggregate/mocks"
 	"github.com/modernice/goes/command"
 	mock_command "github.com/modernice/goes/command/mocks"
 	"github.com/modernice/goes/event"
@@ -355,6 +358,25 @@ func TestExecute_commandBus(t *testing.T) {
 
 	if err := saga.Execute(context.Background(), s, saga.CommandBus(bus)); err != nil {
 		t.Errorf("SAGA shouldn't fail; failed with %q", err)
+	}
+}
+
+func TestExecute_repository(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	foo := aggregate.New("foo", uuid.New())
+	repo := mock_aggregate.NewMockRepository(ctrl)
+	s := saga.New(
+		saga.Action("foo", func(c action.Context) error {
+			return c.Fetch(c, foo)
+		}),
+	)
+
+	repo.EXPECT().Fetch(gomock.Any(), foo).Return(nil)
+
+	if err := saga.Execute(context.Background(), s, saga.Repository(repo)); err != nil {
+		t.Fatalf("SAGA shouldn't fail; failed with %q", err)
 	}
 }
 
