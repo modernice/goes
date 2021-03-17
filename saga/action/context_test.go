@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
+	mock_aggregate "github.com/modernice/goes/aggregate/mocks"
 	"github.com/modernice/goes/command"
 	mock_command "github.com/modernice/goes/command/mocks"
 	"github.com/modernice/goes/event"
@@ -150,5 +153,26 @@ func TestContext_Run_customRunner(t *testing.T) {
 
 	if calledName != "bar" {
 		t.Errorf("runner called with wrong action name. want=%s got=%s", "bar", calledName)
+	}
+}
+
+func TestContext_Fetch(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := mock_aggregate.NewMockRepository(ctrl)
+	mockError := errors.New("mock error")
+
+	ctx := action.NewContext(
+		context.Background(),
+		action.New("foo", func(ctx action.Context) error { return nil }),
+		action.WithRepository(repo),
+	)
+
+	repo.EXPECT().Fetch(gomock.Any(), gomock.Any()).Return(mockError)
+
+	foo := aggregate.New("foo", uuid.New())
+	if err := ctx.Fetch(ctx, foo); !errors.Is(err, mockError) {
+		t.Fatalf("Fetch should fail with %q; got %q", mockError, err)
 	}
 }

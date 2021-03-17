@@ -35,8 +35,7 @@ type Aggregate interface {
 	// ApplyEvent applies the Event on the Aggregate.
 	ApplyEvent(event.Event)
 
-	// SetVersion sets the current version of the Aggregate (without uncommitted
-	// Events).
+	// SetVersion sets the version of the Aggregate (without uncommitted Events).
 	SetVersion(int)
 }
 

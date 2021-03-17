@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/event"
 )
@@ -12,6 +13,10 @@ var (
 	// ErrMissingBus is returned when trying to publish an Event without an
 	// event.Bus or dispatch a Command without a command.Bus.
 	ErrMissingBus = errors.New("missing bus")
+
+	// ErrMissingRepository is returned when trying to fetch an Aggregate with
+	// an aggregate.Repository.
+	ErrMissingRepository = errors.New("missing repository")
 )
 
 // Context is the context for running Actions.
@@ -29,6 +34,11 @@ type Context interface {
 	// no Command Bus is available, Dispatch returns ErrMissingBus.
 	Dispatch(context.Context, command.Command) error
 
+	// Fetch fetches the provided Aggregate from the underlying Aggregate
+	// Repository. If no Aggregate Repository is available, Fetch returns
+	// ErrMissingRepository.
+	Fetch(context.Context, aggregate.Aggregate) error
+
 	// Run runs the Action with the specified name.
 	Run(context.Context, string) error
 }
@@ -42,6 +52,7 @@ type actionContext struct {
 	act        Action
 	eventBus   event.Bus
 	commandBus command.Bus
+	repo       aggregate.Repository
 	run        func(context.Context, string) error
 }
 
@@ -66,6 +77,13 @@ func WithCommandBus(bus command.Bus) ContextOption {
 func WithRunner(run func(context.Context, string) error) ContextOption {
 	return func(cfg *actionContext) {
 		cfg.run = run
+	}
+}
+
+// WithRepository returns a ContextOption that provides the Context with an aggregate.Repository.
+func WithRepository(r aggregate.Repository) ContextOption {
+	return func(cfg *actionContext) {
+		cfg.repo = r
 	}
 }
 
@@ -97,6 +115,13 @@ func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command) error
 		return ErrMissingBus
 	}
 	return ctx.commandBus.Dispatch(c, cmd)
+}
+
+func (ctx *actionContext) Fetch(c context.Context, a aggregate.Aggregate) error {
+	if ctx.repo == nil {
+		return ErrMissingRepository
+	}
+	return ctx.repo.Fetch(c, a)
 }
 
 func (ctx *actionContext) Run(c context.Context, name string) error {

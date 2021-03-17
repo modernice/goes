@@ -77,10 +77,6 @@ func TestBase_FlushChanges(t *testing.T) {
 	}
 }
 
-func TestBase_NewEvent(t *testing.T) {
-
-}
-
 func TestApplyHistory(t *testing.T) {
 	var applied []event.Event
 	var flushed bool
