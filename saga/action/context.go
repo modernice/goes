@@ -32,7 +32,7 @@ type Context interface {
 
 	// Dispatch dispatches the given Command via the underlying Command Bus. If
 	// no Command Bus is available, Dispatch returns ErrMissingBus.
-	Dispatch(context.Context, command.Command) error
+	Dispatch(context.Context, command.Command, ...command.DispatchOption) error
 
 	// Fetch fetches the provided Aggregate from the underlying Aggregate
 	// Repository. If no Aggregate Repository is available, Fetch returns
@@ -110,11 +110,11 @@ func (ctx *actionContext) Publish(c context.Context, events ...event.Event) erro
 	return ctx.eventBus.Publish(c, events...)
 }
 
-func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command) error {
+func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command, opts ...command.DispatchOption) error {
 	if ctx.commandBus == nil {
 		return ErrMissingBus
 	}
-	return ctx.commandBus.Dispatch(c, cmd)
+	return ctx.commandBus.Dispatch(c, cmd, opts...)
 }
 
 func (ctx *actionContext) Fetch(c context.Context, a aggregate.Aggregate) error {
