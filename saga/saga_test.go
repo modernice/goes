@@ -354,7 +354,7 @@ func TestExecute_commandBus(t *testing.T) {
 	)
 
 	bus := mock_command.NewMockBus(ctrl)
-	bus.EXPECT().Dispatch(gomock.Any(), cmd).Return(nil)
+	bus.EXPECT().Dispatch(gomock.Any(), cmd, gomock.Any()).Return(nil)
 
 	if err := saga.Execute(context.Background(), s, saga.CommandBus(bus)); err != nil {
 		t.Errorf("SAGA shouldn't fail; failed with %q", err)

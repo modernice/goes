@@ -10,6 +10,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	mock_aggregate "github.com/modernice/goes/aggregate/mocks"
 	"github.com/modernice/goes/command"
+	"github.com/modernice/goes/command/cmdbus/dispatch"
 	mock_command "github.com/modernice/goes/command/mocks"
 	"github.com/modernice/goes/event"
 	mock_event "github.com/modernice/goes/event/mocks"
@@ -97,7 +98,13 @@ func TestContext_Dispatch(t *testing.T) {
 		action.WithCommandBus(bus),
 	)
 
-	bus.EXPECT().Dispatch(gomock.Any(), cmd).Return(nil)
+	var dispatchCfg command.DispatchConfig
+	bus.EXPECT().
+		Dispatch(gomock.Any(), cmd, gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ command.Command, opts ...command.DispatchOption) error {
+			dispatchCfg = dispatch.Configure(opts...)
+			return nil
+		})
 
 	if err := ctx.Dispatch(context.Background(), cmd); err != nil {
 		t.Errorf("Dispatch() should't fail; failed with %q", err)
@@ -111,10 +118,14 @@ func TestContext_Dispatch(t *testing.T) {
 	)
 
 	mockError := errors.New("mock error")
-	bus.EXPECT().Dispatch(gomock.Any(), cmd).Return(mockError)
+	bus.EXPECT().Dispatch(gomock.Any(), cmd, gomock.Any()).Return(mockError)
 
 	if err := ctx.Dispatch(context.Background(), cmd); !errors.Is(err, mockError) {
 		t.Errorf("Dispatch() should fail with %q; got %q", mockError, err)
+	}
+
+	if !dispatchCfg.Synchronous {
+		t.Errorf("Dispatches should always be synchronous!")
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/command"
+	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/event"
 )
 
@@ -30,8 +31,8 @@ type Context interface {
 	// Event Bus is available, Publish returns ErrMissingBus.
 	Publish(context.Context, ...event.Event) error
 
-	// Dispatch dispatches the given Command via the underlying Command Bus. If
-	// no Command Bus is available, Dispatch returns ErrMissingBus.
+	// Dispatch synchronously dispatches the given Command via the underlying
+	// Command Bus. If no Command Bus is available, Dispatch returns ErrMissingBus.
 	Dispatch(context.Context, command.Command, ...command.DispatchOption) error
 
 	// Fetch fetches the provided Aggregate from the underlying Aggregate
@@ -114,6 +115,7 @@ func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command, opts 
 	if ctx.commandBus == nil {
 		return ErrMissingBus
 	}
+	opts = append([]command.DispatchOption{dispatch.Synchronous()}, opts...)
 	return ctx.commandBus.Dispatch(c, cmd, opts...)
 }
 

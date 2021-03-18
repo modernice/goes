@@ -167,7 +167,8 @@ func EventBus(bus event.Bus) ExecuteOption {
 
 // CommandBus returns an ExecuteOption that provides a SAGA with an command.Bus.
 // Actions within that SAGA that receive an action.Context may dispatch Commands
-// through that Context over the provided Bus.
+// through that Context over the provided Bus. Dispatches over the Command Bus
+// are automatically made synchronous.
 //
 // Example:
 //
