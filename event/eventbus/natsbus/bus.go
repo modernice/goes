@@ -358,17 +358,19 @@ func (bus *Bus) publish(ctx context.Context, evt event.Event) error {
 		return fmt.Errorf("encode event data: %w", err)
 	}
 
+	b := buf.Bytes()
+
 	env := envelope{
 		ID:               evt.ID(),
 		Name:             evt.Name(),
 		Time:             evt.Time(),
-		Data:             buf.Bytes(),
+		Data:             b,
 		AggregateName:    evt.AggregateName(),
 		AggregateID:      evt.AggregateID(),
 		AggregateVersion: evt.AggregateVersion(),
 	}
 
-	buf.Reset()
+	buf = bytes.Buffer{}
 	if err := gob.NewEncoder(&buf).Encode(env); err != nil {
 		return fmt.Errorf("encode envelope: %w", err)
 	}
@@ -513,7 +515,7 @@ func (bus *Bus) workSubscriber(sub subscriber, wg *sync.WaitGroup) {
 
 		data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
 		if err != nil {
-			sub.errs <- fmt.Errorf("encode %q event data: %w", env.Name, err)
+			sub.errs <- fmt.Errorf("decode %q event data: %w", env.Name, err)
 			continue
 		}
 
