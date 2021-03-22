@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -67,8 +68,8 @@ func (enc *GobEncoder) Decode(name string, r io.Reader) (event.Data, error) {
 	enc.mux.RLock()
 	defer enc.mux.RUnlock()
 
-	if err := gob.NewDecoder(r).Decode(&data); err != nil {
-		return nil, fmt.Errorf("gob decode %#v: %w", data, err)
+	if err := gob.NewDecoder(r).Decode(&data); err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("gob decode into %#v: %w", data, err)
 	}
 
 	return data, nil

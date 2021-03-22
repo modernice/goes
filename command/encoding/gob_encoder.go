@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -40,7 +41,7 @@ func (enc *GobEncoder) Decode(name string, r io.Reader) (command.Payload, error)
 		return nil, err
 	}
 
-	if err := gob.NewDecoder(r).Decode(&pl); err != nil {
+	if err := gob.NewDecoder(r).Decode(&pl); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("gob decode %#v: %w", pl, err)
 	}
 
