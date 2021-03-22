@@ -86,14 +86,18 @@ func TestExecute_compensate(t *testing.T) {
 	mockError := errors.New("mock error")
 	var compensated bool
 	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
-			return mockError
+		saga.Action("foo", func(c action.Context) error {
+			return nil
 		}),
 		saga.Action("bar", func(action.Context) error {
+			return mockError
+		}),
+		saga.Action("comp-foo", func(action.Context) error {
 			compensated = true
 			return nil
 		}),
-		saga.Compensate("foo", "bar"),
+		saga.Sequence("foo", "bar"),
+		saga.Compensate("foo", "comp-foo"),
 	)
 
 	if err := saga.Execute(context.Background(), s); err != nil {
@@ -110,12 +114,16 @@ func TestExecute_compensateError(t *testing.T) {
 	mockCompError := errors.New("mock comp error")
 	s := saga.New(
 		saga.Action("foo", func(action.Context) error {
-			return mockError
+			return nil
 		}),
 		saga.Action("bar", func(action.Context) error {
+			return mockError
+		}),
+		saga.Action("baz", func(action.Context) error {
 			return mockCompError
 		}),
-		saga.Compensate("foo", "bar"),
+		saga.Sequence("foo", "bar"),
+		saga.Compensate("foo", "baz"),
 	)
 
 	if err := saga.Execute(context.Background(), s); !errors.Is(err, mockCompError) {
@@ -129,13 +137,14 @@ func TestExecute_compensateChain(t *testing.T) {
 	rec := newRecorder()
 	s := saga.New(
 		rec.newAction("foo", func(c action.Context) error {
-			return c.Run(c, "bar")
+			c.Run(c, "bar")
+			return mockError
 		}),
 		rec.newAction("bar", func(c action.Context) error {
 			return c.Run(c, "baz")
 		}),
 		rec.newAction("baz", func(c action.Context) error {
-			return mockError
+			return nil
 		}),
 		rec.newAction("comp-foo", func(c action.Context) error {
 			return nil
@@ -157,7 +166,7 @@ func TestExecute_compensateChain(t *testing.T) {
 
 	want := []string{
 		"baz", "bar", "foo",
-		"comp-foo", "comp-bar", "comp-baz",
+		"comp-bar", "comp-baz",
 	}
 	if !reflect.DeepEqual(rec.chain, want) {
 		t.Errorf("Actions should be called in order. want=%s got=%s", want, rec.chain)
@@ -170,13 +179,14 @@ func TestExecute_compensateChainError(t *testing.T) {
 	rec := newRecorder()
 	s := saga.New(
 		rec.newAction("foo", func(c action.Context) error {
-			return c.Run(c, "bar")
+			c.Run(c, "bar")
+			return mockError
 		}),
 		rec.newAction("bar", func(c action.Context) error {
 			return c.Run(c, "baz")
 		}),
 		rec.newAction("baz", func(c action.Context) error {
-			return mockError
+			return nil
 		}),
 		rec.newAction("comp-foo", func(c action.Context) error {
 			return nil
@@ -198,7 +208,7 @@ func TestExecute_compensateChainError(t *testing.T) {
 
 	want := []string{
 		"baz", "bar", "foo",
-		"comp-foo", "comp-bar", "comp-baz",
+		"comp-bar", "comp-baz",
 	}
 	if !reflect.DeepEqual(rec.chain, want) {
 		t.Errorf("Actions should be called in order. want=%s got=%s", want, rec.chain)
@@ -211,13 +221,14 @@ func TestExecute_compensateChainErrorMiddle(t *testing.T) {
 	rec := newRecorder()
 	s := saga.New(
 		rec.newAction("foo", func(c action.Context) error {
-			return c.Run(c, "bar")
+			c.Run(c, "bar")
+			return mockError
 		}),
 		rec.newAction("bar", func(c action.Context) error {
 			return c.Run(c, "baz")
 		}),
 		rec.newAction("baz", func(c action.Context) error {
-			return mockError
+			return nil
 		}),
 		rec.newAction("comp-foo", func(c action.Context) error {
 			return nil
@@ -239,7 +250,7 @@ func TestExecute_compensateChainErrorMiddle(t *testing.T) {
 
 	want := []string{
 		"baz", "bar", "foo",
-		"comp-foo", "comp-bar",
+		"comp-bar",
 	}
 	if !reflect.DeepEqual(rec.chain, want) {
 		t.Errorf("Actions should be called in order. want=%s got=%s", want, rec.chain)

@@ -519,6 +519,9 @@ func (e *executor) shouldRollback() bool {
 func (e *executor) rollback(ctx context.Context) error {
 	for i := len(e.reports) - 1; i >= 0; i-- {
 		res := e.reports[i]
+		if res.Error() != nil {
+			continue
+		}
 		if err := e.rollbackAction(ctx, res); err != nil {
 			return fmt.Errorf("rollback %q action: %w", res.Action().Name(), err)
 		}
