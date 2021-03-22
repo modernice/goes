@@ -41,9 +41,8 @@ type Bus struct {
 	connectOpts    []nats.Option
 	receiveTimeout time.Duration
 
-	connMux sync.Mutex
-	conn    connection
-	subs    map[subscriber]struct{}
+	conn connection
+	subs map[subscriber]struct{}
 
 	onceConnect sync.Once
 }
