@@ -361,7 +361,7 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Co
 
 	out, outErrs := make(chan command.Context), make(chan error)
 
-	go b.workSubscription(ctx, events, errs, out, outErrs)
+	go b.workSubscription(ctx, events, errs, out, outErrs, names)
 
 	return out, outErrs, nil
 }
@@ -381,6 +381,7 @@ func (b *Bus) workSubscription(
 	errs <-chan error,
 	out chan<- command.Context,
 	outErrs chan<- error,
+	names []string,
 ) {
 	type commandRequest struct {
 		cmd  command.Command
@@ -413,6 +414,11 @@ func (b *Bus) workSubscription(
 			switch evt.Name() {
 			case CommandDispatched:
 				data := evt.Data().(CommandDispatchedData)
+
+				if !containsName(names, data.Name) {
+					break
+				}
+
 				load, err := b.enc.Decode(data.Name, bytes.NewReader(data.Payload))
 				if err != nil {
 					outErrs <- fmt.Errorf("decode payload: %w", err)
@@ -438,6 +444,7 @@ func (b *Bus) workSubscription(
 
 			case CommandAssigned:
 				data := evt.Data().(CommandAssignedData)
+
 				if data.HandlerID != b.handlerID {
 					delete(requested, data.ID)
 					break
@@ -532,4 +539,13 @@ func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg done.Config
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
 	}
 	return nil
+}
+
+func containsName(names []string, name string) bool {
+	for _, n := range names {
+		if n == name {
+			return true
+		}
+	}
+	return false
 }
