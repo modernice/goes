@@ -144,10 +144,9 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 // Example:
 //	var rep report.Report
 //	err := b.Dispatch(context.TODO(), cmd, dispatch.Report(&rep))
-// 	// handle err
 // 	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
-// 	log.Println(fmt.Sprintf("Error: %v", rep.Error()))
+// 	log.Println(fmt.Sprintf("Error: %v", err))
 func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) error {
 	cfg := dispatch.Configure(opts...)
 
@@ -240,7 +239,7 @@ func (b *Bus) workDispatch(
 	for {
 		select {
 		case <-assignTimeout:
-			return ErrAssignTimeout
+			return fmt.Errorf("assign %q Command: %w", cmd.Name(), ErrAssignTimeout)
 		case err, ok := <-errs:
 			if ok {
 				return fmt.Errorf("event stream: %w", err)
@@ -271,6 +270,14 @@ func (b *Bus) handleDispatchEvent(
 	evt event.Event,
 	accepted chan struct{},
 ) (bool, error) {
+	accept := func() {
+		select {
+		case <-accepted:
+		default:
+			close(accepted)
+		}
+	}
+
 	switch evt.Name() {
 	case CommandRequested:
 		data := evt.Data().(CommandRequestedData)
@@ -289,10 +296,10 @@ func (b *Bus) handleDispatchEvent(
 		if data.ID != cmd.ID() {
 			return false, nil
 		}
+		accept()
 		if !cfg.Synchronous {
 			return true, nil
 		}
-		close(accepted)
 		return false, nil
 
 	case CommandExecuted:
@@ -300,6 +307,8 @@ func (b *Bus) handleDispatchEvent(
 		if data.ID != cmd.ID() {
 			return false, nil
 		}
+
+		accept()
 
 		var err error
 		if data.Error != "" {
@@ -326,7 +335,7 @@ func (b *Bus) handleDispatchEvent(
 func (b *Bus) assignCommand(ctx context.Context, cmd command.Command, data CommandRequestedData) error {
 	if err := b.bus.Publish(ctx, event.New(CommandAssigned, CommandAssignedData{
 		ID:        data.ID,
-		HandlerID: b.handlerID,
+		HandlerID: data.HandlerID,
 	})); err != nil {
 		return fmt.Errorf("publish %q event: %w", CommandAssigned, err)
 	}
