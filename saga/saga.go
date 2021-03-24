@@ -50,6 +50,12 @@ type Option func(*setup)
 // ExecuteOption is an option for the Execute function.
 type ExecuteOption func(*executor)
 
+// CompensateErr is returned when the compensation of a failed SAGA fails.
+type CompensateErr struct {
+	Err         error
+	ActionError error
+}
+
 type setup struct {
 	actions      []action.Action
 	actionMap    map[string]action.Action
@@ -213,8 +219,8 @@ func Repository(r aggregate.Repository) ExecuteOption {
 // Define Actions
 //
 // The core of a SAGA are Actions. Actions are basically just named functions
-// that can be composed to orchestrate the execution flow of the SAGA. Configure
-// Actions with the Action Option:
+// that can be composed to orchestrate the execution flow of a SAGA. Action can
+// be configured with the Action Option:
 //
 //	s := saga.New(
 //		saga.Action("foo", func(action.Context) error { return nil })),
@@ -245,10 +251,9 @@ func Repository(r aggregate.Repository) ExecuteOption {
 //
 // Compensate Actions
 //
-// Every Action a can be assigned a compensating Action that is called when
-// Action a fails. When any of the Actions in the sequence fails, the
-// compensating Actions for every previously ran Action is called in reverse
-// order.
+// Every Action a can be assigned a compensating Action c that is called when
+// the SAGA fails. Actions are compensated in reverse order and only failed
+// Actions will be compensated.
 //
 // Example:
 //
@@ -266,7 +271,20 @@ func Repository(r aggregate.Repository) ExecuteOption {
 //	)
 //
 // The above Setup would run the following Actions in order:
-//	`foo`, `bar`, `baz`, `compensate-baz`, `compensate-bar`, `compensate-foo`
+//	`foo`, `bar`, `baz`, `compensate-bar`, `compensate-foo`
+//
+// A SAGA that successfully compensated every Action still returns the error
+// that triggered the compensation. In order to check if a SAGA was compensated,
+// unwrap the error into a *CompensateErr:
+//
+//	var s saga.Setup
+//	if err := saga.Execute(context.TODO(), s); err != nil {
+//		if compError, ok := saga.CompensateError(err); ok {
+//			log.Println(fmt.Sprintf("Compensation failed: %s", compError))
+//		} else {
+//			log.Println(fmt.Sprintf("SAGA failed: %s", err))
+//		}
+//	}
 //
 // Action Context
 //
@@ -309,7 +327,7 @@ func New(opts ...Option) Setup {
 // the following cases:
 //	- `ErrEmptyName` if an Action has an empty name (or just whitespace)
 //	- `ErrActionNotFound` if the sequence contains an unconfigured Action
-//	- `ErrActionNotFound` if not not every Action has a compensator
+//	- `ErrActionNotFound` if not every Action has a compensating Action
 func Validate(s Setup) error {
 	for _, name := range s.Sequence() {
 		if strings.TrimSpace(name) == "" {
@@ -328,6 +346,18 @@ func Validate(s Setup) error {
 	}
 
 	return nil
+}
+
+// CompensateError unwraps the *CompensateErr from the given error.
+func CompensateError(err error) (*CompensateErr, bool) {
+	if err == nil {
+		return nil, false
+	}
+	var cerr *CompensateErr
+	if !errors.As(err, &cerr) {
+		return nil, false
+	}
+	return cerr, true
 }
 
 // Execute executes the given Setup.
@@ -426,16 +456,19 @@ func (e *executor) Execute(ctx context.Context) error {
 			return e.finish(start, fmt.Errorf("find %q action: %w", name, err))
 		}
 
-		if err := e.run(ctx, act); err != nil {
+		if actionError := e.run(ctx, act); actionError != nil {
 			if !e.shouldRollback() {
-				return e.finish(start, err)
+				return e.finish(start, actionError)
 			}
 
-			if err = e.rollback(ctx); err != nil {
-				return e.finish(start, fmt.Errorf("rollback: %w", err))
+			if err := e.rollback(ctx); err != nil {
+				return e.finish(start, &CompensateErr{
+					Err:         err,
+					ActionError: actionError,
+				})
 			}
 
-			return e.finish(start, nil)
+			return e.finish(start, actionError)
 		}
 	}
 
@@ -539,4 +572,12 @@ func (e *executor) rollbackAction(ctx context.Context, rep action.Report) error 
 		return fmt.Errorf("find %q action: %w", name, ErrActionNotFound)
 	}
 	return e.run(ctx, comp)
+}
+
+func (err *CompensateErr) Error() string {
+	return err.Err.Error()
+}
+
+func (err *CompensateErr) Unwrap() error {
+	return err.Err
 }

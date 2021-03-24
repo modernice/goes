@@ -100,8 +100,8 @@ func TestExecute_compensate(t *testing.T) {
 		saga.Compensate("foo", "comp-foo"),
 	)
 
-	if err := saga.Execute(context.Background(), s); err != nil {
-		t.Errorf("SAGA shouldn't fail; failed with %q", err)
+	if err := saga.Execute(context.Background(), s); !errors.Is(err, mockError) {
+		t.Fatalf("SAGA should fail with %q; got %q", mockError, err)
 	}
 
 	if !compensated {
@@ -126,8 +126,23 @@ func TestExecute_compensateError(t *testing.T) {
 		saga.Compensate("foo", "baz"),
 	)
 
-	if err := saga.Execute(context.Background(), s); !errors.Is(err, mockCompError) {
+	err := saga.Execute(context.Background(), s)
+	if !errors.Is(err, mockCompError) {
 		t.Errorf("SAGA should fail with %q; got %q", mockCompError, err)
+	}
+
+	var compError *saga.CompensateErr
+	if !errors.As(err, &compError) {
+		t.Fatalf("SAGA should fail with a %T error; got %T", compError, err)
+	}
+
+	compError, ok := saga.CompensateError(err)
+	if !ok {
+		t.Fatalf("SAGA should fail with a %T error; got %T", compError, err)
+	}
+
+	if compError.ActionError != mockError {
+		t.Fatalf("CompensateError.ActionError should be %q; got %q", mockError, compError.ActionError)
 	}
 }
 
@@ -160,8 +175,8 @@ func TestExecute_compensateChain(t *testing.T) {
 		saga.Compensate("baz", "comp-baz"),
 	)
 
-	if err := saga.Execute(context.Background(), s); err != nil {
-		t.Errorf("SAGA shouldn't fail; failed with %q", err)
+	if err := saga.Execute(context.Background(), s); !errors.Is(err, mockError) {
+		t.Errorf("SAGA should fail with %q; got %q", mockError, err)
 	}
 
 	want := []string{
