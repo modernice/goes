@@ -47,8 +47,8 @@ type Reporter interface {
 // Option is a Setup option.
 type Option func(*setup)
 
-// ExecuteOption is an option for the Execute function.
-type ExecuteOption func(*executor)
+// ExecutorOption is an option for the Execute function.
+type ExecutorOption func(*Executor)
 
 // CompensateErr is returned when the compensation of a failed SAGA fails.
 type CompensateErr struct {
@@ -64,7 +64,7 @@ type setup struct {
 	startWith    string
 }
 
-type executor struct {
+type Executor struct {
 	Setup
 
 	reporter Reporter
@@ -134,23 +134,23 @@ func Compensate(failed, compensateWith string) Option {
 	}
 }
 
-// Report returns an ExecuteOption that configures the Reporter r to be used by
+// Report returns an ExecutorOption that configures the Reporter r to be used by
 // the SAGA to report the execution result of the SAGA.
-func Report(r Reporter) ExecuteOption {
-	return func(e *executor) {
+func Report(r Reporter) ExecutorOption {
+	return func(e *Executor) {
 		e.reporter = r
 	}
 }
 
-// SkipValidation returns an ExecuteOption that disables validation of a Setup
+// SkipValidation returns an ExecutorOption that disables validation of a Setup
 // before it is executed.
-func SkipValidation() ExecuteOption {
-	return func(e *executor) {
+func SkipValidation() ExecutorOption {
+	return func(e *Executor) {
 		e.skipValidate = true
 	}
 }
 
-// EventBus returns an ExecuteOption that provides a SAGA with an event.Bus.
+// EventBus returns an ExecutorOption that provides a SAGA with an event.Bus.
 // Actions within that SAGA that receive an action.Context may publish Events
 // through that Context over the provided Bus.
 //
@@ -165,13 +165,13 @@ func SkipValidation() ExecuteOption {
 //	var bus event.Bus
 //	err := saga.Execute(context.TODO(), s, saga.EventBus(bus))
 //	// handle err
-func EventBus(bus event.Bus) ExecuteOption {
-	return func(e *executor) {
+func EventBus(bus event.Bus) ExecutorOption {
+	return func(e *Executor) {
 		e.eventBus = bus
 	}
 }
 
-// CommandBus returns an ExecuteOption that provides a SAGA with an command.Bus.
+// CommandBus returns an ExecutorOption that provides a SAGA with an command.Bus.
 // Actions within that SAGA that receive an action.Context may dispatch Commands
 // through that Context over the provided Bus. Dispatches over the Command Bus
 // are automatically made synchronous.
@@ -187,13 +187,13 @@ func EventBus(bus event.Bus) ExecuteOption {
 //	var bus command.Bus
 //	err := saga.Execute(context.TODO(), s, saga.CommandBus(bus))
 //	// handle err
-func CommandBus(bus command.Bus) ExecuteOption {
-	return func(e *executor) {
+func CommandBus(bus command.Bus) ExecutorOption {
+	return func(e *Executor) {
 		e.cmdBus = bus
 	}
 }
 
-// Repository returns an ExecuteOption that provides a SAGA with an
+// Repository returns an ExecutorOption that provides a SAGA with an
 // aggregate.Repository. Action within that SAGA that receive an action.Context
 // may fetch Aggregates through that Context from the provided Repository.
 //
@@ -208,8 +208,8 @@ func CommandBus(bus command.Bus) ExecuteOption {
 //	var repo aggregate.Repository
 //	err := saga.Execute(context.TODO(), s, saga.Repository(repo))
 //	// handle err
-func Repository(r aggregate.Repository) ExecuteOption {
-	return func(e *executor) {
+func Repository(r aggregate.Repository) ExecutorOption {
+	return func(e *Executor) {
 		e.repo = r
 	}
 }
@@ -289,7 +289,7 @@ func Repository(r aggregate.Repository) ExecuteOption {
 // Action Context
 //
 // An Action has access to an action.Context that allows the Action to run
-// other Actions in the same SAGA and, depending on the passed ExecuteOptions,
+// other Actions in the same SAGA and, depending on the passed ExecutorOptions,
 // publish Events and dispatch Commands:
 //
 //	s := saga.New(
@@ -376,12 +376,12 @@ func CompensateError(err error) (*CompensateErr, bool) {
 // Skip validation
 //
 // Validation of the Setup can be skipped by providing the SkipValidation
-// ExecuteOption, but should only be used when the Setup s is ensured to be
+// ExecutorOption, but should only be used when the Setup s is ensured to be
 // valid (e.g. by calling Validate manually beforehand).
 //
 // Reporting
 //
-// When a Reporter r is provided using the Report ExecuteOption, Execute will
+// When a Reporter r is provided using the Report ExecutorOption, Execute will
 // call r.Report with a report.Report which contains detailed information about
 // the execution of the SAGA (a *report.Report is also a Reporter):
 //
@@ -389,26 +389,28 @@ func CompensateError(err error) (*CompensateErr, bool) {
 //	var r report.Report
 //	err := saga.Execute(context.TODO(), s, saga.Report(&r))
 //	// err == r.Error()
-func Execute(ctx context.Context, s Setup, opts ...ExecuteOption) error {
-	e := newExecutor(s, opts...)
+func Execute(ctx context.Context, s Setup, opts ...ExecutorOption) error {
+	e := NewExecutor(opts...)
 	if !e.skipValidate {
 		if err := Validate(s); err != nil {
 			return fmt.Errorf("validate setup: %w", err)
 		}
 	}
-	return e.Execute(ctx)
+	return e.Execute(ctx, s)
 }
 
-func newExecutor(s Setup, opts ...ExecuteOption) *executor {
-	seq := s.Sequence()
-	e := &executor{
-		Setup:    s,
-		sequence: make([]action.Action, 0, len(seq)),
-	}
+// NewExecutor returns a reusable Executor.
+func NewExecutor(opts ...ExecutorOption) *Executor {
+	// // seq := s.Sequence()
+	// e := &Executor{
+	// 	// Setup:    s,
+	// 	// sequence: make([]action.Action, 0, len(seq)),
+	// }
+	var e Executor
 	for _, opt := range opts {
-		opt(e)
+		opt(&e)
 	}
-	return e
+	return &e
 }
 
 func (s *setup) Actions() []action.Action {
@@ -447,10 +449,13 @@ func (s *setup) Action(name string) action.Action {
 	return s.actionMap[name]
 }
 
-func (e *executor) Execute(ctx context.Context) error {
+// Execute executes the given SAGA.
+func (e *Executor) Execute(ctx context.Context, s Setup) error {
+	e = e.clone(s)
+
 	start := time.Now()
 
-	for _, name := range e.Sequence() {
+	for _, name := range s.Sequence() {
 		act, err := e.action(name)
 		if err != nil {
 			return e.finish(start, fmt.Errorf("find %q action: %w", name, err))
@@ -475,7 +480,7 @@ func (e *executor) Execute(ctx context.Context) error {
 	return e.finish(start, nil)
 }
 
-func (e *executor) action(name string) (action.Action, error) {
+func (e *Executor) action(name string) (action.Action, error) {
 	act := e.Action(name)
 	if act == nil {
 		return act, ErrActionNotFound
@@ -483,7 +488,7 @@ func (e *executor) action(name string) (action.Action, error) {
 	return act, nil
 }
 
-func (e *executor) finish(start time.Time, err error) error {
+func (e *Executor) finish(start time.Time, err error) error {
 	if e.reporter == nil {
 		return err
 	}
@@ -497,12 +502,12 @@ func (e *executor) finish(start time.Time, err error) error {
 	return err
 }
 
-func (e *executor) run(ctx context.Context, act action.Action) error {
+func (e *Executor) run(ctx context.Context, act action.Action) error {
 	actionCtx := e.newActionContext(ctx, act)
 	return e.runContext(actionCtx)
 }
 
-func (e *executor) newActionContext(ctx context.Context, act action.Action) action.Context {
+func (e *Executor) newActionContext(ctx context.Context, act action.Action) action.Context {
 	return action.NewContext(
 		ctx,
 		act,
@@ -513,7 +518,7 @@ func (e *executor) newActionContext(ctx context.Context, act action.Action) acti
 	)
 }
 
-func (e *executor) runContext(ctx action.Context) error {
+func (e *Executor) runContext(ctx action.Context) error {
 	start := time.Now()
 	act := ctx.Action()
 	err := act.Run(ctx)
@@ -526,7 +531,7 @@ func (e *executor) runContext(ctx action.Context) error {
 	return err
 }
 
-func (e *executor) runAction(ctx context.Context, name string) error {
+func (e *Executor) runAction(ctx context.Context, name string) error {
 	act, err := e.action(name)
 	if err != nil {
 		return fmt.Errorf("find %q action: %w", name, err)
@@ -537,7 +542,7 @@ func (e *executor) runAction(ctx context.Context, name string) error {
 	return nil
 }
 
-func (e *executor) shouldRollback() bool {
+func (e *Executor) shouldRollback() bool {
 	if len(e.reports) == 0 {
 		return false
 	}
@@ -549,7 +554,7 @@ func (e *executor) shouldRollback() bool {
 	return false
 }
 
-func (e *executor) rollback(ctx context.Context) error {
+func (e *Executor) rollback(ctx context.Context) error {
 	for i := len(e.reports) - 1; i >= 0; i-- {
 		res := e.reports[i]
 		if res.Error() != nil {
@@ -562,7 +567,7 @@ func (e *executor) rollback(ctx context.Context) error {
 	return nil
 }
 
-func (e *executor) rollbackAction(ctx context.Context, rep action.Report) error {
+func (e *Executor) rollbackAction(ctx context.Context, rep action.Report) error {
 	name := e.Compensator(rep.Action().Name())
 	if name == "" {
 		return fmt.Errorf("find compensator for %q: %w", rep.Action().Name(), ErrActionNotFound)
@@ -572,6 +577,13 @@ func (e *executor) rollbackAction(ctx context.Context, rep action.Report) error 
 		return fmt.Errorf("find %q action: %w", name, ErrActionNotFound)
 	}
 	return e.run(ctx, comp)
+}
+
+func (e Executor) clone(s Setup) *Executor {
+	e.Setup = s
+	e.sequence = nil
+	e.reports = nil
+	return &e
 }
 
 func (err *CompensateErr) Error() string {
