@@ -114,7 +114,7 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 	defer cancel()
 
 	// when subscribed to "foo" events
-	events, _, err := bus.Subscribe(ctx, "foo")
+	events, errs, err := bus.Subscribe(ctx, "foo")
 	if err != nil {
 		t.Fatal(fmt.Errorf("subscribe: %w", err))
 	}
@@ -138,9 +138,15 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 	// 5 events should be received
 	for i := 0; i < 5; i++ {
 		select {
-		case <-time.After(50 * time.Millisecond):
-			t.Fatalf("[%d] didn't receive Event after %s", i, 50*time.Millisecond)
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("[%d] didn't receive Event after %s", i, 100*time.Millisecond)
 		case err := <-pubErr:
+			t.Fatal(err)
+		case err, ok := <-errs:
+			if !ok {
+				errs = nil
+				break
+			}
 			t.Fatal(err)
 		case e, ok := <-events:
 			if !ok {
