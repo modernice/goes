@@ -41,8 +41,9 @@ type Bus struct {
 	connectOpts    []nats.Option
 	receiveTimeout time.Duration
 
-	conn connection
-	subs map[*subscriber]struct{}
+	conn    connection
+	subsMux sync.RWMutex
+	subs    map[string]*subscriber // map[EVENT_NAME]*subscriber
 
 	onceConnect sync.Once
 }
@@ -59,8 +60,8 @@ type Driver interface {
 
 type connection interface {
 	get() interface{}
-	subscribe(subject string) (*subscriber, error)
-	queueSubscribe(subject, queue string) (*subscriber, error)
+	subscribe(bus *Bus, subject string) (*subscriber, error)
+	queueSubscribe(bus *Bus, subject, queue string) (*subscriber, error)
 	publish(string, []byte) error
 }
 
@@ -86,11 +87,15 @@ type subscriber struct {
 	natsSub      *nats.Subscription
 	stanSub      stan.Subscription
 	msgs         chan []byte
-	events       chan<- event.Event
-	errs         chan<- error
-	out          []chan<- event.Event
-	outErrs      []chan<- error
+	rcpts        []recipient
+	addQueue     chan recipient
+	removeQueue  chan recipient
 	unsubscribed chan struct{}
+}
+
+type recipient struct {
+	events chan event.Event
+	errs   chan error
 }
 
 type envelope struct {
@@ -270,7 +275,7 @@ func New(enc event.Encoder, opts ...Option) *Bus {
 	}
 	bus := Bus{
 		enc:  enc,
-		subs: make(map[*subscriber]struct{}),
+		subs: make(map[string]*subscriber),
 	}
 	if bus.driver == nil {
 		bus.driver = Core(bus.connectOpts...)
@@ -346,7 +351,7 @@ func (bus *Bus) Publish(ctx context.Context, events ...event.Event) error {
 		}
 
 		if err := bus.publish(ctx, evt); err != nil {
-			return fmt.Errorf(`publish "%s" event: %w`, evt.Name(), err)
+			return fmt.Errorf(`publish %q Event: %w`, evt.Name(), err)
 		}
 	}
 
@@ -390,6 +395,13 @@ func (bus *Bus) publish(ctx context.Context, evt event.Event) error {
 // is not used; otherwise the subscription will block forever and no further
 // Events will be received when the first async error happens.
 func (bus *Bus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
+	parentCtx := ctx
+	ctx, cancel := context.WithCancel(parentCtx)
+	go func() {
+		<-parentCtx.Done()
+		cancel()
+	}()
+
 	if err := bus.connectOnce(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
@@ -400,52 +412,57 @@ func (bus *Bus) Subscribe(ctx context.Context, names ...string) (<-chan event.Ev
 	default:
 	}
 
-	subs := make([]*subscriber, 0, len(names))
-	out, errs := make(chan event.Event), make(chan error)
-
-	var subscribeError error
+	var rcpts []recipient
+	var err error
 	for _, name := range names {
-		subject := bus.subjectFunc(name)
-
-		var (
-			sub *subscriber
-			err error
-		)
-
-		if group := bus.queueFunc(name); group != "" {
-			sub, err = bus.conn.queueSubscribe(subject, group)
-		} else {
-			sub, err = bus.conn.subscribe(subject)
-		}
-
-		if err != nil {
-			subscribeError = err
+		var rcpt recipient
+		if rcpt, err = bus.makeRecipient(ctx, name); err != nil {
 			break
 		}
-
-		sub.events = out
-		sub.errs = errs
-
-		subs = append(subs, sub)
+		rcpts = append(rcpts, rcpt)
 	}
-
-	// if subscription failed for an event name, cancel ctx immediately and let
-	// bus.handleUnsubscribe handle the cleanup
-	if subscribeError != nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithCancel(ctx)
+	if err != nil {
 		cancel()
 	}
 
-	go bus.handleUnsubscribe(ctx, subs...)
-
-	bus.fanIn(out, errs, subs...)
+	out, errs := bus.fanIn(rcpts)
 
 	if bus.eatErrors {
 		go drainErrors(errs)
 	}
 
 	return out, errs, nil
+}
+
+func (bus *Bus) makeRecipient(ctx context.Context, eventName string) (recipient, error) {
+	sub, err := bus.getSubscriber(eventName)
+	if err != nil {
+		return recipient{}, err
+	}
+	return sub.newRecipient(ctx), nil
+}
+
+func (bus *Bus) getSubscriber(eventName string) (*subscriber, error) {
+	bus.subsMux.RLock()
+	sub, ok := bus.subs[eventName]
+	bus.subsMux.RUnlock()
+	if ok {
+		return sub, nil
+	}
+	bus.subsMux.Lock()
+	defer bus.subsMux.Unlock()
+
+	if sub, ok = bus.subs[eventName]; ok {
+		return sub, nil
+	}
+
+	subject := bus.subjectFunc(eventName)
+
+	if group := bus.queueFunc(eventName); group != "" {
+		return bus.conn.queueSubscribe(bus, subject, group)
+	}
+
+	return bus.conn.subscribe(bus, subject)
 }
 
 func (bus *Bus) connectOnce(ctx context.Context) error {
@@ -489,86 +506,150 @@ func (bus *Bus) natsURL() string {
 	return url
 }
 
-func (bus *Bus) fanIn(events chan<- event.Event, errs chan<- error, subs ...*subscriber) {
-	var wg sync.WaitGroup
-	wg.Add(len(subs))
+func (bus *Bus) fanIn(rcpts []recipient) (<-chan event.Event, <-chan error) {
+	return bus.fanInEvents(rcpts), fanInErrors(rcpts)
+}
 
+func (bus *Bus) fanInEvents(rcpts []recipient) <-chan event.Event {
+	out := make(chan event.Event)
+
+	var wg sync.WaitGroup
+	wg.Add(len(rcpts))
 	go func() {
 		wg.Wait()
-		close(events)
-		close(errs)
+		close(out)
 	}()
 
-	for _, sub := range subs {
-		go bus.workSubscriber(sub, &wg)
+	for _, rcpt := range rcpts {
+		rcpt := rcpt
+		events := rcpt.events
+		go func() {
+			defer wg.Done()
+
+			for {
+				evt, ok := <-events
+				if !ok {
+					return
+				}
+
+				var timeout <-chan time.Time
+				var stop func() bool = func() bool { return false }
+				if bus.receiveTimeout != 0 {
+					timer := time.NewTimer(bus.receiveTimeout)
+					timeout = timer.C
+					stop = timer.Stop
+				}
+
+				drop := func() {
+					stop()
+					rcpt.errs <- fmt.Errorf("dropping %q Event: %w", evt.Name(), ErrReceiveTimeout)
+				}
+
+				select {
+				case <-timeout:
+					drop()
+				case out <- evt:
+					stop()
+				}
+			}
+		}()
 	}
+
+	return out
 }
 
-func (bus *Bus) workSubscriber(sub *subscriber, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for msg := range sub.msgs {
-		var env envelope
-		dec := gob.NewDecoder(bytes.NewReader(msg))
-		if err := dec.Decode(&env); err != nil {
-			sub.errs <- fmt.Errorf("decode envelope: %w", err)
-			continue
-		}
+func fanInErrors(rcpts []recipient) <-chan error {
+	out := make(chan error)
 
-		data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
-		if err != nil {
-			sub.errs <- fmt.Errorf("decode %q event data: %w", env.Name, err)
-			continue
-		}
+	var wg sync.WaitGroup
+	wg.Add(len(rcpts))
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
 
-		evt := event.New(
-			env.Name,
-			data,
-			event.ID(env.ID),
-			event.Time(env.Time),
-			event.Aggregate(
-				env.AggregateName,
-				env.AggregateID,
-				env.AggregateVersion,
-			),
-		)
-
-		if bus.receiveTimeout == 0 {
-			sub.events <- evt
-			continue
-		}
-
-		timer := time.NewTimer(bus.receiveTimeout)
-		select {
-		case <-timer.C:
-			sub.errs <- fmt.Errorf("dropping %q event because: %w", env.Name, ErrReceiveTimeout)
-		case sub.events <- evt:
-			timer.Stop()
-		}
+	for _, rcpt := range rcpts {
+		errs := rcpt.errs
+		go func() {
+			defer wg.Done()
+			for err := range errs {
+				out <- err
+			}
+		}()
 	}
+
+	return out
 }
 
-// handleUnsubscribe unsubscribes subs when ctx is canceled
-func (bus *Bus) handleUnsubscribe(ctx context.Context, subs ...*subscriber) {
-	<-ctx.Done()
-	for _, sub := range subs {
-		if err := sub.unsubscribe(); err != nil {
-			go func() {
-				sub.errs <- fmt.Errorf(
-					`unsubscribe from subject "%s": %w`,
-					sub.subject,
-					err,
-				)
-			}()
-		}
-	}
-}
+// func (bus *Bus) workSubscriber(sub *subscriber, wg *sync.WaitGroup) {
+// 	defer wg.Done()
+// 	for msg := range sub.msgs {
+// 		var env envelope
+// 		dec := gob.NewDecoder(bytes.NewReader(msg))
+// 		if err := dec.Decode(&env); err != nil {
+// 			sub.errs <- fmt.Errorf("decode envelope: %w", err)
+// 			continue
+// 		}
+
+// 		data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
+// 		if err != nil {
+// 			sub.errs <- fmt.Errorf("decode %q event data: %w", env.Name, err)
+// 			continue
+// 		}
+
+// 		evt := event.New(
+// 			env.Name,
+// 			data,
+// 			event.ID(env.ID),
+// 			event.Time(env.Time),
+// 			event.Aggregate(
+// 				env.AggregateName,
+// 				env.AggregateID,
+// 				env.AggregateVersion,
+// 			),
+// 		)
+
+// 		if bus.receiveTimeout == 0 {
+// 			sub.events <- evt
+// 			continue
+// 		}
+
+// 		timer := time.NewTimer(bus.receiveTimeout)
+// 		select {
+// 		case <-timer.C:
+// 			sub.errs <- fmt.Errorf("dropping %q event because: %w", env.Name, ErrReceiveTimeout)
+// 		case sub.events <- evt:
+// 			timer.Stop()
+// 		}
+// 	}
+// }
+
+// // handleUnsubscribe unsubscribes subs when ctx is canceled
+// func (bus *Bus) handleUnsubscribe(ctx context.Context, subs ...*subscriber) {
+// 	<-ctx.Done()
+// 	for _, sub := range subs {
+// 		if err := sub.unsubscribe(); err != nil {
+// 			go func() {
+// 				sub.errs <- fmt.Errorf(
+// 					`unsubscribe from subject "%s": %w`,
+// 					sub.subject,
+// 					err,
+// 				)
+// 			}()
+// 		}
+// 	}
+// }
 
 func (sub *subscriber) unsubscribe() error {
 	defer close(sub.unsubscribed)
+
+	var err error
 	if sub.natsSub != nil {
-		return sub.natsSub.Unsubscribe()
+		err = sub.natsSub.Unsubscribe()
+	} else {
+		err = sub.stanSub.Unsubscribe()
 	}
-	return sub.stanSub.Unsubscribe()
+	return err
 }
 
 func (d *core) connect(url string) (connection, error) {
@@ -595,7 +676,7 @@ func (c *natsConn) get() interface{} {
 	return c.conn
 }
 
-func (c *natsConn) subscribe(subject string) (*subscriber, error) {
+func (c *natsConn) subscribe(bus *Bus, subject string) (*subscriber, error) {
 	msgs := make(chan []byte)
 	nmsgs := make(chan *nats.Msg)
 	sub, err := c.conn.ChanSubscribe(subject, nmsgs)
@@ -608,7 +689,7 @@ func (c *natsConn) subscribe(subject string) (*subscriber, error) {
 			msgs <- msg.Data
 		}
 	}()
-	s := newSubscriber(subject, "", msgs)
+	s := bus.newSubscriber(subject, "", msgs)
 	s.natsSub = sub
 	go func() {
 		<-s.unsubscribed
@@ -617,18 +698,128 @@ func (c *natsConn) subscribe(subject string) (*subscriber, error) {
 	return s, nil
 }
 
-func newSubscriber(subject, queue string, msgs chan []byte) *subscriber {
+func (bus *Bus) newSubscriber(subject, queue string, msgs chan []byte) *subscriber {
 	sub := &subscriber{
 		subject:      subject,
 		queue:        queue,
 		msgs:         msgs,
+		addQueue:     make(chan recipient),
+		removeQueue:  make(chan recipient),
 		unsubscribed: make(chan struct{}),
 	}
-	// go sub.work()
+	go bus.workSubscriber(sub)
 	return sub
 }
 
-func (c *natsConn) queueSubscribe(subject, queue string) (*subscriber, error) {
+func (bus *Bus) workSubscriber(sub *subscriber) {
+L:
+	for {
+		select {
+		case msg, ok := <-sub.msgs:
+			if !ok {
+				break L
+			}
+
+			var env envelope
+			dec := gob.NewDecoder(bytes.NewReader(msg))
+			if err := dec.Decode(&env); err != nil {
+				sub.publishError(fmt.Errorf("decode envelope: %w", err))
+				break
+			}
+
+			data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
+			if err != nil {
+				sub.publishError(fmt.Errorf("decode %q event data: %w", env.Name, err))
+				break
+			}
+
+			evt := event.New(
+				env.Name,
+				data,
+				event.ID(env.ID),
+				event.Time(env.Time),
+				event.Aggregate(
+					env.AggregateName,
+					env.AggregateID,
+					env.AggregateVersion,
+				),
+			)
+
+			if bus.receiveTimeout == 0 {
+				if err := sub.publish(context.Background(), evt); err != nil {
+					sub.publishError(err)
+				}
+				break
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), bus.receiveTimeout)
+			if err := sub.publish(ctx, evt); err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					sub.publishError(fmt.Errorf("dropping %q Event: %w", env.Name, ErrReceiveTimeout))
+				} else {
+					sub.publishError(err)
+				}
+			}
+			cancel()
+		case rcpt := <-sub.addQueue:
+			sub.add(rcpt)
+		case rcpt := <-sub.removeQueue:
+			empty := sub.remove(rcpt)
+			if !empty {
+				break
+			}
+			sub.unsubscribe()
+		}
+	}
+}
+
+func (sub *subscriber) publish(ctx context.Context, evt event.Event) error {
+	for _, rcpt := range sub.rcpts {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case rcpt.events <- evt:
+		}
+	}
+	return nil
+}
+
+func (sub *subscriber) publishError(err error) {
+	for _, rcpt := range sub.rcpts {
+		rcpt.errs <- err
+	}
+}
+
+func (sub *subscriber) add(rcpt recipient) {
+	sub.rcpts = append(sub.rcpts, rcpt)
+}
+
+func (sub *subscriber) remove(rcpt recipient) bool {
+	close(rcpt.events)
+	close(rcpt.errs)
+	for i, r := range sub.rcpts {
+		if r == rcpt {
+			sub.rcpts = append(sub.rcpts[:i], sub.rcpts[i+1:]...)
+			break
+		}
+	}
+	return len(sub.rcpts) == 0
+}
+
+func (sub *subscriber) newRecipient(ctx context.Context) recipient {
+	rcpt := recipient{
+		events: make(chan event.Event),
+		errs:   make(chan error),
+	}
+	sub.addQueue <- rcpt
+	go func() {
+		<-ctx.Done()
+		sub.removeQueue <- rcpt
+	}()
+	return rcpt
+}
+
+func (c *natsConn) queueSubscribe(bus *Bus, subject, queue string) (*subscriber, error) {
 	msgs := make(chan []byte)
 	nmsgs := make(chan *nats.Msg)
 	sub, err := c.conn.ChanQueueSubscribe(subject, queue, nmsgs)
@@ -641,7 +832,7 @@ func (c *natsConn) queueSubscribe(subject, queue string) (*subscriber, error) {
 			msgs <- msg.Data
 		}
 	}()
-	s := newSubscriber(subject, queue, msgs)
+	s := bus.newSubscriber(subject, queue, msgs)
 	s.natsSub = sub
 	go func() {
 		<-s.unsubscribed
@@ -658,7 +849,7 @@ func (c *stanConn) get() interface{} {
 	return c.conn
 }
 
-func (c *stanConn) subscribe(subject string) (*subscriber, error) {
+func (c *stanConn) subscribe(bus *Bus, subject string) (*subscriber, error) {
 	msgs := make(chan []byte)
 	sub, err := c.conn.Subscribe(
 		subject,
@@ -668,7 +859,7 @@ func (c *stanConn) subscribe(subject string) (*subscriber, error) {
 	if err != nil {
 		return nil, fmt.Errorf("stan: %w", err)
 	}
-	s := newSubscriber(subject, "", msgs)
+	s := bus.newSubscriber(subject, "", msgs)
 	s.stanSub = sub
 	go func() {
 		<-s.unsubscribed
@@ -677,7 +868,7 @@ func (c *stanConn) subscribe(subject string) (*subscriber, error) {
 	return s, nil
 }
 
-func (c *stanConn) queueSubscribe(subject, queue string) (*subscriber, error) {
+func (c *stanConn) queueSubscribe(bus *Bus, subject, queue string) (*subscriber, error) {
 	msgs := make(chan []byte)
 	sub, err := c.conn.QueueSubscribe(
 		subject, queue, func(msg *stan.Msg) { msgs <- msg.Data },
@@ -686,7 +877,7 @@ func (c *stanConn) queueSubscribe(subject, queue string) (*subscriber, error) {
 	if err != nil {
 		return nil, fmt.Errorf("stan: %w", err)
 	}
-	s := newSubscriber(subject, queue, msgs)
+	s := bus.newSubscriber(subject, queue, msgs)
 	s.stanSub = sub
 	go func() {
 		<-s.unsubscribed

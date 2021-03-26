@@ -214,47 +214,33 @@ func TestDurable(t *testing.T) {
 func TestReceiveTimeout(t *testing.T) {
 	// given a receive timeout of 100ms
 	timeout := 100 * time.Millisecond
-	bus := New(test.NewEncoder(), ReceiveTimeout(timeout))
+	enc := test.NewEncoder()
+	subBus := New(enc, ReceiveTimeout(timeout))
+	pubBus := New(enc)
 
 	// given a "foo" and "bar" subscription
-	events, errs, err := bus.Subscribe(context.Background(), "foo", "bar")
+	events, errs, err := subBus.Subscribe(context.Background(), "foo", "bar")
 	if err != nil {
 		t.Fatal(fmt.Errorf("subscribe to %q events: %w", "foo", err))
 	}
 
 	// when a "foo" event is published
 	foo := event.New("foo", test.FooEventData{A: "foo"})
-	if err = bus.Publish(context.Background(), foo); err != nil {
-		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
-	}
-
-	// the "foo" event should be received
-	select {
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal(fmt.Errorf("didn't receive %q event after 500ms", "foo"))
-	case received := <-events:
-		if !event.Equal(received, foo) {
-			t.Fatal(fmt.Errorf("received event doesn't match published event\npublished: %#v\n\nreceived: %#v", foo, received))
-		}
-	}
-
-	// when another "foo" event is published
-	if err = bus.Publish(context.Background(), foo); err != nil {
+	if err = pubBus.Publish(context.Background(), foo); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
 	}
 
 	// when there's no receive from events for at least 100ms
 	<-time.After(150 * time.Millisecond)
 
-	// the "foo" event should be dropped
+	// the event should be dropped
 	select {
 	case evt := <-events:
 		t.Fatal(fmt.Errorf("didn't expected to receive from events; got %#v", evt))
 	default:
 	}
 
-	// and we should receive an error indicating that the "foo" event was
-	// dropped
+	// and we should receive an error indicating that an event was dropped
 	select {
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal(fmt.Errorf("didn't receive from errs after 100ms"))
@@ -264,9 +250,9 @@ func TestReceiveTimeout(t *testing.T) {
 		}
 	}
 
-	// when "bar" event is published
+	// when another "bar" event is published
 	bar := event.New("bar", test.BarEventData{A: "bar"})
-	if err = bus.Publish(context.Background(), bar); err != nil {
+	if err = pubBus.Publish(context.Background(), bar); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "bar", err))
 	}
 
