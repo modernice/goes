@@ -17,14 +17,15 @@ import (
 )
 
 func TestQueueGroupByFunc(t *testing.T) {
-	// given an event bus with a queue group func
-	bus := New(test.NewEncoder(), QueueGroupByFunc(func(eventName string) string {
-		return fmt.Sprintf("bar.%s", eventName)
-	}))
+	enc := test.NewEncoder()
 
 	// given 5 "foo" subscribers
 	subs := make([]<-chan event.Event, 5)
 	for i := range subs {
+		bus := New(enc, QueueGroupByFunc(func(eventName string) string {
+			return fmt.Sprintf("bar.%s", eventName)
+		}))
+
 		events, _, err := bus.Subscribe(context.Background(), "foo")
 		if err != nil {
 			t.Fatal(fmt.Errorf("[%d] subscribe to %q events: %w", i, "foo", err))
@@ -32,9 +33,13 @@ func TestQueueGroupByFunc(t *testing.T) {
 		subs[i] = events
 	}
 
+	pubBus := New(enc, QueueGroupByFunc(func(eventName string) string {
+		return fmt.Sprintf("bar.%s", eventName)
+	}))
+
 	// when a "foo" event is published
 	evt := event.New("foo", test.FooEventData{})
-	err := bus.Publish(context.Background(), evt)
+	err := pubBus.Publish(context.Background(), evt)
 	if err != nil {
 		t.Fatal(fmt.Errorf("publish event %#v: %w", evt, err))
 	}

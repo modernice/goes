@@ -43,7 +43,7 @@ type Bus struct {
 
 	conn    connection
 	subsMux sync.RWMutex
-	subs    map[string]*subscriber // map[EVENT_NAME]*subscriber
+	subs    map[string]*subscription // map[EVENT_NAME]*subscriber
 
 	onceConnect sync.Once
 }
@@ -60,8 +60,8 @@ type Driver interface {
 
 type connection interface {
 	get() interface{}
-	subscribe(bus *Bus, subject string) (*subscriber, error)
-	queueSubscribe(bus *Bus, subject, queue string) (*subscriber, error)
+	subscribe(bus *Bus, subject string) (*subscription, error)
+	queueSubscribe(bus *Bus, subject, queue string) (*subscription, error)
 	publish(string, []byte) error
 }
 
@@ -81,21 +81,28 @@ type stanConn struct {
 	durableFunc func(string, string) string
 }
 
-type subscriber struct {
+type subscription struct {
+	eventName    string
 	subject      string
 	queue        string
 	natsSub      *nats.Subscription
 	stanSub      stan.Subscription
 	msgs         chan []byte
 	rcpts        []recipient
-	addQueue     chan recipient
+	addQueue     chan add
 	removeQueue  chan recipient
+	done         chan struct{}
 	unsubscribed chan struct{}
 }
 
 type recipient struct {
 	events chan event.Event
 	errs   chan error
+}
+
+type add struct {
+	rcpt recipient
+	done chan struct{}
 }
 
 type envelope struct {
@@ -275,7 +282,7 @@ func New(enc event.Encoder, opts ...Option) *Bus {
 	}
 	bus := Bus{
 		enc:  enc,
-		subs: make(map[string]*subscriber),
+		subs: make(map[string]*subscription),
 	}
 	if bus.driver == nil {
 		bus.driver = Core(bus.connectOpts...)
@@ -416,7 +423,7 @@ func (bus *Bus) Subscribe(ctx context.Context, names ...string) (<-chan event.Ev
 	var err error
 	for _, name := range names {
 		var rcpt recipient
-		if rcpt, err = bus.makeRecipient(ctx, name); err != nil {
+		if rcpt, err = bus.newRecipient(ctx, name); err != nil {
 			break
 		}
 		rcpts = append(rcpts, rcpt)
@@ -434,15 +441,28 @@ func (bus *Bus) Subscribe(ctx context.Context, names ...string) (<-chan event.Ev
 	return out, errs, nil
 }
 
-func (bus *Bus) makeRecipient(ctx context.Context, eventName string) (recipient, error) {
-	sub, err := bus.getSubscriber(eventName)
-	if err != nil {
-		return recipient{}, err
+func (bus *Bus) newRecipient(ctx context.Context, eventName string) (recipient, error) {
+	for {
+		sub, err := bus.getSubscription(eventName)
+		if err != nil {
+			return recipient{}, err
+		}
+
+		rcpt, err := sub.newRecipient(ctx)
+		if err == nil {
+			return rcpt, nil
+		}
+
+		if errors.Is(err, errUnsubscribed) {
+			<-time.After(20 * time.Millisecond)
+			continue
+		}
+
+		return rcpt, err
 	}
-	return sub.newRecipient(ctx), nil
 }
 
-func (bus *Bus) getSubscriber(eventName string) (*subscriber, error) {
+func (bus *Bus) getSubscription(eventName string) (*subscription, error) {
 	bus.subsMux.RLock()
 	sub, ok := bus.subs[eventName]
 	bus.subsMux.RUnlock()
@@ -457,12 +477,19 @@ func (bus *Bus) getSubscriber(eventName string) (*subscriber, error) {
 	}
 
 	subject := bus.subjectFunc(eventName)
-
+	var err error
 	if group := bus.queueFunc(eventName); group != "" {
-		return bus.conn.queueSubscribe(bus, subject, group)
+		sub, err = bus.conn.queueSubscribe(bus, subject, group)
+	} else {
+		sub, err = bus.conn.subscribe(bus, subject)
 	}
+	if err != nil {
+		return nil, fmt.Errorf("nats: %w", err)
+	}
+	sub.eventName = eventName
+	bus.subs[eventName] = sub
 
-	return bus.conn.subscribe(bus, subject)
+	return sub, nil
 }
 
 func (bus *Bus) connectOnce(ctx context.Context) error {
@@ -581,66 +608,7 @@ func fanInErrors(rcpts []recipient) <-chan error {
 	return out
 }
 
-// func (bus *Bus) workSubscriber(sub *subscriber, wg *sync.WaitGroup) {
-// 	defer wg.Done()
-// 	for msg := range sub.msgs {
-// 		var env envelope
-// 		dec := gob.NewDecoder(bytes.NewReader(msg))
-// 		if err := dec.Decode(&env); err != nil {
-// 			sub.errs <- fmt.Errorf("decode envelope: %w", err)
-// 			continue
-// 		}
-
-// 		data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
-// 		if err != nil {
-// 			sub.errs <- fmt.Errorf("decode %q event data: %w", env.Name, err)
-// 			continue
-// 		}
-
-// 		evt := event.New(
-// 			env.Name,
-// 			data,
-// 			event.ID(env.ID),
-// 			event.Time(env.Time),
-// 			event.Aggregate(
-// 				env.AggregateName,
-// 				env.AggregateID,
-// 				env.AggregateVersion,
-// 			),
-// 		)
-
-// 		if bus.receiveTimeout == 0 {
-// 			sub.events <- evt
-// 			continue
-// 		}
-
-// 		timer := time.NewTimer(bus.receiveTimeout)
-// 		select {
-// 		case <-timer.C:
-// 			sub.errs <- fmt.Errorf("dropping %q event because: %w", env.Name, ErrReceiveTimeout)
-// 		case sub.events <- evt:
-// 			timer.Stop()
-// 		}
-// 	}
-// }
-
-// // handleUnsubscribe unsubscribes subs when ctx is canceled
-// func (bus *Bus) handleUnsubscribe(ctx context.Context, subs ...*subscriber) {
-// 	<-ctx.Done()
-// 	for _, sub := range subs {
-// 		if err := sub.unsubscribe(); err != nil {
-// 			go func() {
-// 				sub.errs <- fmt.Errorf(
-// 					`unsubscribe from subject "%s": %w`,
-// 					sub.subject,
-// 					err,
-// 				)
-// 			}()
-// 		}
-// 	}
-// }
-
-func (sub *subscriber) unsubscribe() error {
+func (sub *subscription) unsubscribe() error {
 	defer close(sub.unsubscribed)
 
 	var err error
@@ -676,7 +644,7 @@ func (c *natsConn) get() interface{} {
 	return c.conn
 }
 
-func (c *natsConn) subscribe(bus *Bus, subject string) (*subscriber, error) {
+func (c *natsConn) subscribe(bus *Bus, subject string) (*subscription, error) {
 	msgs := make(chan []byte)
 	nmsgs := make(chan *nats.Msg)
 	sub, err := c.conn.ChanSubscribe(subject, nmsgs)
@@ -698,26 +666,33 @@ func (c *natsConn) subscribe(bus *Bus, subject string) (*subscriber, error) {
 	return s, nil
 }
 
-func (bus *Bus) newSubscriber(subject, queue string, msgs chan []byte) *subscriber {
-	sub := &subscriber{
+func (bus *Bus) newSubscriber(subject, queue string, msgs chan []byte) *subscription {
+	sub := &subscription{
 		subject:      subject,
 		queue:        queue,
 		msgs:         msgs,
-		addQueue:     make(chan recipient),
+		addQueue:     make(chan add),
 		removeQueue:  make(chan recipient),
+		done:         make(chan struct{}),
 		unsubscribed: make(chan struct{}),
 	}
 	go bus.workSubscriber(sub)
 	return sub
 }
 
-func (bus *Bus) workSubscriber(sub *subscriber) {
-L:
+func (bus *Bus) workSubscriber(sub *subscription) {
+	defer func() {
+		bus.subsMux.Lock()
+		defer bus.subsMux.Unlock()
+		close(sub.done)
+		delete(bus.subs, sub.eventName)
+	}()
+
 	for {
 		select {
 		case msg, ok := <-sub.msgs:
 			if !ok {
-				break L
+				return
 			}
 
 			var env envelope
@@ -745,56 +720,65 @@ L:
 				),
 			)
 
-			if bus.receiveTimeout == 0 {
-				if err := sub.publish(context.Background(), evt); err != nil {
-					sub.publishError(err)
-				}
-				break
+			if err := sub.publish(evt); err != nil {
+				sub.publishError(err)
 			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), bus.receiveTimeout)
-			if err := sub.publish(ctx, evt); err != nil {
-				if errors.Is(err, context.DeadlineExceeded) {
-					sub.publishError(fmt.Errorf("dropping %q Event: %w", env.Name, ErrReceiveTimeout))
-				} else {
-					sub.publishError(err)
-				}
-			}
-			cancel()
-		case rcpt := <-sub.addQueue:
-			sub.add(rcpt)
+		case add := <-sub.addQueue:
+			sub.rcpts = append(sub.rcpts, add.rcpt)
+			close(add.done)
 		case rcpt := <-sub.removeQueue:
-			empty := sub.remove(rcpt)
-			if !empty {
-				break
+			if sub.doRemove(rcpt) {
+				return
 			}
-			sub.unsubscribe()
 		}
 	}
 }
 
-func (sub *subscriber) publish(ctx context.Context, evt event.Event) error {
+func (sub *subscription) publish(evt event.Event) error {
 	for _, rcpt := range sub.rcpts {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case rcpt.events <- evt:
-		}
+		rcpt.events <- evt
 	}
 	return nil
 }
 
-func (sub *subscriber) publishError(err error) {
+func (sub *subscription) publishError(err error) {
 	for _, rcpt := range sub.rcpts {
 		rcpt.errs <- err
 	}
 }
 
-func (sub *subscriber) add(rcpt recipient) {
-	sub.rcpts = append(sub.rcpts, rcpt)
+func (sub *subscription) add(rcpt recipient) error {
+	done := make(chan struct{})
+	select {
+	case <-sub.done:
+		return errUnsubscribed
+	case <-sub.unsubscribed:
+		return errUnsubscribed
+	case sub.addQueue <- add{
+		rcpt: rcpt,
+		done: done,
+	}:
+	}
+
+	select {
+	case <-sub.done:
+		return errUnsubscribed
+	case <-sub.unsubscribed:
+		return errUnsubscribed
+	case <-done:
+		return nil
+	}
 }
 
-func (sub *subscriber) remove(rcpt recipient) bool {
+func (sub *subscription) remove(rcpt recipient) {
+	select {
+	case <-sub.done:
+	case <-sub.unsubscribed:
+	case sub.removeQueue <- rcpt:
+	}
+}
+
+func (sub *subscription) doRemove(rcpt recipient) bool {
 	close(rcpt.events)
 	close(rcpt.errs)
 	for i, r := range sub.rcpts {
@@ -803,23 +787,34 @@ func (sub *subscriber) remove(rcpt recipient) bool {
 			break
 		}
 	}
-	return len(sub.rcpts) == 0
+	if len(sub.rcpts) == 0 {
+		if err := sub.unsubscribe(); err != nil {
+			// TODO: handle error
+			panic(err)
+		}
+		return true
+	}
+	return false
 }
 
-func (sub *subscriber) newRecipient(ctx context.Context) recipient {
+var errUnsubscribed = errors.New("unsubscribed")
+
+func (sub *subscription) newRecipient(ctx context.Context) (recipient, error) {
 	rcpt := recipient{
 		events: make(chan event.Event),
 		errs:   make(chan error),
 	}
-	sub.addQueue <- rcpt
+	if err := sub.add(rcpt); err != nil {
+		return recipient{}, err
+	}
 	go func() {
 		<-ctx.Done()
-		sub.removeQueue <- rcpt
+		sub.remove(rcpt)
 	}()
-	return rcpt
+	return rcpt, nil
 }
 
-func (c *natsConn) queueSubscribe(bus *Bus, subject, queue string) (*subscriber, error) {
+func (c *natsConn) queueSubscribe(bus *Bus, subject, queue string) (*subscription, error) {
 	msgs := make(chan []byte)
 	nmsgs := make(chan *nats.Msg)
 	sub, err := c.conn.ChanQueueSubscribe(subject, queue, nmsgs)
@@ -849,7 +844,7 @@ func (c *stanConn) get() interface{} {
 	return c.conn
 }
 
-func (c *stanConn) subscribe(bus *Bus, subject string) (*subscriber, error) {
+func (c *stanConn) subscribe(bus *Bus, subject string) (*subscription, error) {
 	msgs := make(chan []byte)
 	sub, err := c.conn.Subscribe(
 		subject,
@@ -868,7 +863,7 @@ func (c *stanConn) subscribe(bus *Bus, subject string) (*subscriber, error) {
 	return s, nil
 }
 
-func (c *stanConn) queueSubscribe(bus *Bus, subject, queue string) (*subscriber, error) {
+func (c *stanConn) queueSubscribe(bus *Bus, subject, queue string) (*subscription, error) {
 	msgs := make(chan []byte)
 	sub, err := c.conn.QueueSubscribe(
 		subject, queue, func(msg *stan.Msg) { msgs <- msg.Data },
@@ -930,13 +925,11 @@ func envDurableNameFunc() (func(string, string) string, error) {
 	}, nil
 }
 
-func nonDurable(_, _ string) string {
+func nonDurable(string, string) string {
 	return ""
 }
 
 func drainErrors(errs <-chan error) {
-	var n int
 	for range errs {
-		n++
 	}
 }
