@@ -1,4 +1,4 @@
-# goes – CQRS & Event-ourcing toolkit
+# goes – CQRS & Event-sourcing toolkit
 
 ## Install
 
