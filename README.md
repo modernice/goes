@@ -1,3 +1,15 @@
-# goes – CQRS & ES framework
+# goes – CQRS & Event-ourcing toolkit
 
-<sub>Copyright © 2021 modernice Ltd.</sub>
+## Install
+
+```sh
+go get github.com/modernice/goes
+```
+
+## Usage
+
+> TODO
+
+## License
+
+[MIT](./LICENSE)
