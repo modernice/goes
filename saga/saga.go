@@ -21,6 +21,16 @@ var (
 
 	// ErrEmptyName is returned when an Action is configured with an empty name.
 	ErrEmptyName = errors.New("empty action name")
+
+	// ErrCompensateTimeout is returned when the compensation of a SAGA fails
+	// due to the CompensateTimeout being exceeded.
+	ErrCompensateTimeout = errors.New("compensation timed out")
+)
+
+var (
+	// DefaultCompensateTimeout is the default timeout for compensating Actions
+	// of a failed SAGA.
+	DefaultCompensateTimeout = 10 * time.Second
 )
 
 // Setup is the setup for a SAGA.
@@ -72,7 +82,8 @@ type Executor struct {
 	cmdBus   command.Bus
 	repo     aggregate.Repository
 
-	skipValidate bool
+	skipValidate      bool
+	compensateTimeout time.Duration
 
 	sequence []action.Action
 	reports  []action.Report
@@ -211,6 +222,14 @@ func CommandBus(bus command.Bus) ExecutorOption {
 func Repository(r aggregate.Repository) ExecutorOption {
 	return func(e *Executor) {
 		e.repo = r
+	}
+}
+
+// CompensateTimeout returns an ExecutorOption that sets the timeout for
+// compensating a failed SAGA.
+func CompensateTimeout(d time.Duration) ExecutorOption {
+	return func(e *Executor) {
+		e.compensateTimeout = d
 	}
 }
 
@@ -401,7 +420,7 @@ func Execute(ctx context.Context, s Setup, opts ...ExecutorOption) error {
 
 // NewExecutor returns a SAGA executor.
 func NewExecutor(opts ...ExecutorOption) *Executor {
-	var e Executor
+	e := Executor{compensateTimeout: DefaultCompensateTimeout}
 	for _, opt := range opts {
 		opt(&e)
 	}
@@ -461,7 +480,7 @@ func (e *Executor) Execute(ctx context.Context, s Setup) error {
 				return e.finish(start, actionError)
 			}
 
-			if err := e.rollback(ctx); err != nil {
+			if err := e.rollback(); err != nil {
 				return e.finish(start, &CompensateErr{
 					Err:         err,
 					ActionError: actionError,
@@ -549,29 +568,46 @@ func (e *Executor) shouldRollback() bool {
 	return false
 }
 
-func (e *Executor) rollback(ctx context.Context) error {
+func (e *Executor) rollback() error {
+	ctx, cancel := context.WithTimeout(context.Background(), e.compensateTimeout)
+	defer cancel()
+
 	for i := len(e.reports) - 1; i >= 0; i-- {
 		res := e.reports[i]
 		if res.Error() != nil {
 			continue
 		}
-		if err := e.rollbackAction(ctx, res); err != nil {
+
+		var err error
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("rollback %q Action: %w", res.Action().Name(), ErrCompensateTimeout)
+		case err = <-e.rollbackAction(ctx, res):
+		}
+
+		if err != nil {
 			return fmt.Errorf("rollback %q action: %w", res.Action().Name(), err)
 		}
 	}
 	return nil
 }
 
-func (e *Executor) rollbackAction(ctx context.Context, rep action.Report) error {
-	name := e.Compensator(rep.Action().Name())
-	if name == "" {
-		return fmt.Errorf("find compensator for %q: %w", rep.Action().Name(), ErrActionNotFound)
-	}
-	comp := e.Action(name)
-	if comp == nil {
-		return fmt.Errorf("find %q action: %w", name, ErrActionNotFound)
-	}
-	return e.run(ctx, comp)
+func (e *Executor) rollbackAction(ctx context.Context, rep action.Report) <-chan error {
+	out := make(chan error)
+	go func() {
+		name := e.Compensator(rep.Action().Name())
+		if name == "" {
+			out <- fmt.Errorf("find compensator for %q: %w", rep.Action().Name(), ErrActionNotFound)
+			return
+		}
+		comp := e.Action(name)
+		if comp == nil {
+			out <- fmt.Errorf("find %q action: %w", name, ErrActionNotFound)
+			return
+		}
+		out <- e.run(ctx, comp)
+	}()
+	return out
 }
 
 func (e Executor) clone(s Setup) *Executor {

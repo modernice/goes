@@ -406,6 +406,30 @@ func TestExecute_repository(t *testing.T) {
 	}
 }
 
+func TestExecute_compensateTimeout(t *testing.T) {
+	mockError := errors.New("mock error")
+	s := saga.New(
+		saga.Action("foo", func(c action.Context) error {
+			return nil
+		}),
+		saga.Action("bar", func(c action.Context) error {
+			return mockError
+		}),
+		saga.Action("comp-foo", func(action.Context) error {
+			<-time.After(100 * time.Millisecond)
+			return nil
+		}),
+		saga.Sequence("foo", "bar"),
+		saga.Compensate("foo", "comp-foo"),
+	)
+
+	err := saga.Execute(context.Background(), s, saga.CompensateTimeout(10*time.Millisecond))
+
+	if !errors.Is(err, saga.ErrCompensateTimeout) {
+		t.Fatalf("Execute should fail with %q; got %q", saga.ErrCompensateTimeout, err)
+	}
+}
+
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name      string
