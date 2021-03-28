@@ -1,6 +1,6 @@
 package snapshot
 
-//go:generate mockgen -source=store.go -destination=./mocks/store.go Store,Query
+//go:generate mockgen -source=store.go -destination=./mocks/store.go Store
 
 import (
 	"context"
@@ -50,6 +50,7 @@ type Store interface {
 	Delete(context.Context, Snapshot) error
 }
 
+// Query is a query for Snapshots.
 type Query interface {
 	aggregate.Query
 
