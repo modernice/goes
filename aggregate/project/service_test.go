@@ -2,6 +2,7 @@ package project_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestContinuously(t *testing.T) {
 	store, bus := newStoreBus()
 	proj := project.NewProjector(store)
 
-	sub, _, err := project.Subscribe(
+	sub, errs, err := project.Subscribe(
 		context.Background(),
 		project.Continuously(bus, []string{"foo"}),
 		proj,
@@ -30,18 +31,29 @@ func TestContinuously(t *testing.T) {
 
 	events := append(makeEvents(3), event.New("foo", test.FooEventData{}))
 
-	for _, evt := range events {
-		if err = bus.Publish(context.Background(), evt); err != nil {
-			t.Errorf("failed to publish Events: %v", err)
+	pubError := make(chan error)
+	go func() {
+		for _, evt := range events {
+			if err = bus.Publish(context.Background(), evt); err != nil {
+				pubError <- fmt.Errorf("failed to publish Events: %w", err)
+			}
+			// Add artificial delay to guarantee correct order of incoming Events
+			<-time.After(5 * time.Millisecond)
 		}
-		// Add artificial delay to guarantee correct order of incoming Events
-		<-time.After(5 * time.Millisecond)
-	}
+	}()
 
 	for _, evt := range events[:3] {
 		select {
 		case <-time.After(10 * time.Millisecond):
 			t.Fatalf("didn't receive Event after %s", 10*time.Millisecond)
+		case err, ok := <-errs:
+			if !ok {
+				errs = nil
+				break
+			}
+			t.Fatal(err)
+		case err := <-pubError:
+			t.Fatal(err)
 		case ctx := <-sub:
 			if ctx.AggregateName() != evt.AggregateName() {
 				t.Errorf("Projection has wrong AggregateName. want=%q got=%q", evt.AggregateName(), ctx.AggregateName())
@@ -75,14 +87,19 @@ func TestContinuously_Project(t *testing.T) {
 	}
 
 	evt := event.New("foo", test.FooEventData{}, event.Aggregate("foo", uuid.New(), 0))
-	if err = bus.Publish(context.Background(), evt); err != nil {
-		t.Fatalf("failed to publish Event: %v", err)
-	}
+	pubError := make(chan error)
+	go func() {
+		if err := bus.Publish(context.Background(), evt); err != nil {
+			pubError <- fmt.Errorf("failed to publish Event: %v", err)
+		}
+	}()
 
 	var ctx project.Context
 	select {
 	case <-time.After(10 * time.Millisecond):
 		t.Fatalf("didn't receive Context after %s", 10*time.Millisecond)
+	case err := <-pubError:
+		t.Fatal(err)
 	case ctx = <-sub:
 	}
 
@@ -148,7 +165,7 @@ func TestPeriodically(t *testing.T) {
 		}
 		now := time.Now()
 		if i != 0 {
-			if dur := now.Sub(prev); dur < 15*time.Millisecond || dur > 25*time.Millisecond {
+			if dur := now.Sub(prev); dur < 10*time.Millisecond || dur > 35*time.Millisecond {
 				t.Fatalf("Duration between receives should be ~%s; was %s", 20*time.Millisecond, dur)
 			}
 		}
@@ -175,68 +192,43 @@ func TestStopTimeout(t *testing.T) {
 	}
 
 	events := makeEvents(10)
-	if err = bus.Publish(context.Background(), events...); err != nil {
-		t.Fatalf("failed to publish Events: %v", err)
-	}
+	pubError := make(chan error)
+	go func() {
+		if err = bus.Publish(context.Background(), events...); err != nil {
+			pubError <- fmt.Errorf("failed to publish Events: %w", err)
+		}
+	}()
 
-	_, ok := <-sub
-	if !ok {
-		t.Fatalf("[0] Context channel shouldn't be closed yet!")
+	select {
+	case err := <-pubError:
+		t.Fatal(err)
+	case _, ok := <-sub:
+		if !ok {
+			t.Fatalf("[0] Context channel shouldn't be closed yet!")
+		}
 	}
 
 	cancel()
 
 	<-time.After(10 * time.Millisecond)
-	if _, ok = <-sub; !ok {
-		t.Fatalf("[1] Context channel shouldn't be closed yet!")
-	}
 
-	<-time.After(50 * time.Millisecond)
-	if _, ok = <-sub; ok {
-		t.Fatalf("[2] Context channel should be closed now!")
-	}
-}
-
-func TestStopTimeout_infinite(t *testing.T) {
-	store, bus := newStoreBus()
-	proj := project.NewProjector(store)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sub, _, err := project.Subscribe(
-		ctx,
-		project.Continuously(bus, []string{"foo"}),
-		proj,
-		project.StopTimeout(0),
-	)
-
-	if err != nil {
-		t.Fatalf("Subscribe shouldn't fail; failed with %q", err)
-	}
-
-	events := makeEvents(10)
-	if err = bus.Publish(context.Background(), events...); err != nil {
-		t.Fatalf("failed to publish Events: %v", err)
-	}
-	<-time.After(100 * time.Millisecond)
-
-	_, ok := <-sub
-	if !ok {
-		t.Fatalf("[0] Context channel shouldn't be closed yet!")
-	}
-
-	cancel()
-
-	<-time.After(100 * time.Millisecond)
-	for i := range events[1:] {
-		if _, ok := <-sub; !ok {
-			t.Errorf("[%d| Context channel shouldn't be closed!", i+1)
+	select {
+	case err := <-pubError:
+		t.Fatal(err)
+	case _, ok := <-sub:
+		if !ok {
+			t.Fatalf("[1] Context channel shouldn't be closed yet!")
 		}
 	}
 
-	if _, ok := <-sub; ok {
-		t.Errorf("Context channel should be closed now!")
+	<-time.After(50 * time.Millisecond)
+	select {
+	case err := <-pubError:
+		t.Fatal(err)
+	case _, ok := <-sub:
+		if ok {
+			t.Fatalf("[2] Context channel should be closed now!")
+		}
 	}
 }
 

@@ -42,9 +42,6 @@ type Schedule interface {
 type SubscribeOption func(*subscription)
 
 type subscription struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-
 	stopTimeout time.Duration
 	queryOpts   []query.Option
 	query       query.Query
@@ -142,7 +139,7 @@ func Subscribe(
 	proj Projector,
 	opts ...SubscribeOption,
 ) (<-chan Context, <-chan error, error) {
-	sub := newSubscription(ctx, proj, s, opts...)
+	sub := newSubscription(proj, s, opts...)
 
 	jobs, errs, err := s.jobs(ctx)
 	if err != nil {
@@ -150,43 +147,44 @@ func Subscribe(
 	}
 
 	go sub.handleJobs(jobs)
-	go sub.handleErrors(errs)
-	go sub.handleCancel()
+	go sub.handleCancel(ctx)
 
-	return sub.out, sub.errs, nil
+	return sub.out, errs, nil
 }
 
 func (sub *subscription) handleJobs(jobs <-chan job) {
 	defer close(sub.handleDone)
 	defer close(sub.out)
-	for job := range jobs {
-		sub.handleJob(job)
+	for {
+		select {
+		case <-sub.stop:
+			return
+		case job, ok := <-jobs:
+			if !ok {
+				return
+			}
+			select {
+			case <-sub.stop:
+				return
+			case sub.out <- newContext(
+				context.Background(),
+				sub.proj,
+				job.aggregateName,
+				job.aggregateID,
+			):
+			}
+		}
 	}
 }
 
-func (sub *subscription) handleJob(j job) {
-	select {
-	case <-sub.stop:
-	case sub.out <- newContext(
-		sub.ctx,
-		sub.proj,
-		j.aggregateName,
-		j.aggregateID,
-	):
-	}
-}
-
-func (sub *subscription) handleErrors(errs <-chan error) {
-	defer close(sub.errs)
-	for err := range errs {
-		sub.errs <- err
-	}
-}
-
-func (sub *subscription) handleCancel() {
+func (sub *subscription) handleCancel(parent context.Context) {
 	defer close(sub.stop)
 
-	<-sub.ctx.Done()
+	select {
+	case <-sub.handleDone:
+		return
+	case <-parent.Done():
+	}
 
 	var timeout <-chan time.Time
 	if sub.stopTimeout > 0 {
@@ -202,25 +200,19 @@ func (sub *subscription) handleCancel() {
 }
 
 func (c *continously) jobs(ctx context.Context) (<-chan job, <-chan error, error) {
-	events, _, err := c.bus.Subscribe(ctx, c.events...)
+	events, errs, err := c.bus.Subscribe(ctx, c.events...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("subscribe to %v events: %w", c.events, err)
 	}
 
 	jobs := make(chan job)
-	errs := make(chan error)
-	go c.handleEvents(events, jobs, errs)
+	go c.handleEvents(events, jobs)
 
-	return jobs, errs, err
+	return jobs, errs, nil
 }
 
-func (c *continously) handleEvents(
-	events <-chan event.Event,
-	jobs chan<- job,
-	errs chan<- error,
-) {
+func (c *continously) handleEvents(events <-chan event.Event, jobs chan<- job) {
 	defer close(jobs)
-	defer close(errs)
 	for evt := range events {
 		if shouldDiscard(evt, c.filter) {
 			continue
@@ -253,35 +245,27 @@ func (p *periodically) handleTicks(
 ) {
 	defer close(jobs)
 	defer close(errs)
-	for {
-		select {
-		case <-ctx.Done():
+	for range ticker {
+		str, serrs, err := p.store.Query(ctx, query.New(
+			query.AggregateName(p.names...),
+			query.AggregateVersion(version.Exact(0)),
+		))
+		if err != nil {
+			errs <- fmt.Errorf("query base events: %w", err)
 			return
-		case <-ticker:
-			str, serrs, err := p.store.Query(ctx, query.New(
-				query.AggregateName(p.names...),
-				query.AggregateVersion(version.Exact(0)),
-			))
-			if err != nil {
-				errs <- fmt.Errorf("query base events: %w", err)
+		}
+
+		if err = event.Walk(ctx, func(evt event.Event) {
+			if shouldDiscard(evt, p.filter) {
 				return
 			}
 
-			if err = event.Walk(ctx, func(evt event.Event) {
-				if shouldDiscard(evt, p.filter) {
-					return
-				}
-
-				select {
-				case <-ctx.Done():
-				case jobs <- job{
-					aggregateName: evt.AggregateName(),
-					aggregateID:   evt.AggregateID(),
-				}:
-				}
-			}, str, serrs); err != nil {
-				errs <- fmt.Errorf("event stream: %w", err)
+			jobs <- job{
+				aggregateName: evt.AggregateName(),
+				aggregateID:   evt.AggregateID(),
 			}
+		}, str, serrs); err != nil {
+			errs <- fmt.Errorf("event stream: %w", err)
 		}
 	}
 }
@@ -294,11 +278,8 @@ func (j *pcontext) AggregateID() uuid.UUID {
 	return j.aggregateID
 }
 
-func newSubscription(ctx context.Context, proj Projector, s Schedule, opts ...SubscribeOption) *subscription {
-	ctx, cancel := context.WithCancel(ctx)
+func newSubscription(proj Projector, s Schedule, opts ...SubscribeOption) *subscription {
 	sub := subscription{
-		ctx:        ctx,
-		cancel:     cancel,
 		proj:       proj,
 		schedule:   s,
 		out:        make(chan Context),
