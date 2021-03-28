@@ -12,16 +12,23 @@ type Handler struct {
 	bus Bus
 }
 
-// NewHandler returns a new Command Handler. The Handler subscribes to Commands using
-// the provided Bus.
-func NewHandler(bus Bus) *Handler {
-	return &Handler{
-		bus: bus,
-	}
+// Handle subscribes to Commands with the given name and executes them by calling fn
+// with the received Command.
+func Handle(
+	ctx context.Context,
+	bus Bus,
+	name string,
+	fn func(context.Context, Command) error,
+) (<-chan error, error) {
+	return NewHandler(bus).On(ctx, name, fn)
 }
 
-// On subscribes to Commands with the given name and executes them by calling fn
-// with the received Command.
+// NewHandler returns a Handler that can be used to subscribe to and handle Commands.
+func NewHandler(bus Bus) *Handler {
+	return &Handler{bus}
+}
+
+// On subscribes to Commands with the provided name and handles them with the provided fn.
 func (h *Handler) On(
 	ctx context.Context,
 	name string,
@@ -37,27 +44,24 @@ func (h *Handler) On(
 	go func() {
 		defer close(out)
 		for {
-			select {
-			case <-ctx.Done():
+			if errs == nil && commands == nil {
 				return
+			}
+
+			select {
 			case err, ok := <-errs:
 				if !ok {
 					errs = nil
 					break
 				}
-				select {
-				case <-ctx.Done():
-				case out <- err:
-				}
+				out <- err
 			case ctx, ok := <-commands:
 				if !ok {
-					return
+					commands = nil
+					break
 				}
 				if err := h.handle(ctx, fn); err != nil {
-					select {
-					case <-ctx.Done():
-					case out <- err:
-					}
+					out <- err
 				}
 			}
 		}

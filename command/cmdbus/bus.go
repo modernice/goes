@@ -30,7 +30,11 @@ const (
 var (
 	// ErrAssignTimeout is returned by a Bus when it fails to assign a Command
 	// to a Handler before a given deadline.
-	ErrAssignTimeout = errors.New("failed to assign command because of timeout")
+	ErrAssignTimeout = errors.New("failed to assign Command because of timeout")
+
+	// ErrDrainTimeout is emitted by a Bus when the DrainTimeout is exceeded
+	// when receiving remaining Commands from a canceled Command subscription.
+	ErrDrainTimeout = errors.New("dropped Command because of timeout")
 
 	// ErrDispatchCanceled is returned by a Bus when the dispatch was canceled
 	// by the provided Context.
@@ -199,7 +203,7 @@ func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Ev
 
 	events, errs, err := b.bus.Subscribe(ctx, names...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("subscribe to %v events: %w", names, err)
+		return nil, nil, fmt.Errorf("subscribe to %v Events: %w", names, err)
 	}
 
 	return events, errs, nil
@@ -208,7 +212,7 @@ func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Ev
 func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 	var load bytes.Buffer
 	if err := b.enc.Encode(&load, cmd.Name(), cmd.Payload()); err != nil {
-		return fmt.Errorf("encode payload: %w", err)
+		return fmt.Errorf("encode Payload: %w", err)
 	}
 
 	evt := event.New(CommandDispatched, CommandDispatchedData{
@@ -220,7 +224,7 @@ func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 	})
 
 	if err := b.bus.Publish(ctx, evt); err != nil {
-		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
+		return fmt.Errorf("publish %q Event: %w", evt.Name(), err)
 	}
 
 	return nil
@@ -234,10 +238,12 @@ func (b *Bus) workDispatch(
 	errs <-chan error,
 	assignTimeout <-chan time.Time,
 ) error {
-	accepted := make(chan struct{})
+	var status dispatchStatus
 
 	for {
 		select {
+		case <-ctx.Done():
+			return ErrDispatchCanceled
 		case <-assignTimeout:
 			return fmt.Errorf("assign %q Command: %w", cmd.Name(), ErrAssignTimeout)
 		case err, ok := <-errs:
@@ -247,20 +253,27 @@ func (b *Bus) workDispatch(
 			errs = nil
 		case evt, ok := <-events:
 			if !ok {
-				return ErrDispatchCanceled
+				events = nil
+				break
 			}
 
-			if done, err := b.handleDispatchEvent(ctx, cfg, cmd, evt, accepted); done {
+			var err error
+			status, err = b.handleDispatchEvent(ctx, cfg, cmd, evt, status)
+			if status.executed || (!cfg.Synchronous && status.accepted) {
 				return err
 			}
 
-			select {
-			case <-accepted:
+			if status.accepted {
 				assignTimeout = nil
-			default:
 			}
 		}
 	}
+}
+
+type dispatchStatus struct {
+	assigned bool
+	accepted bool
+	executed bool
 }
 
 func (b *Bus) handleDispatchEvent(
@@ -268,47 +281,36 @@ func (b *Bus) handleDispatchEvent(
 	cfg command.DispatchConfig,
 	cmd command.Command,
 	evt event.Event,
-	accepted chan struct{},
-) (bool, error) {
-	accept := func() {
-		select {
-		case <-accepted:
-		default:
-			close(accepted)
-		}
-	}
-
+	status dispatchStatus,
+) (dispatchStatus, error) {
 	switch evt.Name() {
 	case CommandRequested:
 		data := evt.Data().(CommandRequestedData)
 		if data.ID != cmd.ID() {
-			return false, nil
+			return status, nil
 		}
 
 		if err := b.assignCommand(ctx, cmd, data); err != nil {
-			return true, fmt.Errorf("assign command: %w", err)
+			return status, fmt.Errorf("assign command: %w", err)
 		}
 
-		return false, nil
+		status.assigned = true
+
+		return status, nil
 
 	case CommandAccepted:
 		data := evt.Data().(CommandAcceptedData)
 		if data.ID != cmd.ID() {
-			return false, nil
+			return status, nil
 		}
-		accept()
-		if !cfg.Synchronous {
-			return true, nil
-		}
-		return false, nil
+		status.accepted = true
+		return status, nil
 
 	case CommandExecuted:
 		data := evt.Data().(CommandExecutedData)
 		if data.ID != cmd.ID() {
-			return false, nil
+			return status, nil
 		}
-
-		accept()
 
 		var err error
 		if data.Error != "" {
@@ -326,9 +328,10 @@ func (b *Bus) handleDispatchEvent(
 			))
 		}
 
-		return true, err
+		status.executed = true
+		return status, err
 	default:
-		return false, nil
+		return status, nil
 	}
 }
 
@@ -408,6 +411,10 @@ func (b *Bus) workSubscription(
 	requested := make(map[uuid.UUID]commandRequest)
 
 	for {
+		if events == nil && errs == nil {
+			return
+		}
+
 		select {
 		case err, ok := <-errs:
 			if !ok {
@@ -417,7 +424,8 @@ func (b *Bus) workSubscription(
 			outErrs <- fmt.Errorf("event stream: %w", err)
 		case evt, ok := <-events:
 			if !ok {
-				return
+				events = nil
+				break
 			}
 
 			switch evt.Name() {
@@ -472,7 +480,7 @@ func (b *Bus) workSubscription(
 
 				select {
 				case <-ctx.Done():
-					return
+					outErrs <- fmt.Errorf("drop %q Command: %w", req.cmd.Name(), ErrDrainTimeout)
 				case out <- cmdctx.New(
 					context.Background(),
 					req.cmd,

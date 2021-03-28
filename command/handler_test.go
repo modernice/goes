@@ -3,6 +3,7 @@ package command_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/modernice/goes/command/encoding"
 	mock_command "github.com/modernice/goes/command/mocks"
 	"github.com/modernice/goes/event/eventbus/chanbus"
+	"github.com/modernice/goes/event/test"
 )
 
 type recorder struct {
@@ -32,10 +34,9 @@ func TestHandler_On(t *testing.T) {
 	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus)
-	h := command.NewHandler(bus)
 
 	rec := newRecorder(nil)
-	errs, err := h.On(context.Background(), "foo", rec.Handle)
+	errs, err := command.Handle(context.Background(), bus, "foo", rec.Handle)
 	if err != nil {
 		t.Fatalf("On shouldn't fail; failed with %q", err)
 	}
@@ -73,13 +74,12 @@ func TestHandler_On_cancelContext(t *testing.T) {
 	})
 	ebus := chanbus.New()
 	bus := cmdbus.New(enc, ebus, cmdbus.AssignTimeout(500*time.Millisecond))
-	h := command.NewHandler(bus)
 
 	rec := newRecorder(nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errs, err := h.On(ctx, "foo", rec.Handle)
+	errs, err := command.Handle(ctx, bus, "foo", rec.Handle)
 	if err != nil {
 		t.Fatalf("On shouldn't fail; failed with %q", err)
 	}
@@ -113,14 +113,13 @@ func TestHandler_On_subscribeError(t *testing.T) {
 	defer ctrl.Finish()
 
 	bus := mock_command.NewMockBus(ctrl)
-	h := command.NewHandler(bus)
 
 	mockError := errors.New("mock error")
 	bus.EXPECT().Subscribe(gomock.Any(), "foo").Return(nil, nil, mockError)
 
 	rec := newRecorder(nil)
 
-	_, err := h.On(context.Background(), "foo", rec.Handle)
+	_, err := command.Handle(context.Background(), bus, "foo", rec.Handle)
 	if !errors.Is(err, mockError) {
 		t.Errorf("On should fail with %q; got %q", mockError, err)
 	}
@@ -131,13 +130,12 @@ func TestHandler_busError(t *testing.T) {
 	defer ctrl.Finish()
 
 	bus := mock_command.NewMockBus(ctrl)
-	h := command.NewHandler(bus)
 
 	mockCmds := make(chan command.Context)
 	mockErrs := make(chan error)
 	bus.EXPECT().Subscribe(gomock.Any(), "foo").Return(mockCmds, mockErrs, nil)
 
-	errs, err := h.On(context.Background(), "foo", func(ctx context.Context, cmd command.Command) error {
+	errs, err := command.Handle(context.Background(), bus, "foo", func(ctx context.Context, cmd command.Command) error {
 		return nil
 	})
 	if err != nil {
@@ -156,6 +154,58 @@ func TestHandler_busError(t *testing.T) {
 	case err := <-errs:
 		if err != mockError {
 			t.Errorf("received wrong error. want=%q got=%q", mockError, err)
+		}
+	}
+}
+
+func TestHandler_multipleCommands(t *testing.T) {
+	eenc := test.NewEncoder()
+	enc := encoding.NewGobEncoder()
+	enc.Register("foo", func() command.Payload {
+		return mockPayload{}
+	})
+	cmdbus.RegisterEvents(eenc)
+	ebus := chanbus.New()
+	subBus := cmdbus.New(enc, ebus)
+	pubBus := cmdbus.New(enc, ebus)
+
+	rec := newRecorder(nil)
+	errs, err := command.Handle(context.Background(), subBus, "foo", rec.Handle)
+	if err != nil {
+		t.Fatalf("On shouldn't fail; failed with %q", err)
+	}
+
+	dispatchErrors := make(chan error)
+	dispatchDone := make(chan struct{})
+	go func() {
+		defer close(dispatchDone)
+		for i := 0; i < 10; i++ {
+			cmd := command.New("foo", mockPayload{})
+			if err := pubBus.Dispatch(context.Background(), cmd); err != nil {
+				dispatchErrors <- fmt.Errorf("failed to dispatch Command: %w", err)
+			}
+		}
+	}()
+
+	var params []handlerParams
+	timeout := time.NewTimer(10 * time.Second)
+	defer timeout.Stop()
+	for {
+		select {
+		case <-timeout.C:
+			t.Fatalf("timed out (%d Commands handled)", len(params))
+		case err := <-dispatchErrors:
+			t.Fatal(err)
+		case err, ok := <-errs:
+			if ok {
+				t.Fatal(err)
+			}
+			errs = nil
+		case p := <-rec.params:
+			params = append(params, p)
+			if len(params) == 10 {
+				return
+			}
 		}
 	}
 }

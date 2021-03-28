@@ -257,14 +257,10 @@ func TestDrainTimeout(t *testing.T) {
 
 	go func() {
 		defer cancel()
-		if err := bus.Dispatch(context.Background(), newCmd()); err != nil {
-			dispatchErrc <- err
-		}
-		if err := bus.Dispatch(context.Background(), newCmd()); err != nil {
-			dispatchErrc <- err
-		}
-		if err := bus.Dispatch(context.Background(), newCmd()); err != nil {
-			dispatchErrc <- err
+		for i := 0; i < 3; i++ {
+			if err := bus.Dispatch(context.Background(), newCmd()); err != nil {
+				dispatchErrc <- err
+			}
 		}
 	}()
 
@@ -273,10 +269,13 @@ L:
 	for {
 		select {
 		case err, ok := <-errs:
-			if ok {
+			if !ok {
+				errs = nil
+				break
+			}
+			if !errors.Is(err, cmdbus.ErrDrainTimeout) {
 				t.Fatal(err)
 			}
-			errs = nil
 		case _, ok := <-commands:
 			if !ok {
 				break L

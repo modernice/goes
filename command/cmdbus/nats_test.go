@@ -76,7 +76,7 @@ func TestBus_NATS(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			cmd := command.New("foo-cmd", mockPayload{})
 			if err := pubBus.Dispatch(context.Background(), cmd, dispatch.Synchronous()); err != nil {
-				dispatchErrors <- fmt.Errorf("Dispatch shouldn't fail; failed with %q", err)
+				dispatchErrors <- fmt.Errorf("[%d] Dispatch shouldn't fail; failed with %q", i, err)
 			}
 		}
 	}()
