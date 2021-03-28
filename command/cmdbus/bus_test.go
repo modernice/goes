@@ -13,8 +13,8 @@ import (
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/cmdbus/report"
-	"github.com/modernice/goes/command/done"
 	"github.com/modernice/goes/command/encoding"
+	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
 )
@@ -99,7 +99,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 
 	mockError := errors.New("mock error")
 	dur := 3 * time.Second
-	if err = ctx.MarkDone(ctx, done.WithError(mockError), done.WithRuntime(dur)); err != nil {
+	if err = ctx.Finish(ctx, finish.WithError(mockError), finish.WithRuntime(dur)); err != nil {
 		t.Fatalf("mark done: %v", err)
 	}
 
@@ -184,7 +184,7 @@ L:
 
 	mockError := errors.New("mock error")
 	now := time.Now()
-	if err = ctx.MarkDone(ctx, done.WithRuntime(3*time.Second), done.WithError(mockError)); err != nil {
+	if err = ctx.Finish(ctx, finish.WithRuntime(3*time.Second), finish.WithError(mockError)); err != nil {
 		t.Fatalf("mark as done: %v", err)
 	}
 

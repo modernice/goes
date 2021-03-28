@@ -56,7 +56,7 @@ func TestBus_NATS(t *testing.T) {
 					return
 				}
 				handled = append(handled, ctx)
-				if err := ctx.MarkDone(context.Background()); err != nil {
+				if err := ctx.Finish(context.Background()); err != nil {
 					handleErrors <- fmt.Errorf("mark done: %w", err)
 				}
 			case err, ok := <-errs:

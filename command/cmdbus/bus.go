@@ -12,7 +12,7 @@ import (
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/cmdbus/report"
-	"github.com/modernice/goes/command/done"
+	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/xcommand/cmdctx"
 )
@@ -484,7 +484,7 @@ func (b *Bus) workSubscription(
 				case out <- cmdctx.New(
 					context.Background(),
 					req.cmd,
-					cmdctx.WhenDone(func(ctx context.Context, cfg done.Config) error {
+					cmdctx.WhenDone(func(ctx context.Context, cfg finish.Config) error {
 						return b.markDone(ctx, req.cmd, cfg)
 					}),
 				):
@@ -542,7 +542,7 @@ func (b *Bus) acceptCommand(ctx context.Context, cmd command.Command) error {
 	return nil
 }
 
-func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg done.Config) error {
+func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg finish.Config) error {
 	var errmsg string
 	if cfg.Err != nil {
 		errmsg = cfg.Err.Error()

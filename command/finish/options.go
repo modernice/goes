@@ -1,8 +1,8 @@
-package done
+package finish
 
 import "time"
 
-// Config is the configuration for reporting the execution result of a Command.
+// Config is the configuration for finishing a Command.
 type Config struct {
 	Err     error
 	Runtime time.Duration

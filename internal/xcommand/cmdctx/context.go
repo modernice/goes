@@ -4,14 +4,14 @@ import (
 	"context"
 
 	"github.com/modernice/goes/command"
-	"github.com/modernice/goes/command/done"
+	"github.com/modernice/goes/command/finish"
 )
 
 type cmdctx struct {
 	context.Context
 
 	cmd      command.Command
-	whenDone func(context.Context, done.Config) error
+	whenDone func(context.Context, finish.Config) error
 }
 
 // Option is a Context option.
@@ -19,7 +19,7 @@ type Option func(*cmdctx)
 
 // WhenDone returns an Option that makes the delegates calls to ctx.Done() to
 // fn.
-func WhenDone(fn func(context.Context, done.Config) error) Option {
+func WhenDone(fn func(context.Context, finish.Config) error) Option {
 	return func(ctx *cmdctx) {
 		ctx.whenDone = fn
 	}
@@ -41,9 +41,9 @@ func (ctx *cmdctx) Command() command.Command {
 	return ctx.cmd
 }
 
-func (ctx *cmdctx) MarkDone(c context.Context, opts ...done.Option) error {
+func (ctx *cmdctx) Finish(c context.Context, opts ...finish.Option) error {
 	if ctx.whenDone != nil {
-		return ctx.whenDone(c, done.Configure(opts...))
+		return ctx.whenDone(c, finish.Configure(opts...))
 	}
 	return nil
 }

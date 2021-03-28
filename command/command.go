@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/command/done"
+	"github.com/modernice/goes/command/finish"
 )
 
 // A Command represents a command in the business model of an application or
@@ -114,16 +114,10 @@ type Context interface {
 	// Command returns the actual Command.
 	Command() Command
 
-	// MarkDone should be called after the Command has been handled so that the
+	// Finish should be called after the Command has been handled so that the
 	// Bus that dispatched the Command can be notified about the execution
 	// result.
-	//
-	// Depending on the implementation, is may or may not be necessary to call
-	// MarkDone for the overall Command Bus system to work. The current event-
-	// driven implementation doesn't require a call to MarkDone unless the
-	// dispatch is made synchronous using the dispatch.Synchronous or
-	// dispatch.Report Options.
-	MarkDone(context.Context, ...done.Option) error
+	Finish(context.Context, ...finish.Option) error
 }
 
 // Option is a Command option.
