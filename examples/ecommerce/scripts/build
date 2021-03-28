@@ -1,0 +1,29 @@
+#!/bin/bash
+set -e
+
+want=$@
+cmds=./cmd/*
+
+for path in $cmds
+do
+  if [ ! -d "$path" ]; then
+    continue
+  fi
+
+  cmd=$(basename $path)
+
+  if [ "$want" != "" ] && [[ ! "$want" =~ "$cmd" ]]; then
+    echo "Skip: $cmd"
+    continue
+  fi
+
+  df="./.docker/Dockerfile"
+
+  if [ "$cmd" = "cli" ]; then
+    df="./.docker/cli.Dockerfile"
+  fi
+
+  echo "Build: $cmd"
+
+  CGO_ENABLED=0 docker build -f $df -t "ecommerce_$cmd" --build-arg SERVICE=$cmd "../.."
+done
