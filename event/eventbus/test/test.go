@@ -266,20 +266,31 @@ func PublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 			bus := newBus(encoder())
 			ctx := context.Background()
 
-			events, _, err := bus.Subscribe(ctx, tt.subscribe...)
+			events, errs, err := bus.Subscribe(ctx, tt.subscribe...)
 			if err != nil {
 				t.Fatal(fmt.Errorf("subscribe to %v: %w", tt.subscribe, err))
 			}
 
-			if err = bus.Publish(ctx, tt.publish...); err != nil {
-				t.Fatal(fmt.Errorf("publish: %w", err))
-			}
+			pubError := make(chan error)
+			go func() {
+				if err = bus.Publish(ctx, tt.publish...); err != nil {
+					pubError <- fmt.Errorf("publish: %w", err)
+				}
+			}()
 
 			var received []event.Event
 			for len(received) < len(tt.want) {
 				select {
 				case <-time.After(100 * time.Millisecond):
 					t.Fatal(fmt.Errorf("didn't receive event after 100ms"))
+				case err := <-pubError:
+					t.Fatal(err)
+				case err, ok := <-errs:
+					if !ok {
+						errs = nil
+						break
+					}
+					t.Fatal(err)
 				case evt := <-events:
 					received = append(received, evt)
 				}
@@ -294,6 +305,14 @@ func PublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 						t.Fatal("events shouldn't be closed")
 					}
 					t.Fatal(fmt.Errorf("shouldn't have received another event; got %#v", evt))
+				case err := <-pubError:
+					t.Fatal(err)
+				case err, ok := <-errs:
+					if !ok {
+						errs = nil
+						break
+					}
+					t.Fatal(err)
 				default:
 				}
 			}

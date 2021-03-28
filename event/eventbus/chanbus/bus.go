@@ -17,12 +17,10 @@ type eventBus struct {
 }
 
 type subscription struct {
-	wg    sync.WaitGroup
-	bus   *eventBus
-	ctx   context.Context
 	names []string
 	out   chan event.Event
 	errs  chan error
+	done  chan struct{}
 }
 
 // New returns a Bus that communicates over channels.
@@ -63,7 +61,6 @@ func (bus *eventBus) work() {
 		case sub := <-bus.add:
 			bus.addSub(sub)
 		case sub := <-bus.remove:
-			sub.wg.Wait()
 			bus.removeSub(sub)
 		case evt := <-bus.queue:
 			bus.doPublish(evt)
@@ -83,9 +80,7 @@ func (bus *eventBus) removeSub(sub *subscription) {
 	bus.mux.Lock()
 	defer bus.mux.Unlock()
 
-	close(sub.out)
-	close(sub.errs)
-
+	close(sub.done)
 	for _, name := range sub.names {
 		for i, s := range bus.subs[name] {
 			if s == sub {
@@ -99,11 +94,10 @@ func (bus *eventBus) removeSub(sub *subscription) {
 func (bus *eventBus) doPublish(evt event.Event) {
 	subs := bus.subscribers(evt.Name())
 	for _, sub := range subs {
-		sub.wg.Add(1)
-		go func(sub *subscription) {
-			sub.out <- evt
-			sub.wg.Done()
-		}(sub)
+		select {
+		case <-sub.done:
+		case sub.out <- evt:
+		}
 	}
 }
 
@@ -125,20 +119,20 @@ func (bus *eventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 	return sub.out, sub.errs, nil
 }
 
-func (sub *subscription) handleCancel() {
-	<-sub.ctx.Done()
-	sub.bus.remove <- sub
-}
-
 func (bus *eventBus) newSubscription(ctx context.Context, names []string) *subscription {
 	sub := &subscription{
-		bus:   bus,
-		ctx:   ctx,
 		names: names,
 		out:   make(chan event.Event),
 		errs:  make(chan error),
+		done:  make(chan struct{}),
 	}
 	bus.add <- sub
-	go sub.handleCancel()
+	go func() {
+		<-ctx.Done()
+		bus.remove <- sub
+		<-sub.done
+		close(sub.errs)
+		close(sub.out)
+	}()
 	return sub
 }
