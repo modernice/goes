@@ -46,6 +46,7 @@ func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.Reposit
 	}()
 
 	h := command.NewHandler(bus)
+	errs := h.Errors(ctx)
 
 	if err := h.Handle(
 		ctx, PlaceCommand,
@@ -90,5 +91,5 @@ func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.Reposit
 		return nil, fmt.Errorf("handle %q Commands: %w", CancelCommand, err)
 	}
 
-	return h.Errors(ctx), nil
+	return errs, nil
 }
