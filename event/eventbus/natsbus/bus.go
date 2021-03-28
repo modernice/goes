@@ -60,6 +60,7 @@ type Driver interface {
 
 type connection interface {
 	get() interface{}
+	close(context.Context) error
 	subscribe(bus *Bus, subject string) (*subscription, error)
 	queueSubscribe(bus *Bus, subject, queue string) (*subscription, error)
 	publish(string, []byte) error
@@ -82,16 +83,16 @@ type stanConn struct {
 }
 
 type subscription struct {
-	eventName    string
-	subject      string
-	queue        string
-	natsSub      *nats.Subscription
-	stanSub      stan.Subscription
-	msgs         chan []byte
-	rcpts        []recipient
-	addQueue     chan add
-	removeQueue  chan recipient
-	done         chan struct{}
+	eventName   string
+	subject     string
+	queue       string
+	natsSub     *nats.Subscription
+	stanSub     stan.Subscription
+	msgs        chan []byte
+	rcpts       []recipient
+	addQueue    chan add
+	removeQueue chan recipient
+	// done         chan struct{}
 	unsubscribed chan struct{}
 }
 
@@ -357,7 +358,7 @@ func (bus *Bus) Publish(ctx context.Context, events ...event.Event) error {
 		default:
 		}
 
-		if err := bus.publish(ctx, evt); err != nil {
+		if err := bus.publish(evt); err != nil {
 			return fmt.Errorf(`publish %q Event: %w`, evt.Name(), err)
 		}
 	}
@@ -365,7 +366,7 @@ func (bus *Bus) Publish(ctx context.Context, events ...event.Event) error {
 	return nil
 }
 
-func (bus *Bus) publish(ctx context.Context, evt event.Event) error {
+func (bus *Bus) publish(evt event.Event) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w", err)
@@ -492,6 +493,20 @@ func (bus *Bus) getSubscription(eventName string) (*subscription, error) {
 	return sub, nil
 }
 
+// Connect establishes the connection to the NATS server. If Connect is not
+// called manually, the Bus will connect automatically on the first call to
+// Publish or Subscribe.
+func (bus *Bus) Connect(ctx context.Context) error {
+	return bus.connectOnce(ctx)
+}
+
+func (bus *Bus) Disconnect(ctx context.Context) error {
+	if bus.conn == nil {
+		return nil
+	}
+	return bus.conn.close(ctx)
+}
+
 func (bus *Bus) connectOnce(ctx context.Context) error {
 	var err error
 	bus.onceConnect.Do(func() { err = bus.connect(ctx) })
@@ -608,16 +623,13 @@ func fanInErrors(rcpts []recipient) <-chan error {
 	return out
 }
 
-func (sub *subscription) unsubscribe() error {
+func (sub *subscription) unsubscribe() {
 	defer close(sub.unsubscribed)
-
-	var err error
 	if sub.natsSub != nil {
-		err = sub.natsSub.Unsubscribe()
-	} else {
-		err = sub.stanSub.Unsubscribe()
+		sub.natsSub.Drain()
+		return
 	}
-	return err
+	sub.stanSub.Unsubscribe()
 }
 
 func (d *core) connect(url string) (connection, error) {
@@ -642,6 +654,10 @@ func (d *streaming) connect(url string) (connection, error) {
 
 func (c *natsConn) get() interface{} {
 	return c.conn
+}
+
+func (c *natsConn) close(ctx context.Context) error {
+	return c.conn.Drain()
 }
 
 func (c *natsConn) subscribe(bus *Bus, subject string) (*subscription, error) {
@@ -673,7 +689,6 @@ func (bus *Bus) newSubscriber(subject, queue string, msgs chan []byte) *subscrip
 		msgs:         msgs,
 		addQueue:     make(chan add),
 		removeQueue:  make(chan recipient),
-		done:         make(chan struct{}),
 		unsubscribed: make(chan struct{}),
 	}
 	go bus.workSubscriber(sub)
@@ -681,13 +696,6 @@ func (bus *Bus) newSubscriber(subject, queue string, msgs chan []byte) *subscrip
 }
 
 func (bus *Bus) workSubscriber(sub *subscription) {
-	defer func() {
-		bus.subsMux.Lock()
-		defer bus.subsMux.Unlock()
-		close(sub.done)
-		delete(bus.subs, sub.eventName)
-	}()
-
 	for {
 		select {
 		case msg, ok := <-sub.msgs:
@@ -728,6 +736,9 @@ func (bus *Bus) workSubscriber(sub *subscription) {
 			close(add.done)
 		case rcpt := <-sub.removeQueue:
 			if sub.doRemove(rcpt) {
+				bus.subsMux.Lock()
+				delete(bus.subs, sub.eventName)
+				bus.subsMux.Unlock()
 				return
 			}
 		}
@@ -750,8 +761,6 @@ func (sub *subscription) publishError(err error) {
 func (sub *subscription) add(rcpt recipient) error {
 	done := make(chan struct{})
 	select {
-	case <-sub.done:
-		return errUnsubscribed
 	case <-sub.unsubscribed:
 		return errUnsubscribed
 	case sub.addQueue <- add{
@@ -761,8 +770,6 @@ func (sub *subscription) add(rcpt recipient) error {
 	}
 
 	select {
-	case <-sub.done:
-		return errUnsubscribed
 	case <-sub.unsubscribed:
 		return errUnsubscribed
 	case <-done:
@@ -772,15 +779,14 @@ func (sub *subscription) add(rcpt recipient) error {
 
 func (sub *subscription) remove(rcpt recipient) {
 	select {
-	case <-sub.done:
 	case <-sub.unsubscribed:
 	case sub.removeQueue <- rcpt:
 	}
 }
 
 func (sub *subscription) doRemove(rcpt recipient) bool {
-	close(rcpt.events)
-	close(rcpt.errs)
+	defer close(rcpt.events)
+	defer close(rcpt.errs)
 	for i, r := range sub.rcpts {
 		if r == rcpt {
 			sub.rcpts = append(sub.rcpts[:i], sub.rcpts[i+1:]...)
@@ -788,10 +794,12 @@ func (sub *subscription) doRemove(rcpt recipient) bool {
 		}
 	}
 	if len(sub.rcpts) == 0 {
-		if err := sub.unsubscribe(); err != nil {
-			// TODO: handle error
-			panic(err)
+		sub.unsubscribe()
+		for _, rcpt := range sub.rcpts {
+			close(rcpt.events)
+			close(rcpt.errs)
 		}
+		sub.rcpts = nil
 		return true
 	}
 	return false
@@ -842,6 +850,10 @@ func (c *natsConn) publish(subject string, data []byte) error {
 
 func (c *stanConn) get() interface{} {
 	return c.conn
+}
+
+func (c *stanConn) close(ctx context.Context) error {
+	return c.conn.Close()
 }
 
 func (c *stanConn) subscribe(bus *Bus, subject string) (*subscription, error) {
