@@ -119,12 +119,12 @@ func NextVersion(a Aggregate) int {
 
 // NextEvent makes and returns the next Event e for the given Aggregate. NextEvent
 // calls a.ApplyEvent(e) and a.TrackChange(e) before returning the Event.
-func NextEvent(a Aggregate, name string, data event.Data) event.Event {
-	evt := event.New(name, data, event.Aggregate(
+func NextEvent(a Aggregate, name string, data event.Data, opts ...event.Option) event.Event {
+	opts = append([]event.Option{event.Aggregate(
 		a.AggregateName(),
-		a.AggregateID(),
-		NextVersion(a),
-	))
+		a.AggregateID(), NextVersion(a),
+	)}, opts...)
+	evt := event.New(name, data, opts...)
 	a.ApplyEvent(evt)
 	a.TrackChange(evt)
 	return evt
