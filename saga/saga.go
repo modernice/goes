@@ -399,13 +399,8 @@ func Execute(ctx context.Context, s Setup, opts ...ExecutorOption) error {
 	return e.Execute(ctx, s)
 }
 
-// NewExecutor returns a reusable Executor.
+// NewExecutor returns a SAGA executor.
 func NewExecutor(opts ...ExecutorOption) *Executor {
-	// // seq := s.Sequence()
-	// e := &Executor{
-	// 	// Setup:    s,
-	// 	// sequence: make([]action.Action, 0, len(seq)),
-	// }
 	var e Executor
 	for _, opt := range opts {
 		opt(&e)
