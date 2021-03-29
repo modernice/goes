@@ -77,3 +77,36 @@ func Walk(
 		}
 	}
 }
+
+// ForEvery iterates over the provided Event and error channels and calls evtFn
+// for every received Event and errFn for every received error. ForEvery returns
+// when the Event and all error channels are closed.
+func ForEvery(
+	evtFn func(evt Event),
+	errFn func(error),
+	events <-chan Event,
+	errs ...<-chan error,
+) {
+	errChan, stop := xerror.FanIn(errs...)
+	defer stop()
+
+	for {
+		if errChan == nil && events == nil {
+			return
+		}
+		select {
+		case err, ok := <-errChan:
+			if !ok {
+				errChan = nil
+				break
+			}
+			errFn(err)
+		case evt, ok := <-events:
+			if !ok {
+				events = nil
+				break
+			}
+			evtFn(evt)
+		}
+	}
+}
