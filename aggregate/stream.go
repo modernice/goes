@@ -64,3 +64,36 @@ func Walk(
 		}
 	}
 }
+
+// ForEvery iterates over the provided History and error channels and calls applyFn
+// for every received History and errFn for every received error. ForEvery returns
+// when the History and all error channels are closed.
+func ForEvery(
+	applyFn func(h History),
+	errFn func(error),
+	histories <-chan History,
+	errs ...<-chan error,
+) {
+	errChan, stop := xerror.FanIn(errs...)
+	defer stop()
+
+	for {
+		if errChan == nil && histories == nil {
+			return
+		}
+		select {
+		case err, ok := <-errChan:
+			if !ok {
+				errChan = nil
+				break
+			}
+			errFn(err)
+		case h, ok := <-histories:
+			if !ok {
+				histories = nil
+				break
+			}
+			applyFn(h)
+		}
+	}
+}
