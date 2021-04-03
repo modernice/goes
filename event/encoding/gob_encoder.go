@@ -12,15 +12,32 @@ import (
 
 // GobEncoder encodes and decodes event.Data using the "encoding/gob" package.
 type GobEncoder struct {
-	mux sync.RWMutex
-	new map[string]func() event.Data
+	mux     sync.RWMutex
+	new     map[string]func() event.Data
+	gobName func(string) string
+}
+
+// GobOption is an option for the GobEncoder.
+type GobOption func(*GobEncoder)
+
+// GobNameFunc returns a GobOption that sets the function that determines the
+// name under which an Event is registered under using gob.RegisterName.
+func GobNameFunc(fn func(eventName string) string) GobOption {
+	return func(enc *GobEncoder) {
+		enc.gobName = fn
+	}
 }
 
 // NewGobEncoder returns a new GobEncoder.
-func NewGobEncoder() *GobEncoder {
-	return &GobEncoder{
-		new: make(map[string]func() event.Data),
+func NewGobEncoder(opts ...GobOption) *GobEncoder {
+	enc := &GobEncoder{new: make(map[string]func() event.Data)}
+	for _, opt := range opts {
+		opt(enc)
 	}
+	if enc.gobName == nil {
+		enc.gobName = defaultGobName
+	}
+	return enc
 }
 
 // Register registers data in the "gob" registry under name.
@@ -28,7 +45,7 @@ func (enc *GobEncoder) Register(name string, new func() event.Data) {
 	if new == nil {
 		panic("nil factory")
 	}
-	gobRegister(name, new())
+	enc.gobRegister(name, new())
 	enc.mux.Lock()
 	defer enc.mux.Unlock()
 	enc.new[name] = new
@@ -82,10 +99,14 @@ func (enc *GobEncoder) registered(name string) bool {
 	return ok
 }
 
-func gobRegister(name string, d event.Data) {
-	gob.RegisterName(gobName(name), d)
+func (enc *GobEncoder) gobRegister(eventName string, d event.Data) {
+	if name := enc.gobName(eventName); name != "" {
+		gob.RegisterName(enc.gobName(name), d)
+		return
+	}
+	gob.Register(d)
 }
 
-func gobName(name string) string {
-	return "goes.event." + name
+func defaultGobName(name string) string {
+	return "goes.event(" + name + ")"
 }
