@@ -73,13 +73,6 @@ type entry struct {
 	Data             []byte       `bson:"data"`
 }
 
-type stream struct {
-	enc event.Encoder
-	cur *mongo.Cursor
-	evt event.Event
-	err error
-}
-
 // URL returns an Option that specifies the URL to the MongoDB instance. An
 // empty URL means "use the default".
 //
@@ -492,37 +485,6 @@ func (e entry) event(enc event.Encoder) (event.Event, error) {
 		event.Time(stdtime.Unix(0, e.TimeNano)),
 		event.Aggregate(e.AggregateName, e.AggregateID, e.AggregateVersion),
 	), nil
-}
-
-func (c *stream) Next(ctx context.Context) bool {
-	if !c.cur.Next(ctx) {
-		c.err = c.cur.Err()
-		return false
-	}
-
-	c.evt = nil
-	var e entry
-	if c.err = c.cur.Decode(&e); c.err != nil {
-		return false
-	}
-
-	if c.evt, c.err = e.event(c.enc); c.err != nil {
-		return false
-	}
-
-	return true
-}
-
-func (c *stream) Event() event.Event {
-	return c.evt
-}
-
-func (c *stream) Err() error {
-	return c.err
-}
-
-func (c *stream) Close(ctx context.Context) error {
-	return c.cur.Close(ctx)
 }
 
 func (err *VersionError) Error() string {
