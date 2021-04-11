@@ -22,12 +22,13 @@ import (
 
 // Store is the MongoDB event.Store.
 type Store struct {
-	enc          event.Encoder
-	url          string
-	dbname       string
-	entriesCol   string
-	statesCol    string
-	transactions bool
+	enc              event.Encoder
+	url              string
+	dbname           string
+	entriesCol       string
+	statesCol        string
+	transactions     bool
+	validateVersions bool
 
 	client  *mongo.Client
 	db      *mongo.Database
@@ -125,9 +126,22 @@ func Transactions(tx bool) Option {
 	}
 }
 
+// ValidateVersions returns an Option that enables validation of Event versions
+// before inserting them into the Store.
+//
+// Defaults to true.
+func ValidateVersions(v bool) Option {
+	return func(s *Store) {
+		s.validateVersions = v
+	}
+}
+
 // New returns a MongoDB event.Store.
 func New(enc event.Encoder, opts ...Option) *Store {
-	s := Store{enc: enc}
+	s := Store{
+		enc:              enc,
+		validateVersions: true,
+	}
 	for _, opt := range opts {
 		opt(&s)
 	}
@@ -188,7 +202,7 @@ func (s *Store) Insert(ctx context.Context, events ...event.Event) error {
 			}
 		}
 
-		st, err := s.validateVersion(ctx, events)
+		st, err := s.validateEventVersions(ctx, events)
 		if err != nil {
 			return fmt.Errorf("validate version: %w", err)
 		}
@@ -223,7 +237,7 @@ func (s *Store) Insert(ctx context.Context, events ...event.Event) error {
 	})
 }
 
-func (s *Store) validateVersion(ctx mongo.SessionContext, events []event.Event) (state, error) {
+func (s *Store) validateEventVersions(ctx mongo.SessionContext, events []event.Event) (state, error) {
 	if len(events) == 0 {
 		return state{}, nil
 	}
@@ -249,6 +263,10 @@ func (s *Store) validateVersion(ctx mongo.SessionContext, events []event.Event) 
 			AggregateName: aggregateName,
 			AggregageID:   aggregateID,
 		}
+	}
+
+	if !s.validateVersions {
+		return st, nil
 	}
 
 	if st.Version >= events[0].AggregateVersion() {
