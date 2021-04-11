@@ -299,6 +299,10 @@ func (s *Store) updateState(ctx mongo.SessionContext, st state, events []event.E
 }
 
 func (s *Store) insert(ctx context.Context, events []event.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+
 	docs := make([]interface{}, len(events))
 	for i, evt := range events {
 		var data bytes.Buffer
