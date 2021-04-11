@@ -207,21 +207,19 @@ func (s *Store) Insert(ctx context.Context, events ...event.Event) error {
 			return fmt.Errorf("validate version: %w", err)
 		}
 
-		for _, evt := range events {
-			if err := s.insert(ctx, evt); err != nil {
-				if s.transactions {
-					if err = ctx.AbortTransaction(ctx); err != nil {
-						return fmt.Errorf("abort transaction: %w", err)
-					}
+		if err := s.insert(ctx, events); err != nil {
+			if s.transactions {
+				if abortError := ctx.AbortTransaction(ctx); abortError != nil {
+					return fmt.Errorf("abort transaction: %w", abortError)
 				}
-				return fmt.Errorf("insert %s:%s: %w", evt.Name(), evt.ID(), err)
 			}
+			return err
 		}
 
 		if err := s.updateState(ctx, st, events); err != nil {
 			if s.transactions {
-				if err = ctx.AbortTransaction(ctx); err != nil {
-					return fmt.Errorf("abort transaction: %w", err)
+				if abortError := ctx.AbortTransaction(ctx); abortError != nil {
+					return fmt.Errorf("abort transaction: %w", abortError)
 				}
 			}
 			return fmt.Errorf("update state: %w", err)
@@ -300,22 +298,30 @@ func (s *Store) updateState(ctx mongo.SessionContext, st state, events []event.E
 	return nil
 }
 
-func (s *Store) insert(ctx context.Context, evt event.Event) error {
-	var data bytes.Buffer
-	if err := s.enc.Encode(&data, evt.Name(), evt.Data()); err != nil {
-		return fmt.Errorf("encode %q event data: %w", evt.Name(), err)
+func (s *Store) insert(ctx context.Context, events []event.Event) error {
+	docs := make([]interface{}, len(events))
+	for i, evt := range events {
+		var data bytes.Buffer
+		if err := s.enc.Encode(&data, evt.Name(), evt.Data()); err != nil {
+			return fmt.Errorf("encode %q event data: %w", evt.Name(), err)
+		}
+		docs[i] = entry{
+			ID:               evt.ID(),
+			Name:             evt.Name(),
+			Time:             evt.Time(),
+			TimeNano:         int64(evt.Time().UnixNano()),
+			AggregateName:    evt.AggregateName(),
+			AggregateID:      evt.AggregateID(),
+			AggregateVersion: evt.AggregateVersion(),
+			Data:             data.Bytes(),
+		}
 	}
-
-	if _, err := s.entries.InsertOne(ctx, entry{
-		ID:               evt.ID(),
-		Name:             evt.Name(),
-		Time:             evt.Time(),
-		TimeNano:         int64(evt.Time().UnixNano()),
-		AggregateName:    evt.AggregateName(),
-		AggregateID:      evt.AggregateID(),
-		AggregateVersion: evt.AggregateVersion(),
-		Data:             data.Bytes(),
-	}); err != nil {
+	// if len(docs) == 1 {
+	// 	if _, err := s.entries.InsertOne(ctx, docs[0]); err != nil {
+	// 		return fmt.Errorf("mongo: %w", err)
+	// 	}
+	// }
+	if _, err := s.entries.InsertMany(ctx, docs); err != nil {
 		return fmt.Errorf("mongo: %w", err)
 	}
 	return nil
@@ -478,15 +484,15 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 		return fmt.Errorf("create indexes (%s): %w", s.entries.Name(), err)
 	}
 
-	if _, err := s.states.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{
-			{Key: "aggregateName", Value: 1},
-			{Key: "aggregateId", Value: 1},
-		},
-		Options: options.Index().SetName("goes_aggregate"),
-	}); err != nil {
-		return fmt.Errorf("create indexes (%s): %w", s.states.Name(), err)
-	}
+	// if _, err := s.states.Indexes().CreateOne(ctx, mongo.IndexModel{
+	// 	Keys: bson.D{
+	// 		{Key: "aggregateName", Value: 1},
+	// 		{Key: "aggregateId", Value: 1},
+	// 	},
+	// 	Options: options.Index().SetName("goes_aggregate"),
+	// }); err != nil {
+	// 	return fmt.Errorf("create indexes (%s): %w", s.states.Name(), err)
+	// }
 
 	return nil
 }

@@ -44,7 +44,7 @@ func TestClient(t *testing.T) {
 }
 
 func TestDatabase(t *testing.T) {
-	store := mongostore.New(
+	store := mongotest.NewStore(
 		test.NewEncoder(),
 		mongostore.Database("event_customdb"),
 		mongostore.URL(os.Getenv("MONGOSTORE_URL")),

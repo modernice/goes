@@ -16,7 +16,7 @@ import (
 func TestStore_Connect_options(t *testing.T) {
 	// given a store that's not connected yet
 	enc := test.NewEncoder()
-	store := mongotest.NewStore(enc)
+	store := mongostore.New(enc)
 
 	// when connecting with an invalid mongo uri
 	client, err := store.Connect(context.Background(), options.Client().ApplyURI("foo://bar:123"))

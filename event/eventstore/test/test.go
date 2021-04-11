@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"log"
 	"testing"
 	stdtime "time"
 
@@ -48,13 +49,44 @@ func testSingleInsert(t *testing.T, newStore EventStoreFactory) {
 	// inserting an event shouldn't fail
 	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("bar", uuid.New(), 3))
 	if err := store.Insert(context.Background(), evt); err != nil {
-		t.Errorf("inserting an event shouldn't fail: %v", err)
+		t.Fatalf("inserting an event shouldn't fail: %v", err)
+	}
+
+	log.Printf("Searching Events with ID: %s\n", evt.ID())
+	str, errs, err := store.Query(context.Background(), query.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events, err := event.Drain(context.Background(), str, errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, evt := range events {
+		log.Printf("Found Event: %s\n", evt.ID())
 	}
 
 	// inserting an event with an existing id should fail
 	evt = event.New("foo", test.FooEventData{A: "bar"}, event.ID(evt.ID()))
 	if err := store.Insert(context.Background(), evt); err == nil {
 		t.Errorf("inserting an event with an existing id should fail; err=%v", err)
+	}
+
+	log.Printf("Searching Events with ID: %s\n", evt.ID())
+
+	str, errs, err = store.Query(context.Background(), query.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events, err = event.Drain(context.Background(), str, errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, evt := range events {
+		log.Printf("Found Event: %s\n", evt.ID())
 	}
 }
 
@@ -119,8 +151,9 @@ func testFind(t *testing.T, newStore EventStoreFactory) {
 
 	found, err = store.Find(context.Background(), evt.ID())
 	if err != nil {
-		t.Errorf("expected store.Find not to return error; got %#v", err)
+		t.Fatalf("expected store.Find not to return error; got %#v", err)
 	}
+
 	if !event.Equal(found, evt) {
 		t.Errorf("found event doesn't match inserted event\ninserted: %#v\n\nfound: %#v\n\ndiff: %s", evt, found, cmp.Diff(
 			evt, found, cmp.AllowUnexported(evt),
