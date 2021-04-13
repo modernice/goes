@@ -35,7 +35,7 @@ func Drain(ctx context.Context, events <-chan Event, errs ...<-chan error) ([]Ev
 	return out, err
 }
 
-// Walk retrieves from the given Event channel until it is closed, ctx is closed
+// Walk receives from the given Event channel until it is closed, ctx is closed
 // or any of the provided error channels receives an error. For every Event e
 // that is received from the Event channel, walkFn(e) is called. Should ctx be
 // canceled before the Event channel is closed, ctx.Err() is returned. Should

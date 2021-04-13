@@ -22,7 +22,7 @@ func Drain(ctx context.Context, str <-chan History, errs ...<-chan error) ([]His
 	return out, err
 }
 
-// Walk retrieves from the given History channel until it is closed, ctx is
+// Walk receives from the given History channel until it is closed, ctx is
 // closed or any of the provided error channels receives an error. For every
 // History h that is received from the History channel, walkFn(h) is called.
 // Should ctx be canceled before the History channel is closed, ctx.Err() is
