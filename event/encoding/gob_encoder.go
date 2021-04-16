@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"github.com/modernice/goes/event"
@@ -15,6 +16,7 @@ type GobEncoder struct {
 	mux     sync.RWMutex
 	new     map[string]func() event.Data
 	gobName func(string) string
+	verbose bool
 }
 
 // GobOption is an option for the GobEncoder.
@@ -25,6 +27,13 @@ type GobOption func(*GobEncoder)
 func GobNameFunc(fn func(eventName string) string) GobOption {
 	return func(enc *GobEncoder) {
 		enc.gobName = fn
+	}
+}
+
+// Verbose returns a GobOption that toggles verbose mode.
+func Verbose(v bool) GobOption {
+	return func(enc *GobEncoder) {
+		enc.verbose = v
 	}
 }
 
@@ -102,9 +111,19 @@ func (enc *GobEncoder) registered(name string) bool {
 func (enc *GobEncoder) gobRegister(eventName string, d event.Data) {
 	if name := enc.gobName(eventName); name != "" {
 		gob.RegisterName(enc.gobName(name), d)
+
+		if enc.verbose {
+			log.Printf("[event/encoding.GobEncoder]: registered %q Event under %q\n", eventName, name)
+		}
+
 		return
 	}
+
 	gob.Register(d)
+
+	if enc.verbose {
+		log.Printf("[event/encoding.GobEncoder]: registered %q Event\n", eventName)
+	}
 }
 
 func defaultGobName(name string) string {
