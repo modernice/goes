@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/modernice/goes/event"
-	equery "github.com/modernice/goes/event/query"
 )
 
 // A Projector builds Projections.
@@ -44,15 +43,12 @@ func NewProjector(events event.Store) Projector {
 }
 
 func (proj *projector) Project(ctx context.Context, p Projection) error {
-	str, errs, err := proj.events.Query(ctx, equery.New(
-		equery.AggregateName(p.AggregateName()),
-		equery.AggregateID(p.AggregateID()),
-		equery.SortByMulti(
-			event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
-		),
-	))
+	q := p.EventQuery()
+	if q == nil {
+		panic("nil Query")
+	}
+
+	str, errs, err := proj.events.Query(ctx, q)
 	if err != nil {
 		return fmt.Errorf("query events: %w", err)
 	}
@@ -69,11 +65,9 @@ func (proj *projector) Project(ctx context.Context, p Projection) error {
 			return fmt.Errorf("event stream: %w", err)
 		case evt, ok := <-str:
 			if !ok {
-				p.FlushChanges()
 				return nil
 			}
 			p.ApplyEvent(evt)
-			p.TrackChange(evt)
 		}
 	}
 }
