@@ -31,7 +31,7 @@ func TestNew(t *testing.T) {
 		t.Errorf("evt.Data() should return %#v; got %#v", data, evt.Data())
 	}
 
-	if d := time.Since(evt.Time()); d > 100*time.Millisecond {
+	if d := time.Now().Sub(evt.Time()); d > 100*time.Millisecond {
 		t.Errorf("evt.Time() should almost equal %s; got %s", time.Now(), evt.Time())
 	}
 

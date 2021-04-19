@@ -37,6 +37,10 @@ func TestProjector_Project(t *testing.T) {
 	}
 
 	test.AssertEqualEvents(t, mp.events, events)
+
+	if mp.AggregateVersion() != 5 {
+		t.Errorf("Projection should be at version %d; is at version %d", 5, mp.AggregateVersion())
+	}
 }
 
 func (mp *mockProjection) ApplyEvent(evt event.Event) {
@@ -45,7 +49,7 @@ func (mp *mockProjection) ApplyEvent(evt event.Event) {
 
 func newMockProjection(id uuid.UUID) *mockProjection {
 	return &mockProjection{
-		Projection: project.Events("foo"),
+		Projection: project.New("foo", id),
 	}
 }
 

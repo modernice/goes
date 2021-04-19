@@ -1,36 +1,22 @@
 package project_test
 
 import (
-	"reflect"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate/project"
 )
 
-func TestEvents(t *testing.T) {
-	names := []string{"foo", "bar", "baz"}
-	p := project.Events(names...)
+func TestNew(t *testing.T) {
+	name := "foo"
+	id := uuid.New()
+	p := project.New(name, id)
 
-	q := p.EventQuery()
-	if q == nil {
-		t.Fatalf("EventQuery should return a Query; got %v\n", q)
+	if p.AggregateName() != name {
+		t.Errorf("AggregateName should return %q; got %q", name, p.AggregateName())
 	}
 
-	if qnames := q.Names(); !reflect.DeepEqual(names, qnames) {
-		t.Fatalf("EventQuery.Names should return %v; got %v\n", names, qnames)
-	}
-}
-
-func TestAggregates(t *testing.T) {
-	names := []string{"foo", "bar", "baz"}
-	p := project.Aggregates(names...)
-
-	q := p.EventQuery()
-	if q == nil {
-		t.Fatalf("EventQuery should return a Query; got %v\n", q)
-	}
-
-	if qnames := q.AggregateNames(); !reflect.DeepEqual(names, qnames) {
-		t.Fatalf("EventQuery.AggregateNames should return %v; got %v\n", names, qnames)
+	if p.AggregateID() != id {
+		t.Errorf("AggregateID should return %q; got %q", id, p.AggregateID())
 	}
 }
