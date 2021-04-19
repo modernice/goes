@@ -82,7 +82,11 @@ func (s *store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 		defer close(errs)
 		defer close(out)
 		for _, evt := range events {
-			out <- evt
+			select {
+			case <-ctx.Done():
+				return
+			case out <- evt:
+			}
 		}
 	}()
 

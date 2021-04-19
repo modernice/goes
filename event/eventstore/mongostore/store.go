@@ -376,6 +376,7 @@ func (s *Store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 		defer close(events)
 		defer close(errs)
 
+	L:
 		for cur.Next(ctx) {
 			var e entry
 			if err := cur.Decode(&e); err != nil {
@@ -388,8 +389,12 @@ func (s *Store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 			}
 			evt, err := e.event(s.enc)
 			if err != nil {
-				errs <- err
-				continue
+				select {
+				case <-ctx.Done():
+					break L
+				case errs <- err:
+					continue
+				}
 			}
 			select {
 			case <-ctx.Done():
@@ -399,7 +404,10 @@ func (s *Store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 		}
 
 		if err = cur.Err(); err != nil {
-			errs <- fmt.Errorf("mongo: %w", err)
+			select {
+			case <-ctx.Done():
+			case errs <- fmt.Errorf("mongo cursor: %w", err):
+			}
 		}
 	}()
 
@@ -487,16 +495,6 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 	}); err != nil {
 		return fmt.Errorf("create indexes (%s): %w", s.entries.Name(), err)
 	}
-
-	// if _, err := s.states.Indexes().CreateOne(ctx, mongo.IndexModel{
-	// 	Keys: bson.D{
-	// 		{Key: "aggregateName", Value: 1},
-	// 		{Key: "aggregateId", Value: 1},
-	// 	},
-	// 	Options: options.Index().SetName("goes_aggregate"),
-	// }); err != nil {
-	// 	return fmt.Errorf("create indexes (%s): %w", s.states.Name(), err)
-	// }
 
 	return nil
 }
