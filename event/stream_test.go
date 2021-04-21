@@ -78,8 +78,9 @@ func TestWalk(t *testing.T) {
 	str := event.Stream(events...)
 
 	var walked []event.Event
-	err := event.Walk(context.Background(), func(evt event.Event) {
+	err := event.Walk(context.Background(), func(evt event.Event) error {
 		walked = append(walked, evt)
+		return nil
 	}, str)
 
 	if err != nil {
@@ -89,7 +90,7 @@ func TestWalk(t *testing.T) {
 	test.AssertEqualEvents(t, walked, events)
 }
 
-func TestWalk_error(t *testing.T) {
+func TestWalk_chanError(t *testing.T) {
 	events := makeEvents()
 	errs := make(chan error, 1)
 	mockError := errors.New("mock error")
@@ -98,7 +99,19 @@ func TestWalk_error(t *testing.T) {
 	errs <- mockError
 	close(errs)
 
-	err := event.Walk(context.Background(), func(evt event.Event) {}, str, errs)
+	err := event.Walk(context.Background(), func(evt event.Event) error { return nil }, str, errs)
+
+	if !errors.Is(err, mockError) {
+		t.Errorf("Walk should fail with %q; got %q", mockError, err)
+	}
+}
+
+func TestWalk_error(t *testing.T) {
+	events := makeEvents()
+	mockError := errors.New("mock error")
+	str := event.Stream(events...)
+
+	err := event.Walk(context.Background(), func(evt event.Event) error { return mockError }, str)
 
 	if !errors.Is(err, mockError) {
 		t.Errorf("Walk should fail with %q; got %q", mockError, err)

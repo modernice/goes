@@ -31,7 +31,7 @@ func Stream(events ...Event) <-chan Event {
 // closed.
 func Drain(ctx context.Context, events <-chan Event, errs ...<-chan error) ([]Event, error) {
 	out := make([]Event, 0, len(events))
-	err := Walk(ctx, func(e Event) { out = append(out, e) }, events, errs...)
+	err := Walk(ctx, func(e Event) error { out = append(out, e); return nil }, events, errs...)
 	return out, err
 }
 
@@ -53,10 +53,13 @@ func Drain(ctx context.Context, events <-chan Event, errs ...<-chan error) ([]Ev
 //	// handle err
 func Walk(
 	ctx context.Context,
-	walkFn func(Event),
+	walkFn func(Event) error,
 	events <-chan Event,
 	errs ...<-chan error,
 ) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	errChan, stop := xerror.FanIn(errs...)
 	defer stop()
 
@@ -73,7 +76,9 @@ func Walk(
 			if !ok {
 				return nil
 			}
-			walkFn(evt)
+			if err := walkFn(evt); err != nil {
+				return err
+			}
 		}
 	}
 }
