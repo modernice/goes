@@ -31,9 +31,10 @@ func TestWithBus(t *testing.T) {
 
 	var walkedEvent event.Event
 
-	if err = event.Walk(context.Background(), func(e event.Event) {
+	if err = event.Walk(context.Background(), func(e event.Event) error {
 		walkedEvent = e
 		cancel()
+		return nil
 	}, events, errs); err != nil {
 		t.Fatalf("Walk shouldn't fail; failed with %q", err)
 	}
