@@ -21,14 +21,22 @@ type EventBusFactory func(event.Encoder) event.Bus
 func EventBus(t *testing.T, newBus EventBusFactory) {
 	bus := newBus(encoder())
 
+	subErrors := make(chan error)
+
 	// given 5 subscribers who listen for "foo" events
 	subscribers := make([]<-chan event.Event, 5)
 	for i := 0; i < 5; i++ {
-		events, _, err := bus.Subscribe(context.Background(), "foo")
+		events, errs, err := bus.Subscribe(context.Background(), "foo")
 		if err != nil {
 			t.Fatal(fmt.Errorf("[%d] subscribe: %w", i, err))
 		}
 		subscribers[i] = events
+
+		go func() {
+			for err := range errs {
+				subErrors <- err
+			}
+		}()
 	}
 
 	// when a "foo" event is published #1
@@ -60,6 +68,12 @@ func EventBus(t *testing.T, newBus EventBusFactory) {
 	go func() { err <- group.Wait() }()
 
 	select {
+	case err, ok := <-subErrors:
+		if !ok {
+			subErrors = nil
+			break
+		}
+		t.Fatal(err)
 	case err := <-publishError:
 		t.Fatal(err)
 	case err := <-err:

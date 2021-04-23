@@ -101,6 +101,10 @@ func SortByMulti(sorts ...event.SortOptions) Option {
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
 func Test(q event.Query, evt event.Event) bool {
+	if q == nil {
+		return true
+	}
+
 	if names := q.Names(); len(names) > 0 &&
 		!stringsContains(names, evt.Name()) {
 		return false
@@ -157,6 +161,59 @@ func Test(q event.Query, evt event.Event) bool {
 	}
 
 	return true
+}
+
+// Merge merges multiple Queries and returns the merged Query.
+//
+// In cases where only a single value can be assigned to a filter, the last
+// provided Query that provides that filter is used.
+func Merge(queries ...event.Query) Query {
+	var opts []Option
+	for _, q := range queries {
+		if q == nil {
+			continue
+		}
+
+		var versionOpts []version.Constraint
+
+		if versions := q.AggregateVersions(); versions != nil {
+			versionOpts = []version.Constraint{
+				version.Exact(versions.Exact()...),
+				version.InRange(versions.Ranges()...),
+				version.Min(versions.Min()...),
+				version.Max(versions.Max()...),
+			}
+		}
+
+		var timeOpts []time.Constraint
+
+		if times := q.Times(); times != nil {
+			timeOpts = []time.Constraint{
+				time.Exact(q.Times().Exact()...),
+				time.InRange(q.Times().Ranges()...),
+			}
+
+			if min := times.Min(); !min.IsZero() {
+				timeOpts = append(timeOpts, time.Min(min))
+			}
+
+			if max := times.Max(); !max.IsZero() {
+				timeOpts = append(timeOpts, time.Max(max))
+			}
+		}
+
+		opts = append(
+			opts,
+			ID(q.IDs()...),
+			Name(q.Names()...),
+			AggregateID(q.AggregateIDs()...),
+			AggregateName(q.AggregateNames()...),
+			AggregateVersion(versionOpts...),
+			Time(timeOpts...),
+			SortByMulti(q.Sortings()...),
+		)
+	}
+	return New(opts...)
 }
 
 // Names returns the event names to query for.
@@ -246,8 +303,8 @@ func testTimeRanges(ranges []time.Range, t stdtime.Time) bool {
 	return false
 }
 
-func testMinTimes(min stdtime.Time, t stdtime.Time) bool {
-	if t.Equal(min) || t.After(min) {
+func testMinTimes(max stdtime.Time, t stdtime.Time) bool {
+	if t.Equal(max) || t.After(max) {
 		return true
 	}
 	return false

@@ -69,18 +69,19 @@ func (bus *eventBus) work() {
 }
 
 func (bus *eventBus) addSub(sub *subscription) {
-	bus.mux.Lock()
-	defer bus.mux.Unlock()
 	for _, name := range sub.names {
-		bus.subs[name] = append(bus.subs[name], sub)
+		subs := append(bus.subscribers(name), sub)
+		bus.mux.Lock()
+		bus.subs[name] = subs
+		bus.mux.Unlock()
 	}
 }
 
 func (bus *eventBus) removeSub(sub *subscription) {
+	defer close(sub.done)
 	bus.mux.Lock()
 	defer bus.mux.Unlock()
 
-	close(sub.done)
 	for _, name := range sub.names {
 		for i, s := range bus.subs[name] {
 			if s == sub {
@@ -104,7 +105,9 @@ func (bus *eventBus) doPublish(evt event.Event) {
 func (bus *eventBus) subscribers(name string) []*subscription {
 	bus.mux.Lock()
 	defer bus.mux.Unlock()
-	return bus.subs[name]
+	subs := make([]*subscription, len(bus.subs[name]))
+	copy(subs, bus.subs[name])
+	return subs
 }
 
 // Subscribe returns a channel of Events and a channel of asynchronous errors.

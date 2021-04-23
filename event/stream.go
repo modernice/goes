@@ -57,9 +57,6 @@ func Walk(
 	events <-chan Event,
 	errs ...<-chan error,
 ) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	errChan, stop := xerror.FanIn(errs...)
 	defer stop()
 

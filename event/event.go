@@ -126,6 +126,10 @@ func Equal(events ...Event) bool {
 	}
 	first := events[0]
 	for _, evt := range events[1:] {
+		if (evt == nil && first != nil) || (evt != nil && first == nil) {
+			return false
+		}
+
 		if !(evt.ID() == first.ID() &&
 			evt.Name() == first.Name() &&
 			evt.Time().Equal(first.Time()) &&

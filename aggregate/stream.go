@@ -18,7 +18,7 @@ import (
 // closed.
 func Drain(ctx context.Context, str <-chan History, errs ...<-chan error) ([]History, error) {
 	out := make([]History, 0, len(str))
-	err := Walk(ctx, func(h History) { out = append(out, h) }, str, errs...)
+	err := Walk(ctx, func(h History) error { out = append(out, h); return nil }, str, errs...)
 	return out, err
 }
 
@@ -40,7 +40,7 @@ func Drain(ctx context.Context, str <-chan History, errs ...<-chan error) ([]His
 //	// handle err
 func Walk(
 	ctx context.Context,
-	walkFn func(History),
+	walkFn func(History) error,
 	str <-chan History,
 	errs ...<-chan error,
 ) error {
@@ -60,7 +60,9 @@ func Walk(
 			if !ok {
 				return nil
 			}
-			walkFn(his)
+			if err := walkFn(his); err != nil {
+				return err
+			}
 		}
 	}
 }

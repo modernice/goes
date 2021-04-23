@@ -269,3 +269,80 @@ func TestTest(t *testing.T) {
 		})
 	}
 }
+
+func TestMerge(t *testing.T) {
+	now := stdtime.Now()
+	queries := []event.Query{
+		Query{
+			names:             []string{"foo"},
+			ids:               []uuid.UUID{uuid.New()},
+			aggregateNames:    []string{"foo"},
+			aggregateIDs:      []uuid.UUID{uuid.New()},
+			sortings:          []event.SortOptions{{Sort: event.SortAggregateName, Dir: event.SortDesc}},
+			times:             time.Filter(time.After(now)),
+			aggregateVersions: version.Filter(version.Exact(1)),
+		},
+		Query{
+			names:             []string{"bar"},
+			ids:               []uuid.UUID{uuid.New()},
+			aggregateNames:    []string{"bar"},
+			aggregateIDs:      []uuid.UUID{uuid.New()},
+			sortings:          []event.SortOptions{{Sort: event.SortAggregateID, Dir: event.SortAsc}},
+			times:             time.Filter(time.Before(now)),
+			aggregateVersions: version.Filter(version.Exact(2, 3)),
+		},
+		Query{
+			names:             []string{"baz"},
+			ids:               []uuid.UUID{uuid.New()},
+			aggregateNames:    []string{"baz"},
+			aggregateIDs:      []uuid.UUID{uuid.New()},
+			sortings:          []event.SortOptions{{Sort: event.SortAggregateVersion, Dir: event.SortAsc}},
+			times:             time.Filter(time.Exact(now)),
+			aggregateVersions: version.Filter(version.Exact(4, 5)),
+		},
+	}
+
+	q := Merge(queries...)
+
+	wantNames := []string{"foo", "bar", "baz"}
+	if !reflect.DeepEqual(q.Names(), wantNames) {
+		t.Fatalf("Names should return %v; got %v", wantNames, q.Names())
+	}
+
+	if !reflect.DeepEqual(q.AggregateNames(), wantNames) {
+		t.Fatalf("AggregateNames should return %v; got %v", wantNames, q.AggregateNames())
+	}
+
+	wantIDs := append(queries[0].IDs(), queries[1].IDs()...)
+	wantIDs = append(wantIDs, queries[2].IDs()...)
+
+	if !reflect.DeepEqual(q.IDs(), wantIDs) {
+		t.Fatalf("IDs should return %v; got %v", wantIDs, q.IDs())
+	}
+
+	wantIDs = append(queries[0].AggregateIDs(), queries[1].AggregateIDs()...)
+	wantIDs = append(wantIDs, queries[2].AggregateIDs()...)
+
+	if !reflect.DeepEqual(q.AggregateIDs(), wantIDs) {
+		t.Fatalf("AggregateIDs should return %v; got %v", wantIDs, q.AggregateIDs())
+	}
+
+	wantSortings := []event.SortOptions{
+		{Sort: event.SortAggregateName, Dir: event.SortDesc},
+		{Sort: event.SortAggregateID, Dir: event.SortAsc},
+		{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
+	}
+	if !reflect.DeepEqual(q.Sortings(), wantSortings) {
+		t.Fatalf("Sortings should return %v; got %v", wantSortings, q.Sortings())
+	}
+
+	wantTimes := time.Filter(time.After(now), time.Before(now), time.Exact(now))
+	if !reflect.DeepEqual(q.Times(), wantTimes) {
+		t.Fatalf("Times should return %v; got %v", wantTimes, q.Times())
+	}
+
+	wantVersions := version.Filter(version.Exact(1, 2, 3, 4, 5))
+	if !reflect.DeepEqual(q.AggregateVersions(), wantVersions) {
+		t.Fatalf("Versions should return %v; got %v", wantVersions, q.AggregateVersions())
+	}
+}
