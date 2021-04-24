@@ -97,6 +97,20 @@ func SortByMulti(sorts ...event.SortOptions) Option {
 	}
 }
 
+// SortByAggregate returns an Option that sorts the a Query by Aggregates.
+//
+// Order of sortings is
+//	1. AggregateName (ascending)
+//	2. AggregateID (ascending)
+//	3. AggregateVersion (ascending)
+func SortByAggregate() Option {
+	return SortByMulti(
+		event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
+		event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
+		event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
+	)
+}
+
 // Test tests the Event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
