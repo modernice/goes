@@ -37,8 +37,8 @@ func TestProjector_Project(t *testing.T) {
 	}
 
 	wantLatest := events[len(events)-1]
-	if !event.Equal(ex.LatestEvent(), wantLatest) {
-		t.Fatalf("LatestEvent should return %v; got %v", wantLatest, ex.LatestEvent())
+	if !wantLatest.Time().Equal(ex.LatestEventTime()) {
+		t.Fatalf("LatestEventTime should return %v; got %v", wantLatest.Time(), ex.LatestEventTime())
 	}
 }
 
@@ -168,8 +168,8 @@ func TestProjector_Periodically(t *testing.T) {
 			t.Fatalf("applied Events should be %v; got %v", events, p.applied)
 		}
 
-		if p.LatestEvent() != events[1] {
-			t.Fatalf("LatestEvent should return %v; got %v", events[1], p.LatestEvent())
+		if !p.LatestEventTime().Equal(events[1].Time()) {
+			t.Fatalf("LatestEventTime should return %v; got %v", events[1].Time(), p.LatestEventTime())
 		}
 	}
 }

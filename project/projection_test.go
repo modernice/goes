@@ -8,12 +8,12 @@ import (
 	"github.com/modernice/goes/project"
 )
 
-func TestProjection_LatestEvent(t *testing.T) {
+func TestProjection_LatestEventTime(t *testing.T) {
 	p := project.NewProjection()
 	evt := event.New("foo", test.FooEventData{})
 	p.PostApplyEvent(evt)
 
-	if !event.Equal(evt, p.LatestEvent()) {
-		t.Fatalf("LatestEvent should return %v; got %v", evt, p.LatestEvent())
+	if !evt.Time().Equal(p.LatestEventTime()) {
+		t.Fatalf("LatestEventTime should return %v; got %v", evt.Time(), p.LatestEventTime())
 	}
 }

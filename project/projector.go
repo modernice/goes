@@ -39,8 +39,8 @@ type config struct {
 	fromBase bool
 }
 
-type latestEventProvider interface {
-	LatestEvent() event.Event
+type latestEventTimeProvider interface {
+	LatestEventTime() stdtime.Time
 }
 
 type postEventApplier interface {
@@ -284,9 +284,9 @@ func (j *periodicJob) Apply(p EventApplier) error {
 		),
 	}
 
-	if p, ok := p.(latestEventProvider); ok && !j.cfg.fromBase {
-		if evt := p.LatestEvent(); evt != nil {
-			opts = append(opts, query.Time(time.After(evt.Time())))
+	if p, ok := p.(latestEventTimeProvider); ok && !j.cfg.fromBase {
+		if t := p.LatestEventTime(); !t.IsZero() {
+			opts = append(opts, query.Time(time.After(t)))
 		}
 	}
 
