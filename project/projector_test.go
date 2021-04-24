@@ -117,14 +117,21 @@ func TestProjector_Continuously(t *testing.T) {
 	}
 
 	for i, j := range jobs {
-		jobEvents, err := j.Events(context.Background(), ex)
+		jobEvents, err := j.Events(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		test.AssertEqualEvents(t, []event.Event{events[i]}, jobEvents)
 
-		aggregates, err := j.Aggregates(context.Background(), ex)
+		jobEvents, err = j.EventsFor(context.Background(), ex)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		test.AssertEqualEvents(t, []event.Event{events[i]}, jobEvents)
+
+		aggregates, err := j.Aggregates(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -136,7 +143,7 @@ func TestProjector_Continuously(t *testing.T) {
 			t.Fatalf("Aggregates should return %v; got %v", wantAggregates, aggregates)
 		}
 
-		ids, err := j.AggregatesOf(context.Background(), "foobar", ex)
+		ids, err := j.AggregatesOf(context.Background(), "foobar")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -146,7 +153,7 @@ func TestProjector_Continuously(t *testing.T) {
 			t.Fatalf("AggregatesOf(%q) should return %v; got %v", "foobar", wantIDs, ids)
 		}
 
-		ids, err = j.AggregatesOf(context.Background(), "invalid", ex)
+		ids, err = j.AggregatesOf(context.Background(), "invalid")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -155,12 +162,12 @@ func TestProjector_Continuously(t *testing.T) {
 			t.Fatalf("AggregatesOf(%q) should return %v; got %v", "invalid", nil, ids)
 		}
 
-		id, err := j.Aggregate(context.Background(), "foobar", ex)
+		id, err := j.Aggregate(context.Background(), "foobar")
 		if err != nil {
 			t.Fatalf("Aggregate(%q) should return %v; got %v", "foobar", events[0].AggregateID(), id)
 		}
 
-		id, err = j.Aggregate(context.Background(), "invalid", ex)
+		id, err = j.Aggregate(context.Background(), "invalid")
 		if err != nil {
 			t.Fatalf("Aggregate(%q) should return %v; got %v", "invalud", uuid.Nil, id)
 		}
@@ -230,14 +237,21 @@ func TestProjector_Periodically(t *testing.T) {
 	}
 
 	for i, j := range jobs {
-		jobEvents, err := j.Events(context.Background(), projections[i])
+		jobEvents, err := j.Events(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		test.AssertEqualEvents(t, events[:2], jobEvents)
 
-		aggregates, err := j.Aggregates(context.Background(), projections[i])
+		jobEvents, err = j.EventsFor(context.Background(), projections[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		test.AssertEqualEvents(t, events[:2], jobEvents)
+
+		aggregates, err := j.Aggregates(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -249,7 +263,7 @@ func TestProjector_Periodically(t *testing.T) {
 			t.Fatalf("Aggregates should return %v; got %v", wantAggregates, aggregates)
 		}
 
-		ids, err := j.AggregatesOf(context.Background(), "foobar", projections[i])
+		ids, err := j.AggregatesOf(context.Background(), "foobar")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -259,7 +273,7 @@ func TestProjector_Periodically(t *testing.T) {
 			t.Fatalf("AggregatesOf(%q) should return %v; got %v", "foobar", wantIDs, ids)
 		}
 
-		ids, err = j.AggregatesOf(context.Background(), "invalid", projections[i])
+		ids, err = j.AggregatesOf(context.Background(), "invalid")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -268,12 +282,12 @@ func TestProjector_Periodically(t *testing.T) {
 			t.Fatalf("AggregatesOf(%q) should return %v; got %v", "invalid", nil, ids)
 		}
 
-		id, err := j.Aggregate(context.Background(), "foobar", projections[i])
+		id, err := j.Aggregate(context.Background(), "foobar")
 		if err != nil {
 			t.Fatalf("Aggregate(%q) should return %v; got %v", "foobar", events[0].AggregateID(), id)
 		}
 
-		id, err = j.Aggregate(context.Background(), "invalid", projections[i])
+		id, err = j.Aggregate(context.Background(), "invalid")
 		if err != nil {
 			t.Fatalf("Aggregate(%q) should return %v; got %v", "invalud", uuid.Nil, id)
 		}

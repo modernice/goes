@@ -27,21 +27,27 @@ type Job interface {
 	// Context returns the projection Context.
 	Context() context.Context
 
-	// Events returns the Events that would be applied onto the given projection.
-	Events(context.Context, interface{}) ([]event.Event, error)
+	// Events returns the Events from the Job.
+	Events(context.Context) ([]event.Event, error)
+
+	// EventsFor returns the Events that would be applied to the given
+	// projection. If the projection provides a `LatestEventTime` method, it is
+	// used to only query Events that happened after that time.
+	EventsFor(context.Context, interface{}) ([]event.Event, error)
 
 	// Aggregates returns a map of Aggregate names to UUIDs, extracted from the
-	// Events that would be applied to the given projection.
-	Aggregates(context.Context, interface{}) (map[string][]uuid.UUID, error)
+	// Events of the Job.
+	Aggregates(context.Context) (map[string][]uuid.UUID, error)
 
 	// AggregatesOf returns the UUIDs of Aggregates, extracted from the Events
-	// that would be applied to the given projection.
-	AggregatesOf(context.Context, string, interface{}) ([]uuid.UUID, error)
+	// of the Job.
+	AggregatesOf(context.Context, string) ([]uuid.UUID, error)
 
 	// Aggregate returns the first UUID of an Aggregate with the given name,
-	// extracted from the Events that would be applied to the given projection.
+	// extracted from the Events of the Job.
+	//
 	// If no Event belongs to an Aggregate witht that name, uuid.Nil is returned.
-	Aggregate(context.Context, string, interface{}) (uuid.UUID, error)
+	Aggregate(context.Context, string) (uuid.UUID, error)
 
 	// Apply applies the projection on an EventApplier, which is usually a type
 	// that embeds *Projection.
@@ -227,7 +233,7 @@ type continuousJob struct {
 	store      event.Store
 	evt        event.Event
 	eventNames []string
-	cache      []event.Event
+	cache      map[interface{}][]event.Event
 }
 
 func (p *Projector) newContinuousJob(
@@ -244,6 +250,7 @@ func (p *Projector) newContinuousJob(
 		store:      store,
 		evt:        evt,
 		eventNames: eventNames,
+		cache:      make(map[interface{}][]event.Event),
 	}
 }
 
@@ -251,9 +258,13 @@ func (j *continuousJob) Context() context.Context {
 	return j.ctx
 }
 
-func (j *continuousJob) Events(ctx context.Context, p interface{}) ([]event.Event, error) {
-	if j.cache != nil {
-		return j.cache, nil
+func (j *continuousJob) Events(ctx context.Context) ([]event.Event, error) {
+	return j.EventsFor(ctx, nil)
+}
+
+func (j *continuousJob) EventsFor(ctx context.Context, p interface{}) ([]event.Event, error) {
+	if j.cache[p] != nil {
+		return j.cache[p], nil
 	}
 
 	if ctx == nil {
@@ -290,15 +301,17 @@ func (j *continuousJob) Events(ctx context.Context, p interface{}) ([]event.Even
 		return nil, fmt.Errorf("drain Events: %w", err)
 	}
 
+	j.cache[p] = events
+
 	return events, nil
 }
 
-func (j *continuousJob) Aggregates(ctx context.Context, p interface{}) (map[string][]uuid.UUID, error) {
+func (j *continuousJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	events, err := j.Events(ctx, p)
+	events, err := j.Events(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -313,12 +326,12 @@ func (j *continuousJob) Aggregates(ctx context.Context, p interface{}) (map[stri
 	return out, nil
 }
 
-func (j *continuousJob) AggregatesOf(ctx context.Context, name string, p interface{}) ([]uuid.UUID, error) {
+func (j *continuousJob) AggregatesOf(ctx context.Context, name string) ([]uuid.UUID, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	aggregates, err := j.Aggregates(ctx, p)
+	aggregates, err := j.Aggregates(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -326,12 +339,12 @@ func (j *continuousJob) AggregatesOf(ctx context.Context, name string, p interfa
 	return aggregates[name], nil
 }
 
-func (j *continuousJob) Aggregate(ctx context.Context, name string, p interface{}) (uuid.UUID, error) {
+func (j *continuousJob) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	ids, err := j.AggregatesOf(ctx, name, p)
+	ids, err := j.AggregatesOf(ctx, name)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -348,7 +361,7 @@ func (j *continuousJob) Apply(ctx context.Context, p EventApplier) error {
 		ctx = j.ctx
 	}
 
-	events, err := j.Events(ctx, p)
+	events, err := j.Events(ctx)
 	if err != nil {
 		return err
 	}
@@ -380,9 +393,13 @@ func (j *periodicJob) Context() context.Context {
 	return j.ctx
 }
 
-func (j *periodicJob) Events(ctx context.Context, p interface{}) ([]event.Event, error) {
-	if events, ok := j.cache[p]; ok {
-		return events, nil
+func (j *periodicJob) Events(ctx context.Context) ([]event.Event, error) {
+	return j.EventsFor(ctx, nil)
+}
+
+func (j *periodicJob) EventsFor(ctx context.Context, p interface{}) ([]event.Event, error) {
+	if j.cache[p] != nil {
+		return j.cache[p], nil
 	}
 
 	if ctx == nil {
@@ -426,12 +443,12 @@ func (j *periodicJob) Events(ctx context.Context, p interface{}) ([]event.Event,
 	return events, nil
 }
 
-func (j *periodicJob) Aggregates(ctx context.Context, p interface{}) (map[string][]uuid.UUID, error) {
+func (j *periodicJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	events, err := j.Events(ctx, p)
+	events, err := j.Events(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -446,12 +463,12 @@ func (j *periodicJob) Aggregates(ctx context.Context, p interface{}) (map[string
 	return out, nil
 }
 
-func (j *periodicJob) AggregatesOf(ctx context.Context, name string, p interface{}) ([]uuid.UUID, error) {
+func (j *periodicJob) AggregatesOf(ctx context.Context, name string) ([]uuid.UUID, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	aggregates, err := j.Aggregates(ctx, p)
+	aggregates, err := j.Aggregates(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -459,12 +476,12 @@ func (j *periodicJob) AggregatesOf(ctx context.Context, name string, p interface
 	return aggregates[name], nil
 }
 
-func (j *periodicJob) Aggregate(ctx context.Context, name string, p interface{}) (uuid.UUID, error) {
+func (j *periodicJob) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	ids, err := j.AggregatesOf(ctx, name, p)
+	ids, err := j.AggregatesOf(ctx, name)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -481,7 +498,7 @@ func (j *periodicJob) Apply(ctx context.Context, p EventApplier) error {
 		ctx = j.ctx
 	}
 
-	events, err := j.Events(ctx, p)
+	events, err := j.EventsFor(ctx, p)
 	if err != nil {
 		return err
 	}
