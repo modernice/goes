@@ -5,6 +5,7 @@ import (
 	"fmt"
 	stdtime "time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/time"
@@ -26,9 +27,25 @@ type Job interface {
 	// Context returns the projection Context.
 	Context() context.Context
 
+	// Events returns the Events that would be applied onto the given projection.
+	Events(context.Context, interface{}) ([]event.Event, error)
+
+	// Aggregates returns a map of Aggregate names to UUIDs, extracted from the
+	// Events that would be applied to the given projection.
+	Aggregates(context.Context, interface{}) (map[string][]uuid.UUID, error)
+
+	// AggregatesOf returns the UUIDs of Aggregates, extracted from the Events
+	// that would be applied to the given projection.
+	AggregatesOf(context.Context, string, interface{}) ([]uuid.UUID, error)
+
+	// Aggregate returns the first UUID of an Aggregate with the given name,
+	// extracted from the Events that would be applied to the given projection.
+	// If no Event belongs to an Aggregate witht that name, uuid.Nil is returned.
+	Aggregate(context.Context, string, interface{}) (uuid.UUID, error)
+
 	// Apply applies the projection on an EventApplier, which is usually a type
 	// that embeds *Projection.
-	Apply(EventApplier) error
+	Apply(context.Context, EventApplier) error
 }
 
 // Option is a subscription option.
@@ -210,6 +227,7 @@ type continuousJob struct {
 	store      event.Store
 	evt        event.Event
 	eventNames []string
+	cache      []event.Event
 }
 
 func (p *Projector) newContinuousJob(
@@ -233,24 +251,109 @@ func (j *continuousJob) Context() context.Context {
 	return j.ctx
 }
 
-func (j *continuousJob) Apply(p EventApplier) error {
+func (j *continuousJob) Events(ctx context.Context, p interface{}) ([]event.Event, error) {
+	if j.cache != nil {
+		return j.cache, nil
+	}
+
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	// If the projection shouldn't be run with past Events, return the single
+	// received Event.
 	if !j.cfg.fromBase {
-		p.ApplyEvent(j.evt)
-		return nil
+		if !j.cfg.allowsEvent(j.evt) {
+			return []event.Event{}, nil
+		}
+		return []event.Event{j.evt}, nil
 	}
 
-	q := query.Merge(query.New(query.Name(j.eventNames...)), j.cfg.filter)
-	str, errs, err := j.store.Query(j.ctx, q)
+	opts := []query.Option{query.Name(j.eventNames...)}
+
+	// If the projection provides a `LatestEventTime` method, use it to only
+	// query Events that happened after that time.
+	if p, ok := p.(latestEventTimeProvider); ok && !j.cfg.fromBase {
+		if t := p.LatestEventTime(); !t.IsZero() {
+			opts = append(opts, query.Time(time.After(t)))
+		}
+	}
+
+	q := query.Merge(query.New(opts...), j.cfg.filter)
+	str, errs, err := j.store.Query(ctx, q)
 	if err != nil {
-		return fmt.Errorf("query Events: %w", err)
+		return nil, fmt.Errorf("query Events: %w", err)
 	}
 
-	events, err := event.Drain(j.ctx, str, errs)
+	events, err := event.Drain(ctx, str, errs)
 	if err != nil {
-		return fmt.Errorf("drain Events: %w", err)
+		return nil, fmt.Errorf("drain Events: %w", err)
 	}
 
-	return j.projector.Project(j.ctx, events, p)
+	return events, nil
+}
+
+func (j *continuousJob) Aggregates(ctx context.Context, p interface{}) (map[string][]uuid.UUID, error) {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	events, err := j.Events(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(map[string][]uuid.UUID, len(events))
+	for _, evt := range events {
+		if evt.AggregateName() != "" {
+			out[evt.AggregateName()] = append(out[evt.AggregateName()], evt.AggregateID())
+		}
+	}
+
+	return out, nil
+}
+
+func (j *continuousJob) AggregatesOf(ctx context.Context, name string, p interface{}) ([]uuid.UUID, error) {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	aggregates, err := j.Aggregates(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	return aggregates[name], nil
+}
+
+func (j *continuousJob) Aggregate(ctx context.Context, name string, p interface{}) (uuid.UUID, error) {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	ids, err := j.AggregatesOf(ctx, name, p)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if len(ids) == 0 {
+		return uuid.Nil, nil
+	}
+
+	return ids[0], nil
+}
+
+func (j *continuousJob) Apply(ctx context.Context, p EventApplier) error {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	events, err := j.Events(ctx, p)
+	if err != nil {
+		return err
+	}
+
+	return j.projector.Project(ctx, events, p)
 }
 
 type periodicJob struct {
@@ -259,6 +362,7 @@ type periodicJob struct {
 	store      event.Store
 	projector  *Projector
 	eventNames []string
+	cache      map[interface{}][]event.Event
 }
 
 func (p *Projector) newPeriodicJob(ctx context.Context, cfg config, store event.Store, eventNames []string) *periodicJob {
@@ -268,6 +372,7 @@ func (p *Projector) newPeriodicJob(ctx context.Context, cfg config, store event.
 		store:      store,
 		projector:  p,
 		eventNames: eventNames,
+		cache:      make(map[interface{}][]event.Event),
 	}
 }
 
@@ -275,7 +380,15 @@ func (j *periodicJob) Context() context.Context {
 	return j.ctx
 }
 
-func (j *periodicJob) Apply(p EventApplier) error {
+func (j *periodicJob) Events(ctx context.Context, p interface{}) ([]event.Event, error) {
+	if events, ok := j.cache[p]; ok {
+		return events, nil
+	}
+
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
 	opts := []query.Option{
 		query.Name(j.eventNames...),
 		query.SortByMulti(
@@ -284,6 +397,8 @@ func (j *periodicJob) Apply(p EventApplier) error {
 		),
 	}
 
+	// If the projection provides a `LatestEventTime` method, use it to only
+	// query Events that happened after that time.
 	if p, ok := p.(latestEventTimeProvider); ok && !j.cfg.fromBase {
 		if t := p.LatestEventTime(); !t.IsZero() {
 			opts = append(opts, query.Time(time.After(t)))
@@ -296,14 +411,79 @@ func (j *periodicJob) Apply(p EventApplier) error {
 		q = query.Merge(q, j.cfg.filter)
 	}
 
-	str, errs, err := j.store.Query(j.ctx, q)
+	str, errs, err := j.store.Query(ctx, q)
 	if err != nil {
-		return fmt.Errorf("query Events: %w", err)
+		return nil, fmt.Errorf("query Events: %w", err)
 	}
 
-	events, err := event.Drain(j.ctx, str, errs)
+	events, err := event.Drain(ctx, str, errs)
 	if err != nil {
-		return fmt.Errorf("drain Events: %w", err)
+		return nil, fmt.Errorf("drain Events: %w", err)
+	}
+
+	j.cache[p] = events
+
+	return events, nil
+}
+
+func (j *periodicJob) Aggregates(ctx context.Context, p interface{}) (map[string][]uuid.UUID, error) {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	events, err := j.Events(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(map[string][]uuid.UUID, len(events))
+	for _, evt := range events {
+		if evt.AggregateName() != "" {
+			out[evt.AggregateName()] = append(out[evt.AggregateName()], evt.AggregateID())
+		}
+	}
+
+	return out, nil
+}
+
+func (j *periodicJob) AggregatesOf(ctx context.Context, name string, p interface{}) ([]uuid.UUID, error) {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	aggregates, err := j.Aggregates(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	return aggregates[name], nil
+}
+
+func (j *periodicJob) Aggregate(ctx context.Context, name string, p interface{}) (uuid.UUID, error) {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	ids, err := j.AggregatesOf(ctx, name, p)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if len(ids) == 0 {
+		return uuid.Nil, nil
+	}
+
+	return ids[0], nil
+}
+
+func (j *periodicJob) Apply(ctx context.Context, p EventApplier) error {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	events, err := j.Events(ctx, p)
+	if err != nil {
+		return err
 	}
 
 	return j.projector.Project(j.ctx, events, p)

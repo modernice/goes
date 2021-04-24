@@ -1,4 +1,5 @@
 // Package chanbus provides an event.Bus implementation using channels.
+// TODO: rewrite (there is a race condition somewhere)
 package chanbus
 
 import (
