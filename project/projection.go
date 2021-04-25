@@ -19,7 +19,7 @@ import (
 //		}
 //	}
 type Projection struct {
-	latest time.Time
+	LatestEventAppliedAt time.Time
 }
 
 // NewProjection returns a Projection that can be embedded into a struct.
@@ -31,13 +31,13 @@ func NewProjection() *Projection {
 // applied and sets the LatestEventTime to evt.Time().
 func (p *Projection) PostApplyEvent(evt event.Event) {
 	if evt != nil {
-		p.latest = evt.Time()
+		p.LatestEventAppliedAt = evt.Time()
 	}
 }
 
 // LatestEventTime returns the time of the latest applied Event.
 func (p *Projection) LatestEventTime() time.Time {
-	return p.latest
+	return p.LatestEventAppliedAt
 }
 
 // ApplyEvent implements EventApplier. Structs that embed Projection should
