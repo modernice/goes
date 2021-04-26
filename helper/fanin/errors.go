@@ -1,13 +1,13 @@
-package xerror
+package fanin
 
 import "sync"
 
-// FanIn takes multiple error channels and returns a single error channel. When
-// the returned stop function is called or every input channel is closed, FanIn
-// stops and closes the returned error channel.
+// Errors accepts multiple error channels and returns a single error channel.
+// When the returned stop function is called or every input channel is closed,
+// it stops and closes the returned error channel.
 //
-// When len(errs) == 0, FanIn returns nil.
-func FanIn(errs ...<-chan error) (<-chan error, func()) {
+// When len(errs) == 0, Errors returns nil.
+func Errors(errs ...<-chan error) (<-chan error, func()) {
 	stop := make(chan struct{})
 	var once sync.Once
 	stopFn := func() { once.Do(func() { close(stop) }) }

@@ -3,7 +3,7 @@ package snapshot
 import (
 	"context"
 
-	"github.com/modernice/goes/internal/xerror"
+	"github.com/modernice/goes/helper/fanin"
 )
 
 // Drain drains the given Snapshot channel and returns its Snapshots.
@@ -53,7 +53,7 @@ func Walk(
 	snaps <-chan Snapshot,
 	errs ...<-chan error,
 ) error {
-	errChan, stop := xerror.FanIn(errs...)
+	errChan, stop := fanin.Errors(errs...)
 	defer stop()
 
 	for {

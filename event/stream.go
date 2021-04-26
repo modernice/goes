@@ -3,7 +3,7 @@ package event
 import (
 	"context"
 
-	"github.com/modernice/goes/internal/xerror"
+	"github.com/modernice/goes/helper/fanin"
 )
 
 // Stream returns an Event channel that is filled and closed with the provided
@@ -57,7 +57,7 @@ func Walk(
 	events <-chan Event,
 	errs ...<-chan error,
 ) error {
-	errChan, stop := xerror.FanIn(errs...)
+	errChan, stop := fanin.Errors(errs...)
 	defer stop()
 
 	for {
@@ -89,7 +89,7 @@ func ForEvery(
 	events <-chan Event,
 	errs ...<-chan error,
 ) {
-	errChan, stop := xerror.FanIn(errs...)
+	errChan, stop := fanin.Errors(errs...)
 	defer stop()
 
 	for {

@@ -9,7 +9,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/internal/xerror"
+	"github.com/modernice/goes/helper/fanin"
 )
 
 // Option is a Stream option.
@@ -180,7 +180,7 @@ func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <
 	for _, opt := range opts {
 		opt(&aes)
 	}
-	aes.inErrors, _ = xerror.FanIn(aes.streamErrors...)
+	aes.inErrors, _ = fanin.Errors(aes.streamErrors...)
 
 	aes.acceptCtx, aes.stopAccept = context.WithCancel(context.Background())
 	go aes.acceptEvents()
