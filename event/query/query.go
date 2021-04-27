@@ -177,6 +177,21 @@ func Test(q event.Query, evt event.Event) bool {
 	return true
 }
 
+// Apply tests Events against the provided Query and returns only those Events
+// that match the Query. Order of Events is preserved.
+func Apply(q event.Query, events ...event.Event) []event.Event {
+	if events == nil {
+		return nil
+	}
+	out := make([]event.Event, 0, len(events))
+	for _, evt := range events {
+		if Test(q, evt) {
+			out = append(out, evt)
+		}
+	}
+	return out
+}
+
 // Merge merges multiple Queries and returns the merged Query.
 //
 // In cases where only a single value can be assigned to a filter, the last
