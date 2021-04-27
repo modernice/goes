@@ -317,8 +317,8 @@ func testTimeRanges(ranges []time.Range, t stdtime.Time) bool {
 	return false
 }
 
-func testMinTimes(max stdtime.Time, t stdtime.Time) bool {
-	if t.Equal(max) || t.After(max) {
+func testMinTimes(min stdtime.Time, t stdtime.Time) bool {
+	if t.Equal(min) || t.After(min) {
 		return true
 	}
 	return false

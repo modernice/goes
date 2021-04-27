@@ -30,7 +30,7 @@ func NewProjection() *Projection {
 // PostApplyEvent is called by a Projector after the given Event has been
 // applied and sets the LatestEventTime to evt.Time().
 func (p *Projection) PostApplyEvent(evt event.Event) {
-	if evt != nil {
+	if evt != nil && evt.Time().After(p.LatestEventAppliedAt) {
 		p.LatestEventAppliedAt = evt.Time()
 	}
 }

@@ -16,38 +16,11 @@ import (
 	"github.com/modernice/goes/project"
 )
 
-func TestProjector_Project(t *testing.T) {
+func TestContinuously(t *testing.T) {
 	bus := chanbus.New()
 	store := memstore.New()
-	proj := project.NewProjector(bus, store)
 
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-	}
-
-	ex := newMockProjection()
-
-	err := proj.Project(context.Background(), events, ex)
-	if err != nil {
-		t.Fatalf("failed to apply Projection: %v", err)
-	}
-
-	if !ex.hasApplied(events...) {
-		t.Fatalf("applied Events should be %v; got %v", events, ex.applied)
-	}
-
-	wantLatest := events[len(events)-1]
-	if !wantLatest.Time().Equal(ex.LatestEventTime()) {
-		t.Fatalf("LatestEventTime should return %v; got %v", wantLatest.Time(), ex.LatestEventTime())
-	}
-}
-
-func TestProjector_Continuously(t *testing.T) {
-	bus := chanbus.New()
-	store := memstore.New()
-	proj := project.NewProjector(bus, store)
+	s := project.Continuously(bus, store, []string{"foo", "bar"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -56,9 +29,8 @@ func TestProjector_Continuously(t *testing.T) {
 
 	appliedJobs := make(chan project.Job)
 
-	errs, err := proj.Continuously(
+	errs, err := s.Subscribe(
 		ctx,
-		[]string{"foo", "bar"},
 		func(job project.Job) error {
 			if err := job.Apply(job.Context(), ex); err != nil {
 				return fmt.Errorf("failed to apply Projection Job: %v", err)
@@ -79,8 +51,11 @@ func TestProjector_Continuously(t *testing.T) {
 
 	publishError := make(chan error)
 	go func() {
-		if err := bus.Publish(ctx, events...); err != nil {
-			publishError <- err
+		for _, evt := range events {
+			if err := bus.Publish(ctx, evt); err != nil {
+				publishError <- err
+			}
+			<-time.After(10 * time.Millisecond)
 		}
 	}()
 
@@ -172,20 +147,22 @@ func TestProjector_Continuously(t *testing.T) {
 			t.Fatalf("Aggregate(%q) should return %v; got %v", "invalud", uuid.Nil, id)
 		}
 	}
+
 }
 
-func TestProjector_Periodically(t *testing.T) {
-	bus := chanbus.New()
+func TestPeriodically(t *testing.T) {
 	store := memstore.New()
-	proj := project.NewProjector(bus, store)
+	s := project.Periodically(store, 80*time.Millisecond, []string{"foo", "bar"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	now := time.Now()
+
 	events := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate("foobar", uuid.New(), 1)),
-		event.New("bar", test.BarEventData{}, event.Aggregate("foobar", uuid.New(), 1)),
-		event.New("baz", test.BazEventData{}, event.Aggregate("barbaz", uuid.New(), 1)),
+		event.New("foo", test.FooEventData{}, event.Aggregate("foobar", uuid.New(), 1), event.Time(now)),
+		event.New("bar", test.BarEventData{}, event.Aggregate("foobar", uuid.New(), 1), event.Time(now.Add(time.Minute))),
+		event.New("baz", test.BazEventData{}, event.Aggregate("barbaz", uuid.New(), 1), event.Time(now.Add(time.Hour))),
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {
@@ -195,10 +172,8 @@ func TestProjector_Periodically(t *testing.T) {
 	var projections []*mockProjection
 	var jobs []project.Job
 
-	errs, err := proj.Periodically(
+	errs, err := s.Subscribe(
 		ctx,
-		80*time.Millisecond, // use 80ms so that Projections are run at least 2 times in 200ms
-		[]string{"foo", "bar"},
 		func(job project.Job) error {
 			ex := newMockProjection()
 			if err := job.Apply(job.Context(), ex); err != nil {
@@ -236,15 +211,8 @@ func TestProjector_Periodically(t *testing.T) {
 		}
 	}
 
-	for i, j := range jobs {
+	for _, j := range jobs {
 		jobEvents, err := j.Events(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		test.AssertEqualEvents(t, events[:2], jobEvents)
-
-		jobEvents, err = j.EventsFor(context.Background(), projections[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -294,10 +262,10 @@ func TestProjector_Periodically(t *testing.T) {
 	}
 }
 
-func TestProjector_Periodically_withLatestEvent(t *testing.T) {
-	bus := chanbus.New()
+func TestPeriodically_withLatestEvent(t *testing.T) {
 	store := memstore.New()
-	proj := project.NewProjector(bus, store)
+
+	s := project.Periodically(store, 50*time.Millisecond, []string{"foo", "bar", "baz"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -316,10 +284,8 @@ func TestProjector_Periodically_withLatestEvent(t *testing.T) {
 	ex.applied = events[:1]
 	ex.PostApplyEvent(events[0])
 
-	errs, err := proj.Periodically(
+	errs, err := s.Subscribe(
 		ctx,
-		50*time.Millisecond,
-		[]string{"foo", "bar", "baz"},
 		func(job project.Job) error {
 			defer cancel()
 			if err := job.Apply(job.Context(), ex); err != nil {
@@ -348,7 +314,8 @@ func TestProjector_Periodically_withLatestEvent(t *testing.T) {
 func TestFilter(t *testing.T) {
 	bus := chanbus.New()
 	store := memstore.New()
-	proj := project.NewProjector(bus, store)
+
+	s := project.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -370,9 +337,8 @@ func TestFilter(t *testing.T) {
 
 	appliedJobs := make(chan project.Job, 2)
 
-	errs, err := proj.Continuously(
+	errs, err := s.Subscribe(
 		ctx,
-		[]string{"foo", "bar", "baz"},
 		func(j project.Job) error {
 			if err := j.Apply(j.Context(), ex); err != nil {
 				return fmt.Errorf("failed to apply Projection: %w", err)
@@ -411,7 +377,8 @@ func TestFilter(t *testing.T) {
 func TestFromBase(t *testing.T) {
 	bus := chanbus.New()
 	store := memstore.New()
-	proj := project.NewProjector(bus, store)
+
+	s := project.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -430,17 +397,15 @@ func TestFromBase(t *testing.T) {
 
 	appliedJobs := make(chan project.Job)
 
-	errs, err := proj.Continuously(
+	errs, err := s.Subscribe(
 		ctx,
-		[]string{"foo", "bar", "baz"},
 		func(job project.Job) error {
-			if err := job.Apply(job.Context(), ex); err != nil {
+			if err := job.Apply(job.Context(), ex, project.FromBase()); err != nil {
 				return fmt.Errorf("failed to apply Projection Job: %v", err)
 			}
 			appliedJobs <- job
 			return nil
 		},
-		project.FromBase(),
 	)
 	if err != nil {
 		t.Fatalf("failed to subscribe to Projections: %v", err)
@@ -466,6 +431,83 @@ func TestFromBase(t *testing.T) {
 
 	if !ex.hasApplied(events...) {
 		t.Fatalf("applied Events should be %v; got %v", events, ex.applied)
+	}
+}
+
+func TestDebounce(t *testing.T) {
+	bus := chanbus.New()
+	store := memstore.New()
+
+	s := project.Continuously(bus, store, []string{"foo", "bar", "baz"}, project.Debounce(50*time.Millisecond))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ex := newMockProjection()
+
+	applied := make(chan project.Job)
+
+	errs, err := s.Subscribe(ctx, func(j project.Job) error {
+		if err := j.Apply(j.Context(), ex); err != nil {
+			return fmt.Errorf("apply Job: %w", err)
+		}
+		applied <- j
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to subscribe to Schedule: %v", err)
+	}
+
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}),
+		event.New("bar", test.BarEventData{}),
+		event.New("baz", test.BazEventData{}),
+	}
+
+	publishError := make(chan error)
+	go func() {
+		for _, evt := range events {
+			if err := bus.Publish(context.Background(), evt); err != nil {
+				publishError <- err
+			}
+			<-time.After(20 * time.Millisecond)
+		}
+		<-time.After(50 * time.Millisecond)
+		cancel()
+	}()
+
+	select {
+	case err := <-publishError:
+		t.Fatalf("failed to publish Event: %v", err)
+	case err, ok := <-errs:
+		if !ok {
+			errs = nil
+			break
+		}
+		t.Fatalf("subscription: %v", err)
+	case <-applied:
+	}
+
+	select {
+	case err := <-publishError:
+		t.Fatalf("failed to publish Event: %v", err)
+	case err, ok := <-errs:
+		if !ok {
+			errs = nil
+			break
+		}
+		t.Fatalf("subscription: %v", err)
+	case <-applied:
+		t.Fatalf("only 1 Job should have been created!")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	if !ex.hasApplied(events...) {
+		t.Fatalf("applied Events should be %v; got %v", events, ex.applied)
+	}
+
+	if ex.hasDuplicates() {
+		t.Fatal("projection has duplicate Events applied")
 	}
 }
 
