@@ -147,7 +147,87 @@ func TestContinuously(t *testing.T) {
 			t.Fatalf("Aggregate(%q) should return %v; got %v", "invalud", uuid.Nil, id)
 		}
 	}
+}
 
+func TestContinuously_Trigger(t *testing.T) {
+	bus := chanbus.New()
+	store := memstore.New()
+	eventNames := []string{"foo", "bar", "baz"}
+	s := project.Continuously(bus, store, eventNames)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	jobs := make(chan project.Job)
+	errs := make(chan error)
+
+	for i := 0; i < 3; i++ {
+		sub, err := s.Subscribe(ctx, func(j project.Job) error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case jobs <- j:
+				return nil
+			}
+		})
+		if err != nil {
+			t.Fatalf("failed to subscribe to Schedule: %v", err)
+		}
+		go func() {
+			for err := range sub {
+				select {
+				case <-ctx.Done():
+					return
+				case errs <- err:
+				}
+			}
+		}()
+	}
+
+	select {
+	case j := <-jobs:
+		t.Fatalf("unexpected Job: %v", j)
+	case err, ok := <-errs:
+		if !ok {
+			errs = nil
+			break
+		}
+		t.Fatal(err)
+	default:
+	}
+
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}),
+		event.New("bar", test.BarEventData{}),
+		event.New("baz", test.BazEventData{}),
+	}
+
+	if err := store.Insert(ctx, events...); err != nil {
+		t.Fatalf("failed to insert Events: %v", err)
+	}
+
+	if err := s.Trigger(ctx); err != nil {
+		t.Fatalf("failed to trigger Schedule: %v", err)
+	}
+
+	for i := 0; i < 3; i++ {
+		select {
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("timed out")
+		case err, ok := <-errs:
+			if !ok {
+				errs = nil
+				break
+			}
+			t.Fatal(err)
+		case j := <-jobs:
+			evts, err := j.Events(j.Context())
+			if err != nil {
+				t.Fatalf("failed to fetch Job Events: %v", err)
+			}
+			test.AssertEqualEventsUnsorted(t, evts, events)
+		}
+	}
 }
 
 func TestPeriodically(t *testing.T) {
@@ -258,6 +338,86 @@ func TestPeriodically(t *testing.T) {
 		id, err = j.Aggregate(context.Background(), "invalid")
 		if err != nil {
 			t.Fatalf("Aggregate(%q) should return %v; got %v", "invalud", uuid.Nil, id)
+		}
+	}
+}
+
+func TestPeriodically_Trigger(t *testing.T) {
+	store := memstore.New()
+	eventNames := []string{"foo", "bar", "baz"}
+	s := project.Periodically(store, time.Hour, eventNames)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	jobs := make(chan project.Job)
+	errs := make(chan error)
+
+	for i := 0; i < 3; i++ {
+		sub, err := s.Subscribe(ctx, func(j project.Job) error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case jobs <- j:
+				return nil
+			}
+		})
+		if err != nil {
+			t.Fatalf("failed to subscribe to Schedule: %v", err)
+		}
+		go func() {
+			for err := range sub {
+				select {
+				case <-ctx.Done():
+					return
+				case errs <- err:
+				}
+			}
+		}()
+	}
+
+	select {
+	case j := <-jobs:
+		t.Fatalf("unexpected Job: %v", j)
+	case err, ok := <-errs:
+		if !ok {
+			errs = nil
+			break
+		}
+		t.Fatal(err)
+	default:
+	}
+
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}),
+		event.New("bar", test.BarEventData{}),
+		event.New("baz", test.BazEventData{}),
+	}
+
+	if err := store.Insert(ctx, events...); err != nil {
+		t.Fatalf("failed to insert Events: %v", err)
+	}
+
+	if err := s.Trigger(ctx); err != nil {
+		t.Fatalf("failed to trigger Schedule: %v", err)
+	}
+
+	for i := 0; i < 3; i++ {
+		select {
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("timed out")
+		case err, ok := <-errs:
+			if !ok {
+				errs = nil
+				break
+			}
+			t.Fatal(err)
+		case j := <-jobs:
+			evts, err := j.Events(j.Context())
+			if err != nil {
+				t.Fatalf("failed to fetch Job Events: %v", err)
+			}
+			test.AssertEqualEventsUnsorted(t, evts, events)
 		}
 	}
 }

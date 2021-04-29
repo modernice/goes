@@ -132,7 +132,7 @@ func (j *continuousJob) EventsOf(ctx context.Context, name string) ([]event.Even
 func (j *continuousJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
 	cfg := configureApply(opts...)
 
-	if !cfg.fromBase {
+	if !cfg.fromBase && j.events != nil {
 		return j.events, nil
 	}
 
@@ -232,15 +232,17 @@ type periodicJob struct {
 	cfg        subscribeConfig
 	store      event.Store
 	eventNames []string
+	events     []event.Event
 	cache      map[interface{}][]event.Event
 }
 
-func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string) *periodicJob {
+func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string, events []event.Event) *periodicJob {
 	return &periodicJob{
 		ctx:        ctx,
 		cfg:        cfg,
 		store:      store,
 		eventNames: eventNames,
+		events:     events,
 		cache:      make(map[interface{}][]event.Event),
 	}
 }
@@ -270,6 +272,10 @@ func (j *periodicJob) EventsOf(ctx context.Context, name string) ([]event.Event,
 }
 
 func (j *periodicJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
+	if j.events != nil {
+		return j.events, nil
+	}
+
 	cfg := configureApply(opts...)
 
 	if ctx == nil {
