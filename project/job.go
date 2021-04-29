@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/time"
+	"github.com/modernice/goes/internal/unique"
 )
 
 // An EventApplier applies Events onto itself in order to build the state of a projection.
@@ -181,6 +182,10 @@ func (j *continuousJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID,
 		}
 	}
 
+	for name, ids := range out {
+		out[name] = unique.UUID(ids...)
+	}
+
 	return out, nil
 }
 
@@ -332,6 +337,10 @@ func (j *periodicJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, e
 		if evt.AggregateName() != "" {
 			out[evt.AggregateName()] = append(out[evt.AggregateName()], evt.AggregateID())
 		}
+	}
+
+	for name, ids := range out {
+		out[name] = unique.UUID(ids...)
 	}
 
 	return out, nil

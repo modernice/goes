@@ -326,8 +326,6 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 	}
 
 	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	var wg sync.WaitGroup
 	for _, triggers := range s.triggers {
 		wg.Add(1)
@@ -340,6 +338,7 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 		}:
 		}
 	}
+	s.mux.Unlock()
 
 	wg.Wait()
 
@@ -432,7 +431,6 @@ func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) erro
 	}
 
 	s.mux.Lock()
-	defer s.mux.Unlock()
 	var wg sync.WaitGroup
 	for _, triggers := range s.triggers {
 		wg.Add(1)
@@ -445,6 +443,7 @@ func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) erro
 		}:
 		}
 	}
+	s.mux.Unlock()
 
 	wg.Wait()
 
