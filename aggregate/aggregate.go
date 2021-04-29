@@ -13,19 +13,19 @@ import (
 
 // Aggregate is an event-sourced Aggregate.
 type Aggregate interface {
-	// AggregateID return the UUID of the aggregate.
+	// AggregateID return the UUID of the Aggregate.
 	AggregateID() uuid.UUID
 
-	// AggregateName returns the name of the aggregate.
+	// AggregateName returns the name of the Aggregate.
 	AggregateName() string
 
-	// AggregateVersion returns the version of the aggregate.
+	// AggregateVersion returns the version of the Aggregate.
 	AggregateVersion() int
 
-	// AggregateChanges returns the uncommited Events of the Aggregate.
+	// AggregateChanges returns the uncommited changes (Events) of the Aggregate.
 	AggregateChanges() []event.Event
 
-	// TrackChange adds the Events to the changes of the Aggregate.
+	// TrackChange adds Events as changes to the Aggregate.
 	TrackChange(...event.Event)
 
 	// FlushChanges increases the version of the Aggregate by the number of
@@ -39,21 +39,22 @@ type Aggregate interface {
 	SetVersion(int)
 }
 
-// Option is an aggregate option.
-type Option func(*base)
+// Option is an Aggregate option.
+type Option func(*Base)
 
-type base struct {
-	id      uuid.UUID
-	name    string
-	version int
-	changes []event.Event
+// Base can be embedded into structs to make them fulfill the Aggregate interface.
+type Base struct {
+	ID      uuid.UUID
+	Name    string
+	Version int
+	Changes []event.Event
 }
 
-// New returns a new base aggregate.
-func New(name string, id uuid.UUID, opts ...Option) Aggregate {
-	b := &base{
-		id:   id,
-		name: name,
+// New returns a new Base for an Aggregate.
+func New(name string, id uuid.UUID, opts ...Option) *Base {
+	b := &Base{
+		ID:   id,
+		Name: name,
 	}
 	for _, opt := range opts {
 		opt(b)
@@ -63,8 +64,8 @@ func New(name string, id uuid.UUID, opts ...Option) Aggregate {
 
 // Version returns an Option that sets the version of an Aggregate.
 func Version(v int) Option {
-	return func(b *base) {
-		b.version = v
+	return func(b *Base) {
+		b.Version = v
 	}
 }
 
@@ -130,41 +131,47 @@ func NextEvent(a Aggregate, name string, data event.Data, opts ...event.Option) 
 	return evt
 }
 
-func (b *base) AggregateID() uuid.UUID {
-	return b.id
+// AggregateID implements Aggregate.
+func (b *Base) AggregateID() uuid.UUID {
+	return b.ID
 }
 
-func (b *base) AggregateName() string {
-	return b.name
+// AggregateName implements Aggregate.
+func (b *Base) AggregateName() string {
+	return b.Name
 }
 
-func (b *base) AggregateVersion() int {
-	return b.version
+// AggregateVersion implements Aggregate.
+func (b *Base) AggregateVersion() int {
+	return b.Version
 }
 
-func (b *base) AggregateChanges() []event.Event {
-	return b.changes
+// AggregateChanges implements Aggregate.
+func (b *Base) AggregateChanges() []event.Event {
+	return b.Changes
 }
 
-func (b *base) TrackChange(events ...event.Event) {
-	b.changes = append(b.changes, events...)
+// TrackChange implements Aggregate.
+func (b *Base) TrackChange(events ...event.Event) {
+	b.Changes = append(b.Changes, events...)
 }
 
-func (b *base) FlushChanges() {
-	if len(b.changes) == 0 {
+// FlushChanges
+func (b *Base) FlushChanges() {
+	if len(b.Changes) == 0 {
 		return
 	}
 	// b.TrackChange guarantees a correct event order, so we can safely assume
 	// the last element has the highest version.
-	b.version = b.changes[len(b.changes)-1].AggregateVersion()
-	b.changes = b.changes[:0]
+	b.Version = b.Changes[len(b.Changes)-1].AggregateVersion()
+	b.Changes = b.Changes[:0]
 }
 
-// ApplyEvent does nothing. Structs that embed base should implement ApplyEvent.
-func (*base) ApplyEvent(event.Event) {}
+// ApplyEvent implements Aggregate. Structs that embed Base should reimplement
+// ApplyEvent accordingly.
+func (*Base) ApplyEvent(event.Event) {}
 
-// SetVersion sets the base version (version without uncommitted Events) of the
-// Aggregate.
-func (b *base) SetVersion(v int) {
-	b.version = v
+// SetVersion implements Aggregate.
+func (b *Base) SetVersion(v int) {
+	b.Version = v
 }
