@@ -158,7 +158,7 @@ func TestContinuously_Trigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	jobs := make(chan project.Job)
+	jobs := make(chan project.Job, 3)
 	errs := make(chan error)
 
 	for i := 0; i < 3; i++ {
@@ -350,7 +350,7 @@ func TestPeriodically_Trigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	jobs := make(chan project.Job)
+	jobs := make(chan project.Job, 3)
 	errs := make(chan error)
 
 	for i := 0; i < 3; i++ {

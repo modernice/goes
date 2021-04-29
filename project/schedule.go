@@ -48,7 +48,8 @@ type Schedule interface {
 	// Trigger triggers the Schedule to create a Job and pass it to the
 	// applyFuncs that have been passed to Subscribe. Trigger queries all Events
 	// from the Event Store that have one of the configured Event names of the
-	// Schedule.
+	// Schedule. Trigger blocks until all Jobs have been applied or the Context
+	// is canceled. When the Context is canceled, Trigger returns ctx.Err().
 	//
 	// Optional Event Queries can be provided that are merged and used to
 	// further filter Events that are queried to trigger the projections.
@@ -61,7 +62,7 @@ type Schedule interface {
 	//		return nil
 	//	})
 	//	// handle err & errs
-	//	err = s.Trigger(context.TODO())
+	//	_, err = s.Trigger(context.TODO())
 	//	// handle err
 	//	// Output: Triggered!
 	Trigger(context.Context, ...event.Query) error
@@ -92,7 +93,7 @@ type continously struct {
 	bus      event.Bus
 
 	mux      sync.Mutex
-	triggers []chan []event.Event
+	triggers []chan trigger
 }
 
 type periodically struct {
@@ -101,7 +102,12 @@ type periodically struct {
 	interval time.Duration
 
 	mux      sync.Mutex
-	triggers []chan []event.Event
+	triggers []chan trigger
+}
+
+type trigger struct {
+	events []event.Event
+	wg     *sync.WaitGroup
 }
 
 // Filter returns an Option that adds a Query as a filter to a projection
@@ -204,7 +210,7 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 		return nil, fmt.Errorf("subscribe to %v Events: %w", s.eventNames, err)
 	}
 
-	triggers := make(chan []event.Event)
+	triggers := make(chan trigger)
 	s.mux.Lock()
 	s.triggers = append(s.triggers, triggers)
 	s.mux.Unlock()
@@ -283,14 +289,15 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 
 	go func() {
 		defer wg.Done()
-		for events := range triggers {
-			j := newContinuousJob(ctx, cfg, s.store, events, s.eventNames)
+		for t := range triggers {
+			j := newContinuousJob(ctx, cfg, s.store, t.events, s.eventNames)
 			if err := applyFunc(j); err != nil {
 				select {
 				case <-ctx.Done():
 				case out <- fmt.Errorf("applyFunc: %w", err):
 				}
 			}
+			t.wg.Done()
 		}
 	}()
 
@@ -320,13 +327,21 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
+	var wg sync.WaitGroup
 	for _, triggers := range s.triggers {
+		wg.Add(1)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case triggers <- events:
+		case triggers <- trigger{
+			events: events,
+			wg:     &wg,
+		}:
 		}
 	}
+
+	wg.Wait()
 
 	return nil
 }
@@ -335,7 +350,7 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 	cfg := configureSubscribe(opts...)
 	out := make(chan error)
 
-	triggers := make(chan []event.Event)
+	triggers := make(chan trigger)
 	s.mux.Lock()
 	s.triggers = append(s.triggers, triggers)
 	s.mux.Unlock()
@@ -380,14 +395,15 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 
 	go func() {
 		defer wg.Done()
-		for events := range triggers {
-			j := newPeriodicJob(ctx, cfg, s.store, s.eventNames, events)
+		for trigger := range triggers {
+			j := newPeriodicJob(ctx, cfg, s.store, s.eventNames, trigger.events)
 			if err := applyFunc(j); err != nil {
 				select {
 				case <-ctx.Done():
 				case out <- fmt.Errorf("applyFunc: %w", err):
 				}
 			}
+			trigger.wg.Done()
 		}
 	}()
 
@@ -417,13 +433,20 @@ func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) erro
 
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	var wg sync.WaitGroup
 	for _, triggers := range s.triggers {
+		wg.Add(1)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case triggers <- events:
+		case triggers <- trigger{
+			events: events,
+			wg:     &wg,
+		}:
 		}
 	}
+
+	wg.Wait()
 
 	return nil
 }
