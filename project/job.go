@@ -24,6 +24,9 @@ type Job interface {
 	// Events returns the Events from the Job.
 	Events(context.Context) ([]event.Event, error)
 
+	// EventsOf returns the Events from the Job that have the given name.
+	EventsOf(context.Context, string) ([]event.Event, error)
+
 	// EventsFor returns the Events that would be applied to the given
 	// projection. If the projection provides a `LatestEventTime` method, it is
 	// used to only query Events that happened after that time.
@@ -108,6 +111,22 @@ func (j *continuousJob) Context() context.Context {
 
 func (j *continuousJob) Events(ctx context.Context) ([]event.Event, error) {
 	return j.EventsFor(ctx, nil)
+}
+
+func (j *continuousJob) EventsOf(ctx context.Context, name string) ([]event.Event, error) {
+	events, err := j.Events(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := make([]event.Event, 0, len(events))
+	for _, evt := range events {
+		if evt.Name() == name {
+			filtered = append(filtered, evt)
+		}
+	}
+
+	return filtered, nil
 }
 
 func (j *continuousJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
@@ -232,6 +251,22 @@ func (j *periodicJob) Context() context.Context {
 
 func (j *periodicJob) Events(ctx context.Context) ([]event.Event, error) {
 	return j.EventsFor(ctx, nil)
+}
+
+func (j *periodicJob) EventsOf(ctx context.Context, name string) ([]event.Event, error) {
+	events, err := j.Events(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := make([]event.Event, 0, len(events))
+	for _, evt := range events {
+		if evt.Name() == name {
+			filtered = append(filtered, evt)
+		}
+	}
+
+	return filtered, nil
 }
 
 func (j *periodicJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
