@@ -50,6 +50,9 @@ type Schedule interface {
 	// from the Event Store that have one of the configured Event names of the
 	// Schedule.
 	//
+	// Optional Event Queries can be provided that are merged and used to
+	// further filter Events that are queried to trigger the projections.
+	//
 	//	var bus event.Bus
 	//	var store event.Store
 	//	s := project.Continuously(bus, store, []string{"foo", "bar", "baz"})
@@ -61,7 +64,7 @@ type Schedule interface {
 	//	err = s.Trigger(context.TODO())
 	//	// handle err
 	//	// Output: Triggered!
-	Trigger(context.Context) error
+	Trigger(context.Context, ...event.Query) error
 }
 
 // SubscribeOption is a subscription option.
@@ -299,11 +302,13 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 	return out, nil
 }
 
-func (s *continously) Trigger(ctx context.Context) error {
-	str, errs, err := s.store.Query(ctx, query.New(
+func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error {
+	q := query.Merge(append([]event.Query{query.New(
 		query.Name(s.eventNames...),
 		query.SortByAggregate(),
-	))
+	)}, queries...)...)
+
+	str, errs, err := s.store.Query(ctx, q)
 	if err != nil {
 		return fmt.Errorf("query Events: %w", err)
 	}
@@ -394,11 +399,13 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 	return out, nil
 }
 
-func (s *periodically) Trigger(ctx context.Context) error {
-	str, errs, err := s.store.Query(ctx, query.New(
+func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) error {
+	q := query.Merge(append([]event.Query{query.New(
 		query.Name(s.eventNames...),
 		query.SortByAggregate(),
-	))
+	)}, queries...)...)
+
+	str, errs, err := s.store.Query(ctx, q)
 	if err != nil {
 		return fmt.Errorf("query Events: %w", err)
 	}
