@@ -35,12 +35,12 @@ func Drain(ctx context.Context, events <-chan Event, errs ...<-chan error) ([]Ev
 	return out, err
 }
 
-// Walk receives from the given Event channel until it is closed, ctx is closed
-// or any of the provided error channels receives an error. For every Event e
-// that is received from the Event channel, walkFn(e) is called. Should ctx be
-// canceled before the Event channel is closed, ctx.Err() is returned. Should
-// an error be received from one of the optional error channels, that error is
-// returned. Otherwise Walk returns nil.
+// Walk receives from the given Event channel until it and and all provided
+// error channels are closed, ctx is closed or any of the provided error
+// channels receives an error. For every Event e that is received from the Event
+// channel, walkFn(e) is called. Should ctx be canceled before the channels are
+// closed, ctx.Err() is returned. Should an error be received from one of the
+// error channels, that error is returned. Otherwise Walk returns nil.
 //
 // Example:
 //
@@ -61,6 +61,10 @@ func Walk(
 	defer stop()
 
 	for {
+		if events == nil && errChan == nil {
+			return nil
+		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -71,7 +75,8 @@ func Walk(
 			errChan = nil
 		case evt, ok := <-events:
 			if !ok {
-				return nil
+				events = nil
+				break
 			}
 			if err := walkFn(evt); err != nil {
 				return err

@@ -22,11 +22,11 @@ func Drain(ctx context.Context, str <-chan History, errs ...<-chan error) ([]His
 	return out, err
 }
 
-// Walk receives from the given History channel until it is closed, ctx is
-// closed or any of the provided error channels receives an error. For every
-// History h that is received from the History channel, walkFn(h) is called.
-// Should ctx be canceled before the History channel is closed, ctx.Err() is
-// returned. Should an error be received from one of the optional error
+// Walk receives from the given History channel until it and all provided error
+// channels are closed, ctx is closed or any of the provided error channels receives
+// an error. For every History h that is received from the History channel,
+// walkFn(h) is called. Should ctx be canceled before the channels are closed,
+// ctx.Err() is returned. Should an error be received from one of the error
 // channels, that error is returned. Otherwise Walk returns nil.
 //
 // Example:
@@ -48,6 +48,10 @@ func Walk(
 	defer stop()
 
 	for {
+		if str == nil && errChan == nil {
+			return nil
+		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -58,7 +62,8 @@ func Walk(
 			errChan = nil
 		case his, ok := <-str:
 			if !ok {
-				return nil
+				str = nil
+				break
 			}
 			if err := walkFn(his); err != nil {
 				return err
