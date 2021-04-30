@@ -73,7 +73,13 @@ type Query interface {
 	AggregateVersions() version.Constraints
 
 	// Aggregates returns a list of specific Aggregates (name & ID pairs) to
-	// query for.
+	// query for. If an AggregateTuple has a nil-UUID, every Aggregate with the
+	// name of the tuple is queried.
+	//
+	// Example:
+	//	q := query.New(query.Aggregate("foo", uuid.New()), query.Aggregate("bar", uuid.Nil))
+	//
+	// The above Query q allows "foo" Aggregates with a specific UUID and every "bar" Aggregate.
 	Aggregates() []AggregateTuple
 
 	// Sorting returns the SortConfigs for the query.

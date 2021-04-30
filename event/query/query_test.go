@@ -292,6 +292,18 @@ func TestTest(t *testing.T) {
 				event.New("foo", test.FooEventData{}, event.Aggregate("foo", aggregateID, 4)): true,
 			},
 		},
+		{
+			name:  "Aggregate (uuid.Nil)",
+			query: New(Aggregate("foo", aggregateID), Aggregate("bar", uuid.Nil)),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}):                                         false,
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", uuid.New(), 0)):  false,
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", aggregateID, 0)): true,
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", aggregateID, 4)): true,
+				event.New("foo", test.FooEventData{}, event.Aggregate("bar", uuid.New(), 0)):  true,
+				event.New("foo", test.FooEventData{}, event.Aggregate("bar", aggregateID, 0)): true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -316,6 +328,7 @@ func TestMerge(t *testing.T) {
 			sortings:          []event.SortOptions{{Sort: event.SortAggregateName, Dir: event.SortDesc}},
 			times:             time.Filter(time.After(now)),
 			aggregateVersions: version.Filter(version.Exact(1)),
+			aggregates:        []event.AggregateTuple{{Name: "foo", ID: uuid.New()}},
 		},
 		Query{
 			names:             []string{"bar"},
@@ -325,6 +338,7 @@ func TestMerge(t *testing.T) {
 			sortings:          []event.SortOptions{{Sort: event.SortAggregateID, Dir: event.SortAsc}},
 			times:             time.Filter(time.Before(now)),
 			aggregateVersions: version.Filter(version.Exact(2, 3)),
+			aggregates:        []event.AggregateTuple{{Name: "bar", ID: uuid.New()}},
 		},
 		Query{
 			names:             []string{"baz"},
@@ -334,6 +348,7 @@ func TestMerge(t *testing.T) {
 			sortings:          []event.SortOptions{{Sort: event.SortAggregateVersion, Dir: event.SortAsc}},
 			times:             time.Filter(time.Exact(now)),
 			aggregateVersions: version.Filter(version.Exact(4, 5)),
+			aggregates:        []event.AggregateTuple{{Name: "baz", ID: uuid.New()}},
 		},
 	}
 
@@ -379,5 +394,11 @@ func TestMerge(t *testing.T) {
 	wantVersions := version.Filter(version.Exact(1, 2, 3, 4, 5))
 	if !reflect.DeepEqual(q.AggregateVersions(), wantVersions) {
 		t.Fatalf("Versions should return %v; got %v", wantVersions, q.AggregateVersions())
+	}
+
+	wantAggregates := append(queries[0].Aggregates(), queries[1].Aggregates()...)
+	wantAggregates = append(wantAggregates, queries[2].Aggregates()...)
+	if !reflect.DeepEqual(q.Aggregates(), wantAggregates) {
+		t.Fatalf("Aggregates should return %v; got %v", wantAggregates, q.Aggregates())
 	}
 }

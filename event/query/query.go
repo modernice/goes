@@ -192,7 +192,8 @@ func Test(q event.Query, evt event.Event) bool {
 	if aggregates := q.Aggregates(); len(aggregates) > 0 {
 		var found bool
 		for _, aggregate := range aggregates {
-			if aggregate.Name == evt.AggregateName() && aggregate.ID == evt.AggregateID() {
+			if aggregate.Name == evt.AggregateName() &&
+				(aggregate.ID == uuid.Nil || aggregate.ID == evt.AggregateID()) {
 				found = true
 				break
 			}
@@ -266,6 +267,7 @@ func Merge(queries ...event.Query) Query {
 			AggregateID(q.AggregateIDs()...),
 			AggregateName(q.AggregateNames()...),
 			AggregateVersion(versionOpts...),
+			Aggregates(q.Aggregates()...),
 			Time(timeOpts...),
 			SortByMulti(q.Sortings()...),
 		)

@@ -667,10 +667,11 @@ func withAggregateTupleFilter(filter bson.D, tuples []event.AggregateTuple) bson
 
 	or := make([]bson.D, len(tuples))
 	for i, tuple := range tuples {
-		or[i] = bson.D{
-			{Key: "aggregateName", Value: tuple.Name},
-			{Key: "aggregateId", Value: tuple.ID},
+		f := bson.D{{Key: "aggregateName", Value: tuple.Name}}
+		if tuple.ID != uuid.Nil {
+			f = append(f, bson.E{Key: "aggregateId", Value: tuple.ID})
 		}
+		or[i] = f
 	}
 
 	return append(filter, bson.E{Key: "$or", Value: or})

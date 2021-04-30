@@ -415,6 +415,14 @@ func testQueryAggregate(t *testing.T, newStore EventStoreFactory) {
 
 	want := []event.Event{events[1], events[3]}
 	test.AssertEqualEventsUnsorted(t, result, want)
+
+	result, err = runQuery(store, query.New(query.Aggregate("foo", id), query.Aggregate("baz", uuid.Nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want = []event.Event{events[1], events[4], events[5]}
+	test.AssertEqualEventsUnsorted(t, result, want)
 }
 
 func testQuerySorting(t *testing.T, newStore EventStoreFactory) {
