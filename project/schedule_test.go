@@ -269,7 +269,7 @@ func TestPeriodically(t *testing.T) {
 	}
 
 	go func() {
-		<-time.After(200 * time.Millisecond)
+		<-time.After(300 * time.Millisecond)
 		cancel()
 	}()
 

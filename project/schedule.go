@@ -225,6 +225,8 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 	out := make(chan error)
 
 	var debounce *time.Timer
+
+	var jobEventsMux sync.Mutex
 	var jobEvents []event.Event
 
 	var wg sync.WaitGroup
@@ -244,12 +246,16 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 					return
 				}
 
+				jobEventsMux.Lock()
 				jobEvents = append(jobEvents, evt)
+				jobEventsMux.Unlock()
 
 				apply := func() {
+					jobEventsMux.Lock()
 					evts := make([]event.Event, len(jobEvents))
 					copy(evts, jobEvents)
 					jobEvents = jobEvents[:0]
+					jobEventsMux.Unlock()
 
 					j := newContinuousJob(ctx, cfg, s.store, evts, s.eventNames)
 					if err := applyFunc(j); err != nil {
