@@ -1,9 +1,7 @@
 package stream
 
 import (
-	"context"
 	"fmt"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
@@ -24,9 +22,8 @@ type stream struct {
 	stream       <-chan event.Event
 	streamErrors []<-chan error
 	inErrors     <-chan error
+	stopErrors   func()
 
-	acceptCtx  context.Context
-	stopAccept context.CancelFunc
 	acceptDone chan struct{}
 
 	events   chan event.Event
@@ -36,11 +33,6 @@ type stream struct {
 
 	out       chan aggregate.History
 	outErrors chan error
-
-	errMux sync.RWMutex
-	err    error
-
-	closed chan struct{}
 }
 
 type job struct {
@@ -175,14 +167,13 @@ func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <
 		groupReqs:           make(chan groupRequest),
 		out:                 make(chan aggregate.History),
 		outErrors:           make(chan error),
-		closed:              make(chan struct{}),
 	}
 	for _, opt := range opts {
 		opt(&aes)
 	}
-	aes.inErrors, _ = fanin.Errors(aes.streamErrors...)
 
-	aes.acceptCtx, aes.stopAccept = context.WithCancel(context.Background())
+	aes.inErrors, aes.stopErrors = fanin.Errors(aes.streamErrors...)
+
 	go aes.acceptEvents()
 	go aes.groupEvents()
 	go aes.sortEvents()
@@ -191,8 +182,10 @@ func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <
 }
 
 func (s *stream) acceptEvents() {
+	defer close(s.complete)
 	defer close(s.acceptDone)
 	defer close(s.events)
+	defer s.stopErrors()
 
 	pending := make(map[job]bool)
 
@@ -200,16 +193,13 @@ func (s *stream) acceptEvents() {
 L:
 	for {
 		select {
-		case <-s.acceptCtx.Done():
-			s.outErrors <- s.acceptCtx.Err()
 		case err, ok := <-s.inErrors:
 			if !ok {
-				s.streamErrors = nil
+				s.inErrors = nil
 				break
 			}
 			s.outErrors <- fmt.Errorf("event stream: %w", err)
-			close(s.complete)
-			return
+			break L
 		case evt, ok := <-s.stream:
 			if !ok {
 				break L
@@ -237,12 +227,9 @@ L:
 		}
 	}
 
-	go func() {
-		defer close(s.complete)
-		for j := range pending {
-			s.complete <- j
-		}
-	}()
+	for j := range pending {
+		s.complete <- j
+	}
 }
 
 func (s *stream) shouldDiscard(evt event.Event) bool {

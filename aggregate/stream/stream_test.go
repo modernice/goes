@@ -141,7 +141,7 @@ func TestStream_inconsistent(t *testing.T) {
 
 	var cerr *consistency.Error
 	if !errors.As(err, &cerr) {
-		t.Errorf("stream should return an error of type %T; got %T", cerr, err)
+		t.Fatalf("stream should return an error of type %T; got %T", cerr, err)
 	}
 
 	if cerr.Aggregate.AggregateID() != as[0].AggregateID() {
