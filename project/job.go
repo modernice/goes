@@ -3,7 +3,6 @@ package project
 import (
 	"context"
 	"fmt"
-	stdtime "time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
@@ -11,11 +10,6 @@ import (
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/internal/unique"
 )
-
-// An EventApplier applies Events onto itself in order to build the state of a projection.
-type EventApplier interface {
-	ApplyEvent(event.Event)
-}
 
 // A Job is provided by a Projector when a projection should be run.
 type Job interface {
@@ -55,31 +49,8 @@ type Job interface {
 // ApplyOption is an option for applying a projection Job.
 type ApplyOption func(*applyConfig)
 
-type latestEventTimeProvider interface {
-	LatestEventTime() stdtime.Time
-}
-
-type postEventApplier interface {
-	PostApplyEvent(event.Event)
-}
-
 type applyConfig struct {
 	fromBase bool
-}
-
-// Apply projects the provided Events onto the given EventApplier, which in
-// most cases is a type that embeds a *Projection.
-func Apply(events []event.Event, proj EventApplier) error {
-	postApplier, hasPostApply := proj.(postEventApplier)
-
-	for _, evt := range events {
-		proj.ApplyEvent(evt)
-		if hasPostApply {
-			postApplier.PostApplyEvent(evt)
-		}
-	}
-
-	return nil
 }
 
 type continuousJob struct {
