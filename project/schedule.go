@@ -241,6 +241,7 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 		}()
 
 		event.ForEvery(
+			ctx,
 			func(evt event.Event) {
 				if !cfg.allowsEvent(evt) {
 					return

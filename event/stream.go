@@ -85,10 +85,11 @@ func Walk(
 	}
 }
 
-// ForEvery iterates over the provided Event and error channels and calls evtFn
-// for every received Event and errFn for every received error. ForEvery returns
-// when the Event and all error channels are closed.
+// ForEvery iterates over the provided Event and error channels and for every
+// Event evt calls evtFn(evt) and for every error e calls errFn(e) until all
+// channels are closed or ctx is canceled.
 func ForEvery(
+	ctx context.Context,
 	evtFn func(evt Event),
 	errFn func(error),
 	events <-chan Event,
@@ -101,7 +102,10 @@ func ForEvery(
 		if errChan == nil && events == nil {
 			return
 		}
+
 		select {
+		case <-ctx.Done():
+			return
 		case err, ok := <-errChan:
 			if !ok {
 				errChan = nil

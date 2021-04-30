@@ -43,8 +43,9 @@ type Service struct {
 // Example:
 //
 //	// Every day, delete Snapshots that are older than a week.
+//	var store snapshot.Store
 //	svc := cleanup.NewService(24*time.Hour, 7*24*time.Hour)
-//	errs, err := svc.Start()
+//	errs, err := svc.Start(store)
 //	// handle err
 //	for err := range errs {
 //		// handle async err
@@ -114,12 +115,17 @@ func (c *Service) cleanup(store snapshot.Store, out chan<- error) error {
 		query.Time(time.Before(stdtime.Now().Add(-c.maxAge))),
 	))
 	if err != nil {
-		return fmt.Errorf("query snapshots: %w", err)
+		return fmt.Errorf("query Snapshots: %w", err)
 	}
-	return snapshot.Walk(c.ctx, func(s snapshot.Snapshot) {
+	return snapshot.Walk(c.ctx, func(s snapshot.Snapshot) error {
 		if err := store.Delete(c.ctx, s); err != nil {
-			out <- fmt.Errorf("delete snapshot: %w", err)
+			select {
+			case <-c.ctx.Done():
+				return c.ctx.Err()
+			case out <- fmt.Errorf("delete Snapshot: %w", err):
+			}
 		}
+		return nil
 	}, str, errs)
 }
 
