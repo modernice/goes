@@ -1,41 +1,41 @@
 package fanin
 
-import "sync"
+import (
+	"sync"
+)
 
 // Errors accepts multiple error channels and returns a single error channel.
 // When the returned stop function is called or every input channel is closed,
-// it stops and closes the returned error channel.
+// the returned error channel is closed.
 //
-// When len(errs) == 0, Errors returns nil.
-func Errors(errs ...<-chan error) (<-chan error, func()) {
-	stop := make(chan struct{})
+// If len(errs) == 0, Errors returns a closed error channel.
+//
+// Multiple calls to stop have no effect.
+func Errors(errs ...<-chan error) (_ <-chan error, stop func()) {
+	stopped := make(chan struct{})
 	var once sync.Once
-	stopFn := func() { once.Do(func() { close(stop) }) }
-
-	l := len(errs)
-	if l == 0 {
-		return nil, stopFn
-	}
-
-	if l == 1 {
-		return errs[0], stopFn
-	}
+	stop = func() { once.Do(func() { close(stopped) }) }
 
 	out := make(chan error)
+
 	var wg sync.WaitGroup
-	wg.Add(l)
+	wg.Add(len(errs))
 	for _, errs := range errs {
 		go func(errs <-chan error) {
 			defer wg.Done()
 			for {
 				select {
-				case <-stop:
+				case <-stopped:
 					return
 				case err, ok := <-errs:
 					if !ok {
 						return
 					}
-					out <- err
+					select {
+					case <-stopped:
+						return
+					case out <- err:
+					}
 				}
 			}
 		}(errs)
@@ -46,5 +46,5 @@ func Errors(errs ...<-chan error) (<-chan error, func()) {
 		close(out)
 	}()
 
-	return out, stopFn
+	return out, stop
 }
