@@ -66,14 +66,7 @@ type CompensateErr struct {
 	ActionError error
 }
 
-type setup struct {
-	actions      []action.Action
-	actionMap    map[string]action.Action
-	sequence     []string
-	compensators map[string]string
-	startWith    string
-}
-
+// An Executor executes SAGAs. Use NewExector to create an Executor.
 type Executor struct {
 	Setup
 
@@ -87,6 +80,14 @@ type Executor struct {
 
 	sequence []action.Action
 	reports  []action.Report
+}
+
+type setup struct {
+	actions      []action.Action
+	actionMap    map[string]action.Action
+	sequence     []string
+	compensators map[string]string
+	startWith    string
 }
 
 // Action returns an Option that adds an Action to a SAGA. The first configured
@@ -409,13 +410,7 @@ func CompensateError(err error) (*CompensateErr, bool) {
 //	err := saga.Execute(context.TODO(), s, saga.Report(&r))
 //	// err == r.Error()
 func Execute(ctx context.Context, s Setup, opts ...ExecutorOption) error {
-	e := NewExecutor(opts...)
-	if !e.skipValidate {
-		if err := Validate(s); err != nil {
-			return fmt.Errorf("validate setup: %w", err)
-		}
-	}
-	return e.Execute(ctx, s)
+	return NewExecutor(opts...).Execute(ctx, s)
 }
 
 // NewExecutor returns a SAGA executor.
@@ -466,6 +461,12 @@ func (s *setup) Action(name string) action.Action {
 // Execute executes the given SAGA.
 func (e *Executor) Execute(ctx context.Context, s Setup) error {
 	e = e.clone(s)
+
+	if !e.skipValidate {
+		if err := Validate(s); err != nil {
+			return fmt.Errorf("validate setup: %w", err)
+		}
+	}
 
 	start := time.Now()
 
