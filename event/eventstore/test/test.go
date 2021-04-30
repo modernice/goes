@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"log"
 	"testing"
 	stdtime "time"
 
@@ -52,41 +51,10 @@ func testSingleInsert(t *testing.T, newStore EventStoreFactory) {
 		t.Fatalf("inserting an event shouldn't fail: %v", err)
 	}
 
-	log.Printf("Searching Events with ID: %s\n", evt.ID())
-	str, errs, err := store.Query(context.Background(), query.New())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	events, err := event.Drain(context.Background(), str, errs)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, evt := range events {
-		log.Printf("Found Event: %s\n", evt.ID())
-	}
-
 	// inserting an event with an existing id should fail
 	evt = event.New("foo", test.FooEventData{A: "bar"}, event.ID(evt.ID()))
 	if err := store.Insert(context.Background(), evt); err == nil {
 		t.Errorf("inserting an event with an existing id should fail; err=%v", err)
-	}
-
-	log.Printf("Searching Events with ID: %s\n", evt.ID())
-
-	str, errs, err = store.Query(context.Background(), query.New())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	events, err = event.Drain(context.Background(), str, errs)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, evt := range events {
-		log.Printf("Found Event: %s\n", evt.ID())
 	}
 }
 
@@ -278,6 +246,7 @@ func testQuery(t *testing.T, newStore EventStoreFactory) {
 	run(t, "QueryAggregateName", newStore, testQueryAggregateName)
 	run(t, "QueryAggregateID", newStore, testQueryAggregateID)
 	run(t, "QueryAggregateVersion", newStore, testQueryAggregateVersion)
+	run(t, "QueryAggregate", newStore, testQueryAggregate)
 	run(t, "Sorting", newStore, testQuerySorting)
 }
 
@@ -421,6 +390,31 @@ func testQueryAggregateVersion(t *testing.T, newStore EventStoreFactory) {
 
 	want := events[2:4]
 	test.AssertEqualEventsUnsorted(t, want, result)
+}
+
+func testQueryAggregate(t *testing.T, newStore EventStoreFactory) {
+	id := uuid.New()
+	events := []event.Event{
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 0)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", id, 0)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("bar", uuid.New(), 0)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("bar", id, 0)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("baz", uuid.New(), 0)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("baz", id, 0)),
+	}
+
+	store, err := makeStore(newStore, events...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := runQuery(store, query.New(query.Aggregate("foo", id), query.Aggregate("bar", id)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []event.Event{events[1], events[3]}
+	test.AssertEqualEventsUnsorted(t, result, want)
 }
 
 func testQuerySorting(t *testing.T, newStore EventStoreFactory) {

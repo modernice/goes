@@ -72,8 +72,18 @@ type Query interface {
 	// AggregateVersions returns the version.Constraints for the query.
 	AggregateVersions() version.Constraints
 
+	// Aggregates returns a list of specific Aggregates (name & ID pairs) to
+	// query for.
+	Aggregates() []AggregateTuple
+
 	// Sorting returns the SortConfigs for the query.
 	Sortings() []SortOptions
+}
+
+// AggregateTuple is a reference to a specific Aggregate with the given Name and ID.
+type AggregateTuple struct {
+	Name string
+	ID   uuid.UUID
 }
 
 // SortOptions defines the sorting behaviour of a Query.

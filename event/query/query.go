@@ -16,6 +16,7 @@ type Query struct {
 	ids            []uuid.UUID
 	aggregateNames []string
 	aggregateIDs   []uuid.UUID
+	aggregates     []event.AggregateTuple
 	sortings       []event.SortOptions
 
 	times             time.Constraints
@@ -80,6 +81,20 @@ func AggregateID(ids ...uuid.UUID) Option {
 func AggregateVersion(constraints ...version.Constraint) Option {
 	return func(b *builder) {
 		b.versionConstraints = append(b.versionConstraints, constraints...)
+	}
+}
+
+// Aggregate returns an Option that filters Events by a specific Aggregate.
+func Aggregate(name string, id uuid.UUID) Option {
+	return func(b *builder) {
+		b.aggregates = append(b.aggregates, event.AggregateTuple{Name: name, ID: id})
+	}
+}
+
+// Aggregates returns an Option that filters Events by specific Aggregates.
+func Aggregates(aggregates ...event.AggregateTuple) Option {
+	return func(b *builder) {
+		b.aggregates = append(b.aggregates, aggregates...)
 	}
 }
 
@@ -170,6 +185,19 @@ func Test(q event.Query, evt event.Event) bool {
 		}
 		if max := versions.Max(); len(max) > 0 &&
 			!testMaxVersions(max, evt.AggregateVersion()) {
+			return false
+		}
+	}
+
+	if aggregates := q.Aggregates(); len(aggregates) > 0 {
+		var found bool
+		for _, aggregate := range aggregates {
+			if aggregate.Name == evt.AggregateName() && aggregate.ID == evt.AggregateID() {
+				found = true
+				break
+			}
+		}
+		if !found {
 			return false
 		}
 	}
@@ -274,6 +302,11 @@ func (q Query) AggregateIDs() []uuid.UUID {
 // AggregateVersions returns the aggregate versions to query for.
 func (q Query) AggregateVersions() version.Constraints {
 	return q.aggregateVersions
+}
+
+// Aggregates returns a slice of specific Aggregates to query for.
+func (q Query) Aggregates() []event.AggregateTuple {
+	return q.aggregates
 }
 
 // Sortings returns the SortConfigs for the query.

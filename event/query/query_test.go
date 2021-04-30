@@ -23,6 +23,8 @@ func TestNew(t *testing.T) {
 		times[i] = now.Add(stdtime.Duration(i) * stdtime.Minute)
 	}
 
+	aggregateID := uuid.New()
+
 	tests := []struct {
 		name string
 		opts []Option
@@ -105,6 +107,27 @@ func TestNew(t *testing.T) {
 			},
 		},
 		{
+			name: "Aggregate",
+			opts: []Option{
+				Aggregate("foo", aggregateID),
+				Aggregate("bar", aggregateID),
+			},
+			want: Query{
+				times:             time.Filter(),
+				aggregateVersions: version.Filter(),
+				aggregates: []event.AggregateTuple{
+					{
+						Name: "foo",
+						ID:   aggregateID,
+					},
+					{
+						Name: "bar",
+						ID:   aggregateID,
+					},
+				},
+			},
+		},
+		{
 			name: "SortBy",
 			opts: []Option{
 				SortBy(event.SortTime, event.SortAsc),
@@ -161,6 +184,8 @@ func TestTest(t *testing.T) {
 		ids[i] = uuid.New()
 		times[i] = now.Add(stdtime.Duration(i) * stdtime.Minute)
 	}
+
+	aggregateID := uuid.New()
 
 	tests := []struct {
 		name  string
@@ -255,6 +280,16 @@ func TestTest(t *testing.T) {
 				event.New("foo", test.FooEventData{}, event.Aggregate("foo", uuid.New(), 1)): true,
 				event.New("bar", test.BarEventData{}, event.Aggregate("bar", uuid.New(), 2)): true,
 				event.New("baz", test.BazEventData{}, event.Aggregate("baz", uuid.New(), 3)): false,
+			},
+		},
+		{
+			name:  "Aggregate",
+			query: New(Aggregate("foo", aggregateID)),
+			tests: map[event.Event]bool{
+				event.New("foo", test.FooEventData{}):                                         false,
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", uuid.New(), 0)):  false,
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", aggregateID, 0)): true,
+				event.New("foo", test.FooEventData{}, event.Aggregate("foo", aggregateID, 4)): true,
 			},
 		},
 	}

@@ -1,5 +1,3 @@
-// Package chanbus provides an event.Bus implementation using channels.
-// TODO: rewrite (there is a race condition somewhere)
 package chanbus
 
 import (
@@ -9,134 +7,106 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-type eventBus struct {
-	mux    sync.Mutex
-	subs   map[string][]*subscription
-	queue  chan event.Event
-	add    chan *subscription
-	remove chan *subscription
+type bus struct {
+	mux  sync.Mutex
+	subs map[string][]*subscription
 }
 
 type subscription struct {
-	names []string
-	out   chan event.Event
-	errs  chan error
-	done  chan struct{}
+	ctx context.Context
+	wg  *sync.WaitGroup
+	out chan event.Event
 }
 
-// New returns a Bus that communicates over channels.
 func New() event.Bus {
-	bus := &eventBus{
-		subs:   make(map[string][]*subscription),
-		queue:  make(chan event.Event),
-		add:    make(chan *subscription),
-		remove: make(chan *subscription),
+	return &bus{
+		subs: map[string][]*subscription{},
 	}
-	go bus.work()
-	return bus
 }
 
-// Publish sends the given Events to subscribers of those Events. If ctx is
-// canceled before every Event has been enqueued, Publish returns ctx.Err().
-func (bus *eventBus) Publish(ctx context.Context, events ...event.Event) error {
-	for _, evt := range events {
-		if err := bus.publish(ctx, evt); err != nil {
-			return err
+func (b *bus) Subscribe(ctx context.Context, eventNames ...string) (<-chan event.Event, <-chan error, error) {
+	out := make(chan event.Event)
+	errs := make(chan error)
+	var wg sync.WaitGroup
+	wg.Add(len(eventNames))
+	for _, name := range eventNames {
+		b.subscribe(ctx, name, out, errs, &wg)
+	}
+
+	go func() {
+		wg.Wait()
+		close(errs)
+		close(out)
+	}()
+
+	return out, errs, nil
+}
+
+func (b *bus) subscribe(ctx context.Context, name string, out chan<- event.Event, errs chan<- error, wg *sync.WaitGroup) {
+	sub := &subscription{
+		ctx: ctx,
+		wg:  wg,
+		out: make(chan event.Event),
+	}
+	b.mux.Lock()
+	b.subs[name] = append(b.subs[name], sub)
+	b.mux.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		b.removeSub(name, sub)
+		close(sub.out)
+	}()
+
+	go func() {
+		defer wg.Done()
+		for evt := range sub.out {
+			select {
+			case <-sub.ctx.Done():
+			case out <- evt:
+			}
 		}
+	}()
+}
+
+func (b *bus) Publish(ctx context.Context, events ...event.Event) error {
+	for _, evt := range events {
+		b.publish(ctx, evt)
 	}
 	return nil
 }
 
-func (bus *eventBus) publish(ctx context.Context, evt event.Event) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case bus.queue <- evt:
-		return nil
-	}
-}
-
-func (bus *eventBus) work() {
-	for {
-		select {
-		case sub := <-bus.add:
-			bus.addSub(sub)
-		case sub := <-bus.remove:
-			bus.removeSub(sub)
-		case evt := <-bus.queue:
-			bus.doPublish(evt)
-		}
-	}
-}
-
-func (bus *eventBus) addSub(sub *subscription) {
-	for _, name := range sub.names {
-		subs := append(bus.subscribers(name), sub)
-		bus.mux.Lock()
-		bus.subs[name] = subs
-		bus.mux.Unlock()
-	}
-}
-
-func (bus *eventBus) removeSub(sub *subscription) {
-	defer close(sub.done)
-	bus.mux.Lock()
-	defer bus.mux.Unlock()
-
-	for _, name := range sub.names {
-		for i, s := range bus.subs[name] {
-			if s == sub {
-				bus.subs[name] = append(bus.subs[name][:i], bus.subs[name][i+1:]...)
-				break
-			}
-		}
-	}
-}
-
-func (bus *eventBus) doPublish(evt event.Event) {
-	subs := bus.subscribers(evt.Name())
+func (b *bus) publish(ctx context.Context, evt event.Event) {
+	subs := b.subscribers(evt.Name())
 	for _, sub := range subs {
 		select {
-		case <-sub.done:
+		case <-sub.ctx.Done():
 		case sub.out <- evt:
 		}
 	}
 }
 
-func (bus *eventBus) subscribers(name string) []*subscription {
-	bus.mux.Lock()
-	defer bus.mux.Unlock()
-	subs := make([]*subscription, len(bus.subs[name]))
-	copy(subs, bus.subs[name])
+func (b *bus) subscribers(name string) []*subscription {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	subs := make([]*subscription, len(b.subs[name]))
+	copy(subs, b.subs[name])
 	return subs
 }
 
-// Subscribe returns a channel of Events and a channel of asynchronous errors.
-// Only Events whose name is one of the provided names will be received from the
-// returned Event channel.
-//
-// The returned error channel will never receive any errors.
-//
-// When ctx is canceled, the both the Event and error channel are closed.
-func (bus *eventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
-	sub := bus.newSubscription(ctx, names)
-	return sub.out, sub.errs, nil
-}
-
-func (bus *eventBus) newSubscription(ctx context.Context, names []string) *subscription {
-	sub := &subscription{
-		names: names,
-		out:   make(chan event.Event),
-		errs:  make(chan error),
-		done:  make(chan struct{}),
+func (b *bus) removeSub(eventName string, sub *subscription) {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	for n, subs := range b.subs {
+		if n != eventName {
+			continue
+		}
+		for i, s := range subs {
+			if s != sub {
+				continue
+			}
+			b.subs[n] = append(b.subs[n][:i], b.subs[n][i+1:]...)
+			return
+		}
 	}
-	bus.add <- sub
-	go func() {
-		<-ctx.Done()
-		bus.remove <- sub
-		<-sub.done
-		close(sub.errs)
-		close(sub.out)
-	}()
-	return sub
 }
