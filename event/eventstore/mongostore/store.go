@@ -529,6 +529,7 @@ func makeFilter(q event.Query) bson.D {
 	filter = withAggregateNameFilter(filter, q.AggregateNames()...)
 	filter = withAggregateIDFilter(filter, q.AggregateIDs()...)
 	filter = withAggregateVersionFilter(filter, q.AggregateVersions())
+	filter = withAggregateTupleFilter(filter, q.Aggregates())
 	return filter
 }
 
@@ -657,6 +658,22 @@ func withAggregateVersionFilter(filter bson.D, versions version.Constraints) bso
 	}
 
 	return filter
+}
+
+func withAggregateTupleFilter(filter bson.D, tuples []event.AggregateTuple) bson.D {
+	if len(tuples) == 0 {
+		return filter
+	}
+
+	or := make([]bson.D, len(tuples))
+	for i, tuple := range tuples {
+		or[i] = bson.D{
+			{Key: "aggregateName", Value: tuple.Name},
+			{Key: "aggregateId", Value: tuple.ID},
+		}
+	}
+
+	return append(filter, bson.E{Key: "$or", Value: or})
 }
 
 func applySortings(opts *options.FindOptions, sortings ...event.SortOptions) *options.FindOptions {
