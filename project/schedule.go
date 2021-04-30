@@ -257,6 +257,7 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 					jobEvents = jobEvents[:0]
 					jobEventsMux.Unlock()
 
+					ctx, cancel := context.WithCancel(ctx)
 					j := newContinuousJob(ctx, cfg, s.store, evts, s.eventNames)
 					if err := applyFunc(j); err != nil {
 						select {
@@ -264,6 +265,7 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 						case out <- fmt.Errorf("applyFunc: %w", err):
 						}
 					}
+					cancel()
 				}
 
 				if s.debounce <= 0 {
@@ -290,6 +292,7 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 	go func() {
 		defer wg.Done()
 		for t := range triggers {
+			ctx, cancel := context.WithCancel(ctx)
 			j := newContinuousJob(ctx, cfg, s.store, t.events, s.eventNames)
 			if err := applyFunc(j); err != nil {
 				select {
@@ -297,6 +300,7 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 				case out <- fmt.Errorf("applyFunc: %w", err):
 				}
 			}
+			cancel()
 			t.wg.Done()
 		}
 	}()
@@ -381,6 +385,7 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				ctx, cancel := context.WithCancel(ctx)
 				job := newPeriodicJob(ctx, cfg, s.store, s.eventNames, nil)
 				if err := applyFunc(job); err != nil {
 					select {
@@ -388,6 +393,7 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 					case out <- fmt.Errorf("applyFunc: %w", err):
 					}
 				}
+				cancel()
 			}
 		}
 	}()
@@ -395,6 +401,7 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 	go func() {
 		defer wg.Done()
 		for trigger := range triggers {
+			ctx, cancel := context.WithCancel(ctx)
 			j := newPeriodicJob(ctx, cfg, s.store, s.eventNames, trigger.events)
 			if err := applyFunc(j); err != nil {
 				select {
@@ -402,6 +409,7 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 				case out <- fmt.Errorf("applyFunc: %w", err):
 				}
 			}
+			cancel()
 			trigger.wg.Done()
 		}
 	}()
