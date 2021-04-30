@@ -34,14 +34,8 @@ type Schedule interface {
 	// An Event Query can be provided to filter which Events are applied on a projection:
 	//
 	//	var s project.Schedule
-	//	errs, err := s.Subscribe(context.TODO(), func(j project.Job) error {
-	//		foo := newFoo()
-	//		q := query.New(query.AggregateName("foobar")) // only apply Events that belong to a "foobar" Aggregate
-	//		if err := j.Apply(j.Context(), foo, project.Filter(q)); err != nil {
-	//			return fmt.Errorf("apply Job: %w", err)
-	//		}
-	//		return nil
-	//	})
+	//	q := query.New(query.AggregateName("foobar")) // only apply Events that belong to a "foobar" Aggregate
+	//	errs, err := s.Subscribe(context.TODO(), func(j project.Job) error { ... }, project.Filter(q))
 	//	// handle err & errs
 	Subscribe(context.Context, func(Job) error, ...SubscribeOption) (<-chan error, error)
 
