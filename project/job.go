@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
@@ -54,11 +55,19 @@ type applyConfig struct {
 }
 
 type continuousJob struct {
+	*cache
+
 	ctx        context.Context
 	cfg        subscribeConfig
 	store      event.Store
 	events     []event.Event
 	eventNames []string
+}
+
+type cache struct {
+	sync.Mutex
+
+	cache map[applyConfig]map[EventApplier][]event.Event
 }
 
 func newContinuousJob(
@@ -69,6 +78,7 @@ func newContinuousJob(
 	eventNames []string,
 ) *continuousJob {
 	return &continuousJob{
+		cache:      newCache(),
 		ctx:        ctx,
 		cfg:        cfg,
 		store:      store,
@@ -112,28 +122,30 @@ func (j *continuousJob) EventsFor(ctx context.Context, p EventApplier, opts ...A
 		ctx = j.ctx
 	}
 
-	queryOpts := []query.Option{query.Name(j.eventNames...)}
+	return j.cache.ensure(ctx, cfg, p, func(ctx context.Context) ([]event.Event, error) {
+		queryOpts := []query.Option{query.Name(j.eventNames...)}
 
-	// If the projection provides a `LatestEventTime` method, use it to only
-	// query Events that happened after that time.
-	if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
-		if t := p.LatestEventTime(); !t.IsZero() {
-			queryOpts = append(queryOpts, query.Time(time.After(t)))
+		// If the projection provides a `LatestEventTime` method, use it to only
+		// query Events that happened after that time.
+		if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
+			if t := p.LatestEventTime(); !t.IsZero() {
+				queryOpts = append(queryOpts, query.Time(time.After(t)))
+			}
 		}
-	}
 
-	q := query.Merge(query.New(queryOpts...), j.cfg.filter)
-	str, errs, err := j.store.Query(ctx, q)
-	if err != nil {
-		return nil, fmt.Errorf("query Events: %w", err)
-	}
+		q := query.Merge(query.New(queryOpts...), j.cfg.filter)
+		str, errs, err := j.store.Query(ctx, q)
+		if err != nil {
+			return nil, fmt.Errorf("query Events: %w", err)
+		}
 
-	events, err := event.Drain(ctx, str, errs)
-	if err != nil {
-		return nil, fmt.Errorf("drain Events: %w", err)
-	}
+		events, err := event.Drain(ctx, str, errs)
+		if err != nil {
+			return nil, fmt.Errorf("drain Events: %w", err)
+		}
 
-	return events, nil
+		return events, nil
+	})
 }
 
 func (j *continuousJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, error) {
@@ -204,22 +216,23 @@ func (j *continuousJob) Apply(ctx context.Context, p EventApplier, opts ...Apply
 }
 
 type periodicJob struct {
+	*cache
+
 	ctx        context.Context
 	cfg        subscribeConfig
 	store      event.Store
 	eventNames []string
 	events     []event.Event
-	cache      map[interface{}][]event.Event
 }
 
 func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string, events []event.Event) *periodicJob {
 	return &periodicJob{
+		cache:      newCache(),
 		ctx:        ctx,
 		cfg:        cfg,
 		store:      store,
 		eventNames: eventNames,
 		events:     events,
-		cache:      make(map[interface{}][]event.Event),
 	}
 }
 
@@ -258,39 +271,41 @@ func (j *periodicJob) EventsFor(ctx context.Context, p EventApplier, opts ...App
 		ctx = j.ctx
 	}
 
-	queryOpts := []query.Option{
-		query.Name(j.eventNames...),
-		query.SortByMulti(
-			event.SortOptions{Sort: event.SortTime, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
-		),
-	}
-
-	if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
-		if t := p.LatestEventTime(); !t.IsZero() {
-			queryOpts = append(queryOpts, query.Time(time.After(t)))
+	return j.cache.ensure(ctx, cfg, p, func(ctx context.Context) ([]event.Event, error) {
+		queryOpts := []query.Option{
+			query.Name(j.eventNames...),
+			query.SortByMulti(
+				event.SortOptions{Sort: event.SortTime, Dir: event.SortAsc},
+				event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
+				event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
+				event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
+			),
 		}
-	}
 
-	q := query.New(queryOpts...)
+		if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
+			if t := p.LatestEventTime(); !t.IsZero() {
+				queryOpts = append(queryOpts, query.Time(time.After(t)))
+			}
+		}
 
-	if j.cfg.filter != nil {
-		q = query.Merge(q, j.cfg.filter)
-	}
+		q := query.New(queryOpts...)
 
-	str, errs, err := j.store.Query(ctx, q)
-	if err != nil {
-		return nil, fmt.Errorf("query Events: %w", err)
-	}
+		if j.cfg.filter != nil {
+			q = query.Merge(q, j.cfg.filter)
+		}
 
-	events, err := event.Drain(ctx, str, errs)
-	if err != nil {
-		return nil, fmt.Errorf("drain Events: %w", err)
-	}
+		str, errs, err := j.store.Query(ctx, q)
+		if err != nil {
+			return nil, fmt.Errorf("query Events: %w", err)
+		}
 
-	return events, nil
+		events, err := event.Drain(ctx, str, errs)
+		if err != nil {
+			return nil, fmt.Errorf("drain Events: %w", err)
+		}
+
+		return events, nil
+	})
 }
 
 func (j *periodicJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, error) {
@@ -358,6 +373,43 @@ func (j *periodicJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOp
 	}
 
 	return Apply(events, p)
+}
+
+func newCache() *cache {
+	return &cache{cache: make(map[applyConfig]map[EventApplier][]event.Event)}
+}
+
+func (c *cache) ensure(
+	ctx context.Context,
+	cfg applyConfig,
+	proj EventApplier,
+	fetch func(ctx context.Context) ([]event.Event, error),
+) ([]event.Event, error) {
+	c.Lock()
+	cache, ok := c.cache[cfg]
+	if !ok {
+		cache = make(map[EventApplier][]event.Event)
+		c.cache[cfg] = cache
+	}
+
+	if events, ok := cache[proj]; ok {
+		evts := make([]event.Event, len(events))
+		copy(evts, events)
+		c.Unlock()
+		return evts, nil
+	}
+	c.Unlock()
+
+	events, err := fetch(ctx)
+	if err != nil {
+		return events, err
+	}
+
+	c.Lock()
+	cache[proj] = events
+	c.Unlock()
+
+	return events, nil
 }
 
 func configureApply(opts ...ApplyOption) applyConfig {
