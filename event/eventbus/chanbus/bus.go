@@ -55,15 +55,19 @@ func (b *bus) subscribe(ctx context.Context, name string, out chan<- event.Event
 	go func() {
 		<-ctx.Done()
 		b.removeSub(name, sub)
-		close(sub.out)
 	}()
 
 	go func() {
 		defer wg.Done()
-		for evt := range sub.out {
+		for {
 			select {
 			case <-sub.ctx.Done():
-			case out <- evt:
+				return
+			case evt := <-sub.out:
+				select {
+				case <-sub.ctx.Done():
+				case out <- evt:
+				}
 			}
 		}
 	}()
