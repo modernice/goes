@@ -21,8 +21,8 @@ type Job interface {
 	// Events returns the Events from the Job.
 	Events(context.Context) ([]event.Event, error)
 
-	// EventsOf returns the Events from the Job that have the given name.
-	EventsOf(context.Context, string) ([]event.Event, error)
+	// EventsOf returns the Events from the Job that have one of the given names.
+	EventsOf(context.Context, ...string) ([]event.Event, error)
 
 	// EventsFor returns the Events that would be applied to the given
 	// projection. If the projection provides a `LatestEventTime` method, it is
@@ -33,9 +33,9 @@ type Job interface {
 	// Events of the Job.
 	Aggregates(context.Context) (map[string][]uuid.UUID, error)
 
-	// AggregatesOf returns the UUIDs of Aggregates, extracted from the Events
-	// of the Job.
-	AggregatesOf(context.Context, string) ([]uuid.UUID, error)
+	// AggregatesOf returns the UUIDs of Aggregates that have one of the given
+	// names, extracted from the Events of the Job.
+	AggregatesOf(context.Context, ...string) ([]uuid.UUID, error)
 
 	// Aggregate returns the first UUID of an Aggregate with the given name,
 	// extracted from the Events of the Job.
@@ -111,7 +111,7 @@ func (j *continuousJob) Events(ctx context.Context) ([]event.Event, error) {
 	return j.EventsFor(ctx, nil)
 }
 
-func (j *continuousJob) EventsOf(ctx context.Context, name string) ([]event.Event, error) {
+func (j *continuousJob) EventsOf(ctx context.Context, names ...string) ([]event.Event, error) {
 	events, err := j.Events(ctx)
 	if err != nil {
 		return nil, err
@@ -119,8 +119,11 @@ func (j *continuousJob) EventsOf(ctx context.Context, name string) ([]event.Even
 
 	filtered := make([]event.Event, 0, len(events))
 	for _, evt := range events {
-		if evt.Name() == name {
-			filtered = append(filtered, evt)
+		for _, name := range names {
+			if evt.Name() == name {
+				filtered = append(filtered, evt)
+				break
+			}
 		}
 	}
 
@@ -161,7 +164,7 @@ func (j *continuousJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID,
 	return out, nil
 }
 
-func (j *continuousJob) AggregatesOf(ctx context.Context, name string) ([]uuid.UUID, error) {
+func (j *continuousJob) AggregatesOf(ctx context.Context, names ...string) ([]uuid.UUID, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
@@ -171,7 +174,12 @@ func (j *continuousJob) AggregatesOf(ctx context.Context, name string) ([]uuid.U
 		return nil, err
 	}
 
-	return aggregates[name], nil
+	var out []uuid.UUID
+	for _, name := range names {
+		out = append(out, aggregates[name]...)
+	}
+
+	return out, nil
 }
 
 func (j *continuousJob) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
@@ -225,7 +233,7 @@ func (j *baseJob) Events(ctx context.Context) ([]event.Event, error) {
 	return j.EventsFor(ctx, nil)
 }
 
-func (j *periodicJob) EventsOf(ctx context.Context, name string) ([]event.Event, error) {
+func (j *periodicJob) EventsOf(ctx context.Context, names ...string) ([]event.Event, error) {
 	events, err := j.Events(ctx)
 	if err != nil {
 		return nil, err
@@ -233,8 +241,11 @@ func (j *periodicJob) EventsOf(ctx context.Context, name string) ([]event.Event,
 
 	filtered := make([]event.Event, 0, len(events))
 	for _, evt := range events {
-		if evt.Name() == name {
-			filtered = append(filtered, evt)
+		for _, name := range names {
+			if evt.Name() == name {
+				filtered = append(filtered, evt)
+				break
+			}
 		}
 	}
 
@@ -265,7 +276,7 @@ func (j *periodicJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, e
 	return out, nil
 }
 
-func (j *periodicJob) AggregatesOf(ctx context.Context, name string) ([]uuid.UUID, error) {
+func (j *periodicJob) AggregatesOf(ctx context.Context, names ...string) ([]uuid.UUID, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
@@ -275,7 +286,12 @@ func (j *periodicJob) AggregatesOf(ctx context.Context, name string) ([]uuid.UUI
 		return nil, err
 	}
 
-	return aggregates[name], nil
+	var out []uuid.UUID
+	for _, name := range names {
+		out = append(out, aggregates[name]...)
+	}
+
+	return out, nil
 }
 
 func (j *periodicJob) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
