@@ -211,6 +211,7 @@ func (j *continuousJob) Apply(ctx context.Context, p EventApplier, opts ...Apply
 	if err != nil {
 		return err
 	}
+	defer j.cache.expire(configureApply(opts...), p)
 
 	return Apply(events, p)
 }
@@ -371,6 +372,7 @@ func (j *periodicJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOp
 	if err != nil {
 		return err
 	}
+	defer j.cache.expire(configureApply(opts...), p)
 
 	return Apply(events, p)
 }
@@ -410,6 +412,14 @@ func (c *cache) ensure(
 	c.Unlock()
 
 	return events, nil
+}
+
+func (c *cache) expire(cfg applyConfig, proj EventApplier) {
+	c.Lock()
+	defer c.Unlock()
+	if cache := c.cache[cfg]; cache != nil {
+		delete(cache, proj)
+	}
 }
 
 func configureApply(opts ...ApplyOption) applyConfig {
