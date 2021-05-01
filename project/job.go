@@ -131,9 +131,7 @@ func (j *continuousJob) EventsFor(ctx context.Context, p EventApplier, opts ...A
 		// If the projection provides a `LatestEventTime` method, use it to only
 		// query Events that happened after that time.
 		if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
-			if t := p.LatestEventTime(); !t.IsZero() {
-				queryOpts = append(queryOpts, query.Time(time.After(t)))
-			}
+			queryOpts = append(queryOpts, query.Time(time.After(p.LatestEventTime())))
 		}
 
 		q := query.Merge(query.New(queryOpts...), j.cfg.filter, j.query)
@@ -283,9 +281,7 @@ func (j *periodicJob) EventsFor(ctx context.Context, p EventApplier, opts ...App
 		}
 
 		if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
-			if t := p.LatestEventTime(); !t.IsZero() {
-				queryOpts = append(queryOpts, query.Time(time.After(t)))
-			}
+			queryOpts = append(queryOpts, query.Time(time.After(p.LatestEventTime())))
 		}
 
 		q := query.Merge(query.New(queryOpts...), j.cfg.filter, j.query)

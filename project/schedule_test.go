@@ -257,7 +257,7 @@ func TestContinuously_withLatestEventTime(t *testing.T) {
 	}
 
 	ex := newMockProjection()
-	ex.LatestEventAppliedAt = now
+	ex.LatestEventAppliedAt = now.UnixNano()
 	ex.applied = events[:2]
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -24,7 +24,7 @@ type EventApplier interface {
 //		}
 //	}
 type Projection struct {
-	LatestEventAppliedAt time.Time
+	LatestEventAppliedAt int64
 }
 
 type latestEventTimeProvider interface {
@@ -75,14 +75,15 @@ func Apply(events []event.Event, proj EventApplier) error {
 // PostApplyEvent is called by a Projector after the given Event has been
 // applied and sets the LatestEventTime to evt.Time().
 func (p *Projection) PostApplyEvent(evt event.Event) {
-	if evt != nil && evt.Time().After(p.LatestEventAppliedAt) {
-		p.LatestEventAppliedAt = evt.Time()
+	t := time.Unix(0, p.LatestEventAppliedAt)
+	if evt != nil && evt.Time().After(t) {
+		p.LatestEventAppliedAt = evt.Time().UnixNano()
 	}
 }
 
 // LatestEventTime returns the time of the latest applied Event.
 func (p *Projection) LatestEventTime() time.Time {
-	return p.LatestEventAppliedAt
+	return time.Unix(0, p.LatestEventAppliedAt)
 }
 
 // ApplyEvent implements EventApplier. Structs that embed Projection should
