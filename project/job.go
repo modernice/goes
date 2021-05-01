@@ -56,14 +56,23 @@ type applyConfig struct {
 }
 
 type continuousJob struct {
+	*baseJob
+
+	events []event.Event
+}
+
+type periodicJob struct {
+	*baseJob
+}
+
+type baseJob struct {
 	*cache
 
 	ctx        context.Context
 	cfg        subscribeConfig
 	store      event.Store
-	query      event.Query
-	events     []event.Event
 	eventNames []string
+	query      event.Query
 }
 
 type cache struct {
@@ -73,8 +82,8 @@ type cache struct {
 }
 
 type cacheHasher struct {
-	cfg  applyConfig
-	proj EventApplier
+	cfg   applyConfig
+	query event.Query
 }
 
 func newContinuousJob(
@@ -86,18 +95,16 @@ func newContinuousJob(
 	eventNames []string,
 ) *continuousJob {
 	return &continuousJob{
-		cache:      newCache(),
-		ctx:        ctx,
-		cfg:        cfg,
-		store:      store,
-		query:      query,
-		events:     events,
-		eventNames: eventNames,
+		baseJob: &baseJob{
+			cache:      newCache(),
+			ctx:        ctx,
+			cfg:        cfg,
+			store:      store,
+			query:      query,
+			eventNames: eventNames,
+		},
+		events: events,
 	}
-}
-
-func (j *continuousJob) Context() context.Context {
-	return j.ctx
 }
 
 func (j *continuousJob) Events(ctx context.Context) ([]event.Event, error) {
@@ -127,32 +134,7 @@ func (j *continuousJob) EventsFor(ctx context.Context, p EventApplier, opts ...A
 		return j.events, nil
 	}
 
-	if ctx == nil {
-		ctx = j.ctx
-	}
-
-	return j.cache.ensure(ctx, cfg, p, func(ctx context.Context) ([]event.Event, error) {
-		queryOpts := []query.Option{query.Name(j.eventNames...)}
-
-		// If the projection provides a `LatestEventTime` method, use it to only
-		// query Events that happened after that time.
-		if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
-			queryOpts = append(queryOpts, query.Time(time.After(p.LatestEventTime())))
-		}
-
-		q := query.Merge(query.New(queryOpts...), j.cfg.filter, j.query)
-		str, errs, err := j.store.Query(ctx, q)
-		if err != nil {
-			return nil, fmt.Errorf("query Events: %w", err)
-		}
-
-		events, err := event.Drain(ctx, str, errs)
-		if err != nil {
-			return nil, fmt.Errorf("drain Events: %w", err)
-		}
-
-		return events, nil
-	})
+	return j.baseJob.EventsFor(ctx, p, opts...)
 }
 
 func (j *continuousJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, error) {
@@ -218,37 +200,30 @@ func (j *continuousJob) Apply(ctx context.Context, p EventApplier, opts ...Apply
 	if err != nil {
 		return err
 	}
-	defer j.cache.expire(configureApply(opts...), p)
+	applyCfg := configureApply(opts...)
+	defer j.cache.expire(applyCfg, j.buildQuery(p, applyCfg))
 
 	return Apply(events, p)
 }
 
-type periodicJob struct {
-	*cache
-
-	ctx        context.Context
-	cfg        subscribeConfig
-	store      event.Store
-	eventNames []string
-	query      event.Query
-}
-
 func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string, query event.Query) *periodicJob {
 	return &periodicJob{
-		cache:      newCache(),
-		ctx:        ctx,
-		cfg:        cfg,
-		store:      store,
-		eventNames: eventNames,
-		query:      query,
+		baseJob: &baseJob{
+			cache:      newCache(),
+			ctx:        ctx,
+			cfg:        cfg,
+			store:      store,
+			eventNames: eventNames,
+			query:      query,
+		},
 	}
 }
 
-func (j *periodicJob) Context() context.Context {
+func (j *baseJob) Context() context.Context {
 	return j.ctx
 }
 
-func (j *periodicJob) Events(ctx context.Context) ([]event.Event, error) {
+func (j *baseJob) Events(ctx context.Context) ([]event.Event, error) {
 	return j.EventsFor(ctx, nil)
 }
 
@@ -266,44 +241,6 @@ func (j *periodicJob) EventsOf(ctx context.Context, name string) ([]event.Event,
 	}
 
 	return filtered, nil
-}
-
-func (j *periodicJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
-	cfg := configureApply(opts...)
-
-	if ctx == nil {
-		ctx = j.ctx
-	}
-
-	return j.cache.ensure(ctx, cfg, p, func(ctx context.Context) ([]event.Event, error) {
-		queryOpts := []query.Option{
-			query.Name(j.eventNames...),
-			query.SortByMulti(
-				event.SortOptions{Sort: event.SortTime, Dir: event.SortAsc},
-				event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
-				event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
-				event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
-			),
-		}
-
-		if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
-			queryOpts = append(queryOpts, query.Time(time.After(p.LatestEventTime())))
-		}
-
-		q := query.Merge(query.New(queryOpts...), j.cfg.filter, j.query)
-
-		str, errs, err := j.store.Query(ctx, q)
-		if err != nil {
-			return nil, fmt.Errorf("query Events: %w", err)
-		}
-
-		events, err := event.Drain(ctx, str, errs)
-		if err != nil {
-			return nil, fmt.Errorf("drain Events: %w", err)
-		}
-
-		return events, nil
-	})
 }
 
 func (j *periodicJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, error) {
@@ -360,7 +297,7 @@ func (j *periodicJob) Aggregate(ctx context.Context, name string) (uuid.UUID, er
 	return ids[0], nil
 }
 
-func (j *periodicJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOption) error {
+func (j *baseJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOption) error {
 	if ctx == nil {
 		ctx = j.ctx
 	}
@@ -369,9 +306,58 @@ func (j *periodicJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOp
 	if err != nil {
 		return err
 	}
-	defer j.cache.expire(configureApply(opts...), p)
+	applyCfg := configureApply(opts...)
+	defer j.cache.expire(applyCfg, j.buildQuery(p, applyCfg))
 
 	return Apply(events, p)
+}
+
+func (j *baseJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
+	cfg := configureApply(opts...)
+
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	return j.eventsFor(ctx, p, cfg, j.buildQuery(p, cfg))
+}
+
+func (j *baseJob) buildQuery(p EventApplier, cfg applyConfig) event.Query {
+	queryOpts := []query.Option{
+		query.Name(j.eventNames...),
+		query.SortByMulti(
+			event.SortOptions{Sort: event.SortTime, Dir: event.SortAsc},
+			event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
+			event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
+			event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
+		),
+	}
+
+	if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
+		queryOpts = append(queryOpts, query.Time(time.After(p.LatestEventTime())))
+	}
+
+	return query.Merge(query.New(queryOpts...), j.cfg.filter, j.query)
+}
+
+func (j *baseJob) eventsFor(ctx context.Context, proj EventApplier, cfg applyConfig, q event.Query) ([]event.Event, error) {
+	if ctx == nil {
+		ctx = j.ctx
+	}
+
+	return j.cache.ensure(ctx, cfg, q, proj, func(ctx context.Context) ([]event.Event, error) {
+		str, errs, err := j.store.Query(ctx, q)
+		if err != nil {
+			return nil, fmt.Errorf("query Events: %w", err)
+		}
+
+		events, err := event.Drain(ctx, str, errs)
+		if err != nil {
+			return nil, fmt.Errorf("drain Events: %w", err)
+		}
+
+		return events, nil
+	})
 }
 
 func newCache() *cache {
@@ -381,13 +367,14 @@ func newCache() *cache {
 func (c *cache) ensure(
 	ctx context.Context,
 	cfg applyConfig,
+	query event.Query,
 	proj EventApplier,
 	fetch func(ctx context.Context) ([]event.Event, error),
 ) ([]event.Event, error) {
 	c.Lock()
 	ce := cacheHasher{
-		cfg:  cfg,
-		proj: proj,
+		cfg:   cfg,
+		query: query,
 	}
 	h := ce.hash()
 
@@ -414,11 +401,14 @@ func (c *cache) ensure(
 	return out, nil
 }
 
-func (c *cache) expire(cfg applyConfig, proj EventApplier) {
-	ce := cacheHasher{cfg, proj}
+func (c *cache) expire(cfg applyConfig, query event.Query) {
+	ce := cacheHasher{
+		cfg:   cfg,
+		query: query,
+	}
 	c.Lock()
-	defer c.Unlock()
 	delete(c.cache, ce.hash())
+	c.Unlock()
 }
 
 func (ce cacheHasher) hash() [32]byte {

@@ -463,6 +463,8 @@ func (s *Store) connect(ctx context.Context, opts ...*options.ClientOptions) err
 }
 
 func (s *Store) ensureIndexes(ctx context.Context) error {
+	// TODO: make indexes configurable
+
 	if _, err := s.entries.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
 			Keys:    bson.D{{Key: "id", Value: 1}},

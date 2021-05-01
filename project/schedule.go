@@ -343,9 +343,18 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 	}
 	s.mux.Unlock()
 
-	wg.Wait()
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
-	return nil
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		return nil
+	}
 }
 
 func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error, opts ...SubscribeOption) (<-chan error, error) {
