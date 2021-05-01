@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"sync"
 
@@ -68,7 +69,12 @@ type continuousJob struct {
 type cache struct {
 	sync.Mutex
 
-	cache map[applyConfig]map[EventApplier][]event.Event
+	cache map[[32]byte][]event.Event
+}
+
+type cacheHasher struct {
+	cfg  applyConfig
+	proj EventApplier
 }
 
 func newContinuousJob(
@@ -369,7 +375,7 @@ func (j *periodicJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOp
 }
 
 func newCache() *cache {
-	return &cache{cache: make(map[applyConfig]map[EventApplier][]event.Event)}
+	return &cache{cache: make(map[[32]byte][]event.Event)}
 }
 
 func (c *cache) ensure(
@@ -379,17 +385,17 @@ func (c *cache) ensure(
 	fetch func(ctx context.Context) ([]event.Event, error),
 ) ([]event.Event, error) {
 	c.Lock()
-	cache, ok := c.cache[cfg]
-	if !ok {
-		cache = make(map[EventApplier][]event.Event)
-		c.cache[cfg] = cache
+	ce := cacheHasher{
+		cfg:  cfg,
+		proj: proj,
 	}
+	h := ce.hash()
 
-	if events, ok := cache[proj]; ok {
-		evts := make([]event.Event, len(events))
-		copy(evts, events)
+	if events, ok := c.cache[h]; ok {
+		out := make([]event.Event, len(events))
+		copy(out, events)
 		c.Unlock()
-		return evts, nil
+		return out, nil
 	}
 	c.Unlock()
 
@@ -398,19 +404,25 @@ func (c *cache) ensure(
 		return events, err
 	}
 
+	out := make([]event.Event, len(events))
+	copy(out, events)
+
 	c.Lock()
-	cache[proj] = events
+	c.cache[h] = events
 	c.Unlock()
 
-	return events, nil
+	return out, nil
 }
 
 func (c *cache) expire(cfg applyConfig, proj EventApplier) {
+	ce := cacheHasher{cfg, proj}
 	c.Lock()
 	defer c.Unlock()
-	if cache := c.cache[cfg]; cache != nil {
-		delete(cache, proj)
-	}
+	delete(c.cache, ce.hash())
+}
+
+func (ce cacheHasher) hash() [32]byte {
+	return sha256.Sum256([]byte(fmt.Sprintf("%v", ce)))
 }
 
 func configureApply(opts ...ApplyOption) applyConfig {
