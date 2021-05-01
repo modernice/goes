@@ -200,8 +200,6 @@ func (j *continuousJob) Apply(ctx context.Context, p EventApplier, opts ...Apply
 	if err != nil {
 		return err
 	}
-	applyCfg := configureApply(opts...)
-	defer j.cache.expire(applyCfg, j.buildQuery(p, applyCfg))
 
 	return Apply(events, p)
 }
@@ -306,8 +304,6 @@ func (j *baseJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOption
 	if err != nil {
 		return err
 	}
-	applyCfg := configureApply(opts...)
-	defer j.cache.expire(applyCfg, j.buildQuery(p, applyCfg))
 
 	return Apply(events, p)
 }
@@ -399,16 +395,6 @@ func (c *cache) ensure(
 	c.Unlock()
 
 	return out, nil
-}
-
-func (c *cache) expire(cfg applyConfig, query event.Query) {
-	ce := cacheHasher{
-		cfg:   cfg,
-		query: query,
-	}
-	c.Lock()
-	delete(c.cache, ce.hash())
-	c.Unlock()
 }
 
 func (ce cacheHasher) hash() [32]byte {

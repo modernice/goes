@@ -100,7 +100,6 @@ type periodically struct {
 }
 
 type trigger struct {
-	// events []event.Event
 	query event.Query
 	wg    *sync.WaitGroup
 }
@@ -317,16 +316,6 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 		query.SortByAggregate(),
 	)}, queries...)...)
 
-	// str, errs, err := s.store.Query(ctx, q)
-	// if err != nil {
-	// 	return fmt.Errorf("query Events: %w", err)
-	// }
-
-	// events, err := event.Drain(ctx, str, errs)
-	// if err != nil {
-	// 	return fmt.Errorf("drain Events: %w", err)
-	// }
-
 	s.mux.Lock()
 	var wg sync.WaitGroup
 	for _, triggers := range s.triggers {
@@ -335,7 +324,6 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 		case <-ctx.Done():
 			return ctx.Err()
 		case triggers <- trigger{
-			// events: events,
 			query: q,
 			wg:    &wg,
 		}:
@@ -432,16 +420,6 @@ func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) erro
 		query.SortByAggregate(),
 	)}, queries...)...)
 
-	// str, errs, err := s.store.Query(ctx, q)
-	// if err != nil {
-	// 	return fmt.Errorf("query Events: %w", err)
-	// }
-
-	// events, err := event.Drain(ctx, str, errs)
-	// if err != nil {
-	// 	return fmt.Errorf("drain Events: %w", err)
-	// }
-
 	s.mux.Lock()
 	var wg sync.WaitGroup
 	for _, triggers := range s.triggers {
@@ -450,7 +428,6 @@ func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) erro
 		case <-ctx.Done():
 			return ctx.Err()
 		case triggers <- trigger{
-			// events: events,
 			query: q,
 			wg:    &wg,
 		}:
