@@ -60,6 +60,7 @@ type continuousJob struct {
 	ctx        context.Context
 	cfg        subscribeConfig
 	store      event.Store
+	query      event.Query
 	events     []event.Event
 	eventNames []string
 }
@@ -74,6 +75,7 @@ func newContinuousJob(
 	ctx context.Context,
 	cfg subscribeConfig,
 	store event.Store,
+	query event.Query,
 	events []event.Event,
 	eventNames []string,
 ) *continuousJob {
@@ -82,6 +84,7 @@ func newContinuousJob(
 		ctx:        ctx,
 		cfg:        cfg,
 		store:      store,
+		query:      query,
 		events:     events,
 		eventNames: eventNames,
 	}
@@ -133,7 +136,7 @@ func (j *continuousJob) EventsFor(ctx context.Context, p EventApplier, opts ...A
 			}
 		}
 
-		q := query.Merge(query.New(queryOpts...), j.cfg.filter)
+		q := query.Merge(query.New(queryOpts...), j.cfg.filter, j.query)
 		str, errs, err := j.store.Query(ctx, q)
 		if err != nil {
 			return nil, fmt.Errorf("query Events: %w", err)
@@ -223,17 +226,17 @@ type periodicJob struct {
 	cfg        subscribeConfig
 	store      event.Store
 	eventNames []string
-	events     []event.Event
+	query      event.Query
 }
 
-func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string, events []event.Event) *periodicJob {
+func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string, query event.Query) *periodicJob {
 	return &periodicJob{
 		cache:      newCache(),
 		ctx:        ctx,
 		cfg:        cfg,
 		store:      store,
 		eventNames: eventNames,
-		events:     events,
+		query:      query,
 	}
 }
 
@@ -262,10 +265,6 @@ func (j *periodicJob) EventsOf(ctx context.Context, name string) ([]event.Event,
 }
 
 func (j *periodicJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
-	if j.events != nil {
-		return j.events, nil
-	}
-
 	cfg := configureApply(opts...)
 
 	if ctx == nil {
@@ -289,11 +288,7 @@ func (j *periodicJob) EventsFor(ctx context.Context, p EventApplier, opts ...App
 			}
 		}
 
-		q := query.New(queryOpts...)
-
-		if j.cfg.filter != nil {
-			q = query.Merge(q, j.cfg.filter)
-		}
+		q := query.Merge(query.New(queryOpts...), j.cfg.filter, j.query)
 
 		str, errs, err := j.store.Query(ctx, q)
 		if err != nil {

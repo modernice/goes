@@ -100,8 +100,9 @@ type periodically struct {
 }
 
 type trigger struct {
-	events []event.Event
-	wg     *sync.WaitGroup
+	// events []event.Event
+	query event.Query
+	wg    *sync.WaitGroup
 }
 
 // Filter returns an Option that adds a Query as a filter to a projection
@@ -258,15 +259,13 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 					jobEvents = jobEvents[:0]
 					jobEventsMux.Unlock()
 
-					ctx, cancel := context.WithCancel(ctx)
-					j := newContinuousJob(ctx, cfg, s.store, evts, s.eventNames)
+					j := newContinuousJob(ctx, cfg, s.store, nil, evts, s.eventNames)
 					if err := applyFunc(j); err != nil {
 						select {
 						case <-ctx.Done():
 						case out <- fmt.Errorf("applyFunc: %w", err):
 						}
 					}
-					cancel()
 				}
 
 				if s.debounce <= 0 {
@@ -293,15 +292,13 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 	go func() {
 		defer wg.Done()
 		for t := range triggers {
-			ctx, cancel := context.WithCancel(ctx)
-			j := newContinuousJob(ctx, cfg, s.store, t.events, s.eventNames)
+			j := newContinuousJob(ctx, cfg, s.store, t.query, nil, s.eventNames)
 			if err := applyFunc(j); err != nil {
 				select {
 				case <-ctx.Done():
 				case out <- fmt.Errorf("applyFunc: %w", err):
 				}
 			}
-			cancel()
 			t.wg.Done()
 		}
 	}()
@@ -320,15 +317,15 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 		query.SortByAggregate(),
 	)}, queries...)...)
 
-	str, errs, err := s.store.Query(ctx, q)
-	if err != nil {
-		return fmt.Errorf("query Events: %w", err)
-	}
+	// str, errs, err := s.store.Query(ctx, q)
+	// if err != nil {
+	// 	return fmt.Errorf("query Events: %w", err)
+	// }
 
-	events, err := event.Drain(ctx, str, errs)
-	if err != nil {
-		return fmt.Errorf("drain Events: %w", err)
-	}
+	// events, err := event.Drain(ctx, str, errs)
+	// if err != nil {
+	// 	return fmt.Errorf("drain Events: %w", err)
+	// }
 
 	s.mux.Lock()
 	var wg sync.WaitGroup
@@ -338,8 +335,9 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 		case <-ctx.Done():
 			return ctx.Err()
 		case triggers <- trigger{
-			events: events,
-			wg:     &wg,
+			// events: events,
+			query: q,
+			wg:    &wg,
 		}:
 		}
 	}
@@ -386,7 +384,6 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				ctx, cancel := context.WithCancel(ctx)
 				job := newPeriodicJob(ctx, cfg, s.store, s.eventNames, nil)
 				if err := applyFunc(job); err != nil {
 					select {
@@ -394,7 +391,6 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 					case out <- fmt.Errorf("applyFunc: %w", err):
 					}
 				}
-				cancel()
 			}
 		}
 	}()
@@ -402,15 +398,13 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 	go func() {
 		defer wg.Done()
 		for trigger := range triggers {
-			ctx, cancel := context.WithCancel(ctx)
-			j := newPeriodicJob(ctx, cfg, s.store, s.eventNames, trigger.events)
+			j := newPeriodicJob(ctx, cfg, s.store, s.eventNames, trigger.query)
 			if err := applyFunc(j); err != nil {
 				select {
 				case <-ctx.Done():
 				case out <- fmt.Errorf("applyFunc: %w", err):
 				}
 			}
-			cancel()
 			trigger.wg.Done()
 		}
 	}()
@@ -429,15 +423,15 @@ func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) erro
 		query.SortByAggregate(),
 	)}, queries...)...)
 
-	str, errs, err := s.store.Query(ctx, q)
-	if err != nil {
-		return fmt.Errorf("query Events: %w", err)
-	}
+	// str, errs, err := s.store.Query(ctx, q)
+	// if err != nil {
+	// 	return fmt.Errorf("query Events: %w", err)
+	// }
 
-	events, err := event.Drain(ctx, str, errs)
-	if err != nil {
-		return fmt.Errorf("drain Events: %w", err)
-	}
+	// events, err := event.Drain(ctx, str, errs)
+	// if err != nil {
+	// 	return fmt.Errorf("drain Events: %w", err)
+	// }
 
 	s.mux.Lock()
 	var wg sync.WaitGroup
@@ -447,8 +441,9 @@ func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) erro
 		case <-ctx.Done():
 			return ctx.Err()
 		case triggers <- trigger{
-			events: events,
-			wg:     &wg,
+			// events: events,
+			query: q,
+			wg:    &wg,
 		}:
 		}
 	}

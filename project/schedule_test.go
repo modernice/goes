@@ -206,9 +206,12 @@ func TestContinuously_Trigger(t *testing.T) {
 		t.Fatalf("failed to insert Events: %v", err)
 	}
 
-	if err := s.Trigger(ctx); err != nil {
-		t.Fatalf("failed to trigger Schedule: %v", err)
-	}
+	triggerError := make(chan error)
+	go func() {
+		if err := s.Trigger(ctx); err != nil {
+			triggerError <- fmt.Errorf("failed to trigger Schedule: %w", err)
+		}
+	}()
 
 	for i := 0; i < 3; i++ {
 		select {
@@ -220,12 +223,76 @@ func TestContinuously_Trigger(t *testing.T) {
 				break
 			}
 			t.Fatal(err)
+		case err := <-triggerError:
+			t.Fatal(err)
 		case j := <-jobs:
 			evts, err := j.Events(j.Context())
 			if err != nil {
 				t.Fatalf("failed to fetch Job Events: %v", err)
 			}
 			test.AssertEqualEventsUnsorted(t, evts, events)
+		}
+	}
+}
+
+func TestContinuously_withLatestEventTime(t *testing.T) {
+	bus := chanbus.New()
+	store := memstore.New()
+	s := project.Continuously(bus, store, []string{"foo", "bar", "baz"})
+
+	now := time.Now()
+	id := uuid.New()
+
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}, event.Aggregate("foo", id, 0), event.Time(now.Add(-time.Minute))),
+		event.New("bar", test.BarEventData{}, event.Aggregate("foo", id, 0), event.Time(now)),
+		event.New("baz", test.BarEventData{}, event.Aggregate("foo", id, 0), event.Time(now.Add(time.Minute))),
+		event.New("foo", test.FooEventData{}, event.Aggregate("foo", id, 0), event.Time(now.Add(time.Hour))),
+	}
+
+	for _, evt := range events {
+		if err := store.Insert(context.Background(), evt); err != nil {
+			t.Fatalf("failed to insert Event: %v", err)
+		}
+	}
+
+	ex := newMockProjection()
+	ex.LatestEventAppliedAt = now
+	ex.applied = events[:2]
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	applied := make(chan project.Job)
+
+	errs, err := s.Subscribe(ctx, func(j project.Job) error {
+		if err := j.Apply(j.Context(), ex); err != nil {
+			return fmt.Errorf("failed to apply Job: %w", err)
+		}
+		applied <- j
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to subscribe to Schedule: %v", err)
+	}
+
+	go s.Trigger(ctx)
+
+	select {
+	case <-time.After(time.Second):
+		t.Fatalf("timed out")
+	case err, ok := <-errs:
+		if !ok {
+			t.Fatalf("error channel shouldn't be closed")
+			return
+		}
+		t.Fatal(err)
+	case <-applied:
+		if !ex.hasApplied(events...) {
+			t.Fatalf("applied Events should be %v; got %v", events, ex.applied)
+		}
+		if ex.hasDuplicates() {
+			t.Fatalf("projection has duplicate applied Events")
 		}
 	}
 }
@@ -422,7 +489,7 @@ func TestPeriodically_Trigger(t *testing.T) {
 	}
 }
 
-func TestPeriodically_withLatestEvent(t *testing.T) {
+func TestPeriodically_withLatestEventTime(t *testing.T) {
 	store := memstore.New()
 
 	s := project.Periodically(store, 50*time.Millisecond, []string{"foo", "bar", "baz"})
