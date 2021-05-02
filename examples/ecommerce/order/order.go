@@ -36,7 +36,12 @@ var (
 
 // An Order is an order in the ecommerce app.
 type Order struct {
-	aggregate.Aggregate
+	// Embedding *aggregate.Base is not needed if aggregate.Aggregate is
+	// implemented manually. But who wants to do that?
+	//
+	// Alternatively embed aggregate.Aggregate (but be aware that marshalling of
+	// interface types may cause problems)
+	*aggregate.Base
 
 	customer Customer
 	items    []Item
@@ -61,7 +66,10 @@ type Item struct {
 // New returns a new Order.
 func New(id uuid.UUID) *Order {
 	return &Order{
-		Aggregate: aggregate.New(AggregateName, id),
+		Base: aggregate.New(AggregateName, id),
+
+		// If you embedded aggregate.Aggregate instead of *aggregate.Base:
+		// Aggregate: aggregate.New(AggregateName, id),
 	}
 }
 
@@ -89,6 +97,16 @@ func (o *Order) Canceled() bool {
 	return !o.canceledAt.IsZero()
 }
 
+// ApplyEvent implements aggregate.Aggregate.
+func (o *Order) ApplyEvent(evt event.Event) {
+	switch evt.Name() {
+	case Placed:
+		o.place(evt)
+	case Canceled:
+		o.cancel(evt)
+	}
+}
+
 // Place places the Order for the given Customer.
 //
 // Place returns ErrAlreadyPlaced if the Order has been placed already. If no
@@ -106,12 +124,24 @@ func (o *Order) Place(cus Customer, items []Item) error {
 		return ErrNoItems
 	}
 
+	// This is the important part:
+	// We use aggregate.NextEvent to create and apply the "order.placed" Event.
+	// aggregate.NextEvent calls o.ApplyEvent with the created Event, which in
+	// turn calls o.place with that Event. o.place is finally applies the Event
+	// and updates the fields of the Order.
 	aggregate.NextEvent(o, Placed, PlacedEvent{
 		Customer: cus,
 		Items:    items,
 	})
 
 	return nil
+}
+
+// place applies the "order.placed" Event.
+func (o *Order) place(evt event.Event) {
+	data := evt.Data().(PlacedEvent)
+	o.customer = data.Customer
+	o.items = data.Items
 }
 
 // Placed returns whether the Order has been placed already.
@@ -121,12 +151,8 @@ func (o *Order) Placed() bool {
 	return len(o.items) > 0
 }
 
-func (o *Order) place(evt event.Event) {
-	data := evt.Data().(PlacedEvent)
-	o.customer = data.Customer
-	o.items = data.Items
-}
-
+// Cancel canels the Order. If the Order hasn't been placed yet, Cancel returns
+// ErrNotPlaced. If the Order was canceled already, Cancel returns ErrCanceled.
 func (o *Order) Cancel() error {
 	if !o.Placed() {
 		return ErrNotPlaced
@@ -138,18 +164,9 @@ func (o *Order) Cancel() error {
 	return nil
 }
 
+// cancel applies the "order.canceled" Event.
 func (o *Order) cancel(evt event.Event) {
 	o.canceledAt = evt.Time()
-}
-
-// ApplyEvent implements Aggregate.
-func (o *Order) ApplyEvent(evt event.Event) {
-	switch evt.Name() {
-	case Placed:
-		o.place(evt)
-	case Canceled:
-		o.cancel(evt)
-	}
 }
 
 func (c Customer) validate() error {

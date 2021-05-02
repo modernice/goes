@@ -8,7 +8,6 @@ import (
 	"log"
 
 	"github.com/logrusorgru/aurora"
-	"github.com/modernice/goes/aggregate/project"
 )
 
 func main() {
@@ -34,11 +33,11 @@ func main() {
 		log.Fatal(fmt.Errorf("make Timeline Repository: %w", err))
 	}
 
-	proj := project.NewProjector(estore)
+	timelineProjector := order.NewTimelineProjector(ebus, estore, timelineRepo)
 
-	timelineErrors, err := order.ProjectTimeline(ctx, timelineRepo, proj, ebus)
+	timelineErrors, err := timelineProjector.Run(ctx)
 	if err != nil {
-		log.Fatal(fmt.Errorf("project Timelines: %w", err))
+		log.Fatalf("start TimelineProjector: %v", err)
 	}
 
 	log.Println(aurora.Green("Service started."))

@@ -37,11 +37,11 @@ func TestStock_Fill(t *testing.T) {
 	}
 }
 
-func TestStock_Remove(t *testing.T) {
+func TestStock_Reduce(t *testing.T) {
 	s := stock.New(uuid.New())
 	s.Fill(100)
-	if err := s.Remove(20); err != nil {
-		t.Fatalf("Remove shouldn't fail; failed with %q", err)
+	if err := s.Reduce(20); err != nil {
+		t.Fatalf("Reduce shouldn't fail; failed with %q", err)
 	}
 
 	if s.Quantity() != 80 {
@@ -49,11 +49,12 @@ func TestStock_Remove(t *testing.T) {
 	}
 }
 
-func TestStock_Remove_errInsufficientStock(t *testing.T) {
+func TestStock_Reduce_errInsufficientStock(t *testing.T) {
 	s := stock.New(uuid.New())
 	s.Fill(100)
-	if err := s.Remove(101); !errors.Is(err, stock.ErrInsufficientStock) {
-		t.Fatalf("Remove with a quantity too high should fail with %q; got %q", stock.ErrInsufficientStock, err)
+	s.Reserve(10, uuid.New())
+	if err := s.Reduce(91); !errors.Is(err, stock.ErrInsufficientStock) {
+		t.Fatalf("Reduce with a quantity too high should fail with %q; got %q", stock.ErrInsufficientStock, err)
 	}
 }
 

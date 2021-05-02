@@ -3,6 +3,7 @@ package order_test
 import (
 	"context"
 	"ecommerce/order"
+	"ecommerce/order/memory"
 	"fmt"
 	"reflect"
 	"testing"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/aggregate/project"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
@@ -21,6 +21,7 @@ import (
 func TestTimeline(t *testing.T) {
 	id := uuid.New()
 	o := order.New(id)
+	timelineRepo := memory.NewTimelineRepository()
 	tl := order.NewTimeline(id)
 
 	if _, ok := tl.Duration(); ok {
@@ -37,16 +38,28 @@ func TestTimeline(t *testing.T) {
 
 	aggregate.NextEvent(o, order.Canceled, order.CanceledEvent{}, event.Time(canceledAt))
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	bus := chanbus.New()
 	store := eventstore.WithBus(memstore.New(), bus)
 	repo := repository.New(store)
-	if err := repo.Save(context.Background(), o); err != nil {
+	if err := repo.Save(ctx, o); err != nil {
 		t.Fatalf("failed to save Order: %v", err)
 	}
 
-	proj := project.NewProjector(store)
-	if err := proj.Project(context.Background(), tl); err != nil {
-		t.Fatalf("failed to project: %v", err)
+	proj := order.NewTimelineProjector(bus, store, timelineRepo)
+	if _, err := proj.Run(ctx); err != nil {
+		t.Fatalf("run Projector: %v", err)
+	}
+
+	if err := proj.Project(ctx, id); err != nil {
+		t.Fatalf("failed to project Timeline: %v", err)
+	}
+
+	tl, err := timelineRepo.Fetch(ctx, id)
+	if err != nil {
+		t.Fatalf("failed to fetch Timeline: %v", err)
 	}
 
 	dur, ok := tl.Duration()

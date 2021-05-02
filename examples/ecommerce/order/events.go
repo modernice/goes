@@ -11,6 +11,7 @@ const (
 )
 
 var (
+	// Events are all Order Event names.
 	Events = [...]string{
 		Placed,
 		Canceled,
