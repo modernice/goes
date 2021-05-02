@@ -174,7 +174,7 @@ func (s *Store) Database() *mongo.Database {
 }
 
 // Collection returns the underlying *mongo.Collection where the Events are
-// stored in. Connection returns nil until the connection to MongoDB has been
+// stored in. Collection returns nil until the connection to MongoDB has been
 // established by either explicitly calling s.Connect or implicitly by calling
 // s.Insert, s.Find, s.Delete or s.Query.
 func (s *Store) Collection() *mongo.Collection {
@@ -182,9 +182,9 @@ func (s *Store) Collection() *mongo.Collection {
 }
 
 // StateCollection returns the underlying *mongo.Collection where Aggregate
-// states are stored in. Connection returns nil until the connection to MongoDB
-// has been established by either explicitly calling s.Connect or implicitly by
-// calling s.Insert, s.Find, s.Delete or s.Query.
+// states are stored in. StateCollection returns nil until the connection to
+// MongoDB has been established by either explicitly calling s.Connect or
+// implicitly by calling s.Insert, s.Find, s.Delete or s.Query.
 func (s *Store) StateCollection() *mongo.Collection {
 	return s.states
 }

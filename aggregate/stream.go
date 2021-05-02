@@ -34,7 +34,7 @@ func Drain(ctx context.Context, str <-chan History, errs ...<-chan error) ([]His
 //	var repo aggregate.Repository
 //	str, errs, err := repo.Query(context.TODO(), query.New())
 //	// handle err
-//	err := stream.Walk(context.TODO(), func(h aggregate.History) {
+//	err := aggregate.Walk(context.TODO(), func(h aggregate.History) {
 //		log.Println(fmt.Sprintf("Received History: %v", h))
 //	}, str, errs)
 //	// handle err

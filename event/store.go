@@ -42,7 +42,7 @@ type Store interface {
 	//	var store event.Store
 	//	events, errs, err := store.Query(context.TODO(), query.New())
 	//	// handle err
-	//	err := stream.Walk(context.TODO(), func(evt event.Event) {
+	//	err := event.Walk(context.TODO(), func(evt event.Event) {
 	//		log.Println(fmt.Sprintf("Queried Event: %v", evt))
 	//	}, events, errs)
 	//	// handle err

@@ -29,7 +29,7 @@ import (
 // 	var b Bus
 // 	res, errs, err := b.Subscribe(context.TODO(), "foo")
 // 	// handle err
-//	err := stream.Walk(context.TODO(), func(e event.Event) {
+//	err := event.Walk(context.TODO(), func(e event.Event) {
 // 	    log.Println(fmt.Sprintf("Received %q event: %v", e.Name(), e))
 //	}, res, errs)
 //	// handle err

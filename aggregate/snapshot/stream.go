@@ -38,7 +38,7 @@ func Drain(
 //	var store snapshot.Store
 //	snaps, errs, err := store.Query(context.TODO(), query.New())
 //	// handle err
-//	err := stream.Walk(context.TODO(), func(s snapshot.Snapshot) {
+//	err := snapshot.Walk(context.TODO(), func(s snapshot.Snapshot) {
 //		log.Println(fmt.Sprintf("Received Snapshot: %v", s))
 //		return nil
 //	}, snaps, errs)
