@@ -299,7 +299,7 @@ func TestExecute_reportRuntime(t *testing.T) {
 		t.Fatalf("SAGA shouldn't fail; failed with %q", err)
 	}
 
-	if runtime := rep.Runtime(); runtime < 50*time.Millisecond || runtime > 100*time.Millisecond {
+	if runtime := rep.Runtime; runtime < 50*time.Millisecond || runtime > 100*time.Millisecond {
 		t.Errorf("Report should have a runtime of ~50ms; got %s", runtime)
 	}
 }
@@ -317,8 +317,8 @@ func TestExecute_reportError(t *testing.T) {
 		t.Errorf("SAGA should fail with %q; got %q", mockError, err)
 	}
 
-	if !errors.Is(rep.Error(), mockError) {
-		t.Errorf("Report should have error %q; got %q", mockError, rep.Error())
+	if !errors.Is(rep.Error, mockError) {
+		t.Errorf("Report should have error %q; got %q", mockError, rep.Error)
 	}
 }
 

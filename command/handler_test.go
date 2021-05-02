@@ -153,7 +153,7 @@ L:
 		t.Fatalf("Report has wrong Command. want=%v got=%v", wantCmd, rep.Command)
 	}
 
-	execError, ok := cmdbus.ExecError(rep.Err)
+	execError, ok := cmdbus.ExecError(rep.Error)
 	if !ok {
 		t.Fatalf("Report error should be a %T; got %T", execError, err)
 	}

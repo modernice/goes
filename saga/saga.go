@@ -562,7 +562,7 @@ func (e *Executor) shouldRollback() bool {
 		return false
 	}
 	for _, rep := range e.reports {
-		if name := e.Compensator(rep.Action().Name()); name != "" {
+		if name := e.Compensator(rep.Action.Name()); name != "" {
 			return true
 		}
 	}
@@ -575,19 +575,19 @@ func (e *Executor) rollback() error {
 
 	for i := len(e.reports) - 1; i >= 0; i-- {
 		res := e.reports[i]
-		if res.Error() != nil {
+		if res.Error != nil {
 			continue
 		}
 
 		var err error
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("rollback %q Action: %w", res.Action().Name(), ErrCompensateTimeout)
+			return fmt.Errorf("rollback %q Action: %w", res.Action.Name(), ErrCompensateTimeout)
 		case err = <-e.rollbackAction(ctx, res):
 		}
 
 		if err != nil {
-			return fmt.Errorf("rollback %q action: %w", res.Action().Name(), err)
+			return fmt.Errorf("rollback %q action: %w", res.Action.Name(), err)
 		}
 	}
 	return nil
@@ -596,9 +596,9 @@ func (e *Executor) rollback() error {
 func (e *Executor) rollbackAction(ctx context.Context, rep action.Report) <-chan error {
 	out := make(chan error)
 	go func() {
-		name := e.Compensator(rep.Action().Name())
+		name := e.Compensator(rep.Action.Name())
 		if name == "" {
-			out <- fmt.Errorf("find compensator for %q: %w", rep.Action().Name(), ErrActionNotFound)
+			out <- fmt.Errorf("find compensator for %q: %w", rep.Action.Name(), ErrActionNotFound)
 			return
 		}
 		comp := e.Action(name)

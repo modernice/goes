@@ -16,16 +16,16 @@ func TestReport(t *testing.T) {
 	end := start.Add(dur)
 	r := report.New(start, end)
 
-	if !r.Start().Equal(start) {
-		t.Errorf("Start() should return %v; got %v", start, r.Start())
+	if !r.Start.Equal(start) {
+		t.Errorf("Start() should return %v; got %v", start, r.Start)
 	}
 
-	if !r.End().Equal(end) {
-		t.Errorf("End() should return %v; got %v", end, r.End())
+	if !r.End.Equal(end) {
+		t.Errorf("End() should return %v; got %v", end, r.End)
 	}
 
-	if r.Runtime() != dur {
-		t.Errorf("Runtime() should return %v; got %v", dur, r.Runtime())
+	if r.Runtime != dur {
+		t.Errorf("Runtime() should return %v; got %v", dur, r.Runtime)
 	}
 }
 
@@ -33,8 +33,8 @@ func TestError(t *testing.T) {
 	mockError := errors.New("mock error")
 	r := report.New(time.Now(), time.Now(), report.Error(mockError))
 
-	if r.Error() != mockError {
-		t.Errorf("Error() should return %q; got %q", mockError, r.Error())
+	if r.Error != mockError {
+		t.Errorf("Error() should return %q; got %q", mockError, r.Error)
 	}
 }
 
@@ -46,30 +46,30 @@ func TestAction(t *testing.T) {
 	mockError := errors.New("mock error")
 	r := report.New(time.Now(), time.Now(), report.Action(act, start, end, action.Error(mockError)))
 
-	acts := r.Actions()
+	acts := r.Actions
 	if len(acts) != 1 {
 		t.Fatalf("r.Actions() should return %d Actions; got %d", 1, len(acts))
 	}
 
 	rep := acts[0]
-	if rep.Action() != act {
-		t.Errorf("rep.Action() should return %v; got %v", act, rep.Action())
+	if rep.Action != act {
+		t.Errorf("rep.Action() should return %v; got %v", act, rep.Action)
 	}
 
-	if !rep.Start().Equal(start) {
-		t.Errorf("rep.Start() should return %v; got %v", start, rep.Start())
+	if !rep.Start.Equal(start) {
+		t.Errorf("rep.Start() should return %v; got %v", start, rep.Start)
 	}
 
-	if !rep.End().Equal(end) {
-		t.Errorf("rep.End() should return %v; got %v", end, rep.End())
+	if !rep.End.Equal(end) {
+		t.Errorf("rep.End() should return %v; got %v", end, rep.End)
 	}
 
-	if rep.Runtime() != dur {
-		t.Errorf("rep.Runtime() should return %v; got %v", dur, rep.Runtime())
+	if rep.Runtime != dur {
+		t.Errorf("rep.Runtime() should return %v; got %v", dur, rep.Runtime)
 	}
 
-	if rep.Error() != mockError {
-		t.Errorf("rep.Error() should return %q; got %q", mockError, rep.Error())
+	if rep.Error != mockError {
+		t.Errorf("rep.Error() should return %q; got %q", mockError, rep.Error)
 	}
 }
 
@@ -91,27 +91,27 @@ func TestAction_grouping(t *testing.T) {
 	wantFailed := []string{"baz", "foobar", "barbaz", "bazfoo"}
 	wantCompensated := []string{"barbaz", "bazfoo"}
 
-	succeeded := r.Succeeded()
+	succeeded := r.Succeeded
 	for i, want := range wantSucceeded {
 		got := succeeded[i]
-		if got.Action().Name() != want {
-			t.Errorf("Succeeded()[%d].Action().Name() should return %q; got %q", i, want, got)
+		if got.Action.Name() != want {
+			t.Errorf("Succeeded()[%d].Action().Name() should return %q; got %q", i, want, got.Action.Name())
 		}
 	}
 
-	failed := r.Failed()
+	failed := r.Failed
 	for i, want := range wantFailed {
 		got := failed[i]
-		if got.Action().Name() != want {
-			t.Errorf("Failed()[%d].Action().Name() should return %q; got %q", i, want, got)
+		if got.Action.Name() != want {
+			t.Errorf("Failed()[%d].Action().Name() should return %q; got %q", i, want, got.Action.Name())
 		}
 	}
 
-	compensated := r.Compensated()
+	compensated := r.Compensated
 	for i, want := range wantCompensated {
 		got := compensated[i]
-		if got.Action().Name() != want {
-			t.Errorf("Compensated()[%d].Action().Name() should return %q; got %q", i, want, got)
+		if got.Action.Name() != want {
+			t.Errorf("Compensated()[%d].Action().Name() should return %q; got %q", i, want, got.Action.Name())
 		}
 	}
 }

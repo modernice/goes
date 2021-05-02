@@ -10,7 +10,7 @@ import (
 type Report struct {
 	Command Command
 	Runtime time.Duration
-	Err     error
+	Error   error
 }
 
 type Command struct {
@@ -44,10 +44,10 @@ func Runtime(d time.Duration) Option {
 // Report.
 func Error(err error) Option {
 	return func(r *Report) {
-		r.Err = err
+		r.Error = err
 	}
 }
 
 func (r *Report) Report(rep Report) {
-	*r = New(rep.Command, Runtime(rep.Runtime), Error(rep.Err))
+	*r = New(rep.Command, Runtime(rep.Runtime), Error(rep.Error))
 }

@@ -35,7 +35,7 @@ func TestReport_Report(t *testing.T) {
 		t.Errorf("r.Runtime() should return %v; got %v", r.Runtime, d)
 	}
 
-	if r.Err != err {
-		t.Errorf("r.Err() should return %v; got %v", err, r.Err)
+	if r.Error != err {
+		t.Errorf("r.Err() should return %v; got %v", err, r.Error)
 	}
 }
