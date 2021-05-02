@@ -40,6 +40,8 @@ type Unmarshaler interface {
 // Marshal encodes the given Aggregate into a byte slice. Implementations of
 // Aggregate must implement Marshaler for Marshal to return anything other than
 // nil. If the Aggregate does not implement Marshaler, Marshal returns nil, nil.
+//
+// TODO: return an error when Aggregate does not implement Marshaler?
 func Marshal(a aggregate.Aggregate) ([]byte, error) {
 	if m, ok := a.(Marshaler); ok {
 		return m.MarshalSnapshot()
@@ -47,9 +49,11 @@ func Marshal(a aggregate.Aggregate) ([]byte, error) {
 	return nil, nil
 }
 
-// Unmarshal decodes the Snapshot in p into the Aggregate a by calling
-// a.UnmarshalSnapshot(p). Unmarshal always returns nil if the Aggregate does
+// Unmarshal decodes the Snapshot s into the Aggregate a by calling
+// a.UnmarshalSnapshot(s.State()). Unmarshal returns nil if the Aggregate does
 // not implement Unmarshaler.
+//
+// TODO: return an error if the Aggregate does not implement Unmarshaler?
 func Unmarshal(s Snapshot, a aggregate.Aggregate) error {
 	a.SetVersion(s.AggregateVersion())
 	if u, ok := a.(Unmarshaler); ok {
