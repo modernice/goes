@@ -123,12 +123,12 @@ func TestBus_Dispatch_Report(t *testing.T) {
 		t.Fatalf("Dispatch should return an error that contains %q; got %q", mockError.Error(), execError.Error())
 	}
 
-	if rep.Command().ID() != cmd.ID() {
-		t.Errorf("Report has wrong Command ID. want=%s got=%s", cmd.ID(), rep.Command().ID())
+	if rep.Command.ID != cmd.ID() {
+		t.Errorf("Report has wrong Command ID. want=%s got=%s", cmd.ID(), rep.Command.ID)
 	}
 
-	if rep.Runtime() != dur {
-		t.Errorf("Report has wrong runtime. want=%s got=%s", dur, rep.Runtime())
+	if rep.Runtime != dur {
+		t.Errorf("Report has wrong runtime. want=%s got=%s", dur, rep.Runtime)
 	}
 }
 

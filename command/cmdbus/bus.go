@@ -322,7 +322,13 @@ func (b *Bus) handleDispatchEvent(
 
 		if cfg.Reporter != nil {
 			cfg.Reporter.Report(report.New(
-				cmd,
+				report.Command{
+					Name:          cmd.Name(),
+					ID:            cmd.ID(),
+					AggregateName: cmd.AggregateName(),
+					AggregateID:   cmd.AggregateID(),
+					Payload:       cmd.Payload(),
+				},
 				report.Error(err),
 				report.Runtime(data.Runtime),
 			))

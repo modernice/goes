@@ -2,6 +2,7 @@ package cmdctx
 
 import (
 	"context"
+	"sync"
 
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/finish"
@@ -12,6 +13,8 @@ type cmdctx struct {
 
 	cmd      command.Command
 	whenDone func(context.Context, finish.Config) error
+	mux      sync.Mutex
+	finished bool
 }
 
 // Option is a Context option.
@@ -42,6 +45,12 @@ func (ctx *cmdctx) Command() command.Command {
 }
 
 func (ctx *cmdctx) Finish(c context.Context, opts ...finish.Option) error {
+	ctx.mux.Lock()
+	defer ctx.mux.Unlock()
+	if ctx.finished {
+		return command.ErrAlreadyFinished
+	}
+	ctx.finished = true
 	if ctx.whenDone != nil {
 		return ctx.whenDone(c, finish.Configure(opts...))
 	}

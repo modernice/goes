@@ -4,11 +4,17 @@ package command
 
 import (
 	"context"
+	"errors"
 	"io"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/finish"
+)
+
+var (
+	// ErrAlreadyFinished is returned when a Command is finished multiple times.
+	ErrAlreadyFinished = errors.New("Command already finished")
 )
 
 // A Command represents a command in the business model of an application or
@@ -92,19 +98,7 @@ type DispatchOption func(*DispatchConfig)
 
 // A Reporter reports execution results of a Command.
 type Reporter interface {
-	Report(Report)
-}
-
-// A Report provides information about the execution of a Command.
-type Report interface {
-	// Command returns the executed Command.
-	Command() Command
-
-	// Runtime returns the runtime of the execution.
-	Runtime() time.Duration
-
-	// Err returns the error that made the execution fail.
-	Err() error
+	Report(report.Report)
 }
 
 // Context is the context for handling Commands.

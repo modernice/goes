@@ -75,3 +75,19 @@ func TestContext_Finish_default(t *testing.T) {
 		t.Errorf("ctx.Done() should return nil when WhenDone is not used")
 	}
 }
+
+func TestContext_Finish_multipleTimes(t *testing.T) {
+	cmd := command.New("foo", mockPayload{})
+	ctx := cmdctx.New(context.Background(), cmd)
+
+	err := ctx.Finish(context.Background())
+
+	if err != nil {
+		t.Fatalf("ctx.Finish shouldn't fail; failed with %q", err)
+	}
+
+	err = ctx.Finish(context.Background())
+	if !errors.Is(err, command.ErrAlreadyFinished) {
+		t.Fatalf("multiple calls ctx.Finish should fail with %q; got %v", command.ErrAlreadyFinished, err)
+	}
+}
