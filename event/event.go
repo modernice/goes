@@ -9,24 +9,22 @@ import (
 	"github.com/google/uuid"
 )
 
-// An Event unifies two different concepts of events: It can be an Event in the
-// history of an event-sourced Aggregate or it can be a generic application or
-// integration Event that doesn't belong to an Aggregate.
+// An Event describes something that has happened in the application or
+// specifically something that has happened to an Aggregate in the application.
 //
 // Publish & Subscribe
 //
 // An Event can be published through a Bus and sent to subscribers of Events
-// with the same name; a subscriber who listens for "foo" events would receive
-// the published Event e if e.Name() returns "foo".
+// with the same name.
 //
 // Example (publish):
-// 	var b Bus
-// 	evt := New("foo", someData{})
+// 	var b event.Bus
+// 	evt := event.New("foo", someData{})
 // 	err := b.Publish(context.TODO(), evt)
 // 	// handle err
 //
 // Example (subscribe):
-// 	var b Bus
+// 	var b event.Bus
 // 	res, errs, err := b.Subscribe(context.TODO(), "foo")
 // 	// handle err
 //	err := event.Walk(context.TODO(), func(e event.Event) {
@@ -45,9 +43,9 @@ type Event interface {
 
 	// AggregateName returns the name of the Aggregate the Event belongs to.
 	AggregateName() string
-	// AggregateID returns the id of the Aggregate the Event belongs to.
+	// AggregateID returns the UUID of the Aggregate the Event belongs to.
 	AggregateID() uuid.UUID
-	// AggregateVersion returns the version of the Aggregate the Event belongs to.
+	// AggregateVersion returns the version of the Aggregate the Event is equal to.
 	AggregateVersion() int
 }
 
@@ -67,8 +65,14 @@ type event struct {
 	aggregateVersion int
 }
 
-// New returns an Event with the specified name and Data. New automatically
-// generates a UUID for the Event and sets its timestamp to time.Now().
+// New creates an Event with the given name and Data. A UUID is generated for
+// the Event and its time is set to time.Now().
+//
+// Provide Options to override or add data to the Event:
+//	ID(uuid.UUID): Use a custom UUID
+//	Time(time.Time): Use a custom Time
+//	Aggregate(string, uuid.UUID, int): Add Aggregate data
+//	Previous(event.Event): Set Aggregate data based on previous Event
 func New(name string, data Data, opts ...Option) Event {
 	evt := event{
 		id:   uuid.New(),
