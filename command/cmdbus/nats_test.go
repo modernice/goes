@@ -12,13 +12,13 @@ import (
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/encoding"
-	eventenc "github.com/modernice/goes/event/encoding"
+	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/natsbus"
 	"github.com/nats-io/stan.go"
 )
 
 func TestBus_NATS(t *testing.T) {
-	ereg := eventenc.NewGobEncoder()
+	ereg := event.NewRegistry()
 	cmdbus.RegisterEvents(ereg)
 	enc := encoding.NewGobEncoder()
 	enc.Register("foo-cmd", func() command.Payload { return mockPayload{} })

@@ -167,6 +167,20 @@ func (mr *MockQueryMockRecorder) AggregateVersions() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateVersions", reflect.TypeOf((*MockQuery)(nil).AggregateVersions))
 }
 
+// Aggregates mocks base method.
+func (m *MockQuery) Aggregates() []event.AggregateTuple {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Aggregates")
+	ret0, _ := ret[0].([]event.AggregateTuple)
+	return ret0
+}
+
+// Aggregates indicates an expected call of Aggregates.
+func (mr *MockQueryMockRecorder) Aggregates() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Aggregates", reflect.TypeOf((*MockQuery)(nil).Aggregates))
+}
+
 // IDs mocks base method.
 func (m *MockQuery) IDs() []uuid.UUID {
 	m.ctrl.T.Helper()

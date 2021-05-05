@@ -2,7 +2,6 @@ package test
 
 import (
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/encoding"
 )
 
 // FooEventData is a testing event.Data.
@@ -21,15 +20,15 @@ type UnregisteredEventData struct{ A string }
 // NewEncoder returns a "gob" event.Encoder with registered "foo", "bar" and
 // "baz" events.
 func NewEncoder() event.Registry {
-	enc := encoding.NewGobEncoder()
-	enc.Register("foo", func() event.Data {
+	reg := event.NewRegistry()
+	reg.Register("foo", func() event.Data {
 		return FooEventData{}
 	})
-	enc.Register("bar", func() event.Data {
+	reg.Register("bar", func() event.Data {
 		return BarEventData{}
 	})
-	enc.Register("baz", func() event.Data {
+	reg.Register("baz", func() event.Data {
 		return BazEventData{}
 	})
-	return enc
+	return reg
 }
