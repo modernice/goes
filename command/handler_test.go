@@ -12,7 +12,6 @@ import (
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/cmdbus/report"
-	"github.com/modernice/goes/command/encoding"
 	"github.com/modernice/goes/event/eventbus/chanbus"
 )
 
@@ -164,7 +163,7 @@ L:
 }
 
 func newEncoder() command.Registry {
-	r := encoding.NewGobEncoder()
-	r.Register("foo-cmd", func() command.Payload { return mockPayload{} })
-	return r
+	reg := command.NewRegistry()
+	reg.Register("foo-cmd", func() command.Payload { return mockPayload{} })
+	return reg
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/cmdbus/report"
-	"github.com/modernice/goes/command/encoding"
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
@@ -233,7 +232,7 @@ func TestAssignTimeout_0(t *testing.T) {
 	go func() { dispatchErrc <- bus.Dispatch(context.Background(), cmd) }()
 
 	select {
-	case _ = <-dispatchErrc:
+	case <-dispatchErrc:
 		t.Fatalf("Dispatch should never return")
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -343,7 +342,7 @@ L:
 }
 
 func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, command.Encoder) {
-	enc := encoding.NewGobEncoder()
+	enc := command.NewRegistry()
 	enc.Register("foo-cmd", func() command.Payload {
 		return mockPayload{}
 	})

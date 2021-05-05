@@ -1,11 +1,10 @@
 package command
 
-//go:generate mockgen -destination=./mocks/command.go . Command,Encoder,Bus,Registry
+//go:generate mockgen -destination=./mocks/command.go . Command,Bus
 
 import (
 	"context"
 	"errors"
-	"io"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/command/cmdbus/report"
@@ -41,29 +40,6 @@ type Command interface {
 
 // Payload is the payload of a Command.
 type Payload interface{}
-
-// An Encoder encodes and decodes Payloads.
-type Encoder interface {
-	// Encode encodes the given Payload for a Command with the given name and
-	// writes the result into the Writer.
-	Encode(io.Writer, string, Payload) error
-
-	// Decode decodes the Payload for a Command with the given name from the
-	// provided Reader.
-	Decode(string, io.Reader) (Payload, error)
-}
-
-// A Registry is an Encoder that also allows to register new Commands into it
-// and instantiate Payloads from Command names.
-type Registry interface {
-	Encoder
-
-	// Register registers the Payload factory for Commands with the given name.
-	Register(string, func() Payload)
-
-	// New makes and returns a fresh Payload for a Command with the given name.
-	New(string) (Payload, error)
-}
 
 // A Bus dispatches Commands to appropriate handlers.
 type Bus interface {
