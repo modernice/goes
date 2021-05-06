@@ -525,9 +525,9 @@ func (err *VersionError) Error() string {
 
 func makeFilter(q event.Query) bson.D {
 	filter := make(bson.D, 0)
-	filter = withNameFilter(filter, q.Names()...)
 	filter = withIDFilter(filter, q.IDs()...)
 	filter = withTimeFilter(filter, q.Times())
+	filter = withNameFilter(filter, q.Names()...)
 	filter = withAggregateNameFilter(filter, q.AggregateNames()...)
 	filter = withAggregateIDFilter(filter, q.AggregateIDs()...)
 	filter = withAggregateVersionFilter(filter, q.AggregateVersions())
