@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"sync"
-	stdtime "time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
@@ -327,11 +325,6 @@ func (j *baseJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOption
 }
 
 func (j *baseJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
-	start := stdtime.Now()
-	defer func() {
-		log.Printf("Fetching Events took %v\n", stdtime.Since(start))
-	}()
-
 	cfg := configureApply(opts...)
 
 	if ctx == nil {
@@ -344,12 +337,7 @@ func (j *baseJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOp
 func (j *baseJob) buildQuery(p EventApplier, cfg applyConfig) event.Query {
 	queryOpts := []query.Option{
 		query.Name(j.eventNames...),
-		query.SortByMulti(
-			event.SortOptions{Sort: event.SortTime, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
-		),
+		query.SortBy(event.SortTime, event.SortAsc),
 	}
 
 	if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {

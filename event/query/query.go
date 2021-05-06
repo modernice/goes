@@ -44,14 +44,30 @@ func New(opts ...Option) Query {
 // Name returns an Option that filters events by their names.
 func Name(names ...string) Option {
 	return func(b *builder) {
-		b.names = append(b.names, names...)
+	L:
+		for _, name := range names {
+			for _, n := range b.names {
+				if n == name {
+					continue L
+				}
+			}
+			b.names = append(b.names, names...)
+		}
 	}
 }
 
 // ID returns an Option that filters events by their ids.
 func ID(ids ...uuid.UUID) Option {
 	return func(b *builder) {
-		b.ids = append(b.ids, ids...)
+	L:
+		for _, id := range ids {
+			for _, id2 := range b.ids {
+				if id2 == id {
+					continue L
+				}
+			}
+			b.ids = append(b.ids, ids...)
+		}
 	}
 }
 
@@ -65,14 +81,30 @@ func Time(constraints ...time.Constraint) Option {
 // AggregateName returns an Option that filters events by their aggregate names.
 func AggregateName(names ...string) Option {
 	return func(b *builder) {
-		b.aggregateNames = append(b.aggregateNames, names...)
+	L:
+		for _, name := range names {
+			for _, n := range b.aggregateNames {
+				if n == name {
+					continue L
+				}
+			}
+			b.aggregateNames = append(b.aggregateNames, name)
+		}
 	}
 }
 
 // AggregateID returns an Option that filters events by their aggregate ids.
 func AggregateID(ids ...uuid.UUID) Option {
 	return func(b *builder) {
-		b.aggregateIDs = append(b.aggregateIDs, ids...)
+	L:
+		for _, id := range ids {
+			for _, id2 := range b.aggregateIDs {
+				if id2 == id {
+					continue L
+				}
+			}
+			b.aggregateIDs = append(b.aggregateIDs, id)
+		}
 	}
 }
 
@@ -87,6 +119,11 @@ func AggregateVersion(constraints ...version.Constraint) Option {
 // Aggregate returns an Option that filters Events by a specific Aggregate.
 func Aggregate(name string, id uuid.UUID) Option {
 	return func(b *builder) {
+		for _, at := range b.aggregates {
+			if at.Name == name && at.ID == id {
+				return
+			}
+		}
 		b.aggregates = append(b.aggregates, event.AggregateTuple{Name: name, ID: id})
 	}
 }
@@ -94,21 +131,35 @@ func Aggregate(name string, id uuid.UUID) Option {
 // Aggregates returns an Option that filters Events by specific Aggregates.
 func Aggregates(aggregates ...event.AggregateTuple) Option {
 	return func(b *builder) {
-		b.aggregates = append(b.aggregates, aggregates...)
+	L:
+		for _, at := range aggregates {
+			for _, at2 := range b.aggregates {
+				if at2 == at {
+					continue L
+				}
+			}
+			b.aggregates = append(b.aggregates, at)
+		}
 	}
 }
 
 // SortBy returns an Option that defines the sorting behaviour for a query.
 func SortBy(sort event.Sorting, dir event.SortDirection) Option {
-	return func(b *builder) {
-		b.sortings = []event.SortOptions{{Sort: sort, Dir: dir}}
-	}
+	return SortByMulti(event.SortOptions{Sort: sort, Dir: dir})
 }
 
 // SortByMulti returns an Option that defines the sorting behaviour for a query.
 func SortByMulti(sorts ...event.SortOptions) Option {
 	return func(b *builder) {
-		b.sortings = append(b.sortings, sorts...)
+	L:
+		for _, s := range sorts {
+			for _, s2 := range b.sortings {
+				if s2 == s {
+					continue L
+				}
+			}
+			b.sortings = append(b.sortings, s)
+		}
 	}
 }
 

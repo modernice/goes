@@ -364,7 +364,9 @@ func (s *Store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 	opts := options.Find()
 	opts = applySortings(opts, q.Sortings()...)
 
-	cur, err := s.entries.Find(ctx, makeFilter(q), opts)
+	f := makeFilter(q)
+
+	cur, err := s.entries.Find(ctx, f, opts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("mongo: %w", err)
 	}

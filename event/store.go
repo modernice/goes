@@ -19,7 +19,9 @@ const (
 	SortAggregateID
 	// SortAggregateVersion sorts events by their aggregate version.
 	SortAggregateVersion
+)
 
+const (
 	// SortAsc sorts events in ascending order.
 	SortAsc = SortDirection(iota)
 	// SortDesc sorts events in descending order.
