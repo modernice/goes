@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"log"
 	"sync"
+	stdtime "time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
@@ -325,6 +327,11 @@ func (j *baseJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOption
 }
 
 func (j *baseJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
+	start := stdtime.Now()
+	defer func() {
+		log.Printf("Fetching Events took %v\n", stdtime.Since(start))
+	}()
+
 	cfg := configureApply(opts...)
 
 	if ctx == nil {
