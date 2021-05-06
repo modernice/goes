@@ -313,7 +313,7 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error {
 	q := query.Merge(append([]event.Query{query.New(
 		query.Name(s.eventNames...),
-		query.SortByAggregate(),
+		query.SortBy(event.SortTime, event.SortAsc),
 	)}, queries...)...)
 
 	s.mux.Lock()
@@ -417,7 +417,7 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) error {
 	q := query.Merge(append([]event.Query{query.New(
 		query.Name(s.eventNames...),
-		query.SortByAggregate(),
+		query.SortBy(event.SortTime, event.SortAsc),
 	)}, queries...)...)
 
 	s.mux.Lock()
