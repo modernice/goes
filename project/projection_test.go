@@ -16,8 +16,8 @@ func TestProgressor_ProgressProjection(t *testing.T) {
 
 	p.ProgressProjection(now)
 
-	if !now.Equal(p.LatestEventTime) {
-		t.Fatalf("LatestEventTime should be %v; got %v", now, p.LatestEventTime)
+	if now.UnixNano() != p.LatestEventTime {
+		t.Fatalf("LatestEventTime should be %v; got %v", now.UnixNano(), p.LatestEventTime)
 	}
 
 	latest := p.ProjectionProgress()
@@ -41,8 +41,8 @@ func TestApply_progressor(t *testing.T) {
 		t.Fatalf("Apply shouldn't fail; failed with %q", err)
 	}
 
-	if !p.LatestEventTime.Equal(now.Add(time.Hour)) {
-		t.Fatalf("LatestEventTime should be %v; got %v", now.Add(time.Hour), p.LatestEventTime)
+	if p.LatestEventTime != now.Add(time.Hour).UnixNano() {
+		t.Fatalf("LatestEventTime should be %v; got %v", now.Add(time.Hour).UnixNano(), p.LatestEventTime)
 	}
 }
 
