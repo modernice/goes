@@ -27,7 +27,7 @@ type Job interface {
 	// EventsFor returns the Events that would be applied to the given
 	// projection. If the projection provides a `LatestEventTime` method, it is
 	// used to only query Events that happened after that time.
-	EventsFor(context.Context, EventApplier, ...ApplyOption) ([]event.Event, error)
+	EventsFor(context.Context, EventApplier) ([]event.Event, error)
 
 	// Aggregates returns a map of Aggregate names to UUIDs, extracted from the
 	// Events of the Job.
@@ -45,20 +45,13 @@ type Job interface {
 
 	// Apply applies the projection on an EventApplier, which is usually a type
 	// that embeds *Projection.
-	Apply(context.Context, EventApplier, ...ApplyOption) error
-}
-
-// ApplyOption is an option for applying a projection Job.
-type ApplyOption func(*applyConfig)
-
-type applyConfig struct {
-	fromBase bool
+	Apply(context.Context, EventApplier) error
 }
 
 type continuousJob struct {
 	*baseJob
 
-	events []event.Event
+	scheduleEvents []event.Event
 }
 
 type periodicJob struct {
@@ -68,22 +61,17 @@ type periodicJob struct {
 type baseJob struct {
 	*cache
 
-	ctx        context.Context
-	cfg        subscribeConfig
-	store      event.Store
-	eventNames []string
-	query      event.Query
+	ctx          context.Context
+	cfg          subscribeConfig
+	store        event.Store
+	eventNames   []string
+	triggerQuery event.Query
 }
 
 type cache struct {
 	sync.Mutex
 
 	cache map[[32]byte][]event.Event
-}
-
-type cacheHasher struct {
-	cfg   applyConfig
-	query event.Query
 }
 
 func newContinuousJob(
@@ -96,14 +84,14 @@ func newContinuousJob(
 ) *continuousJob {
 	return &continuousJob{
 		baseJob: &baseJob{
-			cache:      newCache(),
-			ctx:        ctx,
-			cfg:        cfg,
-			store:      store,
-			query:      query,
-			eventNames: eventNames,
+			cache:        newCache(),
+			ctx:          ctx,
+			cfg:          cfg,
+			store:        store,
+			triggerQuery: query,
+			eventNames:   eventNames,
 		},
-		events: events,
+		scheduleEvents: events,
 	}
 }
 
@@ -130,14 +118,13 @@ func (j *continuousJob) EventsOf(ctx context.Context, names ...string) ([]event.
 	return filtered, nil
 }
 
-func (j *continuousJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
-	cfg := configureApply(opts...)
-
-	if !cfg.fromBase && j.events != nil {
-		return j.events, nil
+func (j *continuousJob) EventsFor(ctx context.Context, p EventApplier) ([]event.Event, error) {
+	// j.scheduleEvents is nil if the Schedule was triggered manually
+	if j.scheduleEvents != nil {
+		return j.scheduleEvents, nil
 	}
 
-	return j.baseJob.EventsFor(ctx, p, opts...)
+	return j.baseJob.EventsFor(ctx, p)
 }
 
 func (j *continuousJob) Aggregates(ctx context.Context) (map[string][]uuid.UUID, error) {
@@ -199,12 +186,12 @@ func (j *continuousJob) Aggregate(ctx context.Context, name string) (uuid.UUID, 
 	return ids[0], nil
 }
 
-func (j *continuousJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOption) error {
+func (j *continuousJob) Apply(ctx context.Context, p EventApplier) error {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	events, err := j.EventsFor(ctx, p, opts...)
+	events, err := j.EventsFor(ctx, p)
 	if err != nil {
 		return err
 	}
@@ -215,12 +202,12 @@ func (j *continuousJob) Apply(ctx context.Context, p EventApplier, opts ...Apply
 func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string, query event.Query) *periodicJob {
 	return &periodicJob{
 		baseJob: &baseJob{
-			cache:      newCache(),
-			ctx:        ctx,
-			cfg:        cfg,
-			store:      store,
-			eventNames: eventNames,
-			query:      query,
+			cache:        newCache(),
+			ctx:          ctx,
+			cfg:          cfg,
+			store:        store,
+			eventNames:   eventNames,
+			triggerQuery: query,
 		},
 	}
 }
@@ -311,12 +298,12 @@ func (j *periodicJob) Aggregate(ctx context.Context, name string) (uuid.UUID, er
 	return ids[0], nil
 }
 
-func (j *baseJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOption) error {
+func (j *baseJob) Apply(ctx context.Context, p EventApplier) error {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	events, err := j.EventsFor(ctx, p, opts...)
+	events, err := j.EventsFor(ctx, p)
 	if err != nil {
 		return err
 	}
@@ -324,35 +311,36 @@ func (j *baseJob) Apply(ctx context.Context, p EventApplier, opts ...ApplyOption
 	return Apply(events, p)
 }
 
-func (j *baseJob) EventsFor(ctx context.Context, p EventApplier, opts ...ApplyOption) ([]event.Event, error) {
-	cfg := configureApply(opts...)
-
+func (j *baseJob) EventsFor(ctx context.Context, p EventApplier) ([]event.Event, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	return j.eventsFor(ctx, p, cfg, j.buildQuery(p, cfg))
+	return j.eventsFor(ctx, p, j.buildQuery(p))
 }
 
-func (j *baseJob) buildQuery(p EventApplier, cfg applyConfig) event.Query {
+func (j *baseJob) buildQuery(p EventApplier) event.Query {
 	queryOpts := []query.Option{
 		query.Name(j.eventNames...),
 		query.SortBy(event.SortTime, event.SortAsc),
 	}
 
-	if p, ok := p.(latestEventTimeProvider); ok && !cfg.fromBase {
-		queryOpts = append(queryOpts, query.Time(time.After(p.LatestEventTime())))
+	if p, ok := p.(progressor); ok {
+		latest := p.ProjectionProgress()
+		if !latest.IsZero() {
+			queryOpts = append(queryOpts, query.Time(time.After(latest)))
+		}
 	}
 
-	return query.Merge(query.New(queryOpts...), j.cfg.filter, j.query)
+	return query.Merge(query.New(queryOpts...), j.cfg.filter, j.triggerQuery)
 }
 
-func (j *baseJob) eventsFor(ctx context.Context, proj EventApplier, cfg applyConfig, q event.Query) ([]event.Event, error) {
+func (j *baseJob) eventsFor(ctx context.Context, proj EventApplier, q event.Query) ([]event.Event, error) {
 	if ctx == nil {
 		ctx = j.ctx
 	}
 
-	return j.cache.ensure(ctx, cfg, q, proj, func(ctx context.Context) ([]event.Event, error) {
+	return j.cache.ensure(ctx, q, proj, func(ctx context.Context) ([]event.Event, error) {
 		str, errs, err := j.store.Query(ctx, q)
 		if err != nil {
 			return nil, fmt.Errorf("query Events: %w", err)
@@ -373,18 +361,13 @@ func newCache() *cache {
 
 func (c *cache) ensure(
 	ctx context.Context,
-	cfg applyConfig,
 	query event.Query,
 	proj EventApplier,
 	fetch func(ctx context.Context) ([]event.Event, error),
 ) ([]event.Event, error) {
-	c.Lock()
-	ce := cacheHasher{
-		cfg:   cfg,
-		query: query,
-	}
-	h := ce.hash()
+	h := hashQuery(query)
 
+	c.Lock()
 	if events, ok := c.cache[h]; ok {
 		out := make([]event.Event, len(events))
 		copy(out, events)
@@ -408,14 +391,6 @@ func (c *cache) ensure(
 	return out, nil
 }
 
-func (ce cacheHasher) hash() [32]byte {
-	return sha256.Sum256([]byte(fmt.Sprintf("%v", ce)))
-}
-
-func configureApply(opts ...ApplyOption) applyConfig {
-	var cfg applyConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-	return cfg
+func hashQuery(q event.Query) [32]byte {
+	return sha256.Sum256([]byte(fmt.Sprintf("%v", q)))
 }

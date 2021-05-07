@@ -1,9 +1,11 @@
 package consistency_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
@@ -188,6 +190,36 @@ func TestValidate_version(t *testing.T) {
 				t.Fatalf("Validate returnded wrong events\n\nwant: %#v\n\ngot: %#v\n\n", want, cerr)
 			}
 		})
+	}
+}
+
+func TestValidate_time(t *testing.T) {
+	id := uuid.New()
+	now := time.Now()
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}, event.Aggregate("foo", id, 1), event.Time(now)),
+		event.New("bar", test.BarEventData{}, event.Aggregate("foo", id, 2), event.Time(now.Add(time.Nanosecond))),
+		event.New("baz", test.BazEventData{}, event.Aggregate("foo", id, 3), event.Time(now.Add(time.Nanosecond))),
+		event.New("foo", test.FooEventData{}, event.Aggregate("foo", id, 4), event.Time(now.Add(2*time.Nanosecond))),
+		event.New("bar", test.BarEventData{}, event.Aggregate("foo", id, 5), event.Time(now.Add(time.Second))),
+		event.New("baz", test.BazEventData{}, event.Aggregate("foo", id, 6), event.Time(now.Add(time.Minute))),
+	}
+
+	a := aggregate.New("foo", id)
+
+	err := consistency.Validate(a, events...)
+
+	var consistencyErr *consistency.Error
+	if !errors.As(err, &consistencyErr) {
+		t.Fatalf("Validate should return a %T; got %T", consistencyErr, err)
+	}
+
+	if consistencyErr.Event() != events[2] {
+		t.Fatalf("Event should return %v; got %v", events[2], consistencyErr.Event())
+	}
+
+	if consistencyErr.Kind != consistency.Time {
+		t.Fatalf("Kind should be %v; got %v", consistency.Time, consistencyErr.Kind)
 	}
 }
 

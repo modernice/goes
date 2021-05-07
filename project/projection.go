@@ -11,37 +11,21 @@ type EventApplier interface {
 	ApplyEvent(event.Event)
 }
 
-// Projection can be embedded into structs so that they can be used as projections.
-//
-// Example:
-//	type Example struct {
-//		*project.Projection
-//	}
-//
-//	func NewExample() *Example {
-//		return &Example{
-//			Projection: project.NewProjection()
-//		}
-//	}
-type Projection struct {
-	LatestEventAppliedAt int64
+// Progressor can be embedded into a projection and enables the projection to
+// be resumed the latest update that has been applied. A projection Job can
+// optimize Event Queries for a specific projection that embeds a Progressor.
+type Progressor struct {
+	// LatestEvenTime is the Time of the last applied Event.
+	LatestEventTime time.Time
 }
 
-type latestEventTimeProvider interface {
-	LatestEventTime() time.Time
-}
-
-type postEventApplier interface {
-	PostApplyEvent(event.Event)
+type progressor interface {
+	ProgressProjection(time.Time)
+	ProjectionProgress() time.Time
 }
 
 type guard interface {
-	Guard(event.Event) bool
-}
-
-// NewProjection returns a Projection that can be embedded into a struct.
-func NewProjection() *Projection {
-	return &Projection{}
+	GuardProjection(event.Event) bool
 }
 
 // Apply projects the provided Events onto the given EventApplier, which in
@@ -54,38 +38,34 @@ func NewProjection() *Projection {
 // If proj provides a `PostApplyEvent(event.Event)` method, that method is
 // called after an Event has been applied with that Event as the argument.
 func Apply(events []event.Event, proj EventApplier) error {
-	postApplier, hasPostApply := proj.(postEventApplier)
+	if len(events) == 0 {
+		return nil
+	}
+
 	guard, isGuard := proj.(guard)
 
 	for _, evt := range events {
-		if isGuard && !guard.Guard(evt) {
+		if isGuard && !guard.GuardProjection(evt) {
 			continue
 		}
 
 		proj.ApplyEvent(evt)
+	}
 
-		if hasPostApply {
-			postApplier.PostApplyEvent(evt)
-		}
+	if p, ok := proj.(progressor); ok {
+		latest := events[len(events)-1]
+		p.ProgressProjection(latest.Time())
 	}
 
 	return nil
 }
 
-// PostApplyEvent is called by a Projector after the given Event has been
-// applied and sets the LatestEventTime to evt.Time().
-func (p *Projection) PostApplyEvent(evt event.Event) {
-	t := time.Unix(0, p.LatestEventAppliedAt)
-	if evt != nil && evt.Time().After(t) {
-		p.LatestEventAppliedAt = evt.Time().UnixNano()
-	}
+// ProgressProjection updates the projection progress to the provided Time.
+func (p *Progressor) ProgressProjection(latestEventTime time.Time) {
+	p.LatestEventTime = latestEventTime
 }
 
-// LatestEventTime returns the time of the latest applied Event.
-func (p *Projection) LatestEventTime() time.Time {
-	return time.Unix(0, p.LatestEventAppliedAt)
+// ProjectionProgress returns the latest Event time of the projection.
+func (p *Progressor) ProjectionProgress() time.Time {
+	return p.LatestEventTime
 }
-
-// ApplyEvent implements EventApplier. Structs that embed Projection should
-// reimplement ApplyEvent.
-func (p *Projection) ApplyEvent(event.Event) {}

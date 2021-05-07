@@ -113,14 +113,14 @@ func Filter(filter event.Query) SubscribeOption {
 	}
 }
 
-// FromBase returns an Option that ensures that a projection is built with every
-// Event from the past instead of just the new Events since the last time the
-// specific projection has been run.
-func FromBase() ApplyOption {
-	return func(c *applyConfig) {
-		c.fromBase = true
-	}
-}
+// // FromBase returns an Option that ensures that a projection is built with every
+// // Event from the past instead of just the new Events since the last time the
+// // specific projection has been run.
+// func FromBase() ApplyOption {
+// 	return func(c *applyConfig) {
+// 		c.fromBase = true
+// 	}
+// }
 
 // Debounce returns a ContinuousOption that debounces received Events by the
 // given Duration before a projection Job is created.

@@ -8,14 +8,22 @@ import (
 )
 
 const (
-	// UnknownKind is the default Kind (and is invalid).
+	// UnknownKind is the invalid Kind.
 	UnknownKind = Kind(iota)
+
 	// ID means there is an inconsistency in the ID of an Aggregate.
 	ID
-	// Name means there is an inconsistency in the name of an Aggregate.
+
+	// Name means there is an inconsistency in the Aggregate names of the Events
+	// of an Aggregate.
 	Name
-	// Version means there is an inconsistency in the version of an Aggregate.
+
+	// Version means there is an inconsistency in the Event versions of an
+	// Aggregate.
 	Version
+
+	// Time means there is an inconsistency in the Event times of an Aggregate.
+	Time
 )
 
 // Error is a consistency error.
@@ -54,6 +62,9 @@ type Aggregate interface {
 // means that events[0].AggregateVersion() must equal a.AggregateVersion() + 1,
 // events[1].AggregateVersion() must equal a.AggregateVersion() + 2 etc.
 //
+// An Event a is also invalid if its time is equal to or after the time of the
+// previous Event.
+//
 // The first Event e in events that is invalid causes Validate to return an
 // *Error containing the Kind of inconsistency and the Event that caused the
 // inconsistency.
@@ -62,6 +73,7 @@ func Validate(a Aggregate, events ...event.Event) error {
 	name := a.AggregateName()
 	version := currentVersion(a)
 	cv := version
+	var prev event.Event
 	for i, evt := range events {
 		if evt.AggregateID() != id {
 			return &Error{
@@ -87,6 +99,15 @@ func Validate(a Aggregate, events ...event.Event) error {
 				EventIndex: i,
 			}
 		}
+		if prev != nil && (prev.Time().Equal(evt.Time()) || prev.Time().After(evt.Time())) {
+			return &Error{
+				Kind:       Time,
+				Aggregate:  a,
+				Events:     events,
+				EventIndex: i,
+			}
+		}
+		prev = evt
 		cv++
 	}
 	return nil
