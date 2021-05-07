@@ -18,9 +18,7 @@ import (
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
-	"github.com/modernice/goes/command/encoding"
 	"github.com/modernice/goes/event"
-	eventenc "github.com/modernice/goes/event/encoding"
 	"github.com/modernice/goes/event/eventbus/natsbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/eventstore/mongostore"
@@ -41,7 +39,7 @@ func NewContext() context.Context {
 }
 
 func NewEventRegistry() event.Registry {
-	r := eventenc.NewGobEncoder()
+	r := event.NewRegistry()
 	RegisterEvents(r)
 	return r
 }
@@ -73,7 +71,7 @@ func NewCommandBus(events event.Bus) command.Bus {
 }
 
 func NewCommandRegistry() command.Registry {
-	r := encoding.NewGobEncoder()
+	r := command.NewRegistry()
 	RegisterCommands(r)
 	return r
 }

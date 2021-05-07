@@ -26,11 +26,13 @@ type TimelineRepository interface {
 
 // A Timeline is a projection of an Order that lists the steps of an Order as a timeline.
 type Timeline struct {
-	// Embedding a *project.Projection is not necessary, but enables a
-	// projection to be applied continuously because *project.Projection
-	// implements hooks that give the projector information on when the last
-	// Event has been applied to the projection etc.
-	*project.Projection `bson:"projection"`
+	// Embedding a *project.Progressor (or implementing project.progressor) is
+	// needed if a projection needs to be resumed from where its last Event has
+	// been applied. Otherwise Events that have already been applied would be
+	// applied again with the next projection Job.
+	//
+	// See TimelineProjector.applyJob for more information.
+	*project.Progressor
 
 	ID         uuid.UUID `bson:"id"`
 	PlacedAt   time.Time `bson:"placedAt"`
@@ -54,7 +56,7 @@ type TimelineProjector struct {
 // NewTimeline returns the Timeline for the Order with the given UUID.
 func NewTimeline(id uuid.UUID) *Timeline {
 	return &Timeline{
-		Projection: project.NewProjection(),
+		Progressor: &project.Progressor{},
 		ID:         id,
 	}
 }
@@ -67,15 +69,16 @@ func (tl *Timeline) Duration() (time.Duration, bool) {
 	return tl.CanceledAt.Sub(tl.PlacedAt), true
 }
 
-// Guard guards the projection from Events. Guard receives Events before they
-// are applied to the Timeline and determines if the Event should be applied.
+// GuardProjection guards the projection from Events. Guard receives Events
+// before they are applied to the Timeline and determines if the Event should be
+// applied.
 //
-// Here we are validating that the only apply Event of the "Order" Aggregate
-// and from those Events only those that belong to the Order with the UUID equal
-// to the UUID from the Timeline.
+// Here we are validating that we only apply Event of the "Order" Aggregate and
+// from those Events only those that belong to the Order with the UUID equal to
+// the UUID from the Timeline.
 //
-// A projection does not have to implement Guard, only ApplyEvent.
-func (tl *Timeline) Guard(evt event.Event) bool {
+// Implementing GuardProjection is optional.
+func (tl *Timeline) GuardProjection(evt event.Event) bool {
 	switch evt.AggregateName() {
 	case AggregateName: // "order"
 		return evt.AggregateID() == tl.ID
@@ -140,17 +143,21 @@ func NewTimelineProjector(bus event.Bus, store event.Store, repo TimelineReposit
 }
 
 // Run starts the TimelineProjector in the background and returns a channel of
-// projection errors. Callers must receive from the error channel.
+// projection errors. Callers must receive from the error channel to prevent
+// goroutine blocking.
 func (p *TimelineProjector) Run(ctx context.Context) (<-chan error, error) {
 	return p.schedule.Subscribe(ctx, p.applyJob)
 }
 
 // All projects the Timeline for every Order. This works by triggering the
-// projection Schedule that was subscribed to by a call to Run so that a
-// projection Job is created and passed to p.applyJob.
+// projection Schedule that was subscribed to by p.Run. When All is called,
+// p.applyJob received a projection Job for every Event that is one of the
+// configured Events in the Schedule (which in this case are all Order Events).
+// This means that EVERY Order Event in the Event Store is fetched when applying
+// the Job to a Timeline.
 //
-// All must not be called before Run has been called. Otherwise the projection
-// Job won't be executed by p.applyJob, because it hasn't been subscribed to the
+// All must not be called before Run has returned. Otherwise the projection Job
+// won't be executed by p.applyJob, because it hasn't been subscribed to the
 // Schedule yet.
 func (p *TimelineProjector) All(ctx context.Context) error {
 	return p.schedule.Trigger(ctx)
@@ -158,19 +165,27 @@ func (p *TimelineProjector) All(ctx context.Context) error {
 
 // Project projects the Timeline for the Order with the given UUID. This works
 // by triggering the projection Schedule with an additional Event Query that
-// only allows Events of "order" Aggregates with the given Aggregate UUID.
+// only allows Events of Order Aggregates with the given Aggregate UUID. The
+// Queries passed to Trigger are merged with the default Query from the Job and
+// that merged Query is used to query Events for a specific Timeline t when the
+// triggered projection Job is applied onto t.
 //
 // Project must not be called before Run has been called. Otherwise the projection
 // Job won't be executed by p.applyJob, because it hasn't been subscribed to the
 // Schedule yet.
 func (p *TimelineProjector) Project(ctx context.Context, id uuid.UUID) error {
-	return p.schedule.Trigger(ctx, query.New(query.Aggregate(AggregateName, id)))
+	return p.schedule.Trigger(ctx, query.New(
+		// If an Event is an Order Event, only allow it if its UUID is equal to
+		// the provided UUID:
+		query.Aggregate(AggregateName, id),
+	))
 }
 
 // applyJob applies a projection Job for Timelines.
 func (p *TimelineProjector) applyJob(j project.Job) error {
-	// First we extract the Order UUIDs from the Jobs Events. The Order UUIDs
-	// are extracted from the Events that triggered the Job.
+	// First we extract the Order UUIDs from the Jobs Events.
+	// Note that a Job can contain Events belonging to multiple or even
+	// different Aggregates.
 	orderIDs, err := j.AggregatesOf(j.Context(), AggregateName)
 	if err != nil {
 		return fmt.Errorf("extract Order IDs from Job: %w", err)
@@ -193,6 +208,12 @@ func (p *TimelineProjector) applyJob(j project.Job) error {
 		// Apply the Job on the Timeline. Note that a Job can be applied to as
 		// many projections as you want. The Job will query the needed Events
 		// on-the-fly for each projection.
+		//
+		// Apply uses the projection progress provided by a projection to change
+		// the Query that is used to query the Events for the passed projection.
+		// Assuming that Timeline tl has already has Events applied to it,
+		// j.Apply will query only Events that happened after the last applied
+		// Event. This works because Timeline embeds *project.Progressor.
 		if err := j.Apply(j.Context(), tl); err != nil {
 			return fmt.Errorf("apply Job: %w", err)
 		}
