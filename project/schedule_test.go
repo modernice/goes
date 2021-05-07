@@ -352,10 +352,6 @@ func TestPeriodically(t *testing.T) {
 		if !p.hasApplied(events[:2]...) {
 			t.Fatalf("applied Events should be %v; got %v", events, p.applied)
 		}
-
-		// if !p.LatestEventTime().Equal(events[1].Time()) {
-		// 	t.Fatalf("LatestEventTime should return %v; got %v", events[1].Time(), p.LatestEventTime())
-		// }
 	}
 
 	for _, j := range jobs {
@@ -489,54 +485,54 @@ func TestPeriodically_Trigger(t *testing.T) {
 	}
 }
 
-// func TestPeriodically_withLatestEventTime(t *testing.T) {
-// 	store := memstore.New()
+func TestPeriodically_progressor(t *testing.T) {
+	store := memstore.New()
 
-// 	s := project.Periodically(store, 50*time.Millisecond, []string{"foo", "bar", "baz"})
+	s := project.Periodically(store, 50*time.Millisecond, []string{"foo", "bar", "baz"})
 
-// 	ctx, cancel := context.WithCancel(context.Background())
-// 	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-// 	events := []event.Event{
-// 		event.New("foo", test.FooEventData{}),
-// 		event.New("bar", test.BarEventData{}),
-// 		event.New("baz", test.BazEventData{}),
-// 	}
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}),
+		event.New("bar", test.BarEventData{}),
+		event.New("baz", test.BazEventData{}),
+	}
 
-// 	if err := store.Insert(ctx, events...); err != nil {
-// 		t.Fatalf("failed to insert Events: %v", err)
-// 	}
+	if err := store.Insert(ctx, events...); err != nil {
+		t.Fatalf("failed to insert Events: %v", err)
+	}
 
-// 	ex := newMockProjection()
-// 	ex.applied = events[:1]
-// 	ex.PostApplyEvent(events[0])
+	ex := newMockProjection()
+	ex.applied = events[:1]
+	ex.LatestEventTime = events[0].Time().UnixNano()
 
-// 	errs, err := s.Subscribe(
-// 		ctx,
-// 		func(job project.Job) error {
-// 			defer cancel()
-// 			if err := job.Apply(job.Context(), ex); err != nil {
-// 				return fmt.Errorf("failed to apply Projection Job: %w", err)
-// 			}
-// 			return nil
-// 		},
-// 	)
-// 	if err != nil {
-// 		t.Fatalf("failed to subscribe to Projections: %v", err)
-// 	}
+	errs, err := s.Subscribe(
+		ctx,
+		func(job project.Job) error {
+			defer cancel()
+			if err := job.Apply(job.Context(), ex); err != nil {
+				return fmt.Errorf("failed to apply Projection Job: %w", err)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("failed to subscribe to Projections: %v", err)
+	}
 
-// 	for err := range errs {
-// 		t.Fatalf("Projection failed: %v", err)
-// 	}
+	for err := range errs {
+		t.Fatalf("Projection failed: %v", err)
+	}
 
-// 	if !ex.hasApplied(events...) {
-// 		t.Fatalf("applied Events should be %v; got %v", events, ex.applied)
-// 	}
+	if !ex.hasApplied(events...) {
+		t.Fatalf("applied Events should be %v; got %v", events, ex.applied)
+	}
 
-// 	if ex.hasDuplicates() {
-// 		t.Fatalf("Projection has duplicate applied Events. Does the Projector add query filters to exlcude already applied Events?")
-// 	}
-// }
+	if ex.hasDuplicates() {
+		t.Fatalf("Projection has duplicate applied Events. Does the Projector add query filters to exlcude already applied Events?")
+	}
+}
 
 func TestFilter(t *testing.T) {
 	bus := chanbus.New()
