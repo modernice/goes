@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -365,6 +366,8 @@ func (s *Store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 	opts = applySortings(opts, q.Sortings()...)
 
 	f := makeFilter(q)
+
+	log.Printf("Querying Events with filter\n\n\t%#v\n\nand options\n\n\t%#v\n\n", f, opts)
 
 	cur, err := s.entries.Find(ctx, f, opts)
 	if err != nil {
