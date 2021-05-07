@@ -19,11 +19,13 @@ type Progressor struct {
 	LatestEventTime time.Time
 }
 
+// TODO: should progressor be exported?
 type progressor interface {
 	ProgressProjection(time.Time)
 	ProjectionProgress() time.Time
 }
 
+// TODO: should guard be exported?
 type guard interface {
 	GuardProjection(event.Event) bool
 }
