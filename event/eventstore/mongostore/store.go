@@ -369,6 +369,7 @@ func (s *Store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 
 	log.Printf("Querying Events with filter\n\n\t%#v\n\nand options\n\n\t%#v\n\n", f, opts)
 
+	start := stdtime.Now()
 	cur, err := s.entries.Find(ctx, f, opts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("mongo: %w", err)
@@ -380,6 +381,7 @@ func (s *Store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 	go func() {
 		defer close(events)
 		defer close(errs)
+		defer func() { log.Printf("Query took %v\n\n", stdtime.Since(start)) }()
 
 	L:
 		for cur.Next(ctx) {
