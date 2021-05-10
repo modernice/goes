@@ -153,3 +153,21 @@ func TestNextEvent(t *testing.T) {
 		t.Errorf("Event should have data %v; got %v", data, evt.Data())
 	}
 }
+
+func TestHasChange(t *testing.T) {
+	a := aggregate.New("foo", uuid.New())
+	aggregate.NextEvent(a, "foo", etest.FooEventData{})
+	aggregate.NextEvent(a, "bar", etest.BarEventData{})
+	aggregate.NextEvent(a, "baz", etest.BazEventData{})
+
+	wantChanges := []string{"foo", "bar", "baz"}
+	for _, name := range wantChanges {
+		if !aggregate.HasChange(a, name) {
+			t.Fatalf("Aggregate should have %q change", name)
+		}
+	}
+
+	if aggregate.HasChange(a, "foobar") {
+		t.Fatalf("Aggregate shouldn't have %q change", "foobar")
+	}
+}

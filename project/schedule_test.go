@@ -235,6 +235,13 @@ func TestContinuously_Trigger(t *testing.T) {
 	}
 }
 
+func TestContinuously_Trigger_projectionFilter(t *testing.T) {
+	bus := chanbus.New()
+	store := memstore.New()
+	eventNames := []string{"foo", "bar", "baz"}
+	s := project.Continuously(bus, store, eventNames)
+}
+
 func TestContinuously_progressor(t *testing.T) {
 	bus := chanbus.New()
 	store := memstore.New()

@@ -131,6 +131,16 @@ func NextEvent(a Aggregate, name string, data event.Data, opts ...event.Option) 
 	return evt
 }
 
+// HasChange returns whether Aggregate a has an uncommitted Event with the given name.
+func HasChange(a Aggregate, eventName string) bool {
+	for _, change := range a.AggregateChanges() {
+		if change.Name() == eventName {
+			return true
+		}
+	}
+	return false
+}
+
 // AggregateID implements Aggregate.
 func (b *Base) AggregateID() uuid.UUID {
 	return b.ID
