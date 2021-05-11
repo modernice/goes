@@ -12,8 +12,13 @@ type EventApplier interface {
 }
 
 // Progressor can be embedded into a projection and enables the projection to
-// be resumed the latest update that has been applied. A projection Job can
-// optimize Event Queries for a specific projection that embeds a Progressor.
+// be resumed after the latest update the projection. A projection Job can
+// optimize Event Queries for a projection that embeds a Progressor by using
+// LatestEventTime to only query Events after that time.
+//
+// A projection that does not embed or implement Progressor cannot be resumed
+// and must therefore be newly created for every projection Job to ensure that
+// it doesn't apply an Event multiple times.
 type Progressor struct {
 	// LatestEvenTime is the unix nano time of the last applied Event.
 	LatestEventTime int64
