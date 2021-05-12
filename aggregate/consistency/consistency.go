@@ -139,6 +139,11 @@ func (err *Error) Error() string {
 			"consistency: %q event has invalid AggregateVersion. want=%d got=%d",
 			evt.Name(), currentVersion(err.Aggregate)+1+err.EventIndex, evt.AggregateVersion(),
 		)
+	case Time:
+		return fmt.Sprintf(
+			"consistency: %q event has invalid Time. want=after %v got=%v",
+			evt.Name(), err.Events[err.EventIndex-1].Time(), evt.Time(),
+		)
 	default:
 		return fmt.Sprintf("consistency: invalid inconsistency kind=%d", err.Kind)
 	}
@@ -152,6 +157,8 @@ func (k Kind) String() string {
 		return "Kind(Name)"
 	case Version:
 		return "Kind(Version)"
+	case Time:
+		return "Kind(Time)"
 	default:
 		return "Kind(Unknown)"
 	}
