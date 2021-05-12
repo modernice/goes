@@ -18,10 +18,11 @@ import (
 func TestValidate_valid(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
+	now := time.Now()
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3), event.Time(now.Add(time.Millisecond))),
 	}
 
 	if err := consistency.Validate(b, events...); err != nil {
@@ -33,10 +34,11 @@ func TestValidate_id(t *testing.T) {
 	aggregateID := uuid.New()
 	invalidID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
+	now := time.Now()
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", invalidID, 3)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", invalidID, 3), event.Time(now.Add(time.Millisecond))),
 	}
 
 	want := &consistency.Error{
@@ -56,10 +58,11 @@ func TestValidate_name(t *testing.T) {
 	aggregateName := "foo"
 	invalidName := "bar"
 	b := aggregate.New("foo", aggregateID)
+	now := time.Now()
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(invalidName, aggregateID, 3)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1), event.Time(now)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(invalidName, aggregateID, 3), event.Time(now.Add(time.Millisecond))),
 	}
 
 	want := &consistency.Error{
@@ -79,6 +82,7 @@ func TestValidate_version(t *testing.T) {
 	changedAggregate := aggregate.New("foo", aggregateID)
 	changes := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(changedAggregate))
 	changedAggregate.TrackChange(changes...)
+	now := time.Now()
 
 	tests := []struct {
 		name      string
@@ -89,9 +93,9 @@ func TestValidate_version(t *testing.T) {
 		{
 			name: "version too low #1",
 			events: []event.Event{
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 0)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 0), event.Time(now)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now.Add(time.Nanosecond))),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Millisecond))),
 			},
 			want: func(a aggregate.Aggregate, events []event.Event) *consistency.Error {
 				return &consistency.Error{
@@ -105,9 +109,9 @@ func TestValidate_version(t *testing.T) {
 		{
 			name: "version too low #2",
 			events: []event.Event{
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Millisecond))),
 			},
 			want: func(a aggregate.Aggregate, events []event.Event) *consistency.Error {
 				return &consistency.Error{
@@ -122,9 +126,9 @@ func TestValidate_version(t *testing.T) {
 			name:      "version too low #3 (with changes)",
 			aggregate: changedAggregate,
 			events: []event.Event{
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3), event.Time(now.Add(time.Millisecond))),
 			},
 			want: func(a aggregate.Aggregate, events []event.Event) *consistency.Error {
 				return &consistency.Error{
@@ -138,9 +142,9 @@ func TestValidate_version(t *testing.T) {
 		{
 			name: "version skipped",
 			events: []event.Event{
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 4)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3), event.Time(now.Add(time.Nanosecond))),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 4), event.Time(now.Add(time.Millisecond))),
 			},
 			want: func(a aggregate.Aggregate, events []event.Event) *consistency.Error {
 				return &consistency.Error{
@@ -154,9 +158,9 @@ func TestValidate_version(t *testing.T) {
 		{
 			name: "duplicate version",
 			events: []event.Event{
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now)),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
+				event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Millisecond))),
 			},
 			want: func(a aggregate.Aggregate, events []event.Event) *consistency.Error {
 				return &consistency.Error{

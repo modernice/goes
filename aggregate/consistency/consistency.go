@@ -99,12 +99,16 @@ func Validate(a Aggregate, events ...event.Event) error {
 				EventIndex: i,
 			}
 		}
-		if prev != nil && (prev.Time().Equal(evt.Time()) || prev.Time().After(evt.Time())) {
-			return &Error{
-				Kind:       Time,
-				Aggregate:  a,
-				Events:     events,
-				EventIndex: i,
+		if prev != nil {
+			nano := evt.Time().UnixNano()
+			prevNano := prev.Time().UnixNano()
+			if nano <= prevNano {
+				return &Error{
+					Kind:       Time,
+					Aggregate:  a,
+					Events:     events,
+					EventIndex: i,
+				}
 			}
 		}
 		prev = evt
