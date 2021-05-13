@@ -15,6 +15,7 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot/cleanup"
 	"github.com/modernice/goes/aggregate/snapshot/memsnap"
 	"github.com/modernice/goes/aggregate/snapshot/query"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 type mockAggregate struct {
@@ -39,7 +40,7 @@ func TestService(t *testing.T) {
 		t.Fatalf("make Snapshot: %v", err)
 	}
 
-	snap2, err := snapshot.New(foo2, snapshot.Time(time.Now().Add(-2*time.Hour)))
+	snap2, err := snapshot.New(foo2, snapshot.Time(xtime.Now().Add(-2*time.Hour)))
 	if err != nil {
 		t.Fatalf("make Snapshot: %v", err)
 	}

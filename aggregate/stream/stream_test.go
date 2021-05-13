@@ -17,6 +17,7 @@ import (
 	"github.com/modernice/goes/internal/xaggregate"
 	"github.com/modernice/goes/internal/xevent"
 	"github.com/modernice/goes/internal/xevent/xstream"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 type makeEventsOption func(*makeEventsConfig)
@@ -204,7 +205,7 @@ func TestGrouped(t *testing.T) {
 	es = xstream.Delayed(100*time.Millisecond, es)
 
 	str, errs := stream.New(es, stream.Grouped(true))
-	start := time.Now()
+	start := xtime.Now()
 	select {
 	case err, ok := <-errs:
 		if !ok {
@@ -216,7 +217,7 @@ func TestGrouped(t *testing.T) {
 			t.Fatalf("Stream shouldn't be closed yet.")
 		}
 	}
-	end := time.Now()
+	end := xtime.Now()
 	dur := end.Sub(start)
 
 	if dur < 300*time.Millisecond || dur > 600*time.Millisecond {

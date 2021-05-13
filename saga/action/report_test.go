@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modernice/goes/internal/xtime"
 	"github.com/modernice/goes/saga/action"
 )
 
 func TestReport(t *testing.T) {
-	start := time.Now()
+	start := xtime.Now()
 	dur := 12345678 * time.Millisecond
 	end := start.Add(dur)
 
@@ -36,7 +37,7 @@ func TestReport(t *testing.T) {
 func TestError(t *testing.T) {
 	mockError := errors.New("mock error")
 	act := action.New("foo", nil)
-	r := action.NewReport(act, time.Now(), time.Now(), action.Error(mockError))
+	r := action.NewReport(act, xtime.Now(), xtime.Now(), action.Error(mockError))
 
 	if r.Error != mockError {
 		t.Errorf("Error() should return %q; got %q", mockError, r.Error)
@@ -46,8 +47,8 @@ func TestError(t *testing.T) {
 func TestCompensatedBy(t *testing.T) {
 	act := action.New("foo", nil)
 	comp := action.New("bar", nil)
-	compRep := action.NewReport(comp, time.Now(), time.Now())
-	r := action.NewReport(act, time.Now(), time.Now(), action.CompensatedBy(compRep))
+	compRep := action.NewReport(comp, xtime.Now(), xtime.Now())
+	r := action.NewReport(act, xtime.Now(), xtime.Now(), action.CompensatedBy(compRep))
 
 	if *r.Compensator != compRep {
 		t.Errorf("Compensator() should return %v; got %v", compRep, r.Compensator)

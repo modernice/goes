@@ -13,6 +13,7 @@ import (
 	"github.com/modernice/goes/event/eventstore/memstore"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xtime"
 	"github.com/modernice/goes/project"
 )
 
@@ -235,19 +236,12 @@ func TestContinuously_Trigger(t *testing.T) {
 	}
 }
 
-func TestContinuously_Trigger_projectionFilter(t *testing.T) {
-	bus := chanbus.New()
-	store := memstore.New()
-	eventNames := []string{"foo", "bar", "baz"}
-	s := project.Continuously(bus, store, eventNames)
-}
-
 func TestContinuously_progressor(t *testing.T) {
 	bus := chanbus.New()
 	store := memstore.New()
 	s := project.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
-	now := time.Now()
+	now := xtime.Now()
 	id := uuid.New()
 
 	events := []event.Event{
@@ -311,7 +305,7 @@ func TestPeriodically(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	now := time.Now()
+	now := xtime.Now()
 
 	events := []event.Event{
 		event.New("foo", test.FooEventData{}, event.Aggregate("foobar", uuid.New(), 1), event.Time(now)),

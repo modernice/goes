@@ -10,6 +10,7 @@ import (
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 var _ event.Query = Query{}
@@ -17,7 +18,7 @@ var _ event.Query = Query{}
 func TestNew(t *testing.T) {
 	ids := make([]uuid.UUID, 4)
 	times := make([]stdtime.Time, 4)
-	now := stdtime.Now()
+	now := xtime.Now()
 	for i := range ids {
 		ids[i] = uuid.New()
 		times[i] = now.Add(stdtime.Duration(i) * stdtime.Minute)
@@ -179,7 +180,7 @@ func TestNew(t *testing.T) {
 func TestTest(t *testing.T) {
 	ids := make([]uuid.UUID, 4)
 	times := make([]stdtime.Time, 4)
-	now := stdtime.Now()
+	now := xtime.Now()
 	for i := range ids {
 		ids[i] = uuid.New()
 		times[i] = now.Add(stdtime.Duration(i) * stdtime.Minute)
@@ -318,7 +319,7 @@ func TestTest(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-	now := stdtime.Now()
+	now := xtime.Now()
 	queries := []event.Query{
 		Query{
 			names:             []string{"foo"},

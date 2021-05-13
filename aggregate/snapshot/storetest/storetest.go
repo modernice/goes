@@ -15,6 +15,7 @@ import (
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/internal/xaggregate"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 // StoreFactory creates Stores.
@@ -345,7 +346,7 @@ func testQueryTime(t *testing.T, newStore StoreFactory) {
 		var err error
 		var opts []snapshot.Option
 		if i == 2 {
-			opts = append(opts, snapshot.Time(stdtime.Now().Add(-stdtime.Minute)))
+			opts = append(opts, snapshot.Time(xtime.Now().Add(-stdtime.Minute)))
 		}
 		if snaps[i], err = snapshot.New(as[i], opts...); err != nil {
 			t.Fatalf("failed to make Snapshot: %v", err)
@@ -359,7 +360,7 @@ func testQueryTime(t *testing.T, newStore StoreFactory) {
 	}
 
 	result, err := runQuery(s, query.New(
-		query.Time(time.After(stdtime.Now().Add(-stdtime.Second))),
+		query.Time(time.After(xtime.Now().Add(-stdtime.Second))),
 	))
 	if err != nil {
 		t.Fatal(err)

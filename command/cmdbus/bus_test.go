@@ -16,6 +16,7 @@ import (
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 type mockPayload struct {
@@ -160,7 +161,7 @@ func TestSynchronous(t *testing.T) {
 	dispatchTime := make(chan time.Time)
 	go func() {
 		dispatchErr <- bus.Dispatch(context.Background(), cmd, dispatch.Synchronous())
-		dispatchTime <- time.Now()
+		dispatchTime <- xtime.Now()
 	}()
 
 	var ctx command.Context
@@ -182,7 +183,7 @@ L:
 	}
 
 	mockError := errors.New("mock error")
-	now := time.Now()
+	now := xtime.Now()
 	if err = ctx.Finish(ctx, finish.WithRuntime(3*time.Second), finish.WithError(mockError)); err != nil {
 		t.Fatalf("mark as done: %v", err)
 	}

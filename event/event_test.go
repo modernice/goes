@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 type mockData struct {
@@ -32,7 +33,7 @@ func TestNew(t *testing.T) {
 	}
 
 	if d := time.Since(evt.Time()); d > 100*time.Millisecond {
-		t.Errorf("evt.Time() should almost equal %s; got %s", time.Now(), evt.Time())
+		t.Errorf("evt.Time() should almost equal %s; got %s", xtime.Now(), evt.Time())
 	}
 
 	if evt.AggregateName() != "" {
@@ -49,7 +50,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestNew_time(t *testing.T) {
-	ts := time.Now().Add(time.Hour)
+	ts := xtime.Now().Add(time.Hour)
 	evt := event.New("foo", newMockData(), event.Time(ts))
 	if !ts.Equal(evt.Time()) {
 		t.Errorf("expected evt.Time() to equal %s; got %s", ts, evt.Time())
@@ -104,7 +105,7 @@ func TestNew_previous(t *testing.T) {
 
 func TestEqual(t *testing.T) {
 	id := uuid.New()
-	now := time.Now()
+	now := xtime.Now()
 	tests := []struct {
 		a    event.Event
 		b    event.Event
@@ -167,7 +168,7 @@ func TestEqual(t *testing.T) {
 
 func TestEqual_variadic(t *testing.T) {
 	id := uuid.New()
-	now := time.Now()
+	now := xtime.Now()
 	events := []event.Event{
 		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
 		event.New("foo", newMockData(), event.ID(id), event.Time(now)),

@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/query"
 	"github.com/modernice/goes/event/query/time"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 var (
@@ -112,7 +113,7 @@ func (c *Service) work(store snapshot.Store, out chan<- error) {
 
 func (c *Service) cleanup(store snapshot.Store, out chan<- error) error {
 	str, errs, err := store.Query(c.ctx, query.New(
-		query.Time(time.Before(stdtime.Now().Add(-c.maxAge))),
+		query.Time(time.Before(xtime.Now().Add(-c.maxAge))),
 	))
 	if err != nil {
 		return fmt.Errorf("query Snapshots: %w", err)

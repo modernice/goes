@@ -13,6 +13,7 @@ import (
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xtime"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -297,7 +298,7 @@ func testQueryID(t *testing.T, newStore EventStoreFactory) {
 }
 
 func testQueryTime(t *testing.T, newStore EventStoreFactory) {
-	now := stdtime.Now()
+	now := xtime.Now()
 	events := []event.Event{
 		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now)),
 		event.New("bar", test.BarEventData{A: "bar"}, event.Time(now.AddDate(0, 1, 0))),
@@ -426,7 +427,7 @@ func testQueryAggregate(t *testing.T, newStore EventStoreFactory) {
 }
 
 func testQuerySorting(t *testing.T, newStore EventStoreFactory) {
-	now := stdtime.Now()
+	now := xtime.Now()
 	events := []event.Event{
 		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(12*stdtime.Hour)), event.Aggregate("foo1", uuid.New(), 3)),
 		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(stdtime.Hour)), event.Aggregate("foo2", uuid.New(), 2)),

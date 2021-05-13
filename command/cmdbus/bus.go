@@ -15,6 +15,7 @@ import (
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/xcommand/cmdctx"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 const (
@@ -462,7 +463,7 @@ func (b *Bus) workSubscription(
 
 				requested[cmd.ID()] = commandRequest{
 					cmd:  cmd,
-					time: time.Now(),
+					time: xtime.Now(),
 				}
 
 			case CommandAssigned:

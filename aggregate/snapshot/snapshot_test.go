@@ -8,10 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/snapshot"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 func TestNew(t *testing.T) {
-	now := time.Now()
+	now := xtime.Now()
 	a := aggregate.New("foo", uuid.New(), aggregate.Version(8))
 	snap, err := snapshot.New(a)
 	if err != nil {
@@ -59,7 +60,7 @@ func TestNew_marshaler(t *testing.T) {
 
 func TestTime(t *testing.T) {
 	a := aggregate.New("foo", uuid.New())
-	st := time.Now().Add(123456 * time.Millisecond)
+	st := xtime.Now().Add(123456 * time.Millisecond)
 	snap, err := snapshot.New(a, snapshot.Time(st))
 	if err != nil {
 		t.Fatalf("New shouldn't fail; failed with %q", err)

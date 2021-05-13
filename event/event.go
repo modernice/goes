@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 // An Event describes something that has happened in the application or
@@ -66,7 +67,7 @@ type event struct {
 }
 
 // New creates an Event with the given name and Data. A UUID is generated for
-// the Event and its time is set to time.Now().
+// the Event and its time is set to xtime.Now().
 //
 // Provide Options to override or add data to the Event:
 //	ID(uuid.UUID): Use a custom UUID
@@ -77,7 +78,7 @@ func New(name string, data Data, opts ...Option) Event {
 	evt := event{
 		id:   uuid.New(),
 		name: name,
-		time: time.Now(),
+		time: xtime.Now(),
 		data: data,
 	}
 	for _, opt := range opts {

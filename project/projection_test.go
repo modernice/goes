@@ -6,13 +6,14 @@ import (
 
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xtime"
 	"github.com/modernice/goes/project"
 )
 
 func TestProgressor_ProgressProjection(t *testing.T) {
 	var p project.Progressor
 
-	now := time.Now()
+	now := xtime.Now()
 
 	p.ProgressProjection(now)
 
@@ -29,7 +30,7 @@ func TestProgressor_ProgressProjection(t *testing.T) {
 
 func TestApply_progressor(t *testing.T) {
 	p := &progressed{Progressor: &project.Progressor{}}
-	now := time.Now()
+	now := xtime.Now()
 
 	events := []event.Event{
 		event.New("foo", test.FooEventData{}, event.Time(now)),

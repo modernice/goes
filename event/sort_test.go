@@ -8,10 +8,11 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/xevent"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 func TestSort(t *testing.T) {
-	now := time.Now()
+	now := xtime.Now()
 	aggregateIDs := []uuid.UUID{
 		uuid.MustParse("A0000000-0000-0000-0000-000000000000"),
 		uuid.MustParse("B0000000-0000-0000-0000-000000000000"),
@@ -92,7 +93,7 @@ func TestSort(t *testing.T) {
 }
 
 func TestSortMulti(t *testing.T) {
-	now := time.Now()
+	now := xtime.Now()
 	aggregateID := uuid.New()
 	events := []event.Event{
 		event.New("foo", test.FooEventData{}, event.Time(now), event.Aggregate("foo", aggregateID, 1)),

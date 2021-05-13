@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 // Snapshot is a snapshot of an Aggregate.
@@ -55,7 +56,7 @@ func Data(b []byte) Option {
 func New(a aggregate.Aggregate, opts ...Option) (Snapshot, error) {
 	snap := snapshot{
 		Aggregate: a,
-		time:      time.Now(),
+		time:      xtime.Now(),
 	}
 	for _, opt := range opts {
 		opt(&snap)

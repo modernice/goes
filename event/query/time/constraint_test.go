@@ -5,20 +5,21 @@ import (
 	stdtime "time"
 
 	"github.com/modernice/goes/event/query/time"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 func TestExact(t *testing.T) {
 	ts := []stdtime.Time{
-		stdtime.Now(),
-		stdtime.Now().Add(3 * stdtime.Hour),
-		stdtime.Now().AddDate(1, 1, 1),
+		xtime.Now(),
+		xtime.Now().Add(3 * stdtime.Hour),
+		xtime.Now().AddDate(1, 1, 1),
 	}
 	c := time.Filter(time.Exact(ts...))
 
 	tests := map[stdtime.Time]bool{
-		stdtime.Now().Add(-stdtime.Second):                      false,
-		stdtime.Now().Add(3*stdtime.Hour + stdtime.Second):      false,
-		stdtime.Now().AddDate(1, 1, 1).Add(stdtime.Millisecond): false,
+		xtime.Now().Add(-stdtime.Second):                      false,
+		xtime.Now().Add(3*stdtime.Hour + stdtime.Second):      false,
+		xtime.Now().AddDate(1, 1, 1).Add(stdtime.Millisecond): false,
 	}
 
 	for _, give := range ts {
@@ -29,7 +30,7 @@ func TestExact(t *testing.T) {
 }
 
 func TestInRange(t *testing.T) {
-	now := stdtime.Now()
+	now := xtime.Now()
 	rs := []time.Range{
 		{
 			now,
@@ -60,7 +61,7 @@ func TestInRange(t *testing.T) {
 }
 
 func TestBefore(t *testing.T) {
-	now := stdtime.Now()
+	now := xtime.Now()
 	c := time.Filter(time.Before(now))
 
 	tests := map[stdtime.Time]bool{
@@ -73,7 +74,7 @@ func TestBefore(t *testing.T) {
 }
 
 func TestAfter(t *testing.T) {
-	now := stdtime.Now()
+	now := xtime.Now()
 	c := time.Filter(time.After(now))
 
 	tests := map[stdtime.Time]bool{
@@ -86,7 +87,7 @@ func TestAfter(t *testing.T) {
 }
 
 func TestMin(t *testing.T) {
-	now := stdtime.Now()
+	now := xtime.Now()
 	c := time.Filter(time.Min(now))
 
 	tests := map[stdtime.Time]bool{
@@ -100,7 +101,7 @@ func TestMin(t *testing.T) {
 }
 
 func TestMax(t *testing.T) {
-	now := stdtime.Now()
+	now := xtime.Now()
 	c := time.Filter(time.Max(now))
 
 	tests := map[stdtime.Time]bool{

@@ -3,13 +3,13 @@ package stream_test
 import (
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 var names = [...]string{
@@ -188,7 +188,7 @@ func makeAggregates(n int) []aggregate.Aggregate {
 }
 
 func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.Event {
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(xtime.Now().UnixNano())
 	eventm := make(map[aggregate.Aggregate][]event.Event)
 	for _, a := range as {
 		events := make([]event.Event, n)

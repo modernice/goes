@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/modernice/goes/command/finish"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 // Handler can be used to subscribe to and handle Commands.
@@ -83,7 +84,7 @@ func (h *Handler) handle(
 				break
 			}
 
-			start := time.Now()
+			start := xtime.Now()
 			err := handler(ctx)
 			runtime := time.Since(start)
 

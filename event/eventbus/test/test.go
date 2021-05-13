@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/xtime"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -202,7 +203,7 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 			t.Fatal(fmt.Errorf("event channel should be closed; got %v", evt))
 		}
 	case <-time.After(time.Second):
-		t.Fatal("didn't receive from events channel after 1s", time.Now())
+		t.Fatal("didn't receive from events channel after 1s", xtime.Now())
 	}
 }
 

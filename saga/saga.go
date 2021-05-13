@@ -10,6 +10,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/internal/xtime"
 	"github.com/modernice/goes/saga/action"
 	"github.com/modernice/goes/saga/report"
 )
@@ -468,7 +469,7 @@ func (e *Executor) Execute(ctx context.Context, s Setup) error {
 		}
 	}
 
-	start := time.Now()
+	start := xtime.Now()
 
 	for _, name := range s.Sequence() {
 		act, err := e.action(name)
@@ -508,7 +509,7 @@ func (e *Executor) finish(start time.Time, err error) error {
 		return err
 	}
 
-	end := time.Now()
+	end := xtime.Now()
 	e.reporter.Report(report.New(
 		start, end, report.Add(e.reports...),
 		report.Error(err),
@@ -534,10 +535,10 @@ func (e *Executor) newActionContext(ctx context.Context, act action.Action) acti
 }
 
 func (e *Executor) runContext(ctx action.Context) error {
-	start := time.Now()
+	start := xtime.Now()
 	act := ctx.Action()
 	err := act.Run(ctx)
-	end := time.Now()
+	end := xtime.Now()
 	e.reports = append(e.reports, action.NewReport(
 		act,
 		start, end,

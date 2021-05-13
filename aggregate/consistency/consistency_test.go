@@ -13,12 +13,13 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/xevent"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 func TestValidate_valid(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
-	now := time.Now()
+	now := xtime.Now()
 	events := []event.Event{
 		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now)),
 		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
@@ -34,7 +35,7 @@ func TestValidate_id(t *testing.T) {
 	aggregateID := uuid.New()
 	invalidID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
-	now := time.Now()
+	now := xtime.Now()
 	events := []event.Event{
 		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1), event.Time(now)),
 		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
@@ -58,7 +59,7 @@ func TestValidate_name(t *testing.T) {
 	aggregateName := "foo"
 	invalidName := "bar"
 	b := aggregate.New("foo", aggregateID)
-	now := time.Now()
+	now := xtime.Now()
 	events := []event.Event{
 		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1), event.Time(now)),
 		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2), event.Time(now.Add(time.Nanosecond))),
@@ -82,7 +83,7 @@ func TestValidate_version(t *testing.T) {
 	changedAggregate := aggregate.New("foo", aggregateID)
 	changes := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(changedAggregate))
 	changedAggregate.TrackChange(changes...)
-	now := time.Now()
+	now := xtime.Now()
 
 	tests := []struct {
 		name      string
@@ -199,7 +200,7 @@ func TestValidate_version(t *testing.T) {
 
 func TestValidate_time(t *testing.T) {
 	id := uuid.New()
-	now := time.Now()
+	now := xtime.Now()
 	events := []event.Event{
 		event.New("foo", test.FooEventData{}, event.Aggregate("foo", id, 1), event.Time(now)),
 		event.New("bar", test.BarEventData{}, event.Aggregate("foo", id, 2), event.Time(now.Add(time.Nanosecond))),
