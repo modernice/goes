@@ -113,7 +113,7 @@ func CurrentVersion(a Aggregate) int {
 	return a.AggregateVersion() + len(a.AggregateChanges())
 }
 
-// NextVersion returns the next version of the given Aggregate (CurrentVersion(a) + 1).
+// NextVersion returns the next version of an Aggregate (CurrentVersion(a) + 1).
 func NextVersion(a Aggregate) int {
 	return CurrentVersion(a) + 1
 }
@@ -123,7 +123,8 @@ func NextVersion(a Aggregate) int {
 func NextEvent(a Aggregate, name string, data event.Data, opts ...event.Option) event.Event {
 	opts = append([]event.Option{event.Aggregate(
 		a.AggregateName(),
-		a.AggregateID(), NextVersion(a),
+		a.AggregateID(),
+		NextVersion(a),
 	)}, opts...)
 	evt := event.New(name, data, opts...)
 	a.ApplyEvent(evt)

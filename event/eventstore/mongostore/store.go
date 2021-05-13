@@ -320,11 +320,6 @@ func (s *Store) insert(ctx context.Context, events []event.Event) error {
 			Data:             data.Bytes(),
 		}
 	}
-	// if len(docs) == 1 {
-	// 	if _, err := s.entries.InsertOne(ctx, docs[0]); err != nil {
-	// 		return fmt.Errorf("mongo: %w", err)
-	// 	}
-	// }
 	if _, err := s.entries.InsertMany(ctx, docs); err != nil {
 		return fmt.Errorf("mongo: %w", err)
 	}
