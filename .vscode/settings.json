@@ -1,5 +1,5 @@
 {
   "go.buildFlags": [
-    "-tags=nats,mongostore,mongosnap"
+    "-tags=nats,mongostore,mongosnap,mongotag"
   ]
 }

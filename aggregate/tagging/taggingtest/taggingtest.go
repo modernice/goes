@@ -4,8 +4,14 @@ package taggingtest
 //go:generate mockgen -source=taggingtest.go -destination=./mock_taggingtest/taggingtest.go
 
 import (
+	"context"
+	"testing"
+
+	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/tagging"
+	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/test"
 )
 
 // TestingT is used to mock *testing.T.
@@ -59,5 +65,143 @@ func Aggregate(t TestingT, a aggregate.Aggregate) {
 	if tagger.HasTag("foo") {
 		missingApply()
 		return
+	}
+}
+
+// StoreFactory creates tagging stores.
+type StoreFactory func(event.Encoder) tagging.Store
+
+// Store tests a tagging store implementation.
+func Store(t *testing.T, newStore StoreFactory) {
+	t.Run("Update", func(t *testing.T) {
+		testStore_Update(t, newStore)
+	})
+	t.Run("TaggedWith", func(t *testing.T) {
+		testStore_TaggedWith(t, newStore)
+	})
+}
+
+func testStore_Update(t *testing.T, newStore StoreFactory) {
+	enc := test.NewEncoder()
+	store := newStore(enc)
+
+	name := "foo"
+	id := uuid.New()
+	tags := []string{"foo", "bar", "baz"}
+	if err := store.Update(context.Background(), name, id, tags); err != nil {
+		t.Fatalf("Update failed with %q", err)
+	}
+
+	result, err := store.Tags(context.Background(), name, id)
+	if err != nil {
+		t.Fatalf("Tags failed with %q", err)
+	}
+
+	if len(result) != len(tags) {
+		t.Fatalf("Tags should return %d tags; got %d", len(tags), len(result))
+	}
+
+	for _, tag := range tags {
+		var found bool
+		for _, tag2 := range result {
+			if tag2 == tag {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("Tags should return tag %q", tag)
+		}
+	}
+}
+
+func testStore_TaggedWith(t *testing.T, newStore StoreFactory) {
+	enc := test.NewEncoder()
+	store := newStore(enc)
+
+	aggregates := []tagging.Aggregate{
+		{
+			Name: "foo",
+			ID:   uuid.New(),
+		},
+		{
+			Name: "bar",
+			ID:   uuid.New(),
+		},
+		{
+			Name: "baz",
+			ID:   uuid.New(),
+		},
+	}
+
+	tags := []string{"foo", "bar", "baz"}
+	for _, a := range aggregates {
+		if err := store.Update(context.Background(), a.Name, a.ID, tags); err != nil {
+			t.Fatalf("Update failed with %q", err)
+		}
+	}
+
+	for _, tag := range tags {
+		tagged, err := store.TaggedWith(context.Background(), tag)
+		if err != nil {
+			t.Fatalf("TaggedWith failed with %q", err)
+		}
+
+		if len(tagged) != len(aggregates) {
+			t.Fatalf("TaggedWith should return %d aggregates; got %d", len(aggregates), len(tagged))
+		}
+
+		for _, a := range aggregates {
+			var found bool
+			for _, tagged := range tagged {
+				if tagged == a {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("TaggedWith should return %v", a)
+			}
+		}
+	}
+
+	tagged, err := store.TaggedWith(context.Background(), tags...)
+	if err != nil {
+		t.Fatalf("TaggedWith failed with %q", err)
+	}
+
+	if len(tagged) != len(aggregates) {
+		t.Fatalf("TaggedWith should return %d aggregates; got %d", len(aggregates), len(tagged))
+	}
+
+	for _, a := range aggregates {
+		var found bool
+		for _, tagged := range tagged {
+			if a == tagged {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("TaggedWith should return %v", a)
+		}
+	}
+
+	tagged, err = store.TaggedWith(context.Background(), "foobar")
+	if err != nil {
+		t.Fatalf("TaggedWith failed with %q", err)
+	}
+
+	if len(tagged) != 0 {
+		t.Fatalf("TaggedWith should no aggregates; got %d", len(tagged))
+	}
+
+	tagged, err = store.TaggedWith(context.Background())
+	if err != nil {
+		t.Fatalf("TaggedWith failed with %q", err)
+	}
+
+	if len(tagged) != 3 {
+		t.Fatalf("TaggedWith should %d aggregates; got %d", len(aggregates), len(tagged))
 	}
 }

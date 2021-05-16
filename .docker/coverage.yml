@@ -17,12 +17,26 @@ services:
   mongostore_replicaset_init:
     image: mongo
     entrypoint: /entrypoint.sh
+    environment:
+      REPLICA_HOST: mongostore_replicaset
     volumes:
       - "${PWD}/.docker/init-mongo.sh:/entrypoint.sh"
   
   mongosnap:
     image: mongo
     command: ["--quiet", "--logpath", "/dev/null", "--bind_ip_all"]
+
+  mongotag_replicaset:
+    image: mongo
+    command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs0", "--bind_ip_all"]
+
+  mongotag_init:
+    image: mongo
+    entrypoint: /entrypoint.sh
+    environment:
+      REPLICA_HOST: mongotag
+    volumes:
+      - "${PWD}/.docker/init-mongo.sh:/entrypoint.sh"
 
   test:
     depends_on:
@@ -32,16 +46,19 @@ services:
       - mongostore_replicaset
       - mongostore_replicaset_init
       - mongosnap
+      - mongotag
+      - mongotag_init
     build:
       context: ..
       dockerfile: .docker/coverage.Dockerfile
       args:
-        TAGS: nats,mongostore,mongosnap
+        TAGS: nats,mongostore,mongosnap,mongotag
     environment:
       - NATS_URL=nats://nats:4222
       - STAN_URL=nats://stan:4222
       - MONGOSTORE_URL=mongodb://mongostore:27017
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
       - MONGOSNAP_URL=mongodb://mongosnap:27017
+      - MONGOTAG_URL=mongodb://mongotag:27017
     volumes:
       - ../out:/coverage/out

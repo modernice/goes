@@ -60,6 +60,7 @@ func (h *Handler) handle(
 	errs <-chan error,
 	out chan<- error,
 ) {
+	defer close(out)
 	for {
 		if str == nil && errs == nil {
 			return
