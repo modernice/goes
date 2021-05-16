@@ -13,7 +13,10 @@ type TestingT interface {
 	Fatalf(string, ...interface{})
 }
 
-// Tagger provides a `HasTag` method. Ususally an Aggregate that embeds *tagging.Tagger.
+// Tagger provides a `HasTag` method. Usually an Aggregate that embeds *tagging.Tagger.
+// A Tagger has tags.
+//
+// Tagger is usually implemented by embedding *tagging.Tagger into an aggregate.
 type Tagger interface {
 	HasTag(string) bool
 }
