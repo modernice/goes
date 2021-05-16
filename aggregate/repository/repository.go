@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/stream"
+	"github.com/modernice/goes/aggregate/tagging"
 	"github.com/modernice/goes/event"
 	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
@@ -27,6 +28,7 @@ type repository struct {
 	store        event.Store
 	snapshots    snapshot.Store
 	snapSchedule snapshot.Schedule
+	tags         tagging.Store
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
@@ -56,14 +58,32 @@ func WithSnapshots(store snapshot.Store, s snapshot.Schedule) Option {
 	}
 }
 
+// WithTags returns an Option that adds a tagging Store to a Repository.
+func WithTags(store tagging.Store) Option {
+	if store == nil {
+		panic("nil Store")
+	}
+	return func(r *repository) {
+		r.tags = store
+	}
+}
+
 // New returns an event-sourced Aggregate Repository. It uses the provided Event
 // Store to persist and query Aggregates.
 func New(store event.Store, opts ...Option) aggregate.Repository {
+	return newRepository(store, opts...)
+}
+
+func newRepository(store event.Store, opts ...Option) *repository {
 	r := repository{store: store}
 	for _, opt := range opts {
 		opt(&r)
 	}
 	return &r
+}
+
+type tagger interface {
+	Tags() []string
 }
 
 func (r *repository) Save(ctx context.Context, a aggregate.Aggregate) error {
@@ -72,7 +92,30 @@ func (r *repository) Save(ctx context.Context, a aggregate.Aggregate) error {
 		snap = true
 	}
 
+	var rollbackTagUpdate func(context.Context) error
+	if r.tags != nil {
+		if tagger, ok := a.(tagger); ok {
+			oldTags, err := r.tags.Tags(ctx, a.AggregateName(), a.AggregateID())
+			if err != nil {
+				return fmt.Errorf("fetch current tags: %w", err)
+			}
+
+			if err := r.tags.Update(ctx, a.AggregateName(), a.AggregateID(), tagger.Tags()); err != nil {
+				return fmt.Errorf("update tags: %w", err)
+			}
+
+			rollbackTagUpdate = func(ctx context.Context) error {
+				return r.tags.Update(ctx, a.AggregateName(), a.AggregateID(), oldTags)
+			}
+		}
+	}
+
 	if err := r.store.Insert(ctx, a.AggregateChanges()...); err != nil {
+		if rollbackTagUpdate != nil {
+			if rollbackError := rollbackTagUpdate(ctx); rollbackError != nil {
+				return fmt.Errorf("rollback tags after failing to insert events (%s): %w", err, rollbackError)
+			}
+		}
 		return fmt.Errorf("insert events: %w", err)
 	}
 	a.FlushChanges()
@@ -221,12 +264,32 @@ func (r *repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
 			if err = r.store.Delete(ctx, evt); err != nil {
 				return fmt.Errorf("delete %q event (ID=%s): %w", evt.Name(), evt.ID(), err)
 			}
+
+			if r.tags != nil {
+				if _, ok := a.(tagger); ok {
+					if err := r.tags.Update(ctx, a.AggregateName(), a.AggregateID(), []string{}); err != nil {
+						return fmt.Errorf("update tags: %w", err)
+					}
+				}
+			}
 		}
 	}
 }
 
 func (r *repository) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.History, <-chan error, error) {
-	opts := makeQueryOptions(q)
+	opts, shouldRun, err := r.makeQueryOptions(ctx, q)
+	if err != nil {
+		return nil, nil, fmt.Errorf("make query options: %w", err)
+	}
+
+	if !shouldRun {
+		out := make(chan aggregate.History)
+		errs := make(chan error)
+		close(out)
+		close(errs)
+		return out, errs, nil
+	}
+
 	events, errs, err := r.store.Query(ctx, equery.New(opts...))
 	if err != nil {
 		return nil, nil, fmt.Errorf("query events: %w", err)
@@ -240,14 +303,30 @@ func (r *repository) Query(ctx context.Context, q aggregate.Query) (<-chan aggre
 	return out, outErrors, nil
 }
 
-func makeQueryOptions(q aggregate.Query) []equery.Option {
+func (r *repository) makeQueryOptions(ctx context.Context, q aggregate.Query) ([]equery.Option, bool, error) {
 	opts := append(
 		query.EventQueryOpts(q),
-		equery.SortByMulti(
-			event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
-			event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
-		),
+		equery.SortByAggregate(),
 	)
-	return opts
+
+	tags := q.Tags()
+
+	if r.tags == nil || len(tags) == 0 {
+		return opts, true, nil
+	}
+
+	tagged, err := r.tags.TaggedWith(ctx, tags...)
+	if err != nil {
+		return opts, true, fmt.Errorf("get tagged (%v) aggregates: %w", tags, err)
+	}
+
+	if len(tagged) == 0 {
+		return opts, false, nil
+	}
+
+	for _, tagged := range tagged {
+		opts = append(opts, equery.Aggregate(tagged.Name, tagged.ID))
+	}
+
+	return opts, true, nil
 }

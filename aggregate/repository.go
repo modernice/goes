@@ -75,6 +75,9 @@ type Query interface {
 	// IDs returns the aggregate UUIDs to query for.
 	IDs() []uuid.UUID
 
+	// Tags returns the aggregate tags to query for.
+	Tags() []string
+
 	// Versions returns the version constraints for the query.
 	Versions() version.Constraints
 

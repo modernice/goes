@@ -11,6 +11,7 @@ import (
 type Query struct {
 	names    []string
 	ids      []uuid.UUID
+	tags     []string
 	versions version.Constraints
 	sortings []aggregate.SortOptions
 }
@@ -44,6 +45,13 @@ func ID(ids ...uuid.UUID) Option {
 	}
 }
 
+// Tag returns an Option that filters aggregates by their tags.
+func Tag(tags ...string) Option {
+	return func(b *builder) {
+		b.tags = append(b.tags, tags...)
+	}
+}
+
 // Version returns an Option that filters aggregates by their versions.
 func Version(constraints ...version.Constraint) Option {
 	return func(b *builder) {
@@ -63,6 +71,13 @@ func SortByMulti(sorts ...aggregate.SortOptions) Option {
 	return func(b *builder) {
 		b.sortings = append(b.sortings, sorts...)
 	}
+}
+
+// Tagger is an aggregate that implements tagging.
+//
+// Tagger is implemented by embedding *tagging.Tagger into an aggregate.
+type Tagger interface {
+	HasTag(string) bool
 }
 
 // Test tests the Aggregate a against the Query q and returns true if q should
@@ -97,6 +112,21 @@ func Test(q aggregate.Query, a aggregate.Aggregate) bool {
 		if max := versions.Max(); len(max) > 0 &&
 			!testMaxVersions(max, a.AggregateVersion()) {
 			return false
+		}
+	}
+
+	if tagger, ok := a.(Tagger); ok {
+		if tags := q.Tags(); len(tags) > 0 {
+			var hasTag bool
+			for _, tag := range tags {
+				if tagger.HasTag(tag) {
+					hasTag = true
+					break
+				}
+			}
+			if !hasTag {
+				return false
+			}
 		}
 	}
 
@@ -150,6 +180,11 @@ func (q Query) Names() []string {
 // IDs returns the aggregate ids to query for.
 func (q Query) IDs() []uuid.UUID {
 	return q.ids
+}
+
+// Tags returns the aggregate tags to query for.
+func (q Query) Tags() []string {
+	return q.tags
 }
 
 // Versions returns the aggregate version constraints for the query.

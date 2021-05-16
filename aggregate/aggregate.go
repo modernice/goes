@@ -5,10 +5,12 @@ package aggregate
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/internal/xtime"
 )
 
 // Aggregate is an event-sourced Aggregate.
@@ -121,11 +123,14 @@ func NextVersion(a Aggregate) int {
 // NextEvent makes and returns the next Event e for the given Aggregate. NextEvent
 // calls a.ApplyEvent(e) and a.TrackChange(e) before returning the Event.
 func NextEvent(a Aggregate, name string, data event.Data, opts ...event.Option) event.Event {
-	opts = append([]event.Option{event.Aggregate(
-		a.AggregateName(),
-		a.AggregateID(),
-		NextVersion(a),
-	)}, opts...)
+	opts = append([]event.Option{
+		event.Aggregate(
+			a.AggregateName(),
+			a.AggregateID(),
+			NextVersion(a),
+		),
+		event.Time(nextTime(a)),
+	}, opts...)
 	evt := event.New(name, data, opts...)
 	a.ApplyEvent(evt)
 	a.TrackChange(evt)
@@ -185,4 +190,18 @@ func (*Base) ApplyEvent(event.Event) {}
 // SetVersion implements Aggregate.
 func (b *Base) SetVersion(v int) {
 	b.Version = v
+}
+
+func nextTime(a Aggregate) time.Time {
+	changes := a.AggregateChanges()
+	now := xtime.Now()
+	if len(changes) == 0 {
+		return now
+	}
+	latestTime := changes[len(changes)-1].Time()
+	nowTrunc := now.Truncate(0)
+	if nowTrunc.Equal(latestTime) || nowTrunc.Before(latestTime.Truncate(0)) {
+		return changes[len(changes)-1].Time().Add(time.Nanosecond)
+	}
+	return now
 }

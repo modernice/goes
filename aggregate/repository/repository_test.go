@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot/memsnap"
 	mock_snapshot "github.com/modernice/goes/aggregate/snapshot/mocks"
 	squery "github.com/modernice/goes/aggregate/snapshot/query"
+	"github.com/modernice/goes/aggregate/tagging"
+	"github.com/modernice/goes/aggregate/tagging/mock_tagging"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
@@ -111,17 +114,128 @@ func TestRepository_Save_Snapshot(t *testing.T) {
 	}
 }
 
-func TestRepository_Fetch(t *testing.T) {
-	aggregateName := "foo"
-	aggregateID := uuid.New()
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
+func TestRepository_Save_tags(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tagStore := mock_tagging.NewMockStore(ctrl)
+	store := memstore.New()
+	repo := repository.New(store, repository.WithTags(tagStore))
+
+	foo := newTagger()
+	tagging.Tag(foo, "foo", "bar")
+
+	tagStore.EXPECT().
+		Tags(gomock.Any(), foo.AggregateName(), foo.AggregateID()).
+		DoAndReturn(func(context.Context, string, uuid.UUID) ([]string, error) {
+			return []string{}, nil
+		})
+
+	tagStore.EXPECT().
+		Update(gomock.Any(), foo.AggregateName(), foo.AggregateID(), []string{"bar", "foo"}).
+		DoAndReturn(func(context.Context, string, uuid.UUID, []string) error {
+			return nil
+		})
+
+	if err := repo.Save(context.Background(), foo); err != nil {
+		t.Fatalf("Save failed with %q", err)
+	}
+}
+
+func TestRepository_Save_tagsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tagStore := mock_tagging.NewMockStore(ctrl)
+	store := memstore.New()
+	repo := repository.New(store, repository.WithTags(tagStore))
+
+	foo := newTagger()
+	tagging.Tag(foo, "foo", "bar")
+
+	tagStore.EXPECT().
+		Tags(gomock.Any(), foo.AggregateName(), foo.AggregateID()).
+		DoAndReturn(func(context.Context, string, uuid.UUID) ([]string, error) {
+			return []string{}, nil
+		})
+
+	mockError := errors.New("mock error")
+	tagStore.EXPECT().
+		Update(gomock.Any(), foo.AggregateName(), foo.AggregateID(), []string{"bar", "foo"}).
+		DoAndReturn(func(context.Context, string, uuid.UUID, []string) error {
+			return mockError
+		})
+
+	if err := repo.Save(context.Background(), foo); !errors.Is(err, mockError) {
+		t.Fatalf("Save should fail with %q; got %q", mockError, err)
 	}
 
+	str, errs, err := store.Query(context.Background(), equery.New())
+	if err != nil {
+		t.Fatalf("Query failed with %q", err)
+	}
+
+	events, err := event.Drain(context.Background(), str, errs)
+	if err != nil {
+		t.Fatalf("Drain failed with %q", err)
+	}
+
+	if len(events) != 0 {
+		t.Fatalf("when the tagging store fails to update, no events should be inserted into the event store; got %d", len(events))
+	}
+}
+
+func TestRepository_Save_tagsRollback(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tagStore := mock_tagging.NewMockStore(ctrl)
+	mockError := errors.New("mock error")
+	realStore := memstore.New()
+	store := newFailingEventStore(realStore, mockError)
+	realRepo := repository.New(realStore)
+	repo := repository.New(store, repository.WithTags(tagStore))
+
+	foo := newTagger()
+	tagging.Tag(foo, "foo", "bar")
+
+	if err := realRepo.Save(context.Background(), foo); err != nil {
+		t.Fatalf("failed to save aggregate: %v", err)
+	}
+
+	tagging.Tag(foo, "baz")
+
+	tagStore.EXPECT().
+		Tags(gomock.Any(), foo.AggregateName(), foo.AggregateID()).
+		DoAndReturn(func(context.Context, string, uuid.UUID) ([]string, error) {
+			return []string{"foo", "bar"}, nil
+		})
+
+	tagStore.EXPECT().
+		Update(gomock.Any(), foo.AggregateName(), foo.AggregateID(), []string{"bar", "baz", "foo"}).
+		DoAndReturn(func(context.Context, string, uuid.UUID, []string) error {
+			return nil
+		})
+
+	tagStore.EXPECT().
+		Update(gomock.Any(), foo.AggregateName(), foo.AggregateID(), []string{"foo", "bar"}).
+		DoAndReturn(func(context.Context, string, uuid.UUID, []string) error {
+			return nil
+		})
+
+	if err := repo.Save(context.Background(), foo); !errors.Is(err, mockError) {
+		t.Fatalf("Save should fail with %q; got %q", mockError, err)
+	}
+}
+
+func TestRepository_Fetch(t *testing.T) {
+	aggregateID := uuid.New()
+
 	org := test.NewFoo(aggregateID)
-	org.TrackChange(events...)
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	events := org.AggregateChanges()
 
 	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
@@ -160,18 +274,15 @@ func TestRepository_Fetch(t *testing.T) {
 }
 
 func TestRepository_FetchVersion(t *testing.T) {
-	aggregateName := "foo"
 	aggregateID := uuid.New()
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 4)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 5)),
-	}
 
 	org := test.NewFoo(aggregateID)
-	org.TrackChange(events...)
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	events := org.AggregateChanges()
 
 	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
@@ -257,16 +368,12 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 }
 
 func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
-	aggregateName := "foo"
 	aggregateID := uuid.New()
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
-	}
 
 	org := test.NewFoo(aggregateID)
-	org.TrackChange(events...)
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
 
 	r := repository.New(memstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
@@ -293,25 +400,13 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 
 func TestRepository_Delete(t *testing.T) {
 	foo := test.NewFoo(uuid.New())
-	changes := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(
-			foo.AggregateName(),
-			foo.AggregateID(),
-			1,
-		)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(
-			foo.AggregateName(),
-			foo.AggregateID(),
-			2,
-		)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(
-			foo.AggregateName(),
-			foo.AggregateID(),
-			3,
-		)),
-	}
+	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
+	changes := foo.AggregateChanges()
 
 	s := memstore.New(changes...)
+	foo = test.NewFoo(foo.AggregateID())
 	r := repository.New(s)
 
 	if err := r.Fetch(context.Background(), foo); err != nil {
@@ -333,6 +428,33 @@ func TestRepository_Delete(t *testing.T) {
 
 	if v := foo.AggregateVersion(); v != 0 {
 		t.Fatalf("foo.AggregateVersion should return %d; got %d", 0, v)
+	}
+}
+
+func TestRepository_Delete_tags(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := memstore.New()
+	tagStore := mock_tagging.NewMockStore(ctrl)
+	nontagRepo := repository.New(store)
+	tagRepo := repository.New(store, repository.WithTags(tagStore))
+
+	foo := newTagger()
+	tagging.Tag(foo, "foo", "bar")
+
+	if err := nontagRepo.Save(context.Background(), foo); err != nil {
+		t.Fatalf("Save failed with %q", err)
+	}
+
+	tagStore.EXPECT().
+		Update(gomock.Any(), foo.AggregateName(), foo.AggregateID(), []string{}).
+		DoAndReturn(func(context.Context, string, uuid.UUID, []string) error {
+			return nil
+		})
+
+	if err := tagRepo.Delete(context.Background(), foo); err != nil {
+		t.Fatalf("Delete failed with %q", err)
 	}
 }
 
@@ -472,6 +594,101 @@ func TestRepository_Query_version(t *testing.T) {
 		if a.AggregateVersion() != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, a.AggregateVersion())
 		}
+	}
+}
+
+func TestRepository_Query_tag(t *testing.T) {
+	foo := test.NewFoo(uuid.New())
+
+	store := memstore.New(
+		tagging.Tag(foo, "foo", "bar"),
+		tagging.Tag(foo, "baz"),
+	)
+
+	tests := []struct {
+		tags      []string
+		wantFound bool
+	}{
+		{
+			tags:      []string{"foo"},
+			wantFound: true,
+		},
+		{
+			tags:      []string{"bar"},
+			wantFound: true,
+		},
+		{
+			tags:      []string{"baz"},
+			wantFound: true,
+		},
+		{
+			tags:      []string{"foobar"},
+			wantFound: false,
+		},
+		{
+			tags:      nil,
+			wantFound: true,
+		},
+		{
+			tags:      []string{},
+			wantFound: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.tags, ", "), func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			tagStore := mock_tagging.NewMockStore(ctrl)
+
+			repo := repository.New(store, repository.WithTags(tagStore))
+
+			if len(tt.tags) > 0 {
+				tagStore.EXPECT().
+					TaggedWith(gomock.Any(), tt.tags).
+					DoAndReturn(func(context.Context, ...string) ([]tagging.Aggregate, error) {
+						if tt.wantFound {
+							return []tagging.Aggregate{
+								{Name: foo.AggregateName(), ID: foo.AggregateID()},
+							}, nil
+						}
+						return nil, nil
+					})
+			}
+
+			str, errs, err := repo.Query(context.Background(), query.New(query.Tag(tt.tags...)))
+			if err != nil {
+				t.Fatalf("Query failed with %q", err)
+			}
+
+			histories, err := aggregate.Drain(context.Background(), str, errs)
+			if err != nil {
+				t.Fatalf("Drain failed with %q", err)
+			}
+
+			aggregates := make([]aggregate.Aggregate, len(histories))
+			for i, his := range histories {
+				a := aggregate.New(his.AggregateName(), his.AggregateID())
+				his.Apply(a)
+				aggregates[i] = a
+			}
+
+			if !tt.wantFound {
+				if len(aggregates) != 0 {
+					t.Fatalf("expected query to return 0 aggregates; got %d", len(aggregates))
+				}
+				return
+			}
+
+			if len(aggregates) != 1 {
+				t.Fatalf("expected query to return the aggregate")
+			}
+
+			if aggregates[0].AggregateID() != foo.AggregateID() {
+				t.Fatalf("query retured wrong aggregate. want=%v got=%v", foo, aggregates[0])
+			}
+		})
 	}
 }
 
@@ -631,4 +848,34 @@ func (a *mockAggregate) MarshalSnapshot() ([]byte, error) {
 
 func (a *mockAggregate) UnmarshalSnapshot(p []byte) error {
 	return gob.NewDecoder(bytes.NewReader(p)).Decode(&a.mockState)
+}
+
+type tagger struct {
+	*aggregate.Base
+	*tagging.Tagger
+}
+
+func newTagger() *tagger {
+	return &tagger{
+		Base:   aggregate.New("foo", uuid.New()),
+		Tagger: &tagging.Tagger{},
+	}
+}
+
+func (t *tagger) ApplyEvent(evt event.Event) {
+	t.Tagger.ApplyEvent(evt)
+}
+
+type failingEventStore struct {
+	event.Store
+
+	err error
+}
+
+func newFailingEventStore(store event.Store, err error) *failingEventStore {
+	return &failingEventStore{Store: store, err: err}
+}
+
+func (s *failingEventStore) Insert(context.Context, ...event.Event) error {
+	return s.err
 }

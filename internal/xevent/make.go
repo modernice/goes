@@ -1,6 +1,8 @@
 package xevent
 
 import (
+	"time"
+
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 )
@@ -68,6 +70,7 @@ func makeAggregateEvents(name string, data event.Data, n int, cfg makeConfig) []
 	for _, a := range cfg.as {
 		var skipped int
 		aevents := make([]event.Event, n)
+		t := time.Now()
 		for i := range aevents {
 			var opts []event.Option
 			v := cfg.aggregateVersion(a.AggregateVersion(), i, &skipped)
@@ -75,8 +78,9 @@ func makeAggregateEvents(name string, data event.Data, n int, cfg makeConfig) []
 				a.AggregateName(),
 				a.AggregateID(),
 				v,
-			))
+			), event.Time(t))
 			aevents[i] = event.New(name, data, opts...)
+			t = t.Add(time.Nanosecond)
 		}
 		events = append(events, aevents...)
 	}
