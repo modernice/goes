@@ -25,7 +25,7 @@ func (t Tagger) Tags() []string {
 	return t
 }
 
-// ApplyEvent applies tagging events. Aggregates that embed *Tags should call
+// ApplyEvent applies tagging events. Aggregates that embed *Tagger should call
 // t.ApplyEvent from within their own ApplyEvent method:
 //
 //	type Foo struct {
