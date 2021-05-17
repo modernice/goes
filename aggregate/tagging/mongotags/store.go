@@ -230,6 +230,10 @@ func (s *Store) Update(ctx context.Context, name string, id uuid.UUID, tags []st
 }
 
 func (s *Store) Tags(ctx context.Context, name string, id uuid.UUID) ([]string, error) {
+	if _, err := s.Connect(ctx); err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+
 	res := s.entries.FindOne(ctx, bson.D{
 		{Key: "aggregateName", Value: name},
 		{Key: "aggregateId", Value: id},
@@ -247,6 +251,10 @@ func (s *Store) Tags(ctx context.Context, name string, id uuid.UUID) ([]string, 
 }
 
 func (s *Store) TaggedWith(ctx context.Context, tags ...string) ([]tagging.Aggregate, error) {
+	if _, err := s.Connect(ctx); err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+
 	filter := make(bson.D, 0)
 	if len(tags) > 0 {
 		filter = bson.D{{Key: "tags", Value: bson.D{{Key: "$all", Value: tags}}}}
