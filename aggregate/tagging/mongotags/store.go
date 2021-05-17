@@ -194,17 +194,15 @@ func (s *Store) Update(ctx context.Context, name string, id uuid.UUID, tags []st
 		}
 
 		if len(tags) > 0 {
-			if _, err := s.entries.UpdateOne(ctx, bson.D{
+			if _, err := s.entries.ReplaceOne(ctx, bson.D{
 				{Key: "aggregateName", Value: name},
 				{Key: "aggregateId", Value: id},
 			}, bson.D{
-				{Key: "$addToSet", Value: bson.D{
-					{Key: "tags", Value: bson.D{
-						{Key: "$each", Value: tags},
-					}},
-				}},
-			}, options.Update().SetUpsert(true)); err != nil {
-				return fmt.Errorf("update entry: %w", err)
+				{Key: "aggregateName", Value: name},
+				{Key: "aggregateId", Value: id},
+				{Key: "tags", Value: tags},
+			}, options.Replace().SetUpsert(true)); err != nil {
+				return fmt.Errorf("replace entry: %w", err)
 			}
 		} else {
 			if _, err := s.entries.DeleteOne(ctx, bson.D{
