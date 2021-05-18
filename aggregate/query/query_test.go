@@ -8,7 +8,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/tagging"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/query"
+	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
 )
 
@@ -183,6 +183,44 @@ func TestTest(t *testing.T) {
 	}
 }
 
+func TestMerge(t *testing.T) {
+	ids := []uuid.UUID{
+		uuid.New(),
+		uuid.New(),
+		uuid.New(),
+		uuid.New(),
+	}
+
+	queries := []aggregate.Query{
+		New(
+			Name("foo", "bar"),
+			ID(ids[:2]...),
+			Version(version.Exact(1, 2), version.Min(4)),
+		),
+		New(
+			Name("foobar", "barbaz"),
+			ID(ids[1:3]...),
+			Version(version.Exact(3, 4), version.Max(9)),
+		),
+		New(
+			Name("foobar", "barbaz"),
+			ID(ids[1:3]...),
+			Version(version.Exact(3, 4), version.Max(9)),
+		),
+	}
+
+	q := Merge(queries...)
+	want := Query{
+		ids:      ids[:3],
+		names:    []string{"foo", "bar", "foobar", "barbaz"},
+		versions: version.Filter(version.Exact(1, 2, 3, 4), version.Min(4), version.Max(9)),
+	}
+
+	if !reflect.DeepEqual(q, want) {
+		t.Fatalf("Merge should return\n\n%#v\n\ngot\n\n%#v", want, q)
+	}
+}
+
 func TestEventQueryOpts(t *testing.T) {
 	ids := makeUUIDs(3)
 	tests := []struct {
@@ -193,44 +231,44 @@ func TestEventQueryOpts(t *testing.T) {
 		{
 			name: "empty",
 			give: New(),
-			want: query.New(),
+			want: equery.New(),
 		},
 		{
 			name: "Name",
 			give: New(Name("foo", "bar", "baz")),
-			want: query.New(query.AggregateName("foo", "bar", "baz")),
+			want: equery.New(equery.AggregateName("foo", "bar", "baz")),
 		},
 		{
 			name: "ID",
 			give: New(ID(ids...)),
-			want: query.New(query.AggregateID(ids...)),
+			want: equery.New(equery.AggregateID(ids...)),
 		},
 		{
 			name: "Version(exact)",
 			give: New(Version(version.Exact(1, 2, 3))),
-			want: query.New(query.AggregateVersion(version.Max(1, 2, 3))),
+			want: equery.New(equery.AggregateVersion(version.Max(1, 2, 3))),
 		},
 		{
 			name: "Version(range)",
 			give: New(Version(version.InRange(version.Range{10, 70}, version.Range{30, 50}))),
-			want: query.New(query.AggregateVersion(version.Max(70, 50))),
+			want: equery.New(equery.AggregateVersion(version.Max(70, 50))),
 		},
 		{
 			name: "Version(min)",
 			give: New(Version(version.Min(2, 4, 6))),
-			want: query.New(),
+			want: equery.New(),
 		},
 		{
 			name: "Version(max)",
 			give: New(Version(version.Max(20, 40, 60))),
-			want: query.New(query.AggregateVersion(version.Max(20, 40, 60))),
+			want: equery.New(equery.AggregateVersion(version.Max(20, 40, 60))),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := EventQueryOpts(tt.give)
-			got := query.New(opts...)
+			got := equery.New(opts...)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ToEventQuery returned a wrong Query:\n\nwant: %#v\n\ngot: %#v", tt.want, got)
 			}

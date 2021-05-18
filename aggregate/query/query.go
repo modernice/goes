@@ -22,7 +22,7 @@ type Option func(*builder)
 type builder struct {
 	Query
 
-	versionConstraints []version.Constraint
+	versionConstraints []version.Option
 }
 
 // New returns a Query that is built from opts.
@@ -31,29 +31,64 @@ func New(opts ...Option) Query {
 	return b.build(opts...)
 }
 
+// Merge merges multiple Queries into one.
+func Merge(queries ...aggregate.Query) Query {
+	var opts []Option
+	versionConstraints := make([]version.Constraints, 0, len(queries))
+	for _, q := range queries {
+		opts = append(opts, Name(q.Names()...), ID(q.IDs()...))
+		versionConstraints = append(versionConstraints, q.Versions())
+	}
+	return New(append(opts, Version(version.DryMerge(versionConstraints...)...))...)
+}
+
 // Name returns an Option that filters aggregates by their names.
 func Name(names ...string) Option {
 	return func(b *builder) {
-		b.names = append(b.names, names...)
+	L:
+		for _, name := range names {
+			for _, name2 := range b.names {
+				if name == name2 {
+					continue L
+				}
+			}
+			b.names = append(b.names, name)
+		}
 	}
 }
 
 // ID returns an Option that filters aggregates by their ids.
 func ID(ids ...uuid.UUID) Option {
 	return func(b *builder) {
-		b.ids = append(b.ids, ids...)
+	L:
+		for _, id := range ids {
+			for _, id2 := range b.ids {
+				if id == id2 {
+					continue L
+				}
+			}
+			b.ids = append(b.ids, id)
+		}
 	}
 }
 
 // Tag returns an Option that filters aggregates by their tags.
 func Tag(tags ...string) Option {
 	return func(b *builder) {
-		b.tags = append(b.tags, tags...)
+	L:
+		for _, tag := range tags {
+			for _, tag2 := range b.tags {
+				if tag == tag2 {
+					continue L
+				}
+			}
+			b.tags = append(b.tags, tag)
+		}
 	}
 }
 
 // Version returns an Option that filters aggregates by their versions.
-func Version(constraints ...version.Constraint) Option {
+func Version(constraints ...version.Option) Option {
 	return func(b *builder) {
 		b.versionConstraints = append(b.versionConstraints, constraints...)
 	}
@@ -78,6 +113,12 @@ func SortByMulti(sorts ...aggregate.SortOptions) Option {
 // Tagger is implemented by embedding *tagging.Tagger into an aggregate.
 type Tagger interface {
 	HasTag(string) bool
+}
+
+type queryWithTags interface {
+	aggregate.Query
+
+	Tags() []string
 }
 
 // Test tests the Aggregate a against the Query q and returns true if q should
@@ -116,16 +157,18 @@ func Test(q aggregate.Query, a aggregate.Aggregate) bool {
 	}
 
 	if tagger, ok := a.(Tagger); ok {
-		if tags := q.Tags(); len(tags) > 0 {
-			var hasTag bool
-			for _, tag := range tags {
-				if tagger.HasTag(tag) {
-					hasTag = true
-					break
+		if q, ok := q.(queryWithTags); ok {
+			if tags := q.Tags(); len(tags) > 0 {
+				var hasTag bool
+				for _, tag := range tags {
+					if tagger.HasTag(tag) {
+						hasTag = true
+						break
+					}
 				}
-			}
-			if !hasTag {
-				return false
+				if !hasTag {
+					return false
+				}
 			}
 		}
 	}
@@ -153,7 +196,7 @@ func EventQueryOpts(q aggregate.Query) []query.Option {
 		opts = append(opts, query.AggregateID(ids...))
 	}
 	if versions := q.Versions(); versions != nil {
-		var constraints []version.Constraint
+		var constraints []version.Option
 		if exact := versions.Exact(); len(exact) > 0 {
 			constraints = append(constraints, version.Max(exact...))
 		}

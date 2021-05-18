@@ -19,8 +19,8 @@ type Constraints interface {
 	Max() []int
 }
 
-// A Constraint is an option for constraints.
-type Constraint func(*constraints)
+// A Option is an option for constraints.
+type Option func(*constraints)
 
 // Range is a version range.
 type Range [2]int
@@ -32,8 +32,28 @@ type constraints struct {
 	max    []int
 }
 
+// Merge merges mutliple Constraints into one.
+func Merge(constraints ...Constraints) Constraints {
+	return Filter(DryMerge(constraints...)...)
+}
+
+// DryMerge returns the Options to merge the provided Constraints.
+func DryMerge(constraints ...Constraints) []Option {
+	var opts []Option
+	for _, c := range constraints {
+		opts = append(
+			opts,
+			Exact(c.Exact()...),
+			InRange(c.Ranges()...),
+			Min(c.Min()...),
+			Max(c.Max()...),
+		)
+	}
+	return opts
+}
+
 // Filter returns Constraints from the given Constraint opts.
-func Filter(opts ...Constraint) Constraints {
+func Filter(opts ...Option) Constraints {
 	var c constraints
 	for _, opt := range opts {
 		opt(&c)
@@ -42,30 +62,62 @@ func Filter(opts ...Constraint) Constraints {
 }
 
 // Exact returns a Constraint that only allows the exact versions v.
-func Exact(v ...int) Constraint {
+func Exact(v ...int) Option {
 	return func(c *constraints) {
-		c.exact = append(c.exact, v...)
+	L:
+		for _, v := range v {
+			for _, v2 := range c.exact {
+				if v == v2 {
+					continue L
+				}
+			}
+			c.exact = append(c.exact, v)
+		}
 	}
 }
 
 // InRange returns a Constraint that only allows versions in the Ranges r.
-func InRange(r ...Range) Constraint {
+func InRange(r ...Range) Option {
 	return func(c *constraints) {
-		c.ranges = append(c.ranges, r...)
+	L:
+		for _, r := range r {
+			for _, r2 := range c.ranges {
+				if r == r2 {
+					continue L
+				}
+			}
+			c.ranges = append(c.ranges, r)
+		}
 	}
 }
 
 // Min returns a Constraint that only allows versions that are >= least one of v.
-func Min(v ...int) Constraint {
+func Min(v ...int) Option {
 	return func(c *constraints) {
-		c.min = append(c.min, v...)
+	L:
+		for _, v := range v {
+			for _, v2 := range c.min {
+				if v == v2 {
+					continue L
+				}
+			}
+			c.min = append(c.min, v)
+		}
 	}
 }
 
 // Max returns a Constraint that only allows versions that are <= at least one of v.
-func Max(v ...int) Constraint {
+func Max(v ...int) Option {
 	return func(c *constraints) {
-		c.max = append(c.max, v...)
+	L:
+		for _, v := range v {
+			for _, v2 := range c.max {
+				if v == v2 {
+					continue L
+				}
+			}
+			c.max = append(c.max, v)
+		}
 	}
 }
 

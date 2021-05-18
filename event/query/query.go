@@ -28,8 +28,8 @@ type Option func(*builder)
 
 type builder struct {
 	Query
-	timeConstraints    []time.Constraint
-	versionConstraints []version.Constraint
+	timeConstraints    []time.Option
+	versionConstraints []version.Option
 }
 
 // New builds a Query from opts.
@@ -72,7 +72,7 @@ func ID(ids ...uuid.UUID) Option {
 }
 
 // Time returns an Option that filters events by time constraints.
-func Time(constraints ...time.Constraint) Option {
+func Time(constraints ...time.Option) Option {
 	return func(b *builder) {
 		b.timeConstraints = append(b.timeConstraints, constraints...)
 	}
@@ -110,7 +110,7 @@ func AggregateID(ids ...uuid.UUID) Option {
 
 // AggregateVersion returns an Option that filters events by their aggregate
 // versions.
-func AggregateVersion(constraints ...version.Constraint) Option {
+func AggregateVersion(constraints ...version.Option) Option {
 	return func(b *builder) {
 		b.versionConstraints = append(b.versionConstraints, constraints...)
 	}
@@ -283,33 +283,8 @@ func Merge(queries ...event.Query) Query {
 			continue
 		}
 
-		var versionOpts []version.Constraint
-
-		if versions := q.AggregateVersions(); versions != nil {
-			versionOpts = []version.Constraint{
-				version.Exact(versions.Exact()...),
-				version.InRange(versions.Ranges()...),
-				version.Min(versions.Min()...),
-				version.Max(versions.Max()...),
-			}
-		}
-
-		var timeOpts []time.Constraint
-
-		if times := q.Times(); times != nil {
-			timeOpts = []time.Constraint{
-				time.Exact(q.Times().Exact()...),
-				time.InRange(q.Times().Ranges()...),
-			}
-
-			if min := times.Min(); !min.IsZero() {
-				timeOpts = append(timeOpts, time.Min(min))
-			}
-
-			if max := times.Max(); !max.IsZero() {
-				timeOpts = append(timeOpts, time.Max(max))
-			}
-		}
+		versionOpts := version.DryMerge(q.AggregateVersions())
+		timeOpts := time.DryMerge(q.Times())
 
 		opts = append(
 			opts,

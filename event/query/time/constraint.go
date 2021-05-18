@@ -23,8 +23,8 @@ type Constraints interface {
 	Max() time.Time
 }
 
-// A Constraint is an option for constraints.
-type Constraint func(*constraints)
+// A Option is an option for Constraints.
+type Option func(*constraints)
 
 // Range is a time range.
 type Range [2]time.Time
@@ -36,8 +36,34 @@ type constraints struct {
 	max    time.Time
 }
 
+// Merge merges the provided Constraints into one.
+func Merge(constraints ...Constraints) Constraints {
+	return Filter(DryMerge(constraints...)...)
+}
+
+// DryMerge returns the Options to merge the provided Constraints.
+func DryMerge(constraints ...Constraints) []Option {
+	var opts []Option
+	for _, c := range constraints {
+		opts = append(
+			opts,
+			Exact(c.Exact()...),
+			InRange(c.Ranges()...),
+		)
+
+		if t := c.Min(); !t.IsZero() {
+			opts = append(opts, Min(t))
+		}
+
+		if t := c.Max(); !t.IsZero() {
+			opts = append(opts, Max(t))
+		}
+	}
+	return opts
+}
+
 // Filter returns Constraints from the given Constraint opts.
-func Filter(opts ...Constraint) Constraints {
+func Filter(opts ...Option) Constraints {
 	var c constraints
 	for _, opt := range opts {
 		opt(&c)
@@ -46,38 +72,38 @@ func Filter(opts ...Constraint) Constraints {
 }
 
 // Exact returns a Constraint that only allows the exact times t.
-func Exact(t ...time.Time) Constraint {
+func Exact(t ...time.Time) Option {
 	return func(c *constraints) {
 		c.exact = append(c.exact, t...)
 	}
 }
 
 // InRange returns a Constraint that only allows times in the Ranges r.
-func InRange(r ...Range) Constraint {
+func InRange(r ...Range) Option {
 	return func(c *constraints) {
 		c.ranges = append(c.ranges, r...)
 	}
 }
 
 // Before returns a Constraint that only allows times that are before at least one of v.
-func Before(t time.Time) Constraint {
+func Before(t time.Time) Option {
 	return Max(t.Add(-time.Nanosecond))
 }
 
 // After returns a Constraint that only allows times that are after at least one of v.
-func After(t time.Time) Constraint {
+func After(t time.Time) Option {
 	return Min(t.Add(time.Nanosecond))
 }
 
 // Min returns a Constraint that only allows times that are >= at least one of v.
-func Min(min time.Time) Constraint {
+func Min(min time.Time) Option {
 	return func(c *constraints) {
 		c.min = min
 	}
 }
 
 // Max returns a Constraint that only allows times that are <= at least one of v.
-func Max(max time.Time) Constraint {
+func Max(max time.Time) Option {
 	return func(c *constraints) {
 		c.max = max
 	}

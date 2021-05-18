@@ -24,7 +24,7 @@ type builder struct {
 	Query
 
 	opts            []query.Option
-	timeConstraints []time.Constraint
+	timeConstraints []time.Option
 }
 
 // Name returns an Option that filters Snapshots by their AggregateName.
@@ -42,14 +42,14 @@ func ID(ids ...uuid.UUID) Option {
 }
 
 // Version returns an Option that filters Snapshots by their AggregateVersion.
-func Version(constraints ...version.Constraint) Option {
+func Version(constraints ...version.Option) Option {
 	return func(b *builder) {
 		b.opts = append(b.opts, query.Version(constraints...))
 	}
 }
 
 // Time returns an Option that filters Snapshots by the time they were created.
-func Time(constraints ...time.Constraint) Option {
+func Time(constraints ...time.Option) Option {
 	return func(b *builder) {
 		b.timeConstraints = append(b.timeConstraints, constraints...)
 	}
