@@ -73,6 +73,8 @@ func ID(ids ...uuid.UUID) Option {
 }
 
 // Tag returns an Option that filters aggregates by their tags.
+//
+// This filter can only be used if the Repository has tagging enabled.
 func Tag(tags ...string) Option {
 	return func(b *builder) {
 	L:
@@ -226,6 +228,8 @@ func (q Query) IDs() []uuid.UUID {
 }
 
 // Tags returns the aggregate tags to query for.
+//
+// This filter can only be used if the Repository has tagging enabled.
 func (q Query) Tags() []string {
 	return q.tags
 }

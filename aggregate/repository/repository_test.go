@@ -19,7 +19,6 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot/memsnap"
 	mock_snapshot "github.com/modernice/goes/aggregate/snapshot/mocks"
 	squery "github.com/modernice/goes/aggregate/snapshot/query"
-	"github.com/modernice/goes/aggregate/tagging"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
@@ -560,45 +559,201 @@ func TestRepository_FetchVersion_Snapshot(t *testing.T) {
 	}
 }
 
-func TestModifyQueries(t *testing.T) {
+// func TestModifyQueries(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+
+// 	store := mock_event.NewMockStore(ctrl)
+
+// 	id := uuid.New()
+// 	repo := repository.New(
+// 		store,
+// 		repository.ModifyQueries(func(prev event.Query) event.Query {
+// 			return equery.Merge(prev, equery.New(
+// 				equery.Aggregate("foo", id),
+// 			))
+// 		}),
+// 	)
+
+// 	queryChan := make(chan event.Query)
+
+// 	store.EXPECT().
+// 		Query(gomock.Any(), gomock.Any()).
+// 		DoAndReturn(func(_ context.Context, q event.Query) (<-chan aggregate.History, <-chan error, error) {
+// 			go func() { queryChan <- q }()
+// 			return nil, nil, nil
+// 		})
+
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	if _, _, err := repo.Query(ctx, query.New(query.Name("foo"))); err != nil {
+// 		t.Fatalf("Query failed with %q", err)
+// 	}
+// 	cancel()
+
+// 	q := <-queryChan
+// 	want := equery.New(append(
+// 		query.EventQueryOpts(query.New(query.Name("foo"))),
+// 		equery.Aggregate("foo", id),
+// 		equery.SortByAggregate(),
+// 	)...)
+// 	if !reflect.DeepEqual(q, want) {
+// 		t.Fatalf("event store received the wrong Query.\n\nwant=%v\n\ngot=%v", q, want)
+// 	}
+// }
+
+func TestBeforeInsert(t *testing.T) {
+	store := memstore.New()
+	saved := make(chan aggregate.Aggregate)
+	repo := repository.New(store, repository.BeforeInsert(func(_ context.Context, a aggregate.Aggregate) error {
+		go func() { saved <- a }()
+		return nil
+	}))
+
+	foo := test.NewFoo(uuid.New())
+	if err := repo.Save(context.Background(), foo); err != nil {
+		t.Fatalf("Save failed with %q", err)
+	}
+
+	select {
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	case saved := <-saved:
+		if saved != foo {
+			t.Fatalf("BeforeSave received wrong aggregate. want=%v got=%v", foo, saved)
+		}
+	}
+}
+
+func TestAfterInsert(t *testing.T) {
+	store := memstore.New()
+	saved := make(chan aggregate.Aggregate)
+	repo := repository.New(store, repository.AfterInsert(func(_ context.Context, a aggregate.Aggregate) error {
+		go func() { saved <- a }()
+		return nil
+	}))
+
+	foo := test.NewFoo(uuid.New())
+	if err := repo.Save(context.Background(), foo); err != nil {
+		t.Fatalf("Save failed with %q", err)
+	}
+
+	select {
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	case saved := <-saved:
+		if saved != foo {
+			t.Fatalf("BeforeSave received wrong aggregate. want=%v got=%v", foo, saved)
+		}
+	}
+}
+
+func TestOnFailedInsert(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	store := mock_event.NewMockStore(ctrl)
 
-	id := uuid.New()
-	repo := repository.New(
-		store,
-		repository.ModifyQueries(func(prev event.Query) event.Query {
-			return equery.Merge(prev, equery.New(
-				equery.Aggregate("foo", id),
-			))
-		}),
-	)
+	gotError := make(chan error)
+	gotAggregate := make(chan aggregate.Aggregate)
 
-	queryChan := make(chan event.Query)
-
+	mockError := errors.New("mock error")
 	store.EXPECT().
-		Query(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, q event.Query) (<-chan aggregate.History, <-chan error, error) {
-			go func() { queryChan <- q }()
-			return nil, nil, nil
+		Insert(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, ...event.Event) error {
+			return mockError
 		})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	if _, _, err := repo.Query(ctx, query.New(query.Name("foo"))); err != nil {
-		t.Fatalf("Query failed with %q", err)
-	}
-	cancel()
+	repo := repository.New(store, repository.OnFailedInsert(func(_ context.Context, a aggregate.Aggregate, err error) error {
+		go func() {
+			gotError <- err
+			gotAggregate <- a
+		}()
+		return nil
+	}))
 
-	q := <-queryChan
-	want := equery.New(append(
-		query.EventQueryOpts(query.New(query.Name("foo"))),
-		equery.Aggregate("foo", id),
-		equery.SortByAggregate(),
-	)...)
-	if !reflect.DeepEqual(q, want) {
-		t.Fatalf("event store received the wrong Query.\n\nwant=%v\n\ngot=%v", q, want)
+	foo := aggregate.New("foo", uuid.New())
+
+	if err := repo.Save(context.Background(), foo); !errors.Is(err, mockError) {
+		t.Fatalf("Save should fail with %q; got %q", mockError, err)
+	}
+
+	select {
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	case called := <-gotError:
+		if !errors.Is(called, mockError) {
+			t.Fatalf("OnFailedInsert hook called with wrong error. want=%v got=%v", mockError, called)
+		}
+	}
+
+	a := <-gotAggregate
+	if a != foo {
+		t.Fatalf("OnFailedInsert hook called with wrong aggregate. want=%v got=%v", foo, a)
+	}
+}
+
+func TestOnFailedInsert_error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock_event.NewMockStore(ctrl)
+
+	mockError := errors.New("mock error")
+	store.EXPECT().
+		Insert(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, ...event.Event) error {
+			return mockError
+		})
+
+	mockHookError := errors.New("mock hook error")
+	repo := repository.New(store, repository.OnFailedInsert(func(_ context.Context, a aggregate.Aggregate, err error) error {
+		return mockHookError
+	}))
+
+	foo := aggregate.New("foo", uuid.New())
+
+	if err := repo.Save(context.Background(), foo); !errors.Is(err, mockHookError) {
+		t.Fatalf("Save should fail with %q; got %q", mockHookError, err)
+	}
+}
+
+func TestOnDelete(t *testing.T) {
+	estore := memstore.New()
+
+	deleted := make(chan aggregate.Aggregate)
+	r := repository.New(estore, repository.OnDelete(func(_ context.Context, a aggregate.Aggregate) error {
+		go func() { deleted <- a }()
+		return nil
+	}))
+
+	foo := test.NewFoo(uuid.New())
+
+	if err := r.Delete(context.Background(), foo); err != nil {
+		t.Fatalf("Delete failed with %q", err)
+	}
+
+	select {
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	case del := <-deleted:
+		if del != foo {
+			t.Fatalf("OnDelete hook called with wrong aggregate. want=%v got=%v", foo, del)
+		}
+	}
+}
+
+func TestOnDelete_error(t *testing.T) {
+	estore := memstore.New()
+
+	mockError := errors.New("mock error")
+	r := repository.New(estore, repository.OnDelete(func(_ context.Context, a aggregate.Aggregate) error {
+		return mockError
+	}))
+
+	foo := test.NewFoo(uuid.New())
+
+	if err := r.Delete(context.Background(), foo); !errors.Is(err, mockError) {
+		t.Fatalf("Delete should fail with %q; got %q", mockError, err)
 	}
 }
 
@@ -652,34 +807,4 @@ func (a *mockAggregate) MarshalSnapshot() ([]byte, error) {
 
 func (a *mockAggregate) UnmarshalSnapshot(p []byte) error {
 	return gob.NewDecoder(bytes.NewReader(p)).Decode(&a.mockState)
-}
-
-type tagger struct {
-	*aggregate.Base
-	*tagging.Tagger
-}
-
-func newTagger() *tagger {
-	return &tagger{
-		Base:   aggregate.New("foo", uuid.New()),
-		Tagger: &tagging.Tagger{},
-	}
-}
-
-func (t *tagger) ApplyEvent(evt event.Event) {
-	t.Tagger.ApplyEvent(evt)
-}
-
-type failingEventStore struct {
-	event.Store
-
-	err error
-}
-
-func newFailingEventStore(store event.Store, err error) *failingEventStore {
-	return &failingEventStore{Store: store, err: err}
-}
-
-func (s *failingEventStore) Insert(context.Context, ...event.Event) error {
-	return s.err
 }

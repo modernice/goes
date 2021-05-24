@@ -15,7 +15,7 @@ type tagger struct {
 	*tagging.Tagger
 }
 
-func newTagAggregate() *tagger {
+func newTagger() *tagger {
 	return &tagger{
 		Base:   aggregate.New("foo", uuid.New()),
 		Tagger: &tagging.Tagger{},
@@ -27,7 +27,7 @@ func (a *tagger) ApplyEvent(evt event.Event) {
 }
 
 func TestTags(t *testing.T) {
-	foo := newTagAggregate()
+	foo := newTagger()
 
 	if foo.HasTag("foo") {
 		t.Fatalf("should not have %q tag", "foo")
