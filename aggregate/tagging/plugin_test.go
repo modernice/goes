@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/aggregate/tagging"
 	"github.com/modernice/goes/aggregate/tagging/memtags"
@@ -13,6 +15,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/memstore"
 	mock_event "github.com/modernice/goes/event/mocks"
+	equery "github.com/modernice/goes/event/query"
 )
 
 func TestPlugin_save(t *testing.T) {
@@ -129,6 +132,45 @@ func TestPlugin_delete_error(t *testing.T) {
 	if err := repo.Delete(context.Background(), foo); !errors.Is(err, mockError) {
 		t.Fatalf("Delete should fail with %q; got %q", mockError, err)
 	}
+}
+
+func TestPlugin_query(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	estore := mock_event.NewMockStore(ctrl)
+	tagStore := mock_tagging.NewMockStore(ctrl)
+	plugin := tagging.Plugin(tagStore)
+	repo := repository.New(estore, plugin)
+
+	aggregates := []tagging.Aggregate{
+		{Name: "foo", ID: uuid.New()},
+		{Name: "foo", ID: uuid.New()},
+		{Name: "bar", ID: uuid.New()},
+		{Name: "bar", ID: uuid.New()},
+	}
+
+	tagStore.EXPECT().
+		TaggedWith(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, ...string) ([]tagging.Aggregate, error) {
+			return aggregates, nil
+		})
+
+	var opts []equery.Option
+	for _, a := range aggregates {
+		opts = append(opts, equery.Aggregate(a.Name, a.ID))
+	}
+
+	wantQuery := equery.Merge(equery.New(opts...), equery.New(equery.SortByAggregate()))
+	estore.EXPECT().Query(gomock.Any(), wantQuery).DoAndReturn(func(context.Context, event.Query) (<-chan event.Event, <-chan error, error) {
+		events := make(chan event.Event)
+		errs := make(chan error)
+		close(events)
+		close(errs)
+		return events, errs, nil
+	})
+
+	repo.Query(context.Background(), query.New(query.Tag("foo", "bar")))
 }
 
 func assertTags(t *testing.T, want, got []string) {

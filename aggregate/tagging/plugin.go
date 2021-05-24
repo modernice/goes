@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
+	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/query"
 )
 
 // A Store persists tags of aggregates.
@@ -117,5 +119,25 @@ func (p *plugin) Apply(r *repository.Repository) {
 			return fmt.Errorf("delete tags: %w", err)
 		}
 		return nil
+	}).Apply(r)
+
+	repository.ModifyQueries(func(ctx context.Context, q aggregate.Query, prev event.Query) (event.Query, error) {
+		tagger, ok := q.(tagger)
+		if !ok {
+			return prev, nil
+		}
+
+		tags := tagger.Tags()
+		aggregates, err := p.store.TaggedWith(ctx, tags...)
+		if err != nil {
+			return prev, fmt.Errorf("get tagged (%v) aggregates: %w", tags, err)
+		}
+
+		opts := make([]query.Option, len(aggregates))
+		for i, a := range aggregates {
+			opts[i] = query.Aggregate(a.Name, a.ID)
+		}
+
+		return query.Merge(prev, query.New(opts...)), nil
 	}).Apply(r)
 }

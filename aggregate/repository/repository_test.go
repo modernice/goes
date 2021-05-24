@@ -559,47 +559,47 @@ func TestRepository_FetchVersion_Snapshot(t *testing.T) {
 	}
 }
 
-// func TestModifyQueries(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
+func TestModifyQueries(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// 	store := mock_event.NewMockStore(ctrl)
+	store := mock_event.NewMockStore(ctrl)
 
-// 	id := uuid.New()
-// 	repo := repository.New(
-// 		store,
-// 		repository.ModifyQueries(func(prev event.Query) event.Query {
-// 			return equery.Merge(prev, equery.New(
-// 				equery.Aggregate("foo", id),
-// 			))
-// 		}),
-// 	)
+	id := uuid.New()
+	repo := repository.New(
+		store,
+		repository.ModifyQueries(func(_ context.Context, _ aggregate.Query, prev event.Query) (event.Query, error) {
+			return equery.Merge(prev, equery.New(
+				equery.Aggregate("foo", id),
+			)), nil
+		}),
+	)
 
-// 	queryChan := make(chan event.Query)
+	queryChan := make(chan event.Query)
 
-// 	store.EXPECT().
-// 		Query(gomock.Any(), gomock.Any()).
-// 		DoAndReturn(func(_ context.Context, q event.Query) (<-chan aggregate.History, <-chan error, error) {
-// 			go func() { queryChan <- q }()
-// 			return nil, nil, nil
-// 		})
+	store.EXPECT().
+		Query(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, q event.Query) (<-chan aggregate.History, <-chan error, error) {
+			go func() { queryChan <- q }()
+			return nil, nil, nil
+		})
 
-// 	ctx, cancel := context.WithCancel(context.Background())
-// 	if _, _, err := repo.Query(ctx, query.New(query.Name("foo"))); err != nil {
-// 		t.Fatalf("Query failed with %q", err)
-// 	}
-// 	cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	if _, _, err := repo.Query(ctx, query.New(query.Name("foo"))); err != nil {
+		t.Fatalf("Query failed with %q", err)
+	}
+	cancel()
 
-// 	q := <-queryChan
-// 	want := equery.New(append(
-// 		query.EventQueryOpts(query.New(query.Name("foo"))),
-// 		equery.Aggregate("foo", id),
-// 		equery.SortByAggregate(),
-// 	)...)
-// 	if !reflect.DeepEqual(q, want) {
-// 		t.Fatalf("event store received the wrong Query.\n\nwant=%v\n\ngot=%v", q, want)
-// 	}
-// }
+	q := <-queryChan
+	want := equery.New(append(
+		query.EventQueryOpts(query.New(query.Name("foo"))),
+		equery.Aggregate("foo", id),
+		equery.SortByAggregate(),
+	)...)
+	if !reflect.DeepEqual(q, want) {
+		t.Fatalf("event store received the wrong Query.\n\nwant=%v\n\ngot=%v", q, want)
+	}
+}
 
 func TestBeforeInsert(t *testing.T) {
 	store := memstore.New()

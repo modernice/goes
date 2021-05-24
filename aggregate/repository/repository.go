@@ -29,7 +29,7 @@ type Repository struct {
 	store          event.Store
 	snapshots      snapshot.Store
 	snapSchedule   snapshot.Schedule
-	queryModifiers []func(event.Query) event.Query
+	queryModifiers []func(context.Context, aggregate.Query, event.Query) (event.Query, error)
 	beforeInsert   []func(context.Context, aggregate.Aggregate) error
 	afterInsert    []func(context.Context, aggregate.Aggregate) error
 	onFailedInsert []func(context.Context, aggregate.Aggregate, error) error
@@ -70,18 +70,18 @@ func (opt withSnapshots) Apply(r *Repository) {
 	r.snapSchedule = opt.schedule
 }
 
-// // ModifyQueries returns an Option that adds mods as Query modifiers to a
-// // Repository. When the Repository builds a Query, it is passed to every
-// // modifier before the event store is queried.
-// func ModifyQueries(mods ...func(prev event.Query) event.Query) Option {
-// 	return modifyQueries(mods)
-// }
+// ModifyQueries returns an Option that adds mods as Query modifiers to a
+// Repository. When the Repository builds a Query, it is passed to every
+// modifier before the event store is queried.
+func ModifyQueries(mods ...func(ctx context.Context, q aggregate.Query, prev event.Query) (event.Query, error)) Option {
+	return modifyQueries(mods)
+}
 
-// type modifyQueries []func(event.Query) event.Query
+type modifyQueries []func(context.Context, aggregate.Query, event.Query) (event.Query, error)
 
-// func (opt modifyQueries) Apply(r *Repository) {
-// 	r.queryModifiers = append(r.queryModifiers, opt...)
-// }
+func (opt modifyQueries) Apply(r *Repository) {
+	r.queryModifiers = append(r.queryModifiers, opt...)
+}
 
 // BeforeInsert returns an Option that adds fn as a hook to a Repository. fn is
 // called before the changes to an aggregate are inserted into the event store.
@@ -400,8 +400,11 @@ func (r *Repository) makeQuery(ctx context.Context, aq aggregate.Query) (event.Q
 	)
 
 	var q event.Query = equery.New(opts...)
+	var err error
 	for _, mod := range r.queryModifiers {
-		q = mod(q)
+		if q, err = mod(ctx, aq, q); err != nil {
+			return q, fmt.Errorf("modify query: %w", err)
+		}
 	}
 
 	return q, nil
