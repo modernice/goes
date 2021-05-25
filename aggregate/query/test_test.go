@@ -6,8 +6,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
-	"github.com/modernice/goes/aggregate/tagging"
-	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/version"
 )
 
@@ -36,19 +34,6 @@ func TestTest(t *testing.T) {
 				aggregate.New("bar", ids[1]): false,
 				aggregate.New("baz", ids[2]): true,
 				aggregate.New("foo", ids[3]): false,
-			},
-		},
-		{
-			name:  "Tag",
-			query: query.New(query.Tag("foo", "bar")),
-			tests: map[aggregate.Aggregate]bool{
-				newTagger("foo"):                  true,
-				newTagger("bar"):                  true,
-				newTagger("foo", "bar"):           true,
-				newTagger("foo", "baz"):           true,
-				newTagger("baz", "foobar", "foo"): true,
-				newTagger("baz"):                  false,
-				newTagger("baz", "foobar"):        false,
 			},
 		},
 		{
@@ -106,24 +91,6 @@ func TestTest(t *testing.T) {
 			}
 		})
 	}
-}
-
-type tagger struct {
-	*aggregate.Base
-	*tagging.Tagger
-}
-
-func newTagger(tags ...string) *tagger {
-	t := &tagger{
-		Base:   aggregate.New("foo", uuid.New()),
-		Tagger: &tagging.Tagger{},
-	}
-	tagging.Tag(t, tags...)
-	return t
-}
-
-func (t *tagger) ApplyEvent(evt event.Event) {
-	t.Tagger.ApplyEvent(evt)
 }
 
 func makeUUIDs(n int) []uuid.UUID {

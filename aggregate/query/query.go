@@ -11,7 +11,6 @@ import (
 type Query struct {
 	names    []string
 	ids      []uuid.UUID
-	tags     []string
 	versions version.Constraints
 	sortings []aggregate.SortOptions
 }
@@ -68,23 +67,6 @@ func ID(ids ...uuid.UUID) Option {
 				}
 			}
 			b.ids = append(b.ids, id)
-		}
-	}
-}
-
-// Tag returns an Option that filters aggregates by their tags.
-//
-// This filter can only be used if the Repository has tagging enabled.
-func Tag(tags ...string) Option {
-	return func(b *builder) {
-	L:
-		for _, tag := range tags {
-			for _, tag2 := range b.tags {
-				if tag == tag2 {
-					continue L
-				}
-			}
-			b.tags = append(b.tags, tag)
 		}
 	}
 }
@@ -225,13 +207,6 @@ func (q Query) Names() []string {
 // IDs returns the aggregate ids to query for.
 func (q Query) IDs() []uuid.UUID {
 	return q.ids
-}
-
-// Tags returns the aggregate tags to query for.
-//
-// This filter can only be used if the Repository has tagging enabled.
-func (q Query) Tags() []string {
-	return q.tags
 }
 
 // Versions returns the aggregate version constraints for the query.

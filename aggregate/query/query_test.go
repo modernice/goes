@@ -44,17 +44,6 @@ func TestNew(t *testing.T) {
 			},
 		},
 		{
-			name: "Tag",
-			opts: []Option{
-				Tag("foo", "bar"),
-				Tag("baz"),
-			},
-			want: Query{
-				tags:     []string{"foo", "bar", "baz"},
-				versions: version.Filter(),
-			},
-		},
-		{
 			name: "Version",
 			opts: []Option{
 				Version(
