@@ -16,7 +16,7 @@ type mockEventData struct {
 	A string
 }
 
-func TestChange_notChanged(t *testing.T) {
+func TestChange_expectedChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -53,7 +53,7 @@ func TestChange(t *testing.T) {
 	test.Change(tt, foo, "evt")
 }
 
-func TestWithEventData(t *testing.T) {
+func TestChange_WithEventData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -72,7 +72,7 @@ func TestWithEventData(t *testing.T) {
 	test.Change(tt, foo, "evt", test.WithEventData(mockEventData{A: "foo"}))
 }
 
-func TestAtLeast(t *testing.T) {
+func TestChange_AtLeast(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -98,7 +98,7 @@ func TestAtLeast(t *testing.T) {
 	test.Change(tt, foo, "evt", test.AtLeast(3))
 }
 
-func TestAtMost(t *testing.T) {
+func TestChange_AtMost(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -135,7 +135,7 @@ func TestAtMost(t *testing.T) {
 	test.Change(tt, foo, "evt", test.AtMost(4))
 }
 
-func TestExactly(t *testing.T) {
+func TestChange_Exactly(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -162,4 +162,59 @@ func TestExactly(t *testing.T) {
 	tt.EXPECT().Fatal(gomock.Any())
 
 	test.Change(tt, foo, "evt", test.Exactly(3))
+}
+
+func TestNoChange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	foo := aggregate.New("foo", uuid.New())
+
+	tt := mock_test.NewMockTestingT(ctrl)
+
+	test.NoChange(tt, foo, "evt")
+}
+
+func TestNoChange_unexpectedChange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	foo := aggregate.New("foo", uuid.New())
+	foo.TrackChange(event.New("evt", mockEventData{}))
+
+	var err error
+	var noChangeError *test.UnexpectedChangeError
+
+	tt := mock_test.NewMockTestingT(ctrl)
+	tt.EXPECT().Fatal(gomock.Any()).Do(func(args ...interface{}) {
+		err, _ = args[0].(error)
+	})
+
+	test.NoChange(tt, foo, "evt")
+
+	if !errors.As(err, &noChangeError) {
+		t.Fatalf("NoChange() should fail with %T; got %#v", noChangeError, err)
+	}
+
+	if noChangeError.EventName != "evt" {
+		t.Fatalf("UnexpectedChangeError.EventName should be %q; is %q", "evt", noChangeError.EventName)
+	}
+}
+
+func TestNoChange_WithEventData(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	foo := aggregate.New("foo", uuid.New())
+	foo.TrackChange(event.New("evt", mockEventData{}))
+
+	tt := mock_test.NewMockTestingT(ctrl)
+	test.NoChange(tt, foo, "evt", test.WithEventData(mockEventData{A: "foo"}))
+
+	foo.TrackChange(event.New("evt", mockEventData{A: "foo"}))
+
+	tt = mock_test.NewMockTestingT(ctrl)
+	tt.EXPECT().Fatal(gomock.Any())
+
+	test.NoChange(tt, foo, "evt", test.WithEventData(mockEventData{A: "foo"}))
 }
