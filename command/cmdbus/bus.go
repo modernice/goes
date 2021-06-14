@@ -123,18 +123,17 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 // the execution of the Command because the Bus returns as soon as another Bus
 // accepts a dispatched Command.
 //
-// To handle errors that happen during the execution of Commands, call
-// b.Errors() on the receiving Command Bus instead.
+// To handle errors that happen during the execution of Commands, use the
+// dispatch.Synchronous() Option to make the dispatch synchronous. A synchronous
+// dispatch waits for and returns the execution error from the executing Bus.
 //
-// Alternatively, use the dispatch.Synchronous() Option to make the dispatch
-// synchronous. A synchronous dispatch waits for the handling Bus to publish a
-// CommandExecuted Event before returning.
+// Errors that happen during a synchronous excecution are then also returned by
+// Dispatch as an *ExecutionError. Call ExecError with that error as the
+// argument to unwrap the underlying *ExecutionError:
 //
-// Errors that happen during the excecution of the Command are then also
-// returned by Dispatch as an *ExecutionError. Call ExecError with that error as
-// the argument to unwrap the underlying *ExecutionError:
-//	err := b.Dispatch(context.TODO(), cmd)
-//	if execError, ok := ExecError(err); ok {
+//	var b command.Bus
+//	err := b.Dispatch(context.TODO(), command.New(...))
+//	if execError, ok := cmdbus.ExecError(err); ok {
 //		log.Println(execError.Cmd)
 //		log.Println(execError.Err)
 //	}
@@ -144,10 +143,11 @@ func New(enc command.Encoder, events event.Bus, opts ...Option) *Bus {
 // By default, Dispatch does not return information about the execution of a
 // Command, but a report.Reporter can be provided with the dispatch.Report()
 // Option. When a Reporter is provided, the dispatch is automatically made
-// synchronous because the Bus has to wait until Command execution completes.
+// synchronous.
 //
 // Example:
 //	var rep report.Report
+//	var cmd command.Command
 //	err := b.Dispatch(context.TODO(), cmd, dispatch.Report(&rep))
 // 	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
