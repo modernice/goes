@@ -45,9 +45,6 @@ type Schedule interface {
 	// Schedule. Trigger blocks until all Jobs have been applied or the Context
 	// is canceled. When the Context is canceled, Trigger returns ctx.Err().
 	//
-	// Optional Event Queries can be provided that are merged and used to
-	// further filter Events that are queried to trigger the projections.
-	//
 	//	var bus event.Bus
 	//	var store event.Store
 	//	s := project.Continuously(bus, store, []string{"foo", "bar", "baz"})
@@ -59,7 +56,7 @@ type Schedule interface {
 	//	_, err = s.Trigger(context.TODO())
 	//	// handle err
 	//	// Output: Triggered!
-	Trigger(context.Context, ...event.Query) error
+	Trigger(context.Context, ...TriggerOption) error
 }
 
 // SubscribeOption is a subscription option.
@@ -71,8 +68,16 @@ type ContinuousOption func(*continously)
 // PeriodicOption is an option for periodic projections.
 type PeriodicOption func(*periodically)
 
+// TriggerOption is an option for triggering a Schedule.
+type TriggerOption func(*triggerConfig)
+
 type subscribeConfig struct {
 	filter event.Query
+}
+
+type triggerConfig struct {
+	fully   bool
+	queries []event.Query
 }
 
 type schedule struct {
@@ -101,6 +106,7 @@ type periodically struct {
 
 type trigger struct {
 	query event.Query
+	cfg   triggerConfig
 	wg    *sync.WaitGroup
 }
 
@@ -134,6 +140,23 @@ func Filter(filter event.Query) SubscribeOption {
 func Debounce(d time.Duration) ContinuousOption {
 	return func(c *continously) {
 		c.debounce = d
+	}
+}
+
+// TriggerFilter returns a TriggerOption that adds queries as filters to the
+// event query for the events that are applied to a projection.
+func TriggerFilter(queries ...event.Query) TriggerOption {
+	return func(cfg *triggerConfig) {
+		cfg.queries = append(cfg.queries, queries...)
+	}
+}
+
+// Fully returns a TriggerOption that forces event queries for projections to
+// ignore `ProjectionProgress` methods on projections and always query all
+// events.
+func Fully() TriggerOption {
+	return func(cfg *triggerConfig) {
+		cfg.fully = true
 	}
 }
 
@@ -291,7 +314,7 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 	go func() {
 		defer wg.Done()
 		for t := range triggers {
-			j := newContinuousJob(ctx, cfg, s.store, t.query, nil, s.eventNames)
+			j := newContinuousJob(ctx, cfg, s.store, &t, nil, s.eventNames)
 			if err := applyFunc(j); err != nil {
 				select {
 				case <-ctx.Done():
@@ -310,11 +333,17 @@ func (s *continously) Subscribe(ctx context.Context, applyFunc func(Job) error, 
 	return out, nil
 }
 
-func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error {
-	q := query.Merge(append([]event.Query{query.New(
-		query.Name(s.eventNames...),
-		query.SortBy(event.SortTime, event.SortAsc),
-	)}, queries...)...)
+func (s *continously) Trigger(ctx context.Context, opts ...TriggerOption) error {
+	cfg := newTriggerConfig(opts...)
+
+	queries := append([]event.Query{
+		query.New(
+			query.Name(s.eventNames...),
+			query.SortBy(event.SortTime, event.SortAsc),
+		),
+	}, cfg.queries...)
+
+	q := query.Merge(queries...)
 
 	s.mux.Lock()
 	var wg sync.WaitGroup
@@ -325,6 +354,7 @@ func (s *continously) Trigger(ctx context.Context, queries ...event.Query) error
 			return ctx.Err()
 		case triggers <- trigger{
 			query: q,
+			cfg:   cfg,
 			wg:    &wg,
 		}:
 		}
@@ -395,7 +425,7 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 	go func() {
 		defer wg.Done()
 		for trigger := range triggers {
-			j := newPeriodicJob(ctx, cfg, s.store, s.eventNames, trigger.query)
+			j := newPeriodicJob(ctx, cfg, s.store, s.eventNames, &trigger)
 			if err := applyFunc(j); err != nil {
 				select {
 				case <-ctx.Done():
@@ -414,11 +444,17 @@ func (s *periodically) Subscribe(ctx context.Context, applyFunc func(Job) error,
 	return out, nil
 }
 
-func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) error {
-	q := query.Merge(append([]event.Query{query.New(
-		query.Name(s.eventNames...),
-		query.SortBy(event.SortTime, event.SortAsc),
-	)}, queries...)...)
+func (s *periodically) Trigger(ctx context.Context, opts ...TriggerOption) error {
+	cfg := newTriggerConfig(opts...)
+
+	queries := append([]event.Query{
+		query.New(
+			query.Name(s.eventNames...),
+			query.SortBy(event.SortTime, event.SortAsc),
+		),
+	}, cfg.queries...)
+
+	q := query.Merge(queries...)
 
 	s.mux.Lock()
 	var wg sync.WaitGroup
@@ -429,6 +465,7 @@ func (s *periodically) Trigger(ctx context.Context, queries ...event.Query) erro
 			return ctx.Err()
 		case triggers <- trigger{
 			query: q,
+			cfg:   cfg,
 			wg:    &wg,
 		}:
 		}
@@ -450,4 +487,12 @@ func configureSubscribe(opts ...SubscribeOption) subscribeConfig {
 
 func (cfg subscribeConfig) allowsEvent(evt event.Event) bool {
 	return query.Test(cfg.filter, evt)
+}
+
+func newTriggerConfig(opts ...TriggerOption) triggerConfig {
+	var cfg triggerConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return cfg
 }
