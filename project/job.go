@@ -18,6 +18,23 @@ type Job interface {
 	// Context returns the projection Context.
 	Context() context.Context
 
+	// Full returns whether the projection should be a "full" projection. A full
+	// projection applies every matched event from the past instead of events
+	// that happened after the latest applied event.
+	//
+	// Receivers of Jobs are responsible for checking if it is a full projection
+	// and handle the Job accordingly:
+	//
+	//	var schedule project.Schedule
+	//	schedule.Subscribe(context.TODO(), func(job project.Job) error {
+	//		foo := NewFoo()
+	//		if !job.Full() {
+	//			foo = fetchFooFromDatabase()
+	//		}
+	//		job.Apply(job.Context(), foo)
+	//	})
+	Full() bool
+
 	// Events returns the Events from the Job.
 	Events(context.Context) ([]event.Event, error)
 
@@ -66,13 +83,16 @@ type baseJob struct {
 	store      event.Store
 	eventNames []string
 	trigger    *trigger
-	// triggerQuery event.Query
 }
 
 type cache struct {
 	sync.Mutex
 
 	cache map[[32]byte][]event.Event
+}
+
+func (j *baseJob) Full() bool {
+	return j.trigger != nil && j.trigger.cfg.fully
 }
 
 func newContinuousJob(
@@ -326,7 +346,7 @@ func (j *baseJob) buildQuery(p EventApplier) event.Query {
 		query.SortBy(event.SortTime, event.SortAsc),
 	}
 
-	if p, ok := p.(progressor); ok {
+	if p, ok := p.(progressor); ok && (j.trigger == nil || !j.trigger.cfg.fully) {
 		latest := p.ProjectionProgress()
 		if !latest.IsZero() {
 			queryOpts = append(queryOpts, query.Time(time.After(latest)))
