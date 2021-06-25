@@ -1,6 +1,7 @@
 package fanin
 
 import (
+	"context"
 	"sync"
 )
 
@@ -47,4 +48,18 @@ func Errors(errs ...<-chan error) (_ <-chan error, stop func()) {
 	}()
 
 	return out, stop
+}
+
+// Errors accepts a Context and multiple error channels and returns a single
+// error channel. When ctx is canceled or every input channel is closed, the
+// returned error channel is closed.
+//
+// If len(errs) == 0, Errors returns a closed error channel.
+func ErrorsContext(ctx context.Context, errs ...<-chan error) <-chan error {
+	out, stop := Errors(errs...)
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+	return out
 }
