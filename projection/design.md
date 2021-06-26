@@ -1,5 +1,52 @@
 # Projections
 
+## Projections
+
+A `Projection` is a type that at least implements an `ApplyEvent` method to
+project an event stream onto a given projection. A projection may implement
+additional methods to add features or optimizations to a projection.
+
+### Progressors
+
+A `Progressor` may be embedded into a projection type to capture the projection
+progress of a given projection by keeping the time of the latest applied event
+in the projection itself.
+
+```go
+package example
+
+type exampleProjection struct {
+	*projection.Progressor
+}
+
+func newExampleProjection() *exampleProjection {
+	return &exampleProjection{
+		Progressor: &projection.Progressor{},
+	}
+}
+```
+
+### Base projection
+
+Projections may embed a projection `Base` which embeds sensible default types like `Progressor`.
+
+```go
+package example
+
+type exampleProjection struct {
+	*projection.Base
+
+	// implicitly embedded by *projection.Base:
+	*projection.Progressor
+}
+
+func newExampleProjection() *exampleProjection {
+	return &exampleProjection{
+		Base: projection.New(),
+	}
+}
+```
+
 ## Schedules
 
 A `Schedule` defines when projection `Jobs` should be created and passed to
