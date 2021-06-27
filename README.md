@@ -1,7 +1,6 @@
 # goes – CQRS & event-sourcing toolkit
 
-**This library is still in development and probably not production ready
-(although it is already used in production).**
+**This library is still in development and probably not production ready.**
 
 `goes` is a toolkit for creating distributed, event-sourced applications in Go.
 
@@ -12,7 +11,7 @@ code. goes provides:
 - Distributed Event Bus (using [NATS](https://nats.io) /
   [NATS Streaming](https://docs.nats.io/nats-streaming-concepts/intro))
 - Distributed, event-driven Command Bus
-- Event Store ([MongoDB](https://www.mongodb.com))
+- Event store (using [MongoDB](https://www.mongodb.com))
 - Projections (continuously & periodically)
 - SAGAs (process managers)
 
