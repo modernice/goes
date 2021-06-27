@@ -2,7 +2,6 @@ package projection_test
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
@@ -10,10 +9,11 @@ import (
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/projection"
+	"github.com/modernice/goes/projection/internal/projectiontest"
 )
 
 func TestApply(t *testing.T) {
-	proj := newMockProjection()
+	proj := projectiontest.NewMockProjection()
 
 	events := []event.Event{
 		event.New("foo", test.FooEventData{}),
@@ -25,32 +25,66 @@ func TestApply(t *testing.T) {
 		t.Fatalf("Apply failed with %q", err)
 	}
 
-	proj.expectApplied(t, events...)
+	proj.ExpectApplied(t, events...)
 }
 
 func TestApply_Progressor(t *testing.T) {
-	proj := newMockProgressor()
+	proj := projectiontest.NewMockProgressor()
 
 	now := time.Now()
-	evtTime := now.Add(time.Minute)
 	events := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}, event.Time(evtTime)),
+		event.New("foo", test.FooEventData{}, event.Time(now.Add(time.Second))),
+		event.New("bar", test.FooEventData{}, event.Time(now.Add(time.Minute))),
+		event.New("baz", test.FooEventData{}, event.Time(now.Add(time.Hour))),
 	}
 
 	if err := projection.Apply(proj, events); err != nil {
 		t.Fatalf("Apply failed with %q", err)
 	}
 
-	if !proj.Progress().Equal(evtTime) {
-		t.Fatalf("Progress should return %v; got %v", evtTime, proj.Progress())
+	if !proj.Progress().Equal(events[2].Time()) {
+		t.Fatalf("Progress should return %v; got %v", events[2].Time(), proj.Progress())
+	}
+}
+
+func TestApply_Progressor_ErrProgressed(t *testing.T) {
+	now := time.Now()
+	proj := projectiontest.NewMockProgressor()
+	proj.SetProgress(now)
+
+	events := []event.Event{event.New("foo", test.FooEventData{}, event.Time(now))}
+
+	if err := projection.Apply(proj, events); !errors.Is(err, projection.ErrProgressed) {
+		t.Fatalf("Apply should fail with %q if Event time is before progress time; got %q", projection.ErrProgressed, err)
+	}
+
+	if !proj.Progress().Equal(now) {
+		t.Fatalf("Progress should return %v; got %v", now, proj.Progress())
+	}
+}
+
+func TestApply_Progressor_IgnoreProgress(t *testing.T) {
+	now := time.Now()
+	proj := projectiontest.NewMockProgressor()
+	proj.SetProgress(now)
+
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}, event.Time(now.Add(-time.Hour))),
+		event.New("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
+	}
+
+	if err := projection.Apply(proj, events, projection.IgnoreProgress()); err != nil {
+		t.Fatalf("Apply shouldn't fail when using IgnoreProgress; got %q", err)
+	}
+
+	if !proj.Progress().Equal(now) {
+		t.Fatalf("Progress should return %v; got %v", now, proj.Progress())
 	}
 }
 
 func TestApply_Guard(t *testing.T) {
 	guard := projection.Guard(query.New(query.Name("foo", "bar")))
-	proj := newMockGuardedProjection(guard)
+	proj := projectiontest.NewMockGuardedProjection(guard)
 
 	events := []event.Event{
 		event.New("foo", test.FooEventData{}),
@@ -63,67 +97,9 @@ func TestApply_Guard(t *testing.T) {
 		t.Fatalf("Apply should fail with %q; got %q", projection.ErrGuarded, err)
 	}
 
-	if len(proj.appliedEvents) != 2 {
-		t.Fatalf("%d events should have been applied; got %d", 2, len(proj.appliedEvents))
+	if len(proj.AppliedEvents) != 2 {
+		t.Fatalf("%d events should have been applied; got %d", 2, len(proj.AppliedEvents))
 	}
 
-	proj.expectApplied(t, events[:2]...)
-}
-
-type mockProjection struct {
-	appliedEvents []event.Event
-}
-
-func newMockProjection() *mockProjection {
-	return &mockProjection{}
-}
-
-func (proj *mockProjection) ApplyEvent(evt event.Event) {
-	proj.appliedEvents = append(proj.appliedEvents, evt)
-}
-
-func (proj *mockProjection) hasApplied(events ...event.Event) bool {
-	for _, evt := range events {
-		var applied bool
-		for _, pevt := range proj.appliedEvents {
-			if reflect.DeepEqual(evt, pevt) {
-				applied = true
-				break
-			}
-		}
-		if !applied {
-			return false
-		}
-	}
-	return true
-}
-
-func (proj *mockProjection) expectApplied(t *testing.T, events ...event.Event) {
-	if !proj.hasApplied(events...) {
-		t.Fatalf("mockProjection should have applied %v; has applied %v", events, proj.appliedEvents)
-	}
-}
-
-type mockProgressor struct {
-	*mockProjection
-	*projection.Progressor
-}
-
-func newMockProgressor() *mockProgressor {
-	return &mockProgressor{
-		mockProjection: newMockProjection(),
-		Progressor:     &projection.Progressor{},
-	}
-}
-
-type mockGuardedProjection struct {
-	*mockProjection
-	projection.Guard
-}
-
-func newMockGuardedProjection(guard projection.Guard) *mockGuardedProjection {
-	return &mockGuardedProjection{
-		mockProjection: newMockProjection(),
-		Guard:          guard,
-	}
+	proj.ExpectApplied(t, events[:2]...)
 }

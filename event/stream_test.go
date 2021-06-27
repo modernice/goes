@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
 )
 
@@ -116,6 +117,31 @@ func TestWalk_error(t *testing.T) {
 	if !errors.Is(err, mockError) {
 		t.Errorf("Walk should fail with %q; got %q", mockError, err)
 	}
+}
+
+func TestFilter(t *testing.T) {
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}),
+		event.New("bar", test.FooEventData{}),
+		event.New("baz", test.FooEventData{}),
+		event.New("foobar", test.FooEventData{}),
+		event.New("barbaz", test.FooEventData{}),
+		event.New("foobaz", test.FooEventData{}),
+	}
+
+	str := event.Stream(events...)
+	str = event.Filter(str, query.New(query.Name("bar", "baz", "barbaz", "foobaz")))
+	str = event.Filter(str, query.New(query.Name("baz", "foobaz")))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	filtered, err := event.Drain(ctx, str)
+	if err != nil {
+		t.Fatalf("drain Events: %v", err)
+	}
+
+	test.AssertEqualEvents(t, filtered, []event.Event{events[2], events[5]})
 }
 
 func makeEvents() []event.Event {

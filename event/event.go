@@ -4,9 +4,11 @@ package event
 
 import (
 	"sort"
-	"time"
+	stdtime "time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/event/query/time"
+	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -38,7 +40,7 @@ type Event interface {
 	// Name returns the name of the Event.
 	Name() string
 	// Time returns the time of the Event.
-	Time() time.Time
+	Time() stdtime.Time
 	// Data returns the Event Data.
 	Data() Data
 
@@ -59,7 +61,7 @@ type Option func(*event)
 type event struct {
 	id               uuid.UUID
 	name             string
-	time             time.Time
+	time             stdtime.Time
 	data             Data
 	aggregateName    string
 	aggregateID      uuid.UUID
@@ -95,7 +97,7 @@ func ID(id uuid.UUID) Option {
 }
 
 // Time returns an Option that overrides the auto-generated timestamp of an Event.
-func Time(t time.Time) Option {
+func Time(t stdtime.Time) Option {
 	return func(evt *event) {
 		evt.time = t
 	}
@@ -179,7 +181,7 @@ func (evt event) Name() string {
 	return evt.name
 }
 
-func (evt event) Time() time.Time {
+func (evt event) Time() stdtime.Time {
 	return evt.time
 }
 
@@ -197,4 +199,170 @@ func (evt event) AggregateID() uuid.UUID {
 
 func (evt event) AggregateVersion() int {
 	return evt.aggregateVersion
+}
+
+// Test tests the Event evt against the Query q and returns true if q should
+// include evt in its results. Test can be used by in-memory event.Store
+// implementations to filter events based on the query.
+func Test(q Query, evt Event) bool {
+	if q == nil {
+		return true
+	}
+
+	if names := q.Names(); len(names) > 0 &&
+		!stringsContains(names, evt.Name()) {
+		return false
+	}
+
+	if ids := q.IDs(); len(ids) > 0 && !uuidsContains(ids, evt.ID()) {
+		return false
+	}
+
+	if times := q.Times(); times != nil {
+		if exact := times.Exact(); len(exact) > 0 &&
+			!timesContains(exact, evt.Time()) {
+			return false
+		}
+		if ranges := times.Ranges(); len(ranges) > 0 &&
+			!testTimeRanges(ranges, evt.Time()) {
+			return false
+		}
+		if min := times.Min(); !min.IsZero() && !testMinTimes(min, evt.Time()) {
+			return false
+		}
+		if max := times.Max(); !max.IsZero() && !testMaxTimes(max, evt.Time()) {
+			return false
+		}
+	}
+
+	if names := q.AggregateNames(); len(names) > 0 &&
+		!stringsContains(names, evt.AggregateName()) {
+		return false
+	}
+
+	if ids := q.AggregateIDs(); len(ids) > 0 &&
+		!uuidsContains(ids, evt.AggregateID()) {
+		return false
+	}
+
+	if versions := q.AggregateVersions(); versions != nil {
+		if exact := versions.Exact(); len(exact) > 0 &&
+			!intsContains(exact, evt.AggregateVersion()) {
+			return false
+		}
+		if ranges := versions.Ranges(); len(ranges) > 0 &&
+			!testVersionRanges(ranges, evt.AggregateVersion()) {
+			return false
+		}
+		if min := versions.Min(); len(min) > 0 &&
+			!testMinVersions(min, evt.AggregateVersion()) {
+			return false
+		}
+		if max := versions.Max(); len(max) > 0 &&
+			!testMaxVersions(max, evt.AggregateVersion()) {
+			return false
+		}
+	}
+
+	if aggregates := q.Aggregates(); len(aggregates) > 0 {
+		var found bool
+		for _, aggregate := range aggregates {
+			if aggregate.Name == evt.AggregateName() &&
+				(aggregate.ID == uuid.Nil || aggregate.ID == evt.AggregateID()) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+func stringsContains(vals []string, val string) bool {
+	for _, v := range vals {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}
+
+func uuidsContains(ids []uuid.UUID, id uuid.UUID) bool {
+	for _, i := range ids {
+		if i == id {
+			return true
+		}
+	}
+	return false
+}
+
+func timesContains(times []stdtime.Time, t stdtime.Time) bool {
+	for _, v := range times {
+		if v.Equal(t) {
+			return true
+		}
+	}
+	return false
+}
+
+func intsContains(ints []int, i int) bool {
+	for _, v := range ints {
+		if v == i {
+			return true
+		}
+	}
+	return false
+}
+
+func testTimeRanges(ranges []time.Range, t stdtime.Time) bool {
+	for _, r := range ranges {
+		if r.Includes(t) {
+			return true
+		}
+	}
+	return false
+}
+
+func testMinTimes(min stdtime.Time, t stdtime.Time) bool {
+	if t.Equal(min) || t.After(min) {
+		return true
+	}
+	return false
+}
+
+func testMaxTimes(max stdtime.Time, t stdtime.Time) bool {
+	if t.Equal(max) || t.Before(max) {
+		return true
+	}
+	return false
+}
+
+func testVersionRanges(ranges []version.Range, v int) bool {
+	for _, r := range ranges {
+		if r.Includes(v) {
+			return true
+		}
+	}
+	return false
+}
+
+func testMinVersions(min []int, v int) bool {
+	for _, m := range min {
+		if v >= m {
+			return true
+		}
+	}
+	return false
+}
+
+func testMaxVersions(max []int, v int) bool {
+	for _, m := range max {
+		if v <= m {
+			return true
+		}
+	}
+	return false
 }

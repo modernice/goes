@@ -121,3 +121,24 @@ func ForEvery(
 		}
 	}
 }
+
+// Filter accepts a channel of Events and returns a filtered channel of Events
+// Only Events that test against all provided Queries are pushed into the
+// returned channel. The returned channel is closed when the provided channel is
+// closed.
+func Filter(events <-chan Event, queries ...Query) <-chan Event {
+	out := make(chan Event)
+	go func() {
+		defer close(out)
+	L:
+		for evt := range events {
+			for _, q := range queries {
+				if !Test(q, evt) {
+					continue L
+				}
+			}
+			out <- evt
+		}
+	}()
+	return out
+}

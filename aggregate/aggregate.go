@@ -41,6 +41,9 @@ type Aggregate interface {
 	SetVersion(int)
 }
 
+// Tuple is a reference to a specific Aggregate with the given Name and ID.
+type Tuple event.AggregateTuple
+
 // Option is an Aggregate option.
 type Option func(*Base)
 
