@@ -13,8 +13,8 @@ import (
 	"github.com/modernice/goes/event/eventstore/memstore"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
-	"github.com/modernice/goes/projection/internal/projectiontest"
 )
 
 func TestJob_Events(t *testing.T) {

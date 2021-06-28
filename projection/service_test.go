@@ -9,8 +9,8 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
 	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
-	"github.com/modernice/goes/projection/internal/projectiontest"
 	"github.com/modernice/goes/projection/schedule"
 )
 
