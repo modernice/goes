@@ -272,8 +272,7 @@ func Streaming(clusterID, clientID string, opts ...stan.Option) Driver {
 	}
 }
 
-// New returns a new EventBus that encodes and decodes event.Data using the
-// provided Encoder.
+// New returns an event bus that communicates over NATS or NATS Streaming.
 //
 // New panics if enc is nil or initialization fails because of a malformed
 // environment variable.
