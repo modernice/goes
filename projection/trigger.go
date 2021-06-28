@@ -46,3 +46,18 @@ func Filter(queries ...event.Query) TriggerOption {
 		t.Filter = append(t.Filter, queries...)
 	}
 }
+
+// Options returns the TriggerOptions to build t.
+func (t Trigger) Options() []TriggerOption {
+	var opts []TriggerOption
+	if t.Reset {
+		opts = append(opts, Reset())
+	}
+	if t.Query != nil {
+		opts = append(opts, Query(t.Query))
+	}
+	if len(t.Filter) > 0 {
+		opts = append(opts, Filter(t.Filter...))
+	}
+	return opts
+}
