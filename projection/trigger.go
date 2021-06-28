@@ -1,12 +1,15 @@
 package projection
 
-import "github.com/modernice/goes/event"
+import (
+	"github.com/modernice/goes/event"
+)
 
 // TriggerOption is a Trigger option.
 type TriggerOption func(*Trigger)
 
 // A Trigger is used by Schedules to trigger a Job.
 type Trigger struct {
+	Reset  bool
 	Query  event.Query
 	Filter []event.Query
 }
@@ -18,6 +21,16 @@ func NewTrigger(opts ...TriggerOption) Trigger {
 		opt(&t)
 	}
 	return t
+}
+
+// Reset returns a TriggerOption that resets Projections before applying Events
+// onto them. Resetting a Projection is done by first resetting the progress of
+// the Projection (if it implements progressor). Then, if the Projection has a
+// Reset method, that method is called to allow for custom reset logic.
+func Reset() TriggerOption {
+	return func(t *Trigger) {
+		t.Reset = true
+	}
 }
 
 // Query returns a TriggerOption that sets the Query of the Trigger.

@@ -108,11 +108,11 @@ func subscribeToSchedule(ctx context.Context, s projection.Schedule) (<-chan err
 
 		// Fetch Events & extract Aggregates
 		aggregates, errs, err := job.Aggregates(job.Context())
-		// aggregates == []event.AggregateTuple
+		// aggregates == <-chan aggregate.Tuple
 
 		// Fetch Events & extract Aggregates with given names
 		aggregates, errs, err := job.Aggregates(job.Context(), "foo", "bar", "baz")
-		// aggregates == []event.AggregateTuple
+		// aggregates == <-chan aggregate.Tuple
 
 		// Fetch Events & extract UUID of first Aggregate with given name
 		id, err := job.Aggregate(job.Context(), "foo")
@@ -135,14 +135,14 @@ func triggerSchedule(ctx context.Context, s projection.Schedule) error {
 
 ### Trigger schedule with additional filter
 
-When provided a `projection.Filter`, the created Job of the triggered schedule
+When provided a `schedule.Filter`, the created Job of the triggered schedule
 modifies the query used to fetch the needed events from the event store.
 
 ```go
 package example
 
 func triggerSchedule(ctx context.Context, s projection.Schedule) error {	
-	return s.Trigger(ctx, projection.Filter(query.New(
+	return s.Trigger(ctx, schedule.Filter(query.New(
 		query.AggregateName("foo"),
 		// ...
 	)))

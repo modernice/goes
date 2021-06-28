@@ -1,65 +1,75 @@
 package schedule_test
 
-// func TestPeriodic_Subscribe(t *testing.T) {
-// 	ctx, cancel := context.WithCancel(context.Background())
-// 	defer cancel()
+import (
+	"context"
+	"fmt"
+	"testing"
+	"time"
 
-// 	bus := chanbus.New()
-// 	store := memstore.New()
+	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/projection"
+	"github.com/modernice/goes/projection/internal/projectiontest"
+	"github.com/modernice/goes/projection/schedule"
+)
 
-// 	schedule := schedule.Periodically(store, 100*time.Millisecond, []string{"foo", "bar", "baz"})
+func TestPeriodic_Subscribe(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-// 	proj := projectiontest.NewMockProjection()
-// 	applyErrors := make(chan error)
-// 	appliedJobs := make(chan projection.Job)
+	store := memstore.New()
 
-// 	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
-// 		if err := job.Apply(job.Context(), proj); err != nil {
-// 			applyErrors <- err
-// 		}
-// 		appliedJobs <- job
-// 		return nil
-// 	})
-// 	if err != nil {
-// 		t.Fatalf("Subscribe failed with %q", err)
-// 	}
+	events := []event.Event{
+		event.New("foo", test.FooEventData{}),
+		event.New("bar", test.FooEventData{}),
+		event.New("baz", test.FooEventData{}),
+		event.New("foobar", test.FooEventData{}),
+	}
 
-// 	events := []event.Event{
-// 		event.New("foo", test.FooEventData{}),
-// 		event.New("bar", test.FooEventData{}),
-// 		event.New("baz", test.FooEventData{}),
-// 		event.New("foobar", test.FooEventData{}),
-// 	}
+	if err := store.Insert(ctx, events...); err != nil {
+		t.Fatalf("insert Events: %v", err)
+	}
 
-// 	if err := bus.Publish(ctx, events...); err != nil {
-// 		t.Fatalf("publish Events: %v", err)
-// 	}
+	schedule := schedule.Periodically(store, 20*time.Millisecond, []string{"foo", "bar", "baz"})
 
-// 	timer := time.NewTimer(3 * time.Second)
-// 	defer timer.Stop()
+	proj := projectiontest.NewMockProjection()
 
-// 	var applyCount int
-// L:
-// 	for {
-// 		select {
-// 		case <-timer.C:
-// 			t.Fatalf("timed out. applyCount=%d/3", applyCount)
-// 		case err := <-errs:
-// 			t.Fatal(err)
-// 		case err := <-applyErrors:
-// 			t.Fatal(err)
-// 		case <-appliedJobs:
-// 			applyCount++
-// 			if applyCount == 3 {
-// 				select {
-// 				case <-appliedJobs:
-// 					t.Fatalf("only 3 Jobs should be created; got at least 4")
-// 				case <-time.After(100 * time.Millisecond):
-// 					break L
-// 				}
-// 			}
-// 		}
-// 	}
+	subscribeCtx, cancelSubscribe := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer cancelSubscribe()
 
-// 	proj.ExpectApplied(t, events[:3]...)
-// }
+	appliedJobs := make(chan projection.Job)
+
+	errs, err := schedule.Subscribe(subscribeCtx, func(job projection.Job) error {
+		if err := job.Apply(context.Background(), proj); err != nil {
+			return fmt.Errorf("apply Job: %w", err)
+		}
+		appliedJobs <- job
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Subscribe failed with %q", err)
+	}
+
+	var applyCount int
+	timeout := time.NewTimer(2 * time.Second)
+	defer timeout.Stop()
+L:
+	for {
+		select {
+		case <-timeout.C:
+			t.Fatal("timed out")
+		case err, ok := <-errs:
+			if !ok {
+				break L
+			}
+			t.Fatal(err)
+		case <-appliedJobs:
+			applyCount++
+		}
+	}
+
+	if applyCount < 8 || applyCount > 12 {
+		t.Fatalf("~%d Jobs should have been created; got %d", 10, applyCount)
+	}
+}

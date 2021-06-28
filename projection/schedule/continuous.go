@@ -12,29 +12,68 @@ import (
 	"github.com/modernice/goes/projection"
 )
 
+// Continuous is a projection Schedule that creates projection Jobs on every
+// specified published Event:
+//
+//	var bus event.Bus
+//	var store event.Store
+//	var proj projection.Projection
+//	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
+//	errs, err := s.Subscribe(context.TODO(), func(job projection.Job) error {
+//		return job.Apply(job.Context(), proj)
+//	})
 type Continuous struct {
-	bus        event.Bus
-	store      event.Store
-	eventNames []string
-	debounce   time.Duration
+	*schedule
 
-	triggersMux sync.RWMutex
-	triggers    []chan projection.Trigger
+	bus      event.Bus
+	debounce time.Duration
 }
 
+// ContinuousOption is an option for the Continuous schedule.
 type ContinuousOption func(*Continuous)
 
+// Debounce returns a ContinuousOption that debounces projection Jobs by the
+// given Duration. When multiple Events are published within the given Duration,
+// only 1 projection Job for all Events will be created instead of 1 Job per
+// Event.
+//
+//	var bus event.Bus
+//	var store event.Store
+//	var proj projection.Projection
+//	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(time.Second))
+//	errs, err := s.Subscribe(context.TODO(), func(job projection.Job) error {
+//		return job.Apply(job.Context(), proj)
+//	})
+//
+//	err := bus.Publish(
+//		context.TODO(),
+//		event.New("foo", ...),
+//		event.New("bar", ...),
+//		event.New("baz", ...),
+//	)
 func Debounce(d time.Duration) ContinuousOption {
 	return func(c *Continuous) {
 		c.debounce = d
 	}
 }
 
+// Continuously returns a Continuous schedule that, when subscribed to,
+// subscribes to Events with the given eventNames to create projection Jobs
+// for those Events.
+//
+// Debounce Events
+//
+// It may be desirable to debounce the creation of projection Jobs to avoid
+// creating a Job on every Event if Events are published within a short
+// interval:
+//
+//	var bus event.Bus
+//	var store event.Store
+//	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(time.Second))
 func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ...ContinuousOption) *Continuous {
 	c := Continuous{
-		bus:        bus,
-		store:      store,
-		eventNames: eventNames,
+		schedule: newSchedule(store, eventNames),
+		bus:      bus,
 	}
 	for _, opt := range opts {
 		opt(&c)
@@ -42,6 +81,36 @@ func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ..
 	return &c
 }
 
+// Subscribe subscribes to the schedule and returns a channel of asynchronous
+// projection errors, or a single error if subscribing failed. When ctx is
+// canceled, the subscription is canceled and the returned error channel closed.
+//
+// When a projection Job is created, the apply function is called with that Job.
+// Use Job.Apply to apply the Job's Events onto a given Projection:
+//
+//	var proj projection.Projection
+//	var s *schedule.Continuous
+//	s.Subscribe(context.TODO(), func(job projection.Job) error {
+//		return job.Apply(job.Context(), proj)
+//	})
+//
+// A Job provides helper functions to extract data from the Job's Events. Query
+// results are cached within a Job, so it is safe to call helper functions
+// multiple times; the Job will figure out if it needs to actually perform the
+// query or if it can return the cached result.
+//
+//	s.Subscribe(context.TODO(), func(job projection.Job) error {
+//		events, errs, err := job.Events(job.Context()) // fetch all events of the Job
+//		events, errs, err := job.Events(job.Context(), query.New(...)) // fetch events with filter
+//		events, errs, err := job.EventsOf(job.Context(), "foo", "bar") // fetch events that belong to specific aggregates
+//		events, errs, err := job.EventsFor(job.Context(), proj) // fetch events that would be applied onto proj
+//		tuples, errs, err := job.Aggregates(job.Context()) // extract aggregates from events
+//		tuples, errs, err := job.Aggregates(job.Context(), "foo", "bar") // extract specific aggregates from events
+//		id, err := job.Aggregate(job.Context(), "foo") // extract UUID of first aggregate with given name
+//	})
+//
+// When the schedule is triggered by calling schedule.Trigger, a projection Job
+// will be created and passed to apply.
 func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection.Job) error) (<-chan error, error) {
 	events, errs, err := schedule.bus.Subscribe(ctx, schedule.eventNames...)
 	if err != nil {
@@ -70,52 +139,6 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 	go schedule.applyJobs(ctx, apply, jobs, out, done)
 
 	return out, nil
-}
-
-func (schedule *Continuous) Trigger(ctx context.Context, opts ...projection.TriggerOption) error {
-	schedule.triggersMux.RLock()
-	triggers := make([]chan projection.Trigger, len(schedule.triggers))
-	copy(triggers, schedule.triggers)
-	schedule.triggersMux.RUnlock()
-
-	for _, triggers := range triggers {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case triggers <- schedule.newTrigger(opts...):
-		}
-	}
-
-	return nil
-}
-
-func (schedule *Continuous) newTriggers() <-chan projection.Trigger {
-	triggers := make(chan projection.Trigger)
-
-	schedule.triggersMux.Lock()
-	schedule.triggers = append(schedule.triggers, triggers)
-	schedule.triggersMux.Unlock()
-
-	return triggers
-}
-
-func (schedule *Continuous) newTrigger(opts ...projection.TriggerOption) projection.Trigger {
-	t := projection.NewTrigger(opts...)
-	if t.Query == nil {
-		t.Query = query.New(query.Name(schedule.eventNames...), query.SortBy(event.SortTime, event.SortAsc))
-	}
-	return t
-}
-
-func (schedule *Continuous) removeTriggers(triggers <-chan projection.Trigger) {
-	schedule.triggersMux.Lock()
-	defer schedule.triggersMux.Unlock()
-	for i, striggers := range schedule.triggers {
-		if striggers == triggers {
-			schedule.triggers = append(schedule.triggers[:i], schedule.triggers[i+1:]...)
-			return
-		}
-	}
 }
 
 func (schedule *Continuous) handleEvents(
@@ -183,48 +206,4 @@ func (schedule *Continuous) handleEvents(
 	}
 
 	event.ForEvery(ctx, addEvent, fail, events, errs)
-}
-
-func (schedule *Continuous) handleTriggers(
-	ctx context.Context,
-	triggers <-chan projection.Trigger,
-	jobs chan<- projection.Job,
-	out chan<- error,
-	wg *sync.WaitGroup,
-) {
-	defer wg.Done()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case trigger := <-triggers:
-			job := projection.NewJob(ctx, schedule.store, trigger.Query, projection.WithFilter(trigger.Filter...))
-			select {
-			case <-ctx.Done():
-				return
-			case jobs <- job:
-			}
-		}
-	}
-}
-
-func (schedule *Continuous) applyJobs(
-	ctx context.Context,
-	apply func(projection.Job) error,
-	jobs <-chan projection.Job,
-	out chan<- error,
-	done chan struct{},
-) {
-	defer close(done)
-	defer close(out)
-	for job := range jobs {
-		if err := apply(job); err != nil {
-			select {
-			case <-ctx.Done():
-				return
-			case out <- fmt.Errorf("apply Job: %w", err):
-			}
-		}
-	}
 }

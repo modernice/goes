@@ -385,3 +385,73 @@ func TestContinuous_Trigger_Query(t *testing.T) {
 
 	proj.ExpectApplied(t, storeEvents[1], storeEvents[2], storeEvents[3])
 }
+
+func TestContinuous_Trigger_Reset(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus := chanbus.New()
+	store := memstore.New()
+
+	now := time.Now()
+	storeEvents := []event.Event{
+		event.New("foo", test.FooEventData{}, event.Time(now)),
+		event.New("bar", test.FooEventData{}, event.Time(now.Add(time.Second))),
+		event.New("baz", test.FooEventData{}, event.Time(now.Add(time.Minute))),
+		event.New("foobar", test.FooEventData{}, event.Time(now.Add(time.Hour))),
+	}
+
+	if err := store.Insert(ctx, storeEvents...); err != nil {
+		t.Fatalf("insert Events: %v", err)
+	}
+
+	sch := schedule.Continuously(bus, store, []string{"foo", "bar", "baz", "foobar"})
+
+	proj := projectiontest.NewMockResetProjection(7)
+
+	if err := projection.Apply(proj, storeEvents); err != nil {
+		t.Fatalf("apply projection: %v", err)
+	}
+
+	applied := make(chan struct{})
+
+	errs, err := sch.Subscribe(ctx, func(job projection.Job) error {
+		if err := job.Apply(job.Context(), proj); err != nil {
+			return err
+		}
+		close(applied)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Subscribe failed with %q", err)
+	}
+
+	triggerError := make(chan error)
+	go func() {
+		if err := sch.Trigger(ctx, projection.Reset()); err != nil {
+			triggerError <- err
+		}
+	}()
+
+	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		t.Fatal("timed out")
+	case err := <-errs:
+		t.Fatal(err)
+	case err := <-triggerError:
+		t.Fatal(err)
+	case <-applied:
+	}
+
+	if len(proj.AppliedEvents) != 4 {
+		t.Fatalf("%d Events should be applied; got %d", 4, len(proj.AppliedEvents))
+	}
+
+	proj.ExpectApplied(t, storeEvents...)
+
+	if proj.Foo != 0 {
+		t.Fatalf("Projection should have been reset")
+	}
+}
