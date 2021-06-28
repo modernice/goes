@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
 	snapshot "github.com/modernice/goes/aggregate/snapshot"
+	time "github.com/modernice/goes/event/query/time"
 )
 
 // MockStore is a mock of Store interface.
@@ -123,4 +124,41 @@ func (m *MockStore) Version(arg0 context.Context, arg1 string, arg2 uuid.UUID, a
 func (mr *MockStoreMockRecorder) Version(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockStore)(nil).Version), arg0, arg1, arg2, arg3)
+}
+
+// MockQuery is a mock of Query interface.
+type MockQuery struct {
+	ctrl     *gomock.Controller
+	recorder *MockQueryMockRecorder
+}
+
+// MockQueryMockRecorder is the mock recorder for MockQuery.
+type MockQueryMockRecorder struct {
+	mock *MockQuery
+}
+
+// NewMockQuery creates a new mock instance.
+func NewMockQuery(ctrl *gomock.Controller) *MockQuery {
+	mock := &MockQuery{ctrl: ctrl}
+	mock.recorder = &MockQueryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockQuery) EXPECT() *MockQueryMockRecorder {
+	return m.recorder
+}
+
+// Times mocks base method.
+func (m *MockQuery) Times() time.Constraints {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Times")
+	ret0, _ := ret[0].(time.Constraints)
+	return ret0
+}
+
+// Times indicates an expected call of Times.
+func (mr *MockQueryMockRecorder) Times() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Times", reflect.TypeOf((*MockQuery)(nil).Times))
 }

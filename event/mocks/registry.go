@@ -132,15 +132,15 @@ func (mr *MockRegistryMockRecorder) New(name interface{}) *gomock.Call {
 }
 
 // Register mocks base method.
-func (m *MockRegistry) Register(name string, new func() event.Data) {
+func (m *MockRegistry) Register(name string, newData func() event.Data) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Register", name, new)
+	m.ctrl.Call(m, "Register", name, newData)
 }
 
 // Register indicates an expected call of Register.
-func (mr *MockRegistryMockRecorder) Register(name, new interface{}) *gomock.Call {
+func (mr *MockRegistryMockRecorder) Register(name, newData interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockRegistry)(nil).Register), name, new)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockRegistry)(nil).Register), name, newData)
 }
 
 // MockMarshaler is a mock of Marshaler interface.
