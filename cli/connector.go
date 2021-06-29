@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"net"
 
-	iprojection "github.com/modernice/goes/cli/internal/projection"
+	"github.com/modernice/goes/cli/internal/projectionrpc"
 	"github.com/modernice/goes/cli/internal/proto"
-	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection"
 	"google.golang.org/grpc"
 )
@@ -19,8 +18,6 @@ const (
 
 // Connector provides the gRPC server for CLI commands.
 type Connector struct {
-	eventRegistry     event.Registry
-	eventBus          event.Bus
 	projectionService *projection.Service
 }
 
@@ -36,7 +33,8 @@ func Port(p uint16) ServeOption {
 	}
 }
 
-// Server returns a ServeOption that specifies the underlying grpc.Server to use.
+// Server returns a ServeOption that specifies the underlying grpc.Server to
+// use.
 func Server(srv *grpc.Server) ServeOption {
 	return func(cfg *serveConfig) {
 		cfg.server = srv
@@ -52,14 +50,8 @@ func Listener(lis net.Listener) ServeOption {
 }
 
 // NewConnector returns a new CLI Connector.
-func NewConnector(
-	reg event.Registry,
-	bus event.Bus,
-	svc *projection.Service,
-) *Connector {
+func NewConnector(svc *projection.Service) *Connector {
 	return &Connector{
-		eventRegistry:     reg,
-		eventBus:          bus,
 		projectionService: svc,
 	}
 }
@@ -73,8 +65,6 @@ func (c *Connector) Serve(ctx context.Context, opts ...ServeOption) error {
 	if err != nil {
 		return err
 	}
-
-	c.register(cfg.server)
 
 	serveError := c.serve(ctx, cfg.server, cfg.lis)
 	stopped := c.stopOnCancel(ctx, cfg.server)
@@ -96,6 +86,7 @@ func (c *Connector) newServeConfig(opts ...ServeOption) (serveConfig, error) {
 	if cfg.server == nil {
 		cfg.server = grpc.NewServer()
 	}
+	c.register(cfg.server)
 
 	if cfg.lis == nil {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.port))
@@ -109,7 +100,7 @@ func (c *Connector) newServeConfig(opts ...ServeOption) (serveConfig, error) {
 }
 
 func (c *Connector) register(srv *grpc.Server) {
-	proto.RegisterProjectionServiceServer(srv, iprojection.NewServer(c.eventRegistry, c.eventBus))
+	proto.RegisterProjectionServiceServer(srv, projectionrpc.NewServer(c.projectionService))
 }
 
 func (c *Connector) serve(ctx context.Context, srv *grpc.Server, lis net.Listener) <-chan error {

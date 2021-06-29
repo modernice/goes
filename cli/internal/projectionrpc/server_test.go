@@ -1,4 +1,4 @@
-package projection_test
+package projectionrpc_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/modernice/goes/cli/internal/clitest"
-	iprojection "github.com/modernice/goes/cli/internal/projection"
+	"github.com/modernice/goes/cli/internal/projectionrpc"
 	"github.com/modernice/goes/cli/internal/proto"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
@@ -22,9 +22,10 @@ import (
 func TestTrigger_unregisteredSchedule(t *testing.T) {
 	reg := event.NewRegistry()
 	bus := chanbus.New()
+	svc := projection.NewService(reg, bus, projection.TriggerTimeout(20*time.Millisecond))
 
-	conn := clitest.Connect(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, iprojection.NewServer(reg, bus, projection.TriggerTimeout(20*time.Millisecond)))
+	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
 	})
 	defer conn.Close()
 
@@ -70,8 +71,8 @@ func TestTrigger(t *testing.T) {
 		t.Fatalf("run projection service: %v", err)
 	}
 
-	conn := clitest.Connect(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, iprojection.NewServer(reg, bus))
+	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(reg, bus)))
 	})
 	defer conn.Close()
 
@@ -124,8 +125,8 @@ func TestTrigger_reset(t *testing.T) {
 		t.Fatalf("run projection service: %v", err)
 	}
 
-	conn := clitest.Connect(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, iprojection.NewServer(reg, bus))
+	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(reg, bus)))
 	})
 	defer conn.Close()
 

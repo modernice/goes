@@ -35,11 +35,11 @@ func TestConnector_Serve(t *testing.T) {
 		t.Fatalf("run projection service: %v", err)
 	}
 
-	c := cli.NewConnector(reg, bus, svc)
+	c := cli.NewConnector(svc)
 
-	_, lis, serveError := serve(ctx, c)
+	_, lis, serveError, closed := serve(t, ctx, c)
 
-	conn := clitest.ConnectTo(t, lis)
+	conn := clitest.ClientConn(t, lis)
 	client := proto.NewProjectionServiceClient(conn)
 
 	resp, err := client.Trigger(ctx, &proto.TriggerRequest{Schedule: "example"})
@@ -51,6 +51,7 @@ func TestConnector_Serve(t *testing.T) {
 		t.Fatalf("invalid response. Accepted should be %v; is %v", true, resp.Accepted)
 	}
 
+L:
 	for {
 		select {
 		case err := <-subscribeErrors:
@@ -60,18 +61,23 @@ func TestConnector_Serve(t *testing.T) {
 		case err := <-serviceErrors:
 			t.Fatal(err)
 		case <-received:
-			return
+			break L
 		}
 	}
+
+	cancel()
+	<-closed
 }
 
-func serve(ctx context.Context, c *cli.Connector) (*grpc.Server, *bufconn.Listener, <-chan error) {
-	srv, lis := clitest.NewServer()
+func serve(t *testing.T, ctx context.Context, c *cli.Connector) (*grpc.Server, *bufconn.Listener, <-chan error, <-chan struct{}) {
+	srv, _, lis := clitest.NewServer(t, nil)
 	serveError := make(chan error)
+	closed := make(chan struct{})
 	go func() {
+		defer close(closed)
 		if err := c.Serve(ctx, cli.Server(srv), cli.Listener(lis)); err != nil {
 			serveError <- err
 		}
 	}()
-	return srv, lis, serveError
+	return srv, lis, serveError, closed
 }

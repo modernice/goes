@@ -1,11 +1,10 @@
-package projection
+package projectionrpc
 
 import (
 	"context"
 	"errors"
 
 	"github.com/modernice/goes/cli/internal/proto"
-	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,14 +13,13 @@ import (
 type server struct {
 	proto.UnimplementedProjectionServiceServer
 
-	bus event.Bus
 	svc *projection.Service
 }
 
-func NewServer(reg event.Registry, bus event.Bus, opts ...projection.ServiceOption) proto.ProjectionServiceServer {
+// NewServer returns the projection gRPC server.
+func NewServer(svc *projection.Service) proto.ProjectionServiceServer {
 	return &server{
-		bus: bus,
-		svc: projection.NewService(reg, bus, opts...),
+		svc: svc,
 	}
 }
 
