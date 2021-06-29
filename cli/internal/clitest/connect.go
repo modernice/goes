@@ -11,10 +11,20 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-// Connect connects to
 func Connect(t *testing.T, init func(*grpc.Server)) *grpc.ClientConn {
-	_, lis := newServer(init)
+	srv, lis := NewServer()
+	init(srv)
 
+	go func() {
+		if err := srv.Serve(lis); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	return ConnectTo(t, lis)
+}
+
+func ConnectTo(t *testing.T, lis *bufconn.Listener) *grpc.ClientConn {
 	conn, err := grpc.DialContext(
 		context.Background(), "",
 		grpc.WithInsecure(),
@@ -28,16 +38,9 @@ func Connect(t *testing.T, init func(*grpc.Server)) *grpc.ClientConn {
 	return conn
 }
 
-func newServer(init func(*grpc.Server)) (*grpc.Server, *bufconn.Listener) {
+// NewServer returns a *grpc.Server and a *bufconn.Listener.
+func NewServer() (*grpc.Server, *bufconn.Listener) {
 	lis := bufconn.Listen(1024 * 1024)
 	srv := grpc.NewServer()
-	init(srv)
-
-	go func() {
-		if err := srv.Serve(lis); err != nil {
-			log.Fatal(err)
-		}
-	}()
-
 	return srv, lis
 }

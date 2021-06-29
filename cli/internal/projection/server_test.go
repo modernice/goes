@@ -11,7 +11,6 @@ import (
 	"github.com/modernice/goes/cli/internal/proto"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
-	"github.com/modernice/goes/event/eventstore/memstore"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
@@ -53,9 +52,7 @@ func TestTrigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	reg := event.NewRegistry()
-	bus := chanbus.New()
-	store := memstore.New()
+	reg, bus, store := clitest.SetupEvents()
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	received := make(chan struct{})
@@ -108,9 +105,7 @@ func TestTrigger_reset(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	reg := event.NewRegistry()
-	bus := chanbus.New()
-	store := memstore.New()
+	reg, bus, store := clitest.SetupEvents()
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	proj := projectiontest.NewMockResetProjection(5)
