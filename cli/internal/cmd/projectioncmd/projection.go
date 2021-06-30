@@ -71,8 +71,10 @@ func triggerCmd(f *clifactory.Factory) *cobra.Command {
 			}
 
 			cmd.Print(aurora.Green(heredoc.Docf(`
-				Triggered schedules: %v
-				Reset projections:   %v
+				Schedules triggered.
+
+				Schedules: %v
+				Reset:     %v
 			`, args, cfg.reset)).String())
 
 			return nil

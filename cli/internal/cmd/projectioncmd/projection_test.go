@@ -84,8 +84,10 @@ func TestCommand_Trigger(t *testing.T) {
 	cmd := projectioncmd.New(f)
 
 	cmdtest.TableOutput(t, cmd, []string{"trigger", "foo", "bar", "baz"}, [][]string{
-		{"Triggered schedules:", fmt.Sprint([]string{"foo", "bar", "baz"})},
-		{"Reset projections:", fmt.Sprint(false)},
+		{"Schedules triggered."},
+		{},
+		{"Schedules:", fmt.Sprint([]string{"foo", "bar", "baz"})},
+		{"Reset:", fmt.Sprint(false)},
 	}, aurora.Green)
 
 	var receiveCount int
@@ -146,8 +148,10 @@ func TestCommand_Trigger_reset(t *testing.T) {
 
 	cmd := projectioncmd.New(f)
 	cmdtest.TableOutput(t, cmd, []string{"trigger", "foo", "--reset"}, [][]string{
-		{"Triggered schedules:", fmt.Sprint([]string{"foo"})},
-		{"Reset projections:", fmt.Sprint(true)},
+		{"Schedules triggered."},
+		{},
+		{"Schedules:", fmt.Sprint([]string{"foo"})},
+		{"Reset:", fmt.Sprint(true)},
 	}, aurora.Green)
 
 	timer := time.NewTimer(time.Second)

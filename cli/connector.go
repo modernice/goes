@@ -119,9 +119,9 @@ func (c *Connector) serve(ctx context.Context, srv *grpc.Server, lis net.Listene
 func (c *Connector) stopOnCancel(ctx context.Context, srv *grpc.Server) <-chan struct{} {
 	stopped := make(chan struct{})
 	go func() {
+		defer close(stopped)
 		<-ctx.Done()
 		srv.GracefulStop()
-		close(stopped)
 	}()
 	return stopped
 }

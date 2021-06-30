@@ -12,23 +12,21 @@ endif
 
 # `make test count=50` to run `go test -race -count=50 ./...`
 # `make test run=TestXXX` to run `go test -race -run=TestXXX ./...`
+.PHONY: test
 test:
 	go test -race -run=${run} -count=${count} ./...
 
-.PHONY: test
-
+.PHONY: nats-test
 nats-test:
 	docker-compose -f .docker/nats-test.yml up --build --abort-on-container-exit --remove-orphans; \
 	docker-compose -f .docker/nats-test.yml down
 
-.PHONY: nats-test
-
+.PHONY: mongo-test
 mongo-test:
 	docker-compose -f .docker/mongo-test.yml up --build --abort-on-container-exit --remove-orphans; \
 	docker-compose -f .docker/mongo-test.yml down
 
-.PHONY: mongo-test
-
+.PHONY: coverage
 coverage:
 	docker-compose \
 		-f .docker/mongo-test.yml \
@@ -38,9 +36,10 @@ coverage:
 	docker-compose -f .docker/coverage.yml down; \
 	go tool cover -html=out/coverage.out
 
-.PHONY: coverage
-
+.PHONY: bench
 bench:
 	go test -bench=${bench} -run=${run} -count=${count} ./...
 
-.PHONY: bench
+.PHONY: cli-connector
+cli-connector:
+	go run ./internal/cmd/cli-connector/main.go
