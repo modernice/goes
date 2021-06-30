@@ -19,6 +19,13 @@ func New(f *clifactory.Factory) *cobra.Command {
 		`),
 	}
 
+	cmd.PersistentFlags().StringVar(
+		&f.ConnectorAddress,
+		"connect",
+		f.ConnectorAddress,
+		"CLI Connector address",
+	)
+
 	cmd.PersistentFlags().DurationVarP(
 		&f.ConnectTimeout,
 		"connect-timeout", "t",

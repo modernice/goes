@@ -18,7 +18,7 @@ var (
 	ErrConnectorUnavailable = errors.New("connector unavailable")
 
 	// DefaultConnectorAddress is the default address of a Connector.
-	DefaultConnectorAddress = ":8000"
+	DefaultConnectorAddress = "localhost:8000"
 )
 
 // Factory is used by commands to provide common configuration.

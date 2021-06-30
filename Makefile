@@ -40,6 +40,10 @@ coverage:
 bench:
 	go test -bench=${bench} -run=${run} -count=${count} ./...
 
+.PHONY: cli
+cli:
+	go install ./cmd/goes
+
 .PHONY: cli-connector
 cli-connector:
 	go run ./internal/cmd/cli-connector/main.go
