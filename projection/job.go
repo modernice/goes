@@ -245,6 +245,8 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 }
 
 func (j *job) Apply(ctx context.Context, proj Projection, opts ...ApplyOption) error {
+	opts = append([]ApplyOption{IgnoreProgress()}, opts...)
+
 	if j.reset {
 		if progressor, isProgressor := proj.(progressor); isProgressor {
 			progressor.SetProgress(stdtime.Time{})
