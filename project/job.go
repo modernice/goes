@@ -92,7 +92,7 @@ type cache struct {
 }
 
 func (j *baseJob) Full() bool {
-	return j.trigger != nil && j.trigger.cfg.Fully
+	return j.trigger != nil && j.trigger.cfg.fully
 }
 
 func newContinuousJob(
@@ -346,7 +346,7 @@ func (j *baseJob) buildQuery(p EventApplier) event.Query {
 		query.SortBy(event.SortTime, event.SortAsc),
 	}
 
-	if p, ok := p.(progressor); ok && (j.trigger == nil || !j.trigger.cfg.Fully) {
+	if p, ok := p.(progressor); ok && (j.trigger == nil || !j.trigger.cfg.fully) {
 		latest := p.ProjectionProgress()
 		if !latest.IsZero() {
 			queryOpts = append(queryOpts, query.Time(time.After(latest)))

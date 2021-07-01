@@ -29,7 +29,7 @@ func TestProgressor_ProgressProjection(t *testing.T) {
 }
 
 func TestApply_progressor(t *testing.T) {
-	p := newProgressed()
+	p := &progressed{Progressor: &project.Progressor{}}
 	now := xtime.Now()
 
 	events := []event.Event{
@@ -88,15 +88,7 @@ func (g *guarded) ApplyEvent(evt event.Event) {
 }
 
 type progressed struct {
-	*mockProjection
+	*project.Progressor
 }
 
-func newProgressed() *progressed {
-	return &progressed{
-		mockProjection: newMockProjection(),
-	}
-}
-
-func (p *progressed) ApplyEvent(evt event.Event) {
-	p.mockProjection.ApplyEvent(evt)
-}
+func (p *progressed) ApplyEvent(event.Event) {}
