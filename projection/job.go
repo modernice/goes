@@ -161,8 +161,10 @@ func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan eve
 func (j *job) EventsFor(ctx context.Context, target Projection) (<-chan event.Event, <-chan error, error) {
 	var filter []event.Query
 
-	if guard, hasGuard := target.(guard); hasGuard {
-		filter = append(filter, guard.ProjectionFilter()...)
+	if target, hasFilter := target.(interface {
+		ProjectionFilter() []event.Query
+	}); hasFilter {
+		filter = append(filter, target.ProjectionFilter()...)
 	}
 
 	if progressor, isProgressor := target.(progressor); isProgressor {

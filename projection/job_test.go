@@ -126,7 +126,7 @@ func TestJob_EventsFor(t *testing.T) {
 
 func TestJob_EventsFor_Guard(t *testing.T) {
 	ctx := context.Background()
-	guard := projection.Guard(query.New(query.Name("bar", "baz")))
+	guard := projection.QueryGuard(query.New(query.Name("bar", "baz")))
 	target := projectiontest.NewMockGuardedProjection(guard)
 	store, storeEvents := newEventStore(t)
 

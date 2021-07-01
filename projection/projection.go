@@ -24,9 +24,23 @@ type Projection interface {
 	ApplyEvent(event.Event)
 }
 
-// A Guard is an event query that determines which Events are allows to be
+// A Guard protects a Projection from unwanted events.
+type Guard interface {
+	// GuardProjection determines whether an Event is allowed to be applied onto a Projection.
+	GuardProjection(event.Event) bool
+}
+
+// A QueryGuard is an event query that determines which Events are allows to be
 // applied onto a projection.
-type Guard query.Query
+type QueryGuard query.Query
+
+// GuardFunc allows functions to be used as Guards.
+type GuardFunc func(event.Event) bool
+
+// GuardProjection returns guard(evt).
+func (guard GuardFunc) GuardProjection(evt event.Event) bool {
+	return guard(evt)
+}
 
 // Progressor may be embedded into a projection to enable the projection to be
 // resumed after the latest update to the projection.
@@ -68,7 +82,7 @@ func Apply(proj Projection, events []event.Event, opts ...ApplyOption) error {
 	cfg := newApplyConfig(opts...)
 
 	progressor, isProgressor := proj.(progressor)
-	guard, hasGuard := proj.(guard)
+	guard, hasGuard := proj.(Guard)
 
 	for _, evt := range events {
 		if hasGuard && !guard.GuardProjection(evt) {
@@ -117,24 +131,18 @@ func New() *Base {
 
 // GuardProjection tests the Guard's Query against a given Event and returns
 // whether the Event is allowed to be applied onto a projection.
-func (g Guard) GuardProjection(evt event.Event) bool {
+func (g QueryGuard) GuardProjection(evt event.Event) bool {
 	return query.Test(query.Query(g), evt)
 }
 
-// ProjectionFilter returns a slice of event queries that can be used to query
-// Events that are allowed by the Guard.
-func (g Guard) ProjectionFilter() []event.Query {
+// ProjectionFilter returns the Query in a slice.
+func (g QueryGuard) ProjectionFilter() []event.Query {
 	return []event.Query{query.Query(g)}
 }
 
 type progressor interface {
 	Progress() time.Time
 	SetProgress(time.Time)
-}
-
-type guard interface {
-	GuardProjection(event.Event) bool
-	ProjectionFilter() []event.Query
 }
 
 type resetter interface {
