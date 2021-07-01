@@ -44,12 +44,6 @@ type Progressor struct {
 	LatestEventTime int64
 }
 
-// Base may be embedded into a projection type to provide sensible default
-// behavior. Use New when instantiating Base.
-type Base struct {
-	*Progressor
-}
-
 // ApplyOption is an option for Apply.
 type ApplyOption func(*applyConfig)
 
@@ -117,12 +111,6 @@ func (p *Progressor) SetProgress(t time.Time) {
 		return
 	}
 	p.LatestEventTime = t.UnixNano()
-}
-
-// New returns a new projection Base that can be embedded into a projection type
-// to provide sensible default behavior.
-func New() *Base {
-	return &Base{Progressor: &Progressor{}}
 }
 
 // GuardProjection tests the Guard's Query against a given Event and returns
