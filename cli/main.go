@@ -22,11 +22,7 @@ func Main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	app := New(
-		ctx,
-		clifactory.Context(ctx),
-		clifactory.ConnectTimeout(time.Second),
-	)
+	app := New(clifactory.Context(ctx), clifactory.ConnectTimeout(time.Second))
 
 	err := app.Run()
 	if err != nil {

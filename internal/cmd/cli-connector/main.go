@@ -53,7 +53,7 @@ func main() {
 	}
 	log.Printf("Subscribed to %q schedule.\n", "foo")
 
-	barErrors, err := foo.Subscribe(ctx, func(projection.Job) error {
+	barErrors, err := bar.Subscribe(ctx, func(projection.Job) error {
 		log.Printf("%q schedule received job", "bar")
 		<-time.After(time.Second)
 		return nil
@@ -84,7 +84,7 @@ func main() {
 		}
 	}()
 
-	log.Print(aurora.Blue("Serving CLI Connector. Logging errors...\n\n"))
+	log.Printf(aurora.Blue("Serving CLI Connector on port %d. Logging errors...\n\n").String(), *port)
 
 	<-logErrors(ctx, fooErrors, barErrors, serviceErrors, serveError)
 

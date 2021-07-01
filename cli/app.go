@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"context"
-
 	"github.com/modernice/goes/cli/internal/clifactory"
 	"github.com/modernice/goes/cli/internal/cmd/rootcmd"
 	"github.com/spf13/cobra"
@@ -15,8 +13,7 @@ type App struct {
 }
 
 // New returns the CLI App.
-func New(ctx context.Context, opts ...clifactory.Option) *App {
-	opts = append([]clifactory.Option{clifactory.Context(ctx)}, opts...)
+func New(opts ...clifactory.Option) *App {
 	f := clifactory.New(opts...)
 	return &App{
 		factory: f,
