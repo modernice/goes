@@ -163,6 +163,8 @@ func (schedule *Continuous) handleEvents(
 	var debounce *time.Timer
 
 	defer func() {
+		mux.Lock()
+		defer mux.Unlock()
 		if debounce != nil {
 			debounce.Stop()
 		}
