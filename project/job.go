@@ -61,12 +61,11 @@ type periodicJob struct {
 type baseJob struct {
 	*cache
 
-	ctx        context.Context
-	cfg        subscribeConfig
-	store      event.Store
-	eventNames []string
-	trigger    *trigger
-	// triggerQuery event.Query
+	ctx          context.Context
+	cfg          subscribeConfig
+	store        event.Store
+	eventNames   []string
+	triggerQuery event.Query
 }
 
 type cache struct {
@@ -79,18 +78,18 @@ func newContinuousJob(
 	ctx context.Context,
 	cfg subscribeConfig,
 	store event.Store,
-	trigger *trigger,
+	query event.Query,
 	events []event.Event,
 	eventNames []string,
 ) *continuousJob {
 	return &continuousJob{
 		baseJob: &baseJob{
-			cache:      newCache(),
-			ctx:        ctx,
-			cfg:        cfg,
-			store:      store,
-			trigger:    trigger,
-			eventNames: eventNames,
+			cache:        newCache(),
+			ctx:          ctx,
+			cfg:          cfg,
+			store:        store,
+			triggerQuery: query,
+			eventNames:   eventNames,
 		},
 		scheduleEvents: events,
 	}
@@ -200,15 +199,15 @@ func (j *continuousJob) Apply(ctx context.Context, p EventApplier) error {
 	return Apply(events, p)
 }
 
-func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string, trigger *trigger) *periodicJob {
+func newPeriodicJob(ctx context.Context, cfg subscribeConfig, store event.Store, eventNames []string, query event.Query) *periodicJob {
 	return &periodicJob{
 		baseJob: &baseJob{
-			cache:      newCache(),
-			ctx:        ctx,
-			cfg:        cfg,
-			store:      store,
-			eventNames: eventNames,
-			trigger:    trigger,
+			cache:        newCache(),
+			ctx:          ctx,
+			cfg:          cfg,
+			store:        store,
+			eventNames:   eventNames,
+			triggerQuery: query,
 		},
 	}
 }
@@ -333,12 +332,7 @@ func (j *baseJob) buildQuery(p EventApplier) event.Query {
 		}
 	}
 
-	queries := []event.Query{query.New(queryOpts...), j.cfg.filter}
-	if j.trigger != nil {
-		queries = append(queries, j.trigger.query)
-	}
-
-	return query.Merge(queries...)
+	return query.Merge(query.New(queryOpts...), j.cfg.filter, j.triggerQuery)
 }
 
 func (j *baseJob) eventsFor(ctx context.Context, proj EventApplier, q event.Query) ([]event.Event, error) {
