@@ -93,8 +93,8 @@ func TestApply_Guard(t *testing.T) {
 		event.New("foobar", test.FooEventData{}),
 	}
 
-	if err := projection.Apply(proj, events); !errors.Is(err, projection.ErrGuarded) {
-		t.Fatalf("Apply should fail with %q; got %q", projection.ErrGuarded, err)
+	if err := projection.Apply(proj, events); err != nil {
+		t.Fatalf("Apply failed with %q", err)
 	}
 
 	if len(proj.AppliedEvents) != 2 {

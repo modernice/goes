@@ -10,10 +10,6 @@ import (
 )
 
 var (
-	// ErrGuarded is returned when trying to apply an Event onto a Projection
-	// which has a guard that doesn't allow the Event.
-	ErrGuarded = errors.New("guarded projection")
-
 	// ErrProgressed is returned when trying to apply an Event onto a Projection
 	// and the Event time is before the current progress time of the projection.
 	ErrProgressed = errors.New("projection already progressed")
@@ -86,7 +82,7 @@ func Apply(proj Projection, events []event.Event, opts ...ApplyOption) error {
 
 	for _, evt := range events {
 		if hasGuard && !guard.GuardProjection(evt) {
-			return fmt.Errorf("apply %q: %w", evt.Name(), ErrGuarded)
+			continue
 		}
 
 		if isProgressor && !cfg.ignoreProgress {
