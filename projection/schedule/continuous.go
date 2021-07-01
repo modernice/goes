@@ -162,6 +162,12 @@ func (schedule *Continuous) handleEvents(
 	var buf []event.Event
 	var debounce *time.Timer
 
+	defer func() {
+		if debounce != nil {
+			debounce.Stop()
+		}
+	}()
+
 	createJob := func() {
 		mux.Lock()
 		defer mux.Unlock()
