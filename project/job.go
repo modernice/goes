@@ -18,10 +18,9 @@ type Job interface {
 	// Context returns the projection Context.
 	Context() context.Context
 
-	// Full returns whether the projection should be a "full" projection.
-	// While typically, a full projection means that every event from the past
-	// should be applied instead of just the ones that happened after the latest
-	// applied event, what you do with the value returned by Fully is up to you.
+	// Full returns whether the projection should be a "full" projection. A full
+	// projection applies every matched event from the past instead of events
+	// that happened after the latest applied event.
 	//
 	// Receivers of Jobs are responsible for checking if it is a full projection
 	// and handle the Job accordingly:
