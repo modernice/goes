@@ -95,10 +95,14 @@ type Schedule interface {
 	// When a Job is created, it is passed an event query to fetch the events
 	// for the Projections. By default, this query fetches the events configured
 	// in the Schedule sorted by time. A custom query may be provided using the
-	// Query option:
+	// Query option. Don't forget to configure correct sorting when providing a
+	// custom query:
 	//
 	//	var s projection.Schedule
-	//	err := s.Trigger(context.TODO(), projection.Query(query.New(...)))
+	//	err := s.Trigger(context.TODO(), projection.Query(query.New(
+	//		query.AggregateName("foo", "bar"),
+	//		query.SortBy(event.SortTime, event.SortAsc),
+	//	)))
 	//
 	// Event filters
 	//
