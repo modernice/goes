@@ -44,6 +44,8 @@ bench:
 cli:
 	go install ./cmd/goes
 
-.PHONY: cli-connector
-cli-connector:
+.PHONY: mock-cli-connector
+mock-cli-connector:
 	go run ./internal/cmd/cli-connector/main.go
+
+.PHONY: cli-connector
