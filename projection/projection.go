@@ -61,6 +61,10 @@ func IgnoreProgress() ApplyOption {
 // If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
 // is called for every applied Event evt.
 func Apply(proj Projection, events []event.Event, opts ...ApplyOption) error {
+	if len(events) == 0 {
+		return nil
+	}
+
 	cfg := newApplyConfig(opts...)
 
 	progressor, isProgressor := proj.(progressor)
@@ -73,23 +77,26 @@ func Apply(proj Projection, events []event.Event, opts ...ApplyOption) error {
 
 		if isProgressor && !cfg.ignoreProgress {
 			if progress := progressor.Progress(); !progress.IsZero() && !progress.Before(evt.Time()) {
-				return fmt.Errorf("apply Event with time %v: %w", evt.Time(), ErrProgressed)
+				return fmt.Errorf("apply event with time %v: %w", evt.Time(), ErrProgressed)
 			}
 		}
 
 		proj.ApplyEvent(evt)
+	}
 
-		if isProgressor && progressor.Progress().Before(evt.Time()) {
-			progressor.SetProgress(evt.Time())
-		}
+	if progress := events[len(events)-1].Time(); isProgressor && progressor.Progress().Before(progress) {
+		progressor.SetProgress(progress)
 	}
 
 	return nil
 }
 
 // Progress returns the projection progress in terms of the time of the latest
-// applied event.
+// applied event. If p.LatestEventTime is 0, the zero Time is returned.
 func (p *Progressor) Progress() time.Time {
+	if p.LatestEventTime == 0 {
+		return time.Time{}
+	}
 	return time.Unix(0, p.LatestEventTime)
 }
 
