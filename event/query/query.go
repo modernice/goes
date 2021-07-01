@@ -141,12 +141,14 @@ func Aggregates(aggregates ...event.AggregateTuple) Option {
 	}
 }
 
-// SortBy returns an Option that defines the sorting behaviour for a query.
+// SortBy returns an Option that sorts a Query by the given Sorting and
+// SortDirection.
 func SortBy(sort event.Sorting, dir event.SortDirection) Option {
 	return SortByMulti(event.SortOptions{Sort: sort, Dir: dir})
 }
 
-// SortByMulti returns an Option that defines the sorting behaviour for a query.
+// SortByMulti return an Option that sorts a Query by multiple Sortings and
+// SortDirections.
 func SortByMulti(sorts ...event.SortOptions) Option {
 	return func(b *builder) {
 	L:
@@ -161,9 +163,9 @@ func SortByMulti(sorts ...event.SortOptions) Option {
 	}
 }
 
-// SortByAggregate returns an Option that sorts the a Query by Aggregates.
+// SortByAggregate returns an Option that sorts the a Query by aggregates.
 //
-// Order of sortings is
+// Order of sortings is:
 //	1. AggregateName (ascending)
 //	2. AggregateID (ascending)
 //	3. AggregateVersion (ascending)
@@ -173,6 +175,11 @@ func SortByAggregate() Option {
 		event.SortOptions{Sort: event.SortAggregateID, Dir: event.SortAsc},
 		event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
 	)
+}
+
+// SortByTime returns an Option that sorts a Query by event time.
+func SortByTime() Option {
+	return SortBy(event.SortTime, event.SortAsc)
 }
 
 // Test tests the Event evt against the Query q and returns true if q should
