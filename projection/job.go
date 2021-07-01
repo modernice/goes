@@ -95,7 +95,7 @@ type Job interface {
 
 	// Apply applies the Job onto the Projection. A Job may be applied onto as
 	// many Projections as needed.
-	Apply(context.Context, Projection) error
+	Apply(context.Context, Projection, ...ApplyOption) error
 }
 
 // JobOption is a Job option.
@@ -244,7 +244,7 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	return id, nil
 }
 
-func (j *job) Apply(ctx context.Context, proj Projection) error {
+func (j *job) Apply(ctx context.Context, proj Projection, opts ...ApplyOption) error {
 	if j.reset {
 		if progressor, isProgressor := proj.(progressor); isProgressor {
 			progressor.SetProgress(stdtime.Time{})
@@ -265,7 +265,7 @@ func (j *job) Apply(ctx context.Context, proj Projection) error {
 		return fmt.Errorf("drain Events: %w", err)
 	}
 
-	if err := Apply(proj, events); err != nil {
+	if err := Apply(proj, events, opts...); err != nil {
 		return fmt.Errorf("apply Events onto Projection: %w", err)
 	}
 
