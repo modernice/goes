@@ -73,7 +73,7 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 //
 //		// job.Apply queries "foo", "bar" & "baz" Events, then filters them
 //		// using the projection.Guard so that only "foo" & "bar" are applied.
-//		return job.Apply(job.Context(), proj)
+//		return job.Apply(job, proj)
 //	})
 //
 //	schedule.Trigger(context.TODO())

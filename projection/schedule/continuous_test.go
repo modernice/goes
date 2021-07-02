@@ -29,7 +29,7 @@ func TestContinuous_Subscribe(t *testing.T) {
 	appliedJobs := make(chan projection.Job)
 
 	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
-		if err := job.Apply(job.Context(), proj); err != nil {
+		if err := job.Apply(job, proj); err != nil {
 			applyErrors <- err
 		}
 		appliedJobs <- job
@@ -93,7 +93,7 @@ func TestContinuous_Subscribe_Debounce(t *testing.T) {
 	appliedJobs := make(chan projection.Job)
 
 	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
-		if err := job.Apply(job.Context(), proj); err != nil {
+		if err := job.Apply(job, proj); err != nil {
 			applyErrors <- err
 		}
 		appliedJobs <- job
@@ -156,7 +156,7 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 	appliedJobs := make(chan projection.Job)
 
 	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
-		if err := job.Apply(job.Context(), proj); err != nil {
+		if err := job.Apply(job, proj); err != nil {
 			applyErrors <- err
 		}
 		appliedJobs <- job
@@ -227,7 +227,7 @@ func TestContinuous_Trigger(t *testing.T) {
 	applied := make(chan struct{})
 
 	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
-		if err := job.Apply(job.Context(), proj); err != nil {
+		if err := job.Apply(job, proj); err != nil {
 			return err
 		}
 		close(applied)
@@ -284,7 +284,7 @@ func TestContinuous_Trigger_Filter(t *testing.T) {
 	applied := make(chan struct{})
 
 	errs, err := sch.Subscribe(ctx, func(job projection.Job) error {
-		if err := job.Apply(job.Context(), proj); err != nil {
+		if err := job.Apply(job, proj); err != nil {
 			return err
 		}
 		close(applied)
@@ -348,7 +348,7 @@ func TestContinuous_Trigger_Query(t *testing.T) {
 	applied := make(chan struct{})
 
 	errs, err := sch.Subscribe(ctx, func(job projection.Job) error {
-		if err := job.Apply(job.Context(), proj); err != nil {
+		if err := job.Apply(job, proj); err != nil {
 			return err
 		}
 		close(applied)
@@ -416,7 +416,7 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 	applied := make(chan struct{})
 
 	errs, err := sch.Subscribe(ctx, func(job projection.Job) error {
-		if err := job.Apply(job.Context(), proj); err != nil {
+		if err := job.Apply(job, proj); err != nil {
 			return err
 		}
 		close(applied)

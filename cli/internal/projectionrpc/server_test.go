@@ -113,7 +113,7 @@ func TestTrigger_reset(t *testing.T) {
 	applied := make(chan struct{})
 	scheduleErrors, err := schedule.Subscribe(ctx, func(job projection.Job) error {
 		defer close(applied)
-		return job.Apply(job.Context(), proj)
+		return job.Apply(job, proj)
 	})
 	if err != nil {
 		t.Fatalf("subscribe to schedule: %v", err)

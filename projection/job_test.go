@@ -25,7 +25,7 @@ func TestJob_Events(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, q)
 
-	str, errs, err := job.Events(job.Context())
+	str, errs, err := job.Events(job)
 	if err != nil {
 		t.Fatalf("Events failed with %q", err)
 	}
@@ -50,7 +50,7 @@ func TestJob_Events_additionalFilter(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, q)
 
-	str, errs, err := job.Events(job.Context(), query.New(query.Name("foo", "bar")), query.New(query.Name("bar")))
+	str, errs, err := job.Events(job, query.New(query.Name("foo", "bar")), query.New(query.Name("bar")))
 	if err != nil {
 		t.Fatalf("Events failed with %q", err)
 	}
@@ -89,7 +89,7 @@ func TestJob_EventsOf(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, query.New(query.Name("foo")))
 
-	str, errs, err := job.EventsOf(job.Context(), "foo-agg", "baz-agg", "foobar-agg")
+	str, errs, err := job.EventsOf(job, "foo-agg", "baz-agg", "foobar-agg")
 	if err != nil {
 		t.Fatalf("EventsOf failed with %q", err)
 	}
@@ -111,7 +111,7 @@ func TestJob_EventsFor(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, query.New(query.Name("foo", "bar", "baz")))
 
-	str, errs, err := job.EventsFor(job.Context(), target)
+	str, errs, err := job.EventsFor(job, target)
 	if err != nil {
 		t.Fatalf("EventsFor failed with %q", err)
 	}
@@ -132,7 +132,7 @@ func TestJob_EventsFor_Guard(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, query.New(query.Name("foo", "bar", "baz")))
 
-	str, errs, err := job.EventsFor(job.Context(), target)
+	str, errs, err := job.EventsFor(job, target)
 	if err != nil {
 		t.Fatalf("EventsFor failed with %q", err)
 	}
@@ -161,7 +161,7 @@ func TestJob_EventsFor_Progressor(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, query.New())
 
-	str, errs, err := job.EventsFor(job.Context(), target)
+	str, errs, err := job.EventsFor(job, target)
 	if err != nil {
 		t.Fatalf("EventsFor failed with %q", err)
 	}
@@ -187,7 +187,7 @@ func TestJob_Aggregates(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, query.New(query.SortBy(event.SortTime, event.SortAsc)))
 
-	str, errs, err := job.Aggregates(job.Context())
+	str, errs, err := job.Aggregates(job)
 	if err != nil {
 		t.Fatalf("Aggregates failed with %q", err)
 	}
@@ -220,7 +220,7 @@ func TestJob_Aggregates_specific(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, query.New(query.SortBy(event.SortTime, event.SortAsc)))
 
-	str, errs, err := job.Aggregates(job.Context(), "bar-agg", "foobar-agg")
+	str, errs, err := job.Aggregates(job, "bar-agg", "foobar-agg")
 	if err != nil {
 		t.Fatalf("Aggregates failed with %q", err)
 	}
@@ -252,7 +252,7 @@ func TestJob_Aggregate(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, query.New())
 
-	id, err := job.Aggregate(job.Context(), "baz-agg")
+	id, err := job.Aggregate(job, "baz-agg")
 	if err != nil {
 		t.Fatalf("Aggregate failed with %q", err)
 	}
@@ -281,7 +281,7 @@ func TestJob_Apply(t *testing.T) {
 
 	proj := projectiontest.NewMockProjection()
 
-	if err := job.Apply(job.Context(), proj); err != nil {
+	if err := job.Apply(job, proj); err != nil {
 		t.Fatalf("Apply failed with %q", err)
 	}
 
@@ -304,7 +304,7 @@ func TestJob_Events_cache(t *testing.T) {
 	job := projection.NewJob(ctx, delayedStore, query.New())
 
 	start := time.Now()
-	str, errs, err := job.Events(job.Context())
+	str, errs, err := job.Events(job)
 	if err != nil {
 		t.Fatalf("Events failed with %q", err)
 	}
@@ -322,7 +322,7 @@ func TestJob_Events_cache(t *testing.T) {
 	test.AssertEqualEventsUnsorted(t, events, storeEvents)
 
 	start = time.Now()
-	if str, errs, err = job.Events(job.Context()); err != nil {
+	if str, errs, err = job.Events(job); err != nil {
 		t.Fatalf("Events failed with %q", err)
 	}
 
@@ -356,7 +356,7 @@ func TestWithFilter(t *testing.T) {
 		query.New(query.AggregateName("foo", "barbaz", "foobaz")),
 	))
 
-	str, errs, err := job.Events(job.Context())
+	str, errs, err := job.Events(job)
 	if err != nil {
 		t.Fatalf("Events failed with %q", err)
 	}
@@ -391,7 +391,7 @@ func TestWithReset(t *testing.T) {
 
 	job := projection.NewJob(ctx, store, query.New(query.SortBy(event.SortTime, event.SortAsc)), projection.WithReset())
 
-	if err := job.Apply(job.Context(), proj); err != nil {
+	if err := job.Apply(job, proj); err != nil {
 		t.Fatalf("Apply failed with %q", err)
 	}
 

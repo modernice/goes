@@ -38,7 +38,7 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 //	var proj projection.Projection
 //	var s *schedule.Periodic
 //	s.Subscribe(context.TODO(), func(job projection.Job) error {
-//		return job.Apply(job.Context(), proj)
+//		return job.Apply(job, proj)
 //	})
 //
 // A Job provides helper functions to extract data from the Job's Events. Query
@@ -47,13 +47,13 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 // query or if it can return the cached result.
 //
 //	s.Subscribe(context.TODO(), func(job projection.Job) error {
-//		events, errs, err := job.Events(job.Context()) // fetch all events of the Job
-//		events, errs, err := job.Events(job.Context(), query.New(...)) // fetch events with filter
-//		events, errs, err := job.EventsOf(job.Context(), "foo", "bar") // fetch events that belong to specific aggregates
-//		events, errs, err := job.EventsFor(job.Context(), proj) // fetch events that would be applied onto proj
-//		tuples, errs, err := job.Aggregates(job.Context()) // extract aggregates from events
-//		tuples, errs, err := job.Aggregates(job.Context(), "foo", "bar") // extract specific aggregates from events
-//		id, err := job.Aggregate(job.Context(), "foo") // extract UUID of first aggregate with given name
+//		events, errs, err := job.Events(job) // fetch all events of the Job
+//		events, errs, err := job.Events(job, query.New(...)) // fetch events with filter
+//		events, errs, err := job.EventsOf(job, "foo", "bar") // fetch events that belong to specific aggregates
+//		events, errs, err := job.EventsFor(job, proj) // fetch events that would be applied onto proj
+//		tuples, errs, err := job.Aggregates(job) // extract aggregates from events
+//		tuples, errs, err := job.Aggregates(job, "foo", "bar") // extract specific aggregates from events
+//		id, err := job.Aggregate(job, "foo") // extract UUID of first aggregate with given name
 //	})
 //
 // When the schedule is triggered by calling schedule.Trigger, a projection Job

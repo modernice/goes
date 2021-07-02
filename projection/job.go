@@ -25,25 +25,24 @@ var (
 // Job is a projection job. Jobs are typically created within Schedules and
 // passed to subscribers of those Schedules.
 type Job interface {
-	// Context returns the Job's Context.
-	Context() context.Context
+	context.Context
 
 	// Events fetches all Events that match the Job's Query and returns an Event
 	// channel and a channel of asynchronous query errors.
 	//
 	//	var job Job
-	//	str, errs, err := job.Events(job.Context())
+	//	str, errs, err := job.Events(job)
 	//	// handle err
-	//	events, err := event.Drain(job.Context(), str, errs)
+	//	events, err := event.Drain(job, str, errs)
 	//
 	// Optional Queries may be provided as filters for the fetched Events. If
 	// filters are provided, the returned Event channel will only receive Events
 	// that match all provided Queries:
 	//
 	//	var job Job
-	//	str, errs, err := job.Events(job.Context(), query.New(query.Name("foo")), query.New(...))
+	//	str, errs, err := job.Events(job, query.New(query.Name("foo")), query.New(...))
 	//	// handle err
-	//	events, err := event.Drain(job.Context(), str, errs)
+	//	events, err := event.Drain(job, str, errs)
 	//
 	// If you need the Events for a specific Projection, use EventsFor instead.
 	Events(_ context.Context, filters ...event.Query) (<-chan event.Event, <-chan error, error)
@@ -53,9 +52,9 @@ type Job interface {
 	// query errors.
 	//
 	//	var job Job
-	//	str, errs, err := job.EventsOf(job.Context(), "foo", "bar", "baz")
+	//	str, errs, err := job.EventsOf(job, "foo", "bar", "baz")
 	//	// handle err
-	//	events, err := event.Drain(job.Context(), str, errs)
+	//	events, err := event.Drain(job, str, errs)
 	EventsOf(_ context.Context, aggregateNames ...string) (<-chan event.Event, <-chan error, error)
 
 	// EventsFor fetches all Events that are appropriate for the given
@@ -68,9 +67,9 @@ type Job interface {
 	//
 	//	var job Job
 	//	var proj projection.Projection
-	//	str, errs, err := job.EventsFor(job.Context(), proj)
+	//	str, errs, err := job.EventsFor(job, proj)
 	//	// handle err
-	//	events, err := event.Drain(job.Context(), str, errs)
+	//	events, err := event.Drain(job, str, errs)
 	EventsFor(context.Context, Projection) (<-chan event.Event, <-chan error, error)
 
 	// Aggregates returns a channel of aggregate Tuples and a channel of
@@ -83,9 +82,9 @@ type Job interface {
 	// belong to one of the given aggregates.
 	//
 	//	var job Job
-	//	str, errs, err := job.Aggregates(job.Context(), "foo", "bar", "baz")
+	//	str, errs, err := job.Aggregates(job, "foo", "bar", "baz")
 	//	// handle err
-	//	events, err := event.Drain(job.Context(), str, errs)
+	//	events, err := event.Drain(job, str, errs)
 	Aggregates(_ context.Context, aggregateNames ...string) (<-chan aggregate.Tuple, <-chan error, error)
 
 	// Aggregate returns the UUID of the first aggregate with the given
@@ -124,9 +123,9 @@ func WithReset() JobOption {
 // the Events from the Store.
 func NewJob(ctx context.Context, store event.Store, q event.Query, opts ...JobOption) Job {
 	j := job{
-		ctx:   ctx,
-		query: q,
-		cache: newQueryCache(store),
+		Context: ctx,
+		query:   q,
+		cache:   newQueryCache(store),
 	}
 	for _, opt := range opts {
 		opt(&j)
@@ -135,10 +134,6 @@ func NewJob(ctx context.Context, store event.Store, q event.Query, opts ...JobOp
 		j.query = query.New()
 	}
 	return &j
-}
-
-func (j *job) Context() context.Context {
-	return j.ctx
 }
 
 func (j *job) Events(ctx context.Context, filter ...event.Query) (<-chan event.Event, <-chan error, error) {
@@ -281,7 +276,8 @@ func (j *job) runQuery(ctx context.Context, q event.Query) (<-chan event.Event, 
 }
 
 type job struct {
-	ctx    context.Context
+	context.Context
+
 	query  event.Query
 	filter []event.Query
 	reset  bool

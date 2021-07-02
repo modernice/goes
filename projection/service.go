@@ -62,7 +62,7 @@ type Schedule interface {
 	//	var proj projection.Projection // created by yourself
 	//	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	//	errs, err := s.Subscribe(context.TODO(), func(job projection.Job) error {
-	//		return job.Apply(job.Context(), proj) // job.Apply applies the appropriate events onto the projection
+	//		return job.Apply(job, proj) // job.Apply applies the appropriate events onto the projection
 	//	})
 	//	// handle err
 	//	for err := range errs {

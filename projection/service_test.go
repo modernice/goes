@@ -60,7 +60,7 @@ func TestService_Trigger(t *testing.T) {
 
 	errs, err := s.Subscribe(ctx, func(job projection.Job) error {
 		defer close(applied)
-		return job.Apply(job.Context(), proj)
+		return job.Apply(job, proj)
 	})
 	if err != nil {
 		t.Fatalf("subscribe to schedule: %v", err)
@@ -112,7 +112,7 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 
 	errs, err := s.Subscribe(ctx, func(job projection.Job) error {
 		defer close(applied)
-		return job.Apply(job.Context(), proj)
+		return job.Apply(job, proj)
 	})
 	if err != nil {
 		t.Fatalf("subscribe to schedule: %v", err)
