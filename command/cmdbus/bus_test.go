@@ -348,7 +348,7 @@ func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, command.Encoder) {
 		return mockPayload{}
 	})
 	ebus := chanbus.New()
-	return cmdbus.New(enc, ebus, opts...), ebus, enc
+	return cmdbus.New(enc, event.NewRegistry(), ebus, opts...), ebus, enc
 }
 
 func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {

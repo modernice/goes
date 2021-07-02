@@ -72,7 +72,7 @@ type CommandExecutedData struct {
 	Error   string
 }
 
-// RegisterEvents registers the Command Events into the Registry.
+// RegisterEvents registers the command events into a Registry.
 func RegisterEvents(reg event.Registry) {
 	reg.Register(CommandDispatched, func() event.Data {
 		return CommandDispatchedData{}

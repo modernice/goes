@@ -12,13 +12,14 @@ import (
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/cmdbus/report"
+	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
 )
 
 func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
 	ebus := chanbus.New()
-	bus := cmdbus.New(enc, ebus)
+	bus := cmdbus.New(enc, event.NewRegistry(), ebus)
 	h := command.NewHandler(bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -66,7 +67,7 @@ func TestHandler_Handle(t *testing.T) {
 func TestHandler_Handle_error(t *testing.T) {
 	enc := newEncoder()
 	ebus := chanbus.New()
-	bus := cmdbus.New(enc, ebus)
+	bus := cmdbus.New(enc, event.NewRegistry(), ebus)
 	h := command.NewHandler(bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -99,7 +100,7 @@ func TestHandler_Handle_error(t *testing.T) {
 func TestHandler_Handle_finish(t *testing.T) {
 	enc := newEncoder()
 	ebus := chanbus.New()
-	bus := cmdbus.New(enc, ebus)
+	bus := cmdbus.New(enc, event.NewRegistry(), ebus)
 	h := command.NewHandler(bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
