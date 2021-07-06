@@ -14,7 +14,7 @@ func main() {
 	reg := cmd.NewEventRegistry()
 	ebus := cmd.NewEventBus(reg, "order")
 	estore := cmd.NewEventStore(reg, ebus)
-	cbus := cmd.NewCommandBus(ebus)
+	cbus := cmd.NewCommandBus(reg, ebus)
 	repo := cmd.NewRepository(estore)
 	ctx := cmd.NewContext()
 

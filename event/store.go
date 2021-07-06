@@ -79,9 +79,10 @@ type Query interface {
 	// name of the tuple is queried.
 	//
 	// Example:
-	//	q := query.New(query.Aggregate("foo", uuid.New()), query.Aggregate("bar", uuid.Nil))
+	//	id := uuid.New()
+	//	q := query.New(query.Aggregate("foo", id), query.Aggregate("bar", uuid.Nil))
 	//
-	// The above Query q allows "foo" Aggregates with a specific UUID and every "bar" Aggregate.
+	// The above Query q allows "foo" Aggregates with the UUID id and every "bar" Aggregate.
 	Aggregates() []AggregateTuple
 
 	// Sorting returns the SortConfigs for the query.

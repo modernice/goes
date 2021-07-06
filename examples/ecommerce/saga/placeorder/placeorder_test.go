@@ -37,7 +37,7 @@ func TestPlaceOrder(t *testing.T) {
 	products := makeProducts(repo)
 	makeStock(repo, products)
 
-	bus, _ := newCommandBus(ebus)
+	bus, _ := newCommandBus(reg, ebus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -73,7 +73,7 @@ func TestPlaceOrder_rollback(t *testing.T) {
 	products := makeProducts(repo)
 	makeStock(repo, products)
 
-	bus, _ := newCommandBus(ebus)
+	bus, _ := newCommandBus(reg, ebus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -98,8 +98,8 @@ func TestPlaceOrder_rollback(t *testing.T) {
 		setup,
 		saga.CommandBus(bus),
 		saga.Repository(repo),
-	); err != nil {
-		t.Fatalf("SAGA failed to execute: %v", err)
+	); err == nil {
+		t.Fatalf("SAGA should fail; got %q", err)
 	}
 
 	assertOrderNotPlaced(t, repo, orderID)
@@ -156,9 +156,9 @@ func makeItems(products []*product.Product) []placeorder.Item {
 	return items
 }
 
-func newCommandBus(ebus event.Bus) (command.Bus, command.Registry) {
+func newCommandBus(ereg event.Registry, ebus event.Bus) (command.Bus, command.Registry) {
 	r := cmd.NewCommandRegistry()
-	bus := cmdbus.New(r, ebus)
+	bus := cmdbus.New(r, ereg, ebus)
 	return bus, r
 }
 

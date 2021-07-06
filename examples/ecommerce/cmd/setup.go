@@ -65,9 +65,8 @@ func NewEventStore(enc event.Encoder, bus event.Bus) event.Store {
 	return eventstore.WithBus(mongostore.New(enc, mongostore.Transactions(false)), bus)
 }
 
-func NewCommandBus(events event.Bus) command.Bus {
-	r := NewCommandRegistry()
-	return cmdbus.New(r, events)
+func NewCommandBus(reg event.Registry, events event.Bus) command.Bus {
+	return cmdbus.New(NewCommandRegistry(), reg, events)
 }
 
 func NewCommandRegistry() command.Registry {

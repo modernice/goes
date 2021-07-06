@@ -7,9 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/aggregate/tuple"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
-	"github.com/modernice/goes/project"
+	"github.com/modernice/goes/projection"
+	"github.com/modernice/goes/projection/schedule"
 )
 
 var (
@@ -26,13 +29,20 @@ type TimelineRepository interface {
 
 // A Timeline is a projection of an Order that lists the steps of an Order as a timeline.
 type Timeline struct {
-	// Embedding a *project.Progressor (or implementing project.progressor) is
+	// Embedding a *projection.Progressor (or implementing projection.progressor) is
 	// needed if a projection needs to be resumed from where its last Event has
 	// been applied. Otherwise Events that have already been applied would be
 	// applied again with the next projection Job.
 	//
 	// See TimelineProjector.applyJob for more information.
-	*project.Progressor
+	*projection.Progressor
+
+	// A Guard guards the projection from Events. Guard receives Events before
+	// they are applied to the Timeline and determines if the Event should be
+	// applied.
+	//
+	// View NewTimeline to see how to setup a Guard.
+	projection.Guard `bson:"-"`
 
 	ID         uuid.UUID `bson:"id"`
 	PlacedAt   time.Time `bson:"placedAt"`
@@ -50,14 +60,17 @@ type Step struct {
 // TimelineProjector is the projector for Timelines.
 type TimelineProjector struct {
 	repo     TimelineRepository
-	schedule project.Schedule
+	schedule projection.Schedule
 }
 
 // NewTimeline returns the Timeline for the Order with the given UUID.
 func NewTimeline(id uuid.UUID) *Timeline {
 	return &Timeline{
-		Progressor: &project.Progressor{},
-		ID:         id,
+		Progressor: &projection.Progressor{},
+		Guard: projection.QueryGuard(query.New(
+			query.Aggregate(AggregateName, id),
+		)),
+		ID: id,
 	}
 }
 
@@ -69,23 +82,23 @@ func (tl *Timeline) Duration() (time.Duration, bool) {
 	return tl.CanceledAt.Sub(tl.PlacedAt), true
 }
 
-// GuardProjection guards the projection from Events. Guard receives Events
-// before they are applied to the Timeline and determines if the Event should be
-// applied.
-//
-// Here we are validating that we only apply Event of the "Order" Aggregate and
-// from those Events only those that belong to the Order with the UUID equal to
-// the UUID from the Timeline.
-//
-// Implementing GuardProjection is optional.
-func (tl *Timeline) GuardProjection(evt event.Event) bool {
-	switch evt.AggregateName() {
-	case AggregateName: // "order"
-		return evt.AggregateID() == tl.ID
-	default:
-		return false
-	}
-}
+// // GuardProjection guards the projection from Events. Guard receives Events
+// // before they are applied to the Timeline and determines if the Event should be
+// // applied.
+// //
+// // Here we are validating that we only apply Event of the "Order" Aggregate and
+// // from those Events only those that belong to the Order with the UUID equal to
+// // the UUID from the Timeline.
+// //
+// // Implementing GuardProjection is optional.
+// func (tl *Timeline) GuardProjection(evt event.Event) bool {
+// 	switch evt.AggregateName() {
+// 	case AggregateName: // "order"
+// 		return evt.AggregateID() == tl.ID
+// 	default:
+// 		return false
+// 	}
+// }
 
 // ApplyEvent applies an Event onto the Timeline (projection).
 func (tl *Timeline) ApplyEvent(evt event.Event) {
@@ -134,7 +147,7 @@ func NewTimelineProjector(bus event.Bus, store event.Store, repo TimelineReposit
 	// debounces Events by 100ms, so that if e.g. 100 Events are received in a
 	// short period of time, only 1 projection Job is created with those 100
 	// Events instead of 100 Jobs with 1 Event each.
-	s := project.Continuously(bus, store, Events[:], project.Debounce(100*time.Millisecond))
+	s := schedule.Continuously(bus, store, Events[:], schedule.Debounce(100*time.Millisecond))
 
 	return &TimelineProjector{
 		repo:     repo,
@@ -174,28 +187,35 @@ func (p *TimelineProjector) All(ctx context.Context) error {
 // Job won't be executed by p.applyJob, because it hasn't been subscribed to the
 // Schedule yet.
 func (p *TimelineProjector) Project(ctx context.Context, id uuid.UUID) error {
-	return p.schedule.Trigger(ctx, query.New(
+	return p.schedule.Trigger(ctx, projection.Filter(query.New(
 		// If an Event is an Order Event, only allow it if its UUID is equal to
 		// the provided UUID:
 		query.Aggregate(AggregateName, id),
-	))
+	)))
 }
 
 // applyJob applies a projection Job for Timelines.
-func (p *TimelineProjector) applyJob(j project.Job) error {
+func (p *TimelineProjector) applyJob(j projection.Job) error {
 	// First we extract the Order UUIDs from the Jobs Events.
 	// Note that a Job can contain Events belonging to multiple or even
 	// different Aggregates.
-	orderIDs, err := j.AggregatesOf(j.Context(), AggregateName)
+	str, errs, err := j.Aggregates(j, AggregateName)
 	if err != nil {
-		return fmt.Errorf("extract Order IDs from Job: %w", err)
+		return fmt.Errorf("extract aggregates from job: %w", err)
 	}
+
+	tuples, err := aggregate.DrainTuples(j, str, errs)
+	if err != nil {
+		return fmt.Errorf("drain aggregates: %w", err)
+	}
+
+	orderIDs := tuple.IDs(tuples...)
 
 	// For every Order UUID extracted from the Jobs Events, project the Timeline
 	// for that Order:
 	for _, id := range orderIDs {
 		// First we try to fetch an existing Timeline for that Order.
-		tl, err := p.repo.Fetch(j.Context(), id)
+		tl, err := p.repo.Fetch(j, id)
 		if err != nil {
 			if !errors.Is(err, ErrTimelineNotFound) {
 				return fmt.Errorf("fetch Timeline %s: %w", id, err)
@@ -213,13 +233,13 @@ func (p *TimelineProjector) applyJob(j project.Job) error {
 		// the Query that is used to query the Events for the passed projection.
 		// Assuming that Timeline tl has already has Events applied to it,
 		// j.Apply will query only Events that happened after the last applied
-		// Event. This works because Timeline embeds *project.Progressor.
-		if err := j.Apply(j.Context(), tl); err != nil {
+		// Event. This works because Timeline embeds *projection.Progressor.
+		if err := j.Apply(j, tl); err != nil {
 			return fmt.Errorf("apply Job: %w", err)
 		}
 
 		// Save the Timeline to the TimelineRepository.
-		if err := p.repo.Save(j.Context(), tl); err != nil {
+		if err := p.repo.Save(j, tl); err != nil {
 			return fmt.Errorf("save Timeline: %w", err)
 		}
 	}

@@ -14,7 +14,7 @@ func main() {
 	ereg := cmd.NewEventRegistry()
 	ebus := cmd.NewEventBus(ereg, "cli")
 	estore := cmd.NewEventStore(ereg, ebus)
-	commands := cmd.NewCommandBus(ebus)
+	commands := cmd.NewCommandBus(ereg, ebus)
 	repo := repository.New(estore)
 	ctx := cmd.NewContext()
 

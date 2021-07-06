@@ -168,7 +168,7 @@ func Setup(orderID uuid.UUID, cus order.Customer, items ...Item) saga.Setup {
 		// You should get this one.
 		saga.Compensate("PlaceOrder", "CancelOrder"),
 
-		// When "stock is executed", it quantity is removed from the Stock of a
+		// When "stock is executed", its quantity is removed from the Stock of a
 		// Product. We need to "refill the stock" for these Products when the
 		// SAGA fails after Stock execution.
 		saga.Compensate("ExecuteStock", "RefillStock"),

@@ -57,6 +57,8 @@ func TestTimeline(t *testing.T) {
 		t.Fatalf("failed to project Timeline: %v", err)
 	}
 
+	<-time.After(100 * time.Millisecond)
+
 	tl, err := timelineRepo.Fetch(ctx, id)
 	if err != nil {
 		t.Fatalf("failed to fetch Timeline: %v", err)

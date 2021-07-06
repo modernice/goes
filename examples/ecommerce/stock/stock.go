@@ -87,7 +87,7 @@ func (s *Stock) fill(evt event.Event) {
 // Reduce removes quantity from the Stock. Reduce returns ErrInsufficientStock
 // if quantity is more than the available/unreserved stock.
 func (s *Stock) Reduce(quantity int) error {
-	if s.quantity < s.Available() {
+	if quantity > s.Available() {
 		return ErrInsufficientStock
 	}
 	aggregate.NextEvent(s, Reduced, ReducedEvent{Quantity: quantity})
