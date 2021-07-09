@@ -21,19 +21,24 @@ type ExpectedChangeError struct {
 }
 
 func (err ExpectedChangeError) Error() string {
+	var eventDataSuffix string
+	if err.cfg.eventData != nil {
+		eventDataSuffix = fmt.Sprintf(" with event data\n\n%s\n\n", err.cfg.eventData)
+	}
+
 	if err.cfg.atLeast > 0 && err.Matches < err.cfg.atLeast {
-		return fmt.Sprintf("expected at least %d %q changes; got %d", err.cfg.atLeast, err.EventName, err.Matches)
+		return fmt.Sprintf("expected at least %d %q changes%s; got %d", err.cfg.atLeast, err.EventName, eventDataSuffix, err.Matches)
 	}
 
 	if err.cfg.atMost > 0 && err.Matches > err.cfg.atMost {
-		return fmt.Sprintf("expected at most %d %q changes; got %d", err.cfg.atMost, err.EventName, err.Matches)
+		return fmt.Sprintf("expected at most %d %q changes%s; got %d", err.cfg.atMost, err.EventName, eventDataSuffix, err.Matches)
 	}
 
 	if err.cfg.exactly > 0 && err.Matches != err.cfg.exactly {
-		return fmt.Sprintf("expected exactly %d %q changes; got %d", err.cfg.exactly, err.EventName, err.Matches)
+		return fmt.Sprintf("expected exactly %d %q changes%s; got %d", err.cfg.exactly, err.EventName, eventDataSuffix, err.Matches)
 	}
 
-	return fmt.Sprintf("expected %q change", err.EventName)
+	return fmt.Sprintf("expected %q change%s", err.EventName, eventDataSuffix)
 }
 
 // UnexpectedChangeError is returned by the `NoChange` testing helper when the
