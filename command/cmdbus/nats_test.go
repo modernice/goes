@@ -37,8 +37,8 @@ func TestBus_NATS(t *testing.T) {
 			stan.NatsURL(os.Getenv("STAN_URL")),
 		)),
 	)
-	subBus := cmdbus.New(enc, subEventBus)
-	pubBus := cmdbus.New(enc, pubEventBus)
+	subBus := cmdbus.New(enc, ereg, subEventBus)
+	pubBus := cmdbus.New(enc, ereg, pubEventBus)
 
 	commands, errs, err := subBus.Subscribe(context.Background(), "foo-cmd")
 	if err != nil {
