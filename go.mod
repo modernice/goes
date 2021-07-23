@@ -17,7 +17,7 @@ require (
 	github.com/nats-io/stan.go v0.8.1
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.7.0 // indirect
-	go.mongodb.org/mongo-driver v1.4.4
+	go.mongodb.org/mongo-driver v1.5.1
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	golang.org/x/sys v0.0.0-20201223074533-0d417f636930 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
