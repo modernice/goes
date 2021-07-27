@@ -21,6 +21,11 @@ nats-test:
 	docker-compose -f .docker/nats-test.yml up --build --abort-on-container-exit --remove-orphans; \
 	docker-compose -f .docker/nats-test.yml down
 
+.PHONY: nats-bench
+nats-bench:
+	docker-compose -f .docker/nats-bench.yml up --build --abort-on-container-exit --remove-orphans; \
+	docker-compose -f .docker/nats-bench.yml down
+
 .PHONY: mongo-test
 mongo-test:
 	docker-compose -f .docker/mongo-test.yml up --build --abort-on-container-exit --remove-orphans; \

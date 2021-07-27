@@ -342,7 +342,7 @@ L:
 	}
 }
 
-func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, command.Encoder) {
+func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, command.Registry) {
 	enc := command.NewRegistry()
 	enc.Register("foo-cmd", func() command.Payload {
 		return mockPayload{}

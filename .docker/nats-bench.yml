@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  stan:
+    image: nats-streaming
+  
+  test:
+    depends_on:
+      - stan
+    build:
+      context: ..
+      dockerfile: .docker/nats-bench.Dockerfile
+      args:
+        TAGS: nats
+    environment:
+      - STAN_URL=nats://stan:4222
