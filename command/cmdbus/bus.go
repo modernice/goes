@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,10 +53,20 @@ type Bus struct {
 	bus event.Bus
 
 	handlerID uuid.UUID
+
+	debug  bool
+	logger *log.Logger
 }
 
 // Option is a Command Bus option.
 type Option func(*Bus)
+
+// Debug enables verbose logging for debugging purposes.
+func Debug() Option {
+	return func(b *Bus) {
+		b.debug = true
+	}
+}
 
 // AssignTimeout returns an Option that configures the timeout when assigning a
 // Command to a Handler. A zero Duration means no timeout.
@@ -90,6 +102,11 @@ func New(enc command.Encoder, reg event.Registry, events event.Bus, opts ...Opti
 	for _, opt := range opts {
 		opt(&b)
 	}
+
+	if b.debug {
+		b.logger = log.New(os.Stdout, "[cmdbus] ", log.LstdFlags)
+	}
+
 	return &b
 }
 
@@ -203,6 +220,8 @@ func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Ev
 		names = append(names, CommandExecuted)
 	}
 
+	b.debugLog("Subscribing to %v commands...", names)
+
 	events, errs, err := b.bus.Subscribe(ctx, names...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("subscribe to %v Events: %w", names, err)
@@ -225,7 +244,14 @@ func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 		Payload:       load.Bytes(),
 	})
 
-	if err := b.bus.Publish(ctx, evt); err != nil {
+	b.debugLog("Publishing %q event...", evt.Name())
+
+	var err error
+	b.debugMeasure(fmt.Sprintf("Publishing %q event", evt.Name()), func() {
+		err = b.bus.Publish(ctx, evt)
+	})
+
+	if err != nil {
 		return fmt.Errorf("publish %q Event: %w", evt.Name(), err)
 	}
 
@@ -245,8 +271,10 @@ func (b *Bus) workDispatch(
 	for {
 		select {
 		case <-ctx.Done():
+			b.debugLog("Dispatch of %q command canceled because of canceled Context.")
 			return ErrDispatchCanceled
 		case <-assignTimeout:
+			b.debugLog("Dispatch of %q command canceled because of AssignTimeout (%v).", b.assignTimeout)
 			return fmt.Errorf("assign %q Command: %w", cmd.Name(), ErrAssignTimeout)
 		case err, ok := <-errs:
 			if ok {
@@ -261,6 +289,7 @@ func (b *Bus) workDispatch(
 
 			var err error
 			status, err = b.handleDispatchEvent(ctx, cfg, cmd, evt, status)
+
 			if status.executed || (!cfg.Synchronous && status.accepted) {
 				return err
 			}
@@ -285,6 +314,8 @@ func (b *Bus) handleDispatchEvent(
 	evt event.Event,
 	status dispatchStatus,
 ) (dispatchStatus, error) {
+	b.debugLog("Handling %q event...", evt.Name())
+
 	switch evt.Name() {
 	case CommandRequested:
 		data := evt.Data().(CommandRequestedData)
@@ -297,6 +328,7 @@ func (b *Bus) handleDispatchEvent(
 		}
 
 		status.assigned = true
+		b.debugLog("%q command assigned.", cmd.Name())
 
 		return status, nil
 
@@ -306,6 +338,7 @@ func (b *Bus) handleDispatchEvent(
 			return status, nil
 		}
 		status.accepted = true
+		b.debugLog("%q command accepted.", cmd.Name())
 		return status, nil
 
 	case CommandExecuted:
@@ -323,7 +356,7 @@ func (b *Bus) handleDispatchEvent(
 		}
 
 		if cfg.Reporter != nil {
-			cfg.Reporter.Report(report.New(
+			rep := report.New(
 				report.Command{
 					Name:          cmd.Name(),
 					ID:            cmd.ID(),
@@ -333,7 +366,11 @@ func (b *Bus) handleDispatchEvent(
 				},
 				report.Error(err),
 				report.Runtime(data.Runtime),
-			))
+			)
+
+			b.debugLog("Reporting %q command: %v", cmd.Name(), rep)
+
+			cfg.Reporter.Report(rep)
 		}
 
 		status.executed = true
@@ -344,12 +381,19 @@ func (b *Bus) handleDispatchEvent(
 }
 
 func (b *Bus) assignCommand(ctx context.Context, cmd command.Command, data CommandRequestedData) error {
-	if err := b.bus.Publish(ctx, event.New(CommandAssigned, CommandAssignedData{
+	evt := event.New(CommandAssigned, CommandAssignedData{
 		ID:        data.ID,
 		HandlerID: data.HandlerID,
-	})); err != nil {
+	})
+
+	var err error
+	b.debugMeasure(fmt.Sprintf("Publishing %q event", evt.Name()), func() {
+		err = b.bus.Publish(ctx, evt)
+	})
+	if err != nil {
 		return fmt.Errorf("publish %q event: %w", CommandAssigned, err)
 	}
+
 	return nil
 }
 
@@ -386,9 +430,11 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Co
 	return out, outErrs, nil
 }
 
-func (b *Bus) subscribeSubscribe(ctx context.Context) (<-chan event.Event, <-chan error, error) {
+func (b *Bus) subscribeSubscribe(ctx context.Context) (events <-chan event.Event, errs <-chan error, err error) {
 	names := []string{CommandDispatched, CommandAssigned}
-	events, errs, err := b.bus.Subscribe(ctx, names...)
+	b.debugMeasure(fmt.Sprintf("Subscribing to %q events", names), func() {
+		events, errs, err = b.bus.Subscribe(ctx, names...)
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("subscribe to %v events: %w", names, err)
 	}
@@ -435,6 +481,8 @@ func (b *Bus) workSubscription(
 				events = nil
 				break
 			}
+
+			b.debugLog("Handling %q event...", evt.Name())
 
 			switch evt.Name() {
 			case CommandDispatched:
@@ -533,7 +581,11 @@ func (b *Bus) requestCommand(ctx context.Context, cmd command.Command) error {
 		ID:        cmd.ID(),
 		HandlerID: b.handlerID,
 	})
-	if err := b.bus.Publish(ctx, evt); err != nil {
+	var err error
+	b.debugMeasure("Publishing %q event", func() {
+		err = b.bus.Publish(ctx, evt)
+	})
+	if err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
 	}
 	return nil
@@ -544,7 +596,11 @@ func (b *Bus) acceptCommand(ctx context.Context, cmd command.Command) error {
 		ID:        cmd.ID(),
 		HandlerID: b.handlerID,
 	})
-	if err := b.bus.Publish(ctx, evt); err != nil {
+	var err error
+	b.debugMeasure("Publishing %q event", func() {
+		err = b.bus.Publish(ctx, evt)
+	})
+	if err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
 	}
 	return nil
@@ -560,10 +616,31 @@ func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg finish.Conf
 		Runtime: cfg.Runtime,
 		Error:   errmsg,
 	})
-	if err := b.bus.Publish(ctx, evt); err != nil {
+	var err error
+	b.debugMeasure("Publishing %q event", func() {
+		err = b.bus.Publish(ctx, evt)
+	})
+	if err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
 	}
 	return nil
+}
+
+func (b *Bus) debugLog(format string, v ...interface{}) {
+	if b.logger != nil {
+		b.logger.Printf(format+"\n", v...)
+	}
+}
+
+func (b *Bus) debugMeasure(action string, fn func()) {
+	start := time.Now()
+	fn()
+
+	if b.debug {
+		end := time.Now()
+		dur := end.Sub(start)
+		b.debugLog("%s took %v (%v - %v).", dur, start, end)
+	}
 }
 
 func containsName(names []string, name string) bool {
