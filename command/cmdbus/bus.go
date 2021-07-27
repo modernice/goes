@@ -220,7 +220,7 @@ func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Ev
 		names = append(names, CommandExecuted)
 	}
 
-	b.debugLog("Subscribing to %v commands...", names)
+	b.debugLog("[dispatch] Subscribing to %v commands...", names)
 
 	events, errs, err := b.bus.Subscribe(ctx, names...)
 	if err != nil {
@@ -244,10 +244,10 @@ func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 		Payload:       load.Bytes(),
 	})
 
-	b.debugLog("Publishing %q event...", evt.Name())
+	b.debugLog("[dispatch] Publishing %q event...", evt.Name())
 
 	var err error
-	b.debugMeasure(fmt.Sprintf("Publishing %q event", evt.Name()), func() {
+	b.debugMeasure(fmt.Sprintf("[dispatch] Publishing %q event", evt.Name()), func() {
 		err = b.bus.Publish(ctx, evt)
 	})
 
@@ -271,10 +271,10 @@ func (b *Bus) workDispatch(
 	for {
 		select {
 		case <-ctx.Done():
-			b.debugLog("Dispatch of %q command canceled because of canceled Context.")
+			b.debugLog("[dispatch] Dispatch of %q command canceled because of canceled Context.")
 			return ErrDispatchCanceled
 		case <-assignTimeout:
-			b.debugLog("Dispatch of %q command canceled because of AssignTimeout (%v).", b.assignTimeout)
+			b.debugLog("[dispatch] Dispatch of %q command canceled because of AssignTimeout (%v).", b.assignTimeout)
 			return fmt.Errorf("assign %q Command: %w", cmd.Name(), ErrAssignTimeout)
 		case err, ok := <-errs:
 			if ok {
@@ -314,7 +314,7 @@ func (b *Bus) handleDispatchEvent(
 	evt event.Event,
 	status dispatchStatus,
 ) (dispatchStatus, error) {
-	b.debugLog("Handling %q event...", evt.Name())
+	b.debugLog("[dispatch] Handling %q event...", evt.Name())
 
 	switch evt.Name() {
 	case CommandRequested:
@@ -328,7 +328,7 @@ func (b *Bus) handleDispatchEvent(
 		}
 
 		status.assigned = true
-		b.debugLog("%q command assigned.", cmd.Name())
+		b.debugLog("[dispatch] %q command assigned.", cmd.Name())
 
 		return status, nil
 
@@ -338,7 +338,7 @@ func (b *Bus) handleDispatchEvent(
 			return status, nil
 		}
 		status.accepted = true
-		b.debugLog("%q command accepted.", cmd.Name())
+		b.debugLog("[dispatch] %q command accepted.", cmd.Name())
 		return status, nil
 
 	case CommandExecuted:
@@ -368,7 +368,7 @@ func (b *Bus) handleDispatchEvent(
 				report.Runtime(data.Runtime),
 			)
 
-			b.debugLog("Reporting %q command: %v", cmd.Name(), rep)
+			b.debugLog("[dispatch] Reporting %q command: %v", cmd.Name(), rep)
 
 			cfg.Reporter.Report(rep)
 		}
@@ -387,7 +387,7 @@ func (b *Bus) assignCommand(ctx context.Context, cmd command.Command, data Comma
 	})
 
 	var err error
-	b.debugMeasure(fmt.Sprintf("Publishing %q event", evt.Name()), func() {
+	b.debugMeasure(fmt.Sprintf("[dispatch] Publishing %q event", evt.Name()), func() {
 		err = b.bus.Publish(ctx, evt)
 	})
 	if err != nil {
@@ -432,7 +432,7 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Co
 
 func (b *Bus) subscribeSubscribe(ctx context.Context) (events <-chan event.Event, errs <-chan error, err error) {
 	names := []string{CommandDispatched, CommandAssigned}
-	b.debugMeasure(fmt.Sprintf("Subscribing to %q events", names), func() {
+	b.debugMeasure(fmt.Sprintf("[subscribe] Subscribing to %q events", names), func() {
 		events, errs, err = b.bus.Subscribe(ctx, names...)
 	})
 	if err != nil {
@@ -482,7 +482,7 @@ func (b *Bus) workSubscription(
 				break
 			}
 
-			b.debugLog("Handling %q event...", evt.Name())
+			b.debugLog("[subscribe] Handling %q event...", evt.Name())
 
 			switch evt.Name() {
 			case CommandDispatched:
@@ -582,7 +582,7 @@ func (b *Bus) requestCommand(ctx context.Context, cmd command.Command) error {
 		HandlerID: b.handlerID,
 	})
 	var err error
-	b.debugMeasure("Publishing %q event", func() {
+	b.debugMeasure("[subscribe] Publishing %q event", func() {
 		err = b.bus.Publish(ctx, evt)
 	})
 	if err != nil {
@@ -597,7 +597,7 @@ func (b *Bus) acceptCommand(ctx context.Context, cmd command.Command) error {
 		HandlerID: b.handlerID,
 	})
 	var err error
-	b.debugMeasure("Publishing %q event", func() {
+	b.debugMeasure("[subscribe] Publishing %q event", func() {
 		err = b.bus.Publish(ctx, evt)
 	})
 	if err != nil {
@@ -617,7 +617,7 @@ func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg finish.Conf
 		Error:   errmsg,
 	})
 	var err error
-	b.debugMeasure("Publishing %q event", func() {
+	b.debugMeasure("[subscribe] Publishing %q event", func() {
 		err = b.bus.Publish(ctx, evt)
 	})
 	if err != nil {
