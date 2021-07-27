@@ -54,17 +54,20 @@ type Bus struct {
 
 	handlerID uuid.UUID
 
-	debug  bool
-	logger *log.Logger
+	debug   bool
+	debugID string
+	logger  *log.Logger
 }
 
 // Option is a Command Bus option.
 type Option func(*Bus)
 
-// Debug enables verbose logging for debugging purposes.
-func Debug() Option {
+// Debug enables verbose logging for debugging purposes. Optional id may be
+// specified to annotate debug output.
+func Debug(id string) Option {
 	return func(b *Bus) {
 		b.debug = true
+		b.debugID = id
 	}
 }
 
@@ -104,7 +107,13 @@ func New(enc command.Encoder, reg event.Registry, events event.Bus, opts ...Opti
 	}
 
 	if b.debug {
-		b.logger = log.New(os.Stdout, "[cmdbus] ", log.LstdFlags)
+		prefix := "[cmdbus/"
+		if b.debugID != "" {
+			prefix += b.debugID + "] "
+		} else {
+			prefix += b.handlerID.String() + "] "
+		}
+		b.logger = log.New(os.Stdout, prefix, log.LstdFlags)
 	}
 
 	return &b
