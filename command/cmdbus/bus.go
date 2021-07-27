@@ -171,35 +171,47 @@ func New(enc command.Encoder, reg event.Registry, events event.Bus, opts ...Opti
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
 // 	log.Println(fmt.Sprintf("Error: %v", err))
 func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) error {
-	cfg := dispatch.Configure(opts...)
+	var err error
+	b.debugMeasure(fmt.Sprintf("[dispatch] Dispatching %q command", cmd.Name()), func() {
+		cfg := dispatch.Configure(opts...)
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
 
-	events, errs, err := b.subscribeDispatch(ctx, cfg.Synchronous)
-	if err != nil {
-		return b.dispatchError(err)
-	}
+		var (
+			events <-chan event.Event
+			errs   <-chan error
+		)
 
-	if err := b.dispatch(ctx, cmd); err != nil {
-		return b.dispatchError(err)
-	}
+		events, errs, err = b.subscribeDispatch(ctx, cfg.Synchronous)
+		if err != nil {
+			err = b.dispatchError(err)
+			return
+		}
 
-	var assignTimeout <-chan time.Time
-	if b.assignTimeout > 0 {
-		timer := time.NewTimer(b.assignTimeout)
-		defer timer.Stop()
-		assignTimeout = timer.C
-	}
+		if err = b.dispatch(ctx, cmd); err != nil {
+			err = b.dispatchError(err)
+			return
+		}
 
-	return b.dispatchError(b.workDispatch(
-		ctx,
-		cfg,
-		cmd,
-		events,
-		errs,
-		assignTimeout,
-	))
+		var assignTimeout <-chan time.Time
+		if b.assignTimeout > 0 {
+			timer := time.NewTimer(b.assignTimeout)
+			defer timer.Stop()
+			assignTimeout = timer.C
+		}
+
+		err = b.dispatchError(b.workDispatch(
+			ctx,
+			cfg,
+			cmd,
+			events,
+			errs,
+			assignTimeout,
+		))
+	})
+
+	return err
 }
 
 func (b *Bus) dispatchError(err error) error {
