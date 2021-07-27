@@ -639,7 +639,7 @@ func (b *Bus) debugMeasure(action string, fn func()) {
 	if b.debug {
 		end := time.Now()
 		dur := end.Sub(start)
-		b.debugLog("%s took %v (%v - %v).", dur, start, end)
+		b.debugLog("%s took %v (%v - %v).", action, dur, start, end)
 	}
 }
 
