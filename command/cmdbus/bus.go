@@ -326,7 +326,7 @@ func (b *Bus) handleDispatchEvent(
 	evt event.Event,
 	status dispatchStatus,
 ) (dispatchStatus, error) {
-	b.debugLog("[dispatch] Handling %q event...", evt.Name())
+	b.debugLog("[dispatch] Handling %q event (%s)...", evt.Name(), evt.ID())
 
 	switch evt.Name() {
 	case CommandRequested:
@@ -494,7 +494,7 @@ func (b *Bus) workSubscription(
 				break
 			}
 
-			b.debugLog("[subscribe] Handling %q event...", evt.Name())
+			b.debugLog("[subscribe] Handling %q event (%s)...", evt.Name(), evt.ID())
 
 			switch evt.Name() {
 			case CommandDispatched:
