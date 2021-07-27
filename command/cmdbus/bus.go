@@ -582,7 +582,7 @@ func (b *Bus) requestCommand(ctx context.Context, cmd command.Command) error {
 		HandlerID: b.handlerID,
 	})
 	var err error
-	b.debugMeasure("[subscribe] Publishing %q event", func() {
+	b.debugMeasure(fmt.Sprintf("[subscribe] Publishing %q event", evt.Name()), func() {
 		err = b.bus.Publish(ctx, evt)
 	})
 	if err != nil {
@@ -597,7 +597,7 @@ func (b *Bus) acceptCommand(ctx context.Context, cmd command.Command) error {
 		HandlerID: b.handlerID,
 	})
 	var err error
-	b.debugMeasure("[subscribe] Publishing %q event", func() {
+	b.debugMeasure(fmt.Sprintf("[subscribe] Publishing %q event", evt.Name()), func() {
 		err = b.bus.Publish(ctx, evt)
 	})
 	if err != nil {
@@ -617,7 +617,7 @@ func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg finish.Conf
 		Error:   errmsg,
 	})
 	var err error
-	b.debugMeasure("[subscribe] Publishing %q event", func() {
+	b.debugMeasure(fmt.Sprintf("[subscribe] Publishing %q event", evt.Name()), func() {
 		err = b.bus.Publish(ctx, evt)
 	})
 	if err != nil {
