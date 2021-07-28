@@ -62,12 +62,17 @@ type changeConfig struct {
 	exactly   int
 }
 
-// WithEventData returns a ChangeOption that also tests the event data of
+// EventData returns a ChangeOption that also tests the event data of
 // changes instead of just the event name.
-func WithEventData(d event.Data) ChangeOption {
+func EventData(d event.Data) ChangeOption {
 	return func(cfg *changeConfig) {
 		cfg.eventData = d
 	}
+}
+
+// Deprecated: Use EventData instead.
+func WithEventData(d event.Data) ChangeOption {
+	return EventData(d)
 }
 
 // AtLeast returns a ChangeOption that requires an Aggregate to have a change at
