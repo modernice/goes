@@ -8,10 +8,25 @@ import (
 )
 
 func TestNow(t *testing.T) {
-	now := xtime.Now()
-	rounded := now.Truncate(time.Microsecond)
-	nanoseconds := now.Sub(rounded)
-	if nanoseconds == 0 {
-		t.Fatalf("Now should return Time with nanosecond precision; got %v (%d)", now, now.UnixNano())
+	timeout := time.NewTimer(3 * time.Second)
+	defer timeout.Stop()
+
+	ticker := time.NewTicker(1234 * time.Nanosecond)
+	defer ticker.Stop()
+
+L:
+	for {
+		select {
+		case <-timeout.C:
+			t.Fatal("timed out")
+		case <-ticker.C:
+			now := xtime.Now()
+			rounded := now.Truncate(time.Microsecond)
+			nanoseconds := now.Sub(rounded)
+
+			if nanoseconds != 0 {
+				break L
+			}
+		}
 	}
 }

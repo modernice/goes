@@ -50,8 +50,8 @@ type Store interface {
 	//	// handle err
 	Query(context.Context, Query) (<-chan Event, <-chan error, error)
 
-	// Delete deletes the specified event from the Store.
-	Delete(context.Context, Event) error
+	// Delete deletes Events from the Store.
+	Delete(context.Context, ...Event) error
 }
 
 // A Query is used by Stores to query Events.

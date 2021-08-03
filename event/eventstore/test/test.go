@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"log"
 	"testing"
 	stdtime "time"
 
@@ -148,15 +149,27 @@ func testDelete(t *testing.T, newStore EventStoreFactory) {
 		t.Fatal(fmt.Errorf("%q: expected store.Delete not to return an error; got %w", "foo", err))
 	}
 
-	found, err := store.Find(context.Background(), foo.ID())
-	if err == nil {
-		t.Error(fmt.Errorf("%q: expected store.Find to return an error; got %#v", "foo", err))
-	}
-	if found != nil {
-		t.Errorf("%q: expected store.Find not to return an event; got %#v", "foo", found)
+	timeout := stdtime.NewTimer(5 * stdtime.Second)
+	defer timeout.Stop()
+
+	ticker := stdtime.NewTicker(500 * stdtime.Millisecond)
+	defer ticker.Stop()
+
+L:
+	for {
+		select {
+		case <-timeout.C:
+			t.Fatal("timed out. store sill returns deleted event when calling Find()")
+		case <-ticker.C:
+			found, err := store.Find(context.Background(), foo.ID())
+			log.Println(found, err)
+			if err != nil && found == nil {
+				break L
+			}
+		}
 	}
 
-	found, err = store.Find(context.Background(), bar.ID())
+	found, err := store.Find(context.Background(), bar.ID())
 	if err != nil {
 		t.Error(fmt.Errorf("%q: expected store.Find not to return an error; got %#v", "bar", err))
 	}

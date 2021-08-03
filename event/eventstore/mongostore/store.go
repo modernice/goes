@@ -340,14 +340,79 @@ func (s *Store) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 }
 
 // Delete deletes the given Event from the database.
-func (s *Store) Delete(ctx context.Context, evt event.Event) error {
+func (s *Store) Delete(ctx context.Context, events ...event.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	ids := make([]uuid.UUID, len(events))
+	for i, evt := range events {
+		ids[i] = evt.ID()
+	}
+
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
-	if _, err := s.entries.DeleteOne(ctx, bson.M{"id": evt.ID()}); err != nil {
-		return fmt.Errorf("delete event %q: %w", evt.ID(), err)
-	}
-	return nil
+
+	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) error {
+		if s.transactions {
+			if err := ctx.StartTransaction(); err != nil {
+				return fmt.Errorf("start transaction: %w", err)
+			}
+		}
+
+		abort := func(err error) error {
+			if s.transactions {
+				if abortError := ctx.AbortTransaction(ctx); abortError != nil {
+					return fmt.Errorf("abort transaction: %w", abortError)
+				}
+			}
+			return err
+		}
+
+		commit := func() error {
+			if s.transactions {
+				if err := ctx.CommitTransaction(ctx); err != nil {
+					return fmt.Errorf("commit transaction: %w", err)
+				}
+			}
+			return nil
+		}
+
+		if _, err := s.entries.DeleteMany(ctx, bson.D{
+			{Key: "id", Value: bson.D{{Key: "$in", Value: ids}}},
+		}); err != nil {
+			return abort(err)
+		}
+
+		aggregateName := events[0].AggregateName()
+		aggregateID := events[0].AggregateID()
+		aggregateVersion := events[0].AggregateVersion()
+
+		if aggregateName == "" || aggregateID == uuid.Nil || aggregateVersion != 1 {
+			return commit()
+		}
+
+		for _, evt := range events[1:] {
+			if evt.AggregateName() != aggregateName || evt.AggregateID() != aggregateID {
+				return commit()
+			}
+
+			if v := evt.AggregateVersion(); v > aggregateVersion {
+				aggregateVersion = v
+			}
+		}
+
+		if _, err := s.states.DeleteOne(ctx, bson.D{
+			{Key: "aggregateName", Value: aggregateName},
+			{Key: "aggregateId", Value: aggregateID},
+			{Key: "aggregateVersion", Value: aggregateVersion},
+		}); err != nil {
+			return abort(fmt.Errorf("delete aggregate state: %w", err))
+		}
+
+		return commit()
+	})
 }
 
 // Query queries the database for events filtered by Query q and returns an

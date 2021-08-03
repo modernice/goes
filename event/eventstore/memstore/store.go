@@ -93,11 +93,13 @@ func (s *store) Query(ctx context.Context, q event.Query) (<-chan event.Event, <
 	return out, errs, nil
 }
 
-func (s *store) Delete(ctx context.Context, evt event.Event) error {
+func (s *store) Delete(ctx context.Context, events ...event.Event) error {
 	defer s.reslice()
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	delete(s.idMap, evt.ID())
+	for _, evt := range events {
+		delete(s.idMap, evt.ID())
+	}
 	return nil
 }
 
