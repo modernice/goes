@@ -348,7 +348,7 @@ func New(opts ...Option) Setup {
 // the following cases:
 //	- `ErrEmptyName` if an Action has an empty name (or just whitespace)
 //	- `ErrActionNotFound` if the sequence contains an unconfigured Action
-//	- `ErrActionNotFound` if not every Action has a compensating Action
+//	- `ErrActionNotFound` if an unknown Action is configured as a compensating Action
 func Validate(s Setup) error {
 	for _, name := range s.Sequence() {
 		if strings.TrimSpace(name) == "" {
@@ -596,18 +596,24 @@ func (e *Executor) rollback() error {
 
 func (e *Executor) rollbackAction(ctx context.Context, rep action.Report) <-chan error {
 	out := make(chan error)
+	ret := func(err error) {
+		select {
+		case <-ctx.Done():
+		case out <- err:
+		}
+	}
 	go func() {
 		name := e.Compensator(rep.Action.Name())
 		if name == "" {
-			out <- fmt.Errorf("find compensator for %q: %w", rep.Action.Name(), ErrActionNotFound)
+			ret(nil)
 			return
 		}
 		comp := e.Action(name)
 		if comp == nil {
-			out <- fmt.Errorf("find %q action: %w", name, ErrActionNotFound)
+			ret(fmt.Errorf("find %q action: %w", name, ErrActionNotFound))
 			return
 		}
-		out <- e.run(ctx, comp)
+		ret(e.run(ctx, comp))
 	}()
 	return out
 }
