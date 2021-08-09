@@ -26,6 +26,12 @@ func Handle(ctx context.Context, bus Bus, name string, handler func(Context) err
 	return NewHandler(bus).Handle(ctx, name, handler)
 }
 
+// MustHandle is a shortcut for
+//	NewHandler(bus).MustHandle(ctx, name, handler)
+func MustHandle(ctx context.Context, bus Bus, name string, handler func(Context) error) <-chan error {
+	return NewHandler(bus).MustHandle(ctx, name, handler)
+}
+
 // Handle registers the function handler as a handler for the given Command name.
 // Handle subscribes to the underlying Bus for Commands with that name. When
 // Handler is selected as the handler for a dispatched Command, handler is
@@ -51,6 +57,15 @@ func (h *Handler) Handle(ctx context.Context, name string, handler func(Context)
 	go h.handle(ctx, handler, str, errs, out)
 
 	return out, nil
+}
+
+// MustHandle does the same as Handle, but panics if the event subscription fails.
+func (h *Handler) MustHandle(ctx context.Context, name string, handler func(Context) error) <-chan error {
+	errs, err := h.Handle(ctx, name, handler)
+	if err != nil {
+		panic(err)
+	}
+	return errs
 }
 
 func (h *Handler) handle(
