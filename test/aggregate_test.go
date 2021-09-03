@@ -2,6 +2,7 @@ package test_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -14,6 +15,47 @@ import (
 
 type mockEventData struct {
 	A string
+}
+
+func TestNewAggregate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	name := "foo"
+	id2 := uuid.New()
+
+	tests := []struct {
+		new       func(uuid.UUID) aggregate.Aggregate
+		wantError string
+	}{
+		{
+			new: func(id uuid.UUID) aggregate.Aggregate {
+				return aggregate.New(name, id)
+			},
+		},
+		{
+			new: func(id uuid.UUID) aggregate.Aggregate {
+				return aggregate.New("bar", id)
+			},
+			wantError: fmt.Sprintf("AggregateName() should return %q; got %q", name, "bar"),
+		},
+		{
+			new: func(id uuid.UUID) aggregate.Aggregate {
+				return aggregate.New(name, id2)
+			},
+			wantError: fmt.Sprintf("AggregateID() should return %q; got %q", test.ExampleID, id2),
+		},
+	}
+
+	for _, tt := range tests {
+		mockT := mock_test.NewMockTestingT(ctrl)
+
+		if tt.wantError != "" {
+			mockT.EXPECT().Fatal(tt.wantError)
+		}
+
+		test.NewAggregate(mockT, tt.new, name)
+	}
 }
 
 func TestChange_expectedChange(t *testing.T) {

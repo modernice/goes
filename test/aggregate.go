@@ -4,9 +4,44 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 )
+
+var (
+	// ExampleID is a UUID that can be used in tests.
+	ExampleID = uuid.New()
+)
+
+// NewAggregate tests the New function of an aggregate to check if the returned
+// aggregate provides the correct AggregateName and AggregateID.
+//
+// Example:
+//	type Foo struct {
+//		*aggregate.Base
+//	}
+//
+//	func NewFoo() *Foo {
+//		return &Foo{Base: aggregate.New()}
+//	}
+//
+//	func TestNewFoo() {
+//		test.NewAggregate(func(id uuid.UUID) aggregate.Aggregate {
+//			return NewFoo(id)
+//		})
+//	}
+func NewAggregate(t TestingT, newFunc func(uuid.UUID) aggregate.Aggregate, expectedName string) {
+	a := newFunc(ExampleID)
+
+	if name := a.AggregateName(); name != expectedName {
+		t.Fatal(fmt.Sprintf("AggregateName() should return %q; got %q", expectedName, name))
+	}
+
+	if aid := a.AggregateID(); aid != ExampleID {
+		t.Fatal(fmt.Sprintf("AggregateID() should return %q; got %q", ExampleID, aid))
+	}
+}
 
 // ExpectedChangeError is returned by the `Change` testing helper when the
 // testd Aggregate doesn't have the required change.
