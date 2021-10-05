@@ -52,13 +52,18 @@ type ExpectedChangeError struct {
 	// Matches is the number of changes that matched.
 	Matches int
 
-	cfg changeConfig
+	cfg          changeConfig
+	mismatchData []event.Data
 }
 
 func (err ExpectedChangeError) Error() string {
 	var eventDataSuffix string
 	if err.cfg.eventData != nil {
-		eventDataSuffix = fmt.Sprintf(" with event data\n\n%s\n\n", err.cfg.eventData)
+		eventDataSuffix = fmt.Sprintf(" with event data\n\n%v\n\n", err.cfg.eventData)
+
+		if l := len(err.mismatchData); l > 0 {
+			eventDataSuffix = fmt.Sprintf("%sbut got %d change(s) with event data\n\n%v\n\n", eventDataSuffix, l, err.mismatchData)
+		}
 	}
 
 	if err.cfg.atLeast > 0 && err.Matches < err.cfg.atLeast {
@@ -149,12 +154,15 @@ func Change(t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeO
 	}
 
 	var matches int
+	var mismatchData []event.Data
+
 	for _, change := range a.AggregateChanges() {
 		if change.Name() != eventName {
 			continue
 		}
 
 		if cfg.eventData != nil && !reflect.DeepEqual(cfg.eventData, change.Data()) {
+			mismatchData = append(mismatchData, change.Data())
 			continue
 		}
 
@@ -181,9 +189,10 @@ func Change(t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeO
 
 	if matches == 0 || (cfg.exactly > 0 && matches != cfg.exactly) {
 		t.Fatal(&ExpectedChangeError{
-			EventName: eventName,
-			Matches:   matches,
-			cfg:       cfg,
+			EventName:    eventName,
+			Matches:      matches,
+			cfg:          cfg,
+			mismatchData: mismatchData,
 		})
 	}
 }
