@@ -25,3 +25,14 @@ type Bus interface {
 	// channel.
 	Subscribe(ctx context.Context, names ...string) (<-chan Event, <-chan error, error)
 }
+
+// Must can be used to panic on failed event subscriptions:
+//
+//	var bus Bus
+//	events, errs := Must(bus.Subscribe(context.TODO(), "foo", "bar", "baz"))
+func Must(events <-chan Event, errs <-chan error, err error) (<-chan Event, <-chan error) {
+	if err != nil {
+		panic(err)
+	}
+	return events, errs
+}
