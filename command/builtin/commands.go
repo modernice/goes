@@ -13,7 +13,8 @@ type DeleteAggregatePayload struct{}
 
 // DeleteAggregate returns the command to delete an aggregate. When using the
 // built-in command handler of this package, aggregates are deleted by deleting
-// their events from the event store.
+// their events from the event store. Additionally, a "goes.command.aggregate.deleted"
+// is published after deletion.
 func DeleteAggregate(name string, id uuid.UUID) command.Command {
 	return command.New(DeleteAggregateCmd, DeleteAggregatePayload{}, command.Aggregate(name, id))
 }

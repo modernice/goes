@@ -3,6 +3,7 @@ package builtin_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
@@ -12,6 +13,7 @@ import (
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventbus/chanbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/eventstore/memstore"
@@ -53,7 +55,7 @@ func TestDeleteAggregate(t *testing.T) {
 
 	bus := cmdbus.New(reg, ereg, ebus)
 
-	go panicOn(builtin.MustHandle(ctx, bus, repo))
+	go panicOn(builtin.MustHandle(ctx, bus, ebus, repo))
 
 	foo := newMockAggregate(aggregateID)
 	newMockEvent(foo, 2)
@@ -87,8 +89,31 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Foo should be %d; is %d", 14, foo.Foo)
 	}
 
+	awaitCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	str, errs := event.Must(eventbus.Await(awaitCtx, ebus, builtin.AggregateDeleted))
+
 	if err := bus.Dispatch(ctx, cmd, dispatch.Sync()); err != nil {
 		t.Fatalf("dispatch command: %v", err)
+	}
+
+	// A "goes.command.aggregate.deleted" event should be published
+	evt, err := event.Await(ctx, str, errs)
+	if err != nil {
+		t.Fatalf("await event: %v", err)
+	}
+
+	if evt.Name() != builtin.AggregateDeleted {
+		t.Fatalf("Event name should b %q; is %q", builtin.AggregateDeleted, evt.Name())
+	}
+
+	if evt.AggregateName() != aggregateName {
+		t.Fatalf("AggregateName() should return %q; got %q", aggregateName, evt.AggregateName())
+	}
+
+	if evt.AggregateID() != aggregateID {
+		t.Fatalf("AggregateID() should return %q; got %q", aggregateID, evt.AggregateID())
 	}
 
 	// Deleted aggregate should have zero-state when fetched:
