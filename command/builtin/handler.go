@@ -14,9 +14,21 @@ func Register(r command.Registry) {
 	r.Register(DeleteAggregateCmd, func() command.Payload { return DeleteAggregatePayload{} })
 }
 
+// HandleOption is an option for Handle & MustHandle.
+type HandleOption func(*handleConfig)
+
+// InsertEvents returns a HandleOption that configures the command handler to
+// insert published events into the provided event store.
+func InsertEvents(store event.Store) HandleOption {
+	return func(cfg *handleConfig) {
+		cfg.store = store
+		cfg.insertEvents = true
+	}
+}
+
 // MustHandle does the same as Handle, but panic if command registration fails.
-func MustHandle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate.Repository) <-chan error {
-	errs, err := Handle(ctx, bus, ebus, repo)
+func MustHandle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate.Repository, opts ...HandleOption) <-chan error {
+	errs, err := Handle(ctx, bus, ebus, repo, opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +42,12 @@ func MustHandle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggre
 //
 // The following commands are handled:
 //	- DeleteAggregateCmd ("goes.command.aggregate.delete")
-func Handle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate.Repository) (<-chan error, error) {
+func Handle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate.Repository, opts ...HandleOption) (<-chan error, error) {
+	var cfg handleConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	h := command.NewHandler(bus)
 
 	deleteErrors, err := h.Handle(ctx, DeleteAggregateCmd, func(ctx command.Context) error {
@@ -51,6 +68,12 @@ func Handle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate
 			return fmt.Errorf("publish %q event: %w", deletedEvent.Name(), err)
 		}
 
+		if cfg.insertEvents {
+			if err := cfg.store.Insert(ctx, deletedEvent); err != nil {
+				return fmt.Errorf("insert %q event into event store: %w", deletedEvent.Name(), err)
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -58,4 +81,11 @@ func Handle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate
 	}
 
 	return deleteErrors, nil
+}
+
+type handleConfig struct {
+	// If true, published events are also stored in the event store after being
+	// published.
+	insertEvents bool
+	store        event.Store
 }
