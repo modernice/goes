@@ -51,7 +51,7 @@ func TestDeleteAggregate(t *testing.T) {
 	estore := eventstore.WithBus(memstore.New(), ebus)
 	repo := repository.New(estore)
 	reg := command.NewRegistry()
-	builtin.Register(reg)
+	builtin.RegisterCommands(reg)
 
 	bus := cmdbus.New(reg, ereg, ebus)
 
