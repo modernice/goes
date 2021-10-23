@@ -186,8 +186,22 @@ func (b *Base) FlushChanges() {
 	b.Changes = b.Changes[:0]
 }
 
-// ApplyEvent implements Aggregate. Structs that embed Base should reimplement
-// ApplyEvent accordingly.
+// NextEvent makes and returns the next Event e for the aggregate. NextEvent
+// calls a.ApplyEvent(e) and a.TrackChange(e) before returning the Event.
+//
+// If the aggregate that embeds *Base overrides aggregate methods of *Base,
+// b.NextEvent might not work as expected, because it will still use the
+// methods of *Base. In such cases, you can use the NextEvent function that is
+// exported from this package instead:
+//
+//	var foo aggregate.Aggregate
+//	evt := aggregate.NextEvent(foo, "event-name", ...)
+func (b *Base) NextEvent(name string, data event.Data, opts ...event.Option) event.Event {
+	return NextEvent(b, name, data, opts...)
+}
+
+// ApplyEvent implements Aggregate. Aggregates that embed Base should overide
+// ApplyEvent.
 func (*Base) ApplyEvent(event.Event) {}
 
 // SetVersion implements Aggregate.
