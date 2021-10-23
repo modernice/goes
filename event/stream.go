@@ -142,3 +142,17 @@ func Filter(events <-chan Event, queries ...Query) <-chan Event {
 	}()
 	return out
 }
+
+// Await returns the first Event OR error that is received from events or errs.
+// If ctx is canceled before an Event or error is received, ctx.Err() is
+// returned.
+func Await(ctx context.Context, events <-chan Event, errs <-chan error) (Event, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case err := <-errs:
+		return nil, err
+	case evt := <-events:
+		return evt, nil
+	}
+}
