@@ -13,6 +13,9 @@ type BarEventData struct{ A string }
 // BazEventData is a testing event.Data.
 type BazEventData struct{ A string }
 
+// FoobarEventData is a testing event.Data.
+type FoobarEventData struct{ A int }
+
 // UnregisteredEventData is a testing event.Data that's not registered in the
 // Encoder returned by NewEncoder.
 type UnregisteredEventData struct{ A string }
@@ -29,6 +32,9 @@ func NewEncoder() event.Registry {
 	})
 	reg.Register("baz", func() event.Data {
 		return BazEventData{}
+	})
+	reg.Register("foobar", func() event.Data {
+		return FoobarEventData{}
 	})
 	return reg
 }
