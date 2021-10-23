@@ -18,3 +18,8 @@ type DeleteAggregatePayload struct{}
 func DeleteAggregate(name string, id uuid.UUID) command.Command {
 	return command.New(DeleteAggregateCmd, DeleteAggregatePayload{}, command.Aggregate(name, id))
 }
+
+// RegisterCommands registers the built-in commands into a command registry.
+func RegisterCommands(r command.Registry) {
+	r.Register(DeleteAggregateCmd, func() command.Payload { return DeleteAggregatePayload{} })
+}

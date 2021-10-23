@@ -1,6 +1,9 @@
 package builtin
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"github.com/modernice/goes/event"
+)
 
 // AggregateDeleted is published when an aggregate has been deleted.
 const AggregateDeleted = "goes.command.aggregate.deleted"
@@ -15,4 +18,9 @@ type AggregateDeletedData struct {
 
 	// Version is the version of the deleted aggregate.
 	Version int
+}
+
+// RegisterEvents registers events of built-in commands into an event registry.
+func RegisterEvents(r event.Registry) {
+	r.Register(AggregateDeleted, func() event.Data { return AggregateDeletedData{} })
 }

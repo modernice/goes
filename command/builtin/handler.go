@@ -9,11 +9,6 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// Register registers the built-in commands into a command registry.
-func Register(r command.Registry) {
-	r.Register(DeleteAggregateCmd, func() command.Payload { return DeleteAggregatePayload{} })
-}
-
 // HandleOption is an option for Handle & MustHandle.
 type HandleOption func(*handleConfig)
 
