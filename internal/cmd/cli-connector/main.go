@@ -13,7 +13,6 @@ import (
 
 	"github.com/logrusorgru/aurora"
 	"github.com/modernice/goes/cli"
-	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
 	"github.com/modernice/goes/event/eventstore/memstore"
 	"github.com/modernice/goes/projection"
@@ -36,7 +35,6 @@ func main() {
 		cancel()
 	}()
 
-	reg := event.NewRegistry()
 	bus := chanbus.New()
 	store := memstore.New()
 
@@ -64,7 +62,7 @@ func main() {
 	log.Printf("Subscribed to %q schedule.\n", "bar")
 
 	svc := projection.NewService(
-		reg, bus,
+		bus,
 		projection.RegisterSchedule("foo", foo),
 		projection.RegisterSchedule("bar", bar),
 	)

@@ -117,6 +117,13 @@ type Schedule interface {
 	Trigger(context.Context, ...TriggerOption) error
 }
 
+// RegisterService register the projection service events into an event
+// registry.
+func RegisterService(r event.Registry) {
+	r.Register(Triggered, func() event.Data { return TriggeredData{} })
+	r.Register(TriggerAccepted, func() event.Data { return TriggerAcceptedData{} })
+}
+
 // ServiceOption is an option for creating a Service.
 type ServiceOption func(*Service)
 
@@ -138,20 +145,17 @@ func TriggerTimeout(d time.Duration) ServiceOption {
 
 // NewService returns a new Service.
 //
-//	var reg event.Registry
 //	var bus event.Bus
 //	var fooSchedule projection.Schedule
-//	var barSchedule projectio.Schedule
+//	var barSchedule projection.Schedule
 //	svc := NewService(
-//		reg, bus,
+//		bus,
 //		projection.RegisterSchedule("foo", fooSchedule),
 //		projection.RegisterSchedule("bar", barSchedule),
 //	)
 //
 //	errs, err := svc.Run(context.TODO())
-func NewService(reg event.Registry, bus event.Bus, opts ...ServiceOption) *Service {
-	registerEvents(reg)
-
+func NewService(bus event.Bus, opts ...ServiceOption) *Service {
 	svc := Service{
 		bus:            bus,
 		triggerTimeout: DefaultTriggerTimeout,
@@ -160,7 +164,6 @@ func NewService(reg event.Registry, bus event.Bus, opts ...ServiceOption) *Servi
 	for _, opt := range opts {
 		opt(&svc)
 	}
-
 	return &svc
 }
 
@@ -268,9 +271,4 @@ func (svc *Service) schedule(name string) (Schedule, bool) {
 	s, ok := svc.schedules[name]
 	svc.schedulesMux.RUnlock()
 	return s, ok
-}
-
-func registerEvents(r event.Registry) {
-	r.Register(Triggered, func() event.Data { return TriggeredData{} })
-	r.Register(TriggerAccepted, func() event.Data { return TriggerAcceptedData{} })
 }

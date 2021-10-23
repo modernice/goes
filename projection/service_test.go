@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/chanbus"
 	"github.com/modernice/goes/event/eventstore/memstore"
 	"github.com/modernice/goes/internal/projectiontest"
@@ -18,10 +17,9 @@ func TestService_Trigger_unregisteredName(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	reg := event.NewRegistry()
 	bus := chanbus.New()
 
-	svc := projection.NewService(reg, bus, projection.TriggerTimeout(time.Second))
+	svc := projection.NewService(bus, projection.TriggerTimeout(time.Second))
 
 	if err := svc.Trigger(ctx, "example"); !errors.Is(err, projection.ErrUnhandledTrigger) {
 		t.Fatalf("Trigger should fail with %q when passing an unregistered name; got %q", projection.ErrUnhandledTrigger, err)
@@ -32,14 +30,13 @@ func TestService_Trigger_serviceNotRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	reg := event.NewRegistry()
 	bus := chanbus.New()
 	store := memstore.New()
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
-	projection.NewService(reg, bus, projection.RegisterSchedule("example", s))
-	svc := projection.NewService(reg, bus, projection.TriggerTimeout(time.Second))
+	projection.NewService(bus, projection.RegisterSchedule("example", s))
+	svc := projection.NewService(bus, projection.TriggerTimeout(time.Second))
 
 	if err := svc.Trigger(ctx, "example"); !errors.Is(err, projection.ErrUnhandledTrigger) {
 		t.Fatalf("Trigger should fail with %q when the handler Service is not running; got %q", projection.ErrUnhandledTrigger, err)
@@ -50,7 +47,6 @@ func TestService_Trigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	reg := event.NewRegistry()
 	bus := chanbus.New()
 	store, storeEvents := newEventStore(t)
 
@@ -66,13 +62,13 @@ func TestService_Trigger(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	handler := projection.NewService(reg, bus, projection.RegisterSchedule("example", s))
+	handler := projection.NewService(bus, projection.RegisterSchedule("example", s))
 	handlerErrors, err := handler.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run failed with %q", err)
 	}
 
-	svc := projection.NewService(reg, bus)
+	svc := projection.NewService(bus)
 
 	if err := svc.Trigger(ctx, "example"); err != nil {
 		t.Fatalf("Trigger failed with %q", err)
@@ -101,7 +97,6 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	reg := event.NewRegistry()
 	bus := chanbus.New()
 	store, storeEvents := newEventStore(t)
 
@@ -118,13 +113,13 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	handler := projection.NewService(reg, bus, projection.RegisterSchedule("example", s))
+	handler := projection.NewService(bus, projection.RegisterSchedule("example", s))
 	handlerErrors, err := handler.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run failed with %q", err)
 	}
 
-	svc := projection.NewService(reg, bus)
+	svc := projection.NewService(bus)
 
 	if err := svc.Trigger(ctx, "example", projection.Reset()); err != nil {
 		t.Fatalf("Trigger failed with %q", err)

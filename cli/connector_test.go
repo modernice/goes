@@ -17,7 +17,7 @@ func TestConnector_Serve(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	reg, bus, store := clitest.SetupEvents()
+	_, bus, store := clitest.SetupEvents()
 
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	received := make(chan struct{})
@@ -29,7 +29,7 @@ func TestConnector_Serve(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(reg, bus, projection.RegisterSchedule("example", schedule))
+	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
 	serviceErrors, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
