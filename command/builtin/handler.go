@@ -17,18 +17,22 @@ func Register(r command.Registry) {
 // HandleOption is an option for Handle & MustHandle.
 type HandleOption func(*handleConfig)
 
-// InsertEvents returns a HandleOption that configures the command handler to
-// insert published events into the provided event store.
-func InsertEvents(store event.Store) HandleOption {
+// PublishEvents returns a HandleOption that configures the command handler to
+// publish events over the provided Bus when appropriate. If the optional store
+// is non-nil, the events are also inserted into store after publishing.
+//
+// The following events are published by the handler:
+//	- AggregateDeleted ("goes.command.aggregate.deleted")
+func PublishEvents(bus event.Bus, store event.Store) HandleOption {
 	return func(cfg *handleConfig) {
+		cfg.bus = bus
 		cfg.store = store
-		cfg.insertEvents = true
 	}
 }
 
 // MustHandle does the same as Handle, but panic if command registration fails.
-func MustHandle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate.Repository, opts ...HandleOption) <-chan error {
-	errs, err := Handle(ctx, bus, ebus, repo, opts...)
+func MustHandle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) <-chan error {
+	errs, err := Handle(ctx, bus, repo, opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -42,7 +46,7 @@ func MustHandle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggre
 //
 // The following commands are handled:
 //	- DeleteAggregateCmd ("goes.command.aggregate.delete")
-func Handle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate.Repository, opts ...HandleOption) (<-chan error, error) {
+func Handle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) (<-chan error, error) {
 	var cfg handleConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -58,19 +62,25 @@ func Handle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate
 			return fmt.Errorf("fetch aggregate: %w", err)
 		}
 
-		deletedEvent := a.NextEvent(AggregateDeleted, cmd.AggregateID())
+		deletedEvent := event.New(AggregateDeleted, AggregateDeletedData{
+			Name:    cmd.AggregateName(),
+			ID:      cmd.AggregateID(),
+			Version: a.AggregateVersion(),
+		})
 
 		if err := repo.Delete(ctx, a); err != nil {
 			return fmt.Errorf("delete from repository: %w", err)
 		}
 
-		if err := ebus.Publish(ctx, deletedEvent); err != nil {
-			return fmt.Errorf("publish %q event: %w", deletedEvent.Name(), err)
-		}
+		if cfg.bus != nil {
+			if err := cfg.bus.Publish(ctx, deletedEvent); err != nil {
+				return fmt.Errorf("publish %q event: %w", deletedEvent.Name(), err)
+			}
 
-		if cfg.insertEvents {
-			if err := cfg.store.Insert(ctx, deletedEvent); err != nil {
-				return fmt.Errorf("insert %q event into event store: %w", deletedEvent.Name(), err)
+			if cfg.store != nil {
+				if err := cfg.store.Insert(ctx, deletedEvent); err != nil {
+					return fmt.Errorf("insert %q event into event store: %w", deletedEvent.Name(), err)
+				}
 			}
 		}
 
@@ -84,8 +94,6 @@ func Handle(ctx context.Context, bus command.Bus, ebus event.Bus, repo aggregate
 }
 
 type handleConfig struct {
-	// If true, published events are also stored in the event store after being
-	// published.
-	insertEvents bool
-	store        event.Store
+	bus   event.Bus
+	store event.Store
 }

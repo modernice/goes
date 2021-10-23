@@ -55,7 +55,7 @@ func TestDeleteAggregate(t *testing.T) {
 
 	bus := cmdbus.New(reg, ereg, ebus)
 
-	go panicOn(builtin.MustHandle(ctx, bus, ebus, repo))
+	go panicOn(builtin.MustHandle(ctx, bus, repo, builtin.PublishEvents(ebus, nil)))
 
 	foo := newMockAggregate(aggregateID)
 	newMockEvent(foo, 2)
@@ -108,12 +108,17 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Event name should b %q; is %q", builtin.AggregateDeleted, evt.Name())
 	}
 
-	if evt.AggregateName() != aggregateName {
-		t.Fatalf("AggregateName() should return %q; got %q", aggregateName, evt.AggregateName())
+	data, ok := evt.Data().(builtin.AggregateDeletedData)
+	if !ok {
+		t.Fatalf("Data() should return type %T; got %T", data, evt.Data())
 	}
 
-	if evt.AggregateID() != aggregateID {
-		t.Fatalf("AggregateID() should return %q; got %q", aggregateID, evt.AggregateID())
+	if data.Name != aggregateName {
+		t.Fatalf("Name should be %q; is %q", aggregateName, data.Name)
+	}
+
+	if data.ID != aggregateID {
+		t.Fatalf("ID should be %q; is %q", aggregateID, data.ID)
 	}
 
 	// Deleted aggregate should have zero-state when fetched:
