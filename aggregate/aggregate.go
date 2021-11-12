@@ -123,8 +123,11 @@ func NextVersion(a Aggregate) int {
 	return CurrentVersion(a) + 1
 }
 
-// NextEvent makes and returns the next Event e for the given Aggregate. NextEvent
+// NextEvent makes and returns the next Event e for the aggregate a. NextEvent
 // calls a.ApplyEvent(e) and a.TrackChange(e) before returning the Event.
+//
+//	var foo aggregate.Aggregate
+//	evt := aggregate.NextEvent(foo, "event-name", ...)
 func NextEvent(a Aggregate, name string, data event.Data, opts ...event.Option) event.Event {
 	opts = append([]event.Option{
 		event.Aggregate(
@@ -184,20 +187,6 @@ func (b *Base) FlushChanges() {
 	// the last element has the highest version.
 	b.Version = b.Changes[len(b.Changes)-1].AggregateVersion()
 	b.Changes = b.Changes[:0]
-}
-
-// NextEvent makes and returns the next Event e for the aggregate. NextEvent
-// calls a.ApplyEvent(e) and a.TrackChange(e) before returning the Event.
-//
-// If the aggregate that embeds *Base overrides aggregate methods of *Base,
-// b.NextEvent might not work as expected, because it will still use the
-// methods of *Base. In such cases, you can use the NextEvent function that is
-// exported from this package instead:
-//
-//	var foo aggregate.Aggregate
-//	evt := aggregate.NextEvent(foo, "event-name", ...)
-func (b *Base) NextEvent(name string, data event.Data, opts ...event.Option) event.Event {
-	return NextEvent(b, name, data, opts...)
 }
 
 // ApplyEvent implements Aggregate. Aggregates that embed Base should overide
