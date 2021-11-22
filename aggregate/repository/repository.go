@@ -409,3 +409,20 @@ func (r *Repository) makeQuery(ctx context.Context, aq aggregate.Query) (event.Q
 
 	return q, nil
 }
+
+// Use is first fetches the aggregate, then calls fn and finally saves the aggregate.
+func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() error) error {
+	if err := r.Fetch(ctx, a); err != nil {
+		return fmt.Errorf("fetch aggregate: %w", err)
+	}
+
+	if err := fn(); err != nil {
+		return err
+	}
+
+	if err := r.Save(ctx, a); err != nil {
+		return fmt.Errorf("save aggregate: %w", err)
+	}
+
+	return nil
+}
