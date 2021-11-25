@@ -95,11 +95,11 @@ func (schedule *schedule) Trigger(ctx context.Context, opts ...projection.Trigge
 }
 
 func (schedule *schedule) newTriggers() <-chan projection.Trigger {
-	triggers := make(chan projection.Trigger)
-
 	schedule.triggersMux.Lock()
+	defer schedule.triggersMux.Unlock()
+
+	triggers := make(chan projection.Trigger)
 	schedule.triggers = append(schedule.triggers, triggers)
-	schedule.triggersMux.Unlock()
 
 	return triggers
 }
@@ -138,10 +138,13 @@ func (schedule *schedule) handleTriggers(
 			return
 		case trigger := <-triggers:
 			opts := []projection.JobOption{projection.WithFilter(trigger.Filter...)}
+
 			if trigger.Reset {
 				opts = append(opts, projection.WithReset())
 			}
+
 			job := projection.NewJob(ctx, schedule.store, trigger.Query, opts...)
+
 			select {
 			case <-ctx.Done():
 				return
@@ -165,7 +168,7 @@ func (schedule *schedule) applyJobs(
 			select {
 			case <-ctx.Done():
 				return
-			case out <- fmt.Errorf("apply Job: %w", err):
+			case out <- fmt.Errorf("apply job: %w", err):
 			}
 		}
 	}

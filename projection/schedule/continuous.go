@@ -114,7 +114,7 @@ func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ..
 func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection.Job) error) (<-chan error, error) {
 	events, errs, err := schedule.bus.Subscribe(ctx, schedule.eventNames...)
 	if err != nil {
-		return nil, fmt.Errorf("subscribe to %v Events: %w", schedule.eventNames, err)
+		return nil, fmt.Errorf("subscribe to events: %w (Events=%v)", err, schedule.eventNames)
 	}
 
 	out := make(chan error)
