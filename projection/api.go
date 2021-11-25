@@ -45,12 +45,78 @@ type Guard interface {
 	GuardProjection(event.Event) bool
 }
 
+// type Filter interface{}
+
 // A QueryGuard is an event query that determines which Events are allows to be
 // applied onto a projection.
+
+// QueryGuard is a Guard that used an event query to determine the events that
+// are allowed to be applied onto a projection.
 type QueryGuard query.Query
 
 // GuardFunc allows functions to be used as Guards.
 type GuardFunc func(event.Event) bool
+
+// HistoryDependent can be implemented by continuous projections that need the
+// full event history (of the events that are configured in the Schedule) instead
+// of just the events that triggered the continuous projection.
+//
+// Example:
+//
+//	type Product struct {
+//		*aggregate.Base
+//
+//		ShopID uuid.UUID
+//		Name string
+//	}
+//
+//	type SearchIndex struct {
+//		shopID      uuid.UUID
+//		products    []Product
+//		initialized bool
+//	}
+//
+//	func (idx SearchIndex) ApplyEvent(event.Event) { ... }
+//
+//	func (idx SearchIndex) RequiresFullHistory() bool {
+//		return !idx.initialized
+//	}
+//
+//	var repo agggregate.Repository
+//	s := schedule.Continuously(bus, store, []string{"product.created"})
+//	s.Subscribe(context.TODO(), func(ctx projection.Job) error {
+//		str, errs, err := ctx.Aggregates(ctx)
+//
+//		done := make(map[uuid.UUID]bool) // SearchIndexes that have been projected
+//
+//		return aggregate.WalkTuple(ctx, func(t aggregate.Tuple) error {
+//			p := &Product{Base: aggregate.New("product", t.ID)}
+//			err := repo.Fetch(ctx, p)
+//			shopID := p.ShopID
+//
+//			if done[shopID] {
+//				return nil
+//			}
+//			done[shopID] = true
+//
+//			// Fetch the current SearchIndex for the given shop.
+//			// If it does not exist yet, create the SearchIndex.
+//			var idx *SearchIndex
+//
+//			// if idx.initialized == false, ctx.Apply fetches all past events.
+//			if err := ctx.Apply(ctx, idx); err != nil {
+//				return err
+//			}
+//
+//			// Set initialized to true (after the first run of the projection).
+//			idx.initialized = true
+//
+//			return nil
+//		}, str, errs)
+//	})
+type HistoryDependent interface {
+	RequiresFullHistory() bool
+}
 
 // GuardProjection returns guard(evt).
 func (guard GuardFunc) GuardProjection(evt event.Event) bool {
@@ -58,12 +124,12 @@ func (guard GuardFunc) GuardProjection(evt event.Event) bool {
 }
 
 // GuardProjection tests the Guard's Query against a given Event and returns
-// whether the Event is allowed to be applied onto a projection.
+// whether the Event is allowed to be applied onto the projection.
 func (g QueryGuard) GuardProjection(evt event.Event) bool {
 	return query.Test(query.Query(g), evt)
 }
 
-// ProjectionFilter returns the Query in a slice.
+// ProjectionFilter returns the Query in a 1-element slice.
 func (g QueryGuard) ProjectionFilter() []event.Query {
 	return []event.Query{query.Query(g)}
 }

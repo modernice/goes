@@ -177,9 +177,12 @@ func (schedule *Continuous) handleEvents(
 		events := make([]event.Event, len(buf))
 		copy(events, buf)
 
-		job := projection.NewJob(ctx, memstore.New(events...), query.New(
-			query.SortBy(event.SortTime, event.SortAsc),
-		))
+		job := projection.NewJob(
+			ctx,
+			memstore.New(events...),
+			query.New(query.SortBy(event.SortTime, event.SortAsc)),
+			projection.WithHistoryStore(schedule.store),
+		)
 
 		select {
 		case <-ctx.Done():

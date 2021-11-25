@@ -119,6 +119,15 @@ func WithReset() JobOption {
 	}
 }
 
+// WithHistoryStore returns a JobOption that provides the projection job with an
+// event store that is used to query events for projections that require the
+// full event history to build the projection state.
+func WithHistoryStore(store event.Store) JobOption {
+	return func(j *job) {
+		j.historyStore = store
+	}
+}
+
 // NewJob returns a new projection Job. The Job uses the provided Query to fetch
 // the Events from the Store.
 func NewJob(ctx context.Context, store event.Store, q event.Query, opts ...JobOption) Job {
@@ -166,6 +175,19 @@ func (j *job) EventsFor(ctx context.Context, target Projection) (<-chan event.Ev
 		if progress := progressor.Progress(); !progress.IsZero() {
 			filter = append(filter, query.New(query.Time(time.After(progress))))
 		}
+	}
+
+	if hp, ok := target.(HistoryDependent); ok && hp.RequiresFullHistory() {
+		if j.historyStore == nil {
+			return nil, nil, fmt.Errorf("projection requires full history, but job has no history event store")
+		}
+
+		str, errs, err := j.historyStore.Query(ctx, j.query)
+		if err != nil {
+			return str, errs, fmt.Errorf("query history: %w", err)
+		}
+
+		return str, errs, nil
 	}
 
 	return j.Events(ctx, filter...)
@@ -282,6 +304,10 @@ type job struct {
 	filter []event.Query
 	reset  bool
 	cache  *queryCache
+
+	// Store that is used for projections that implement HistoryDependent, if
+	// their RequiresFullHistory method returns true.
+	historyStore event.Store
 }
 
 type queryCache struct {

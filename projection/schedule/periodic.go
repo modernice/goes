@@ -99,10 +99,15 @@ func (schedule *Periodic) handleTicker(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			job := projection.NewJob(ctx, schedule.store, query.New(
-				query.Name(schedule.eventNames...),
-				query.SortByAggregate(),
-			))
+			job := projection.NewJob(
+				ctx,
+				schedule.store,
+				query.New(
+					query.Name(schedule.eventNames...),
+					query.SortByAggregate(),
+				),
+				projection.WithHistoryStore(schedule.store),
+			)
 
 			select {
 			case <-ctx.Done():
