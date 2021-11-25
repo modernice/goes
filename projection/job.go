@@ -162,7 +162,7 @@ func (j *job) EventsFor(ctx context.Context, target Projection) (<-chan event.Ev
 		filter = append(filter, target.ProjectionFilter()...)
 	}
 
-	if progressor, isProgressor := target.(progressor); isProgressor {
+	if progressor, isProgressor := target.(Progressing); isProgressor {
 		if progress := progressor.Progress(); !progress.IsZero() {
 			filter = append(filter, query.New(query.Time(time.After(progress))))
 		}
@@ -245,11 +245,11 @@ func (j *job) Apply(ctx context.Context, proj Projection, opts ...ApplyOption) e
 	opts = append([]ApplyOption{IgnoreProgress()}, opts...)
 
 	if j.reset {
-		if progressor, isProgressor := proj.(progressor); isProgressor {
+		if progressor, isProgressor := proj.(Progressing); isProgressor {
 			progressor.SetProgress(stdtime.Time{})
 		}
 
-		if resetter, isResetter := proj.(resetter); isResetter {
+		if resetter, isResetter := proj.(Resetter); isResetter {
 			resetter.Reset()
 		}
 	}

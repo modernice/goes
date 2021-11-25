@@ -6,42 +6,17 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/query"
 )
 
 var (
 	// ErrProgressed is returned when trying to apply an Event onto a Projection
-	// and the Event time is before the current progress time of the projection.
+	// that has a progress Time that is after the Time of the Event.
 	ErrProgressed = errors.New("projection already progressed")
 )
 
 // A Projection is a projection of an event stream.
 type Projection interface {
 	ApplyEvent(event.Event)
-}
-
-// A Guard protects a Projection from unwanted events.
-type Guard interface {
-	// GuardProjection determines whether an Event is allowed to be applied onto a Projection.
-	GuardProjection(event.Event) bool
-}
-
-// A QueryGuard is an event query that determines which Events are allows to be
-// applied onto a projection.
-type QueryGuard query.Query
-
-// GuardFunc allows functions to be used as Guards.
-type GuardFunc func(event.Event) bool
-
-// GuardProjection returns guard(evt).
-func (guard GuardFunc) GuardProjection(evt event.Event) bool {
-	return guard(evt)
-}
-
-// Progressor may be embedded into a projection to enable the projection to be
-// resumed after the latest update to the projection.
-type Progressor struct {
-	LatestEventTime int64
 }
 
 // ApplyOption is an option for Apply.
@@ -71,7 +46,7 @@ func Apply(proj Projection, events []event.Event, opts ...ApplyOption) error {
 
 	cfg := newApplyConfig(opts...)
 
-	progressor, isProgressor := proj.(progressor)
+	progressor, isProgressor := proj.(Progressing)
 	guard, hasGuard := proj.(Guard)
 
 	for _, evt := range events {
@@ -111,26 +86,6 @@ func (p *Progressor) SetProgress(t time.Time) {
 		return
 	}
 	p.LatestEventTime = t.UnixNano()
-}
-
-// GuardProjection tests the Guard's Query against a given Event and returns
-// whether the Event is allowed to be applied onto a projection.
-func (g QueryGuard) GuardProjection(evt event.Event) bool {
-	return query.Test(query.Query(g), evt)
-}
-
-// ProjectionFilter returns the Query in a slice.
-func (g QueryGuard) ProjectionFilter() []event.Query {
-	return []event.Query{query.Query(g)}
-}
-
-type progressor interface {
-	Progress() time.Time
-	SetProgress(time.Time)
-}
-
-type resetter interface {
-	Reset()
 }
 
 type applyConfig struct {
