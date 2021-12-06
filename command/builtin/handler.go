@@ -57,11 +57,11 @@ func Handle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opt
 			return fmt.Errorf("fetch aggregate: %w", err)
 		}
 
-		deletedEvent := event.New(AggregateDeleted, AggregateDeletedData{
-			Name:    cmd.AggregateName(),
-			ID:      cmd.AggregateID(),
-			Version: a.AggregateVersion(),
-		})
+		deletedEvent := event.New(
+			AggregateDeleted,
+			AggregateDeletedData{Version: a.AggregateVersion()},
+			event.Aggregate(cmd.AggregateName(), cmd.AggregateID(), 0),
+		)
 
 		if err := repo.Delete(ctx, a); err != nil {
 			return fmt.Errorf("delete from repository: %w", err)

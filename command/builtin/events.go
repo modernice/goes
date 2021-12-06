@@ -1,7 +1,6 @@
 package builtin
 
 import (
-	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 )
 
@@ -10,13 +9,11 @@ const AggregateDeleted = "goes.command.aggregate.deleted"
 
 // AggregateDeletedData is the event data for the AggregateDeleted event.
 type AggregateDeletedData struct {
-	// Name is the name of the deleted aggregate.
-	Name string
-
-	// ID is the UUID of the deleted aggregate.
-	ID uuid.UUID
-
 	// Version is the version of the deleted aggregate.
+	//
+	// The AggregateVersion() returned by an AggregateDeleted event always
+	// returns 0. Use this Version to see which version the aggregate has before
+	// it was deleted.
 	Version int
 }
 

@@ -113,12 +113,20 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Data() should return type %T; got %T", data, evt.Data())
 	}
 
-	if data.Name != aggregateName {
-		t.Fatalf("Name should be %q; is %q", aggregateName, data.Name)
+	if evt.AggregateName() != aggregateName {
+		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, evt.AggregateName())
 	}
 
-	if data.ID != aggregateID {
-		t.Fatalf("ID should be %q; is %q", aggregateID, data.ID)
+	if evt.AggregateID() != aggregateID {
+		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, evt.AggregateID())
+	}
+
+	if evt.AggregateVersion() != 0 {
+		t.Fatalf("evt.AggregateVersion() should return 0; got %v", evt.AggregateVersion())
+	}
+
+	if data.Version != 3 {
+		t.Fatalf("Version should be %v; is %v", 3, data.Version)
 	}
 
 	// Deleted aggregate should have zero-state when fetched:
