@@ -2,10 +2,15 @@ version: '3.8'
 services:
   stan:
     image: nats-streaming
+
+  jetstream:
+    image: nats
+    command: ["-js"]
   
   test:
     depends_on:
       - stan
+      - jetstream
     build:
       context: ..
       dockerfile: .docker/nats-bench.Dockerfile
@@ -13,3 +18,4 @@ services:
         TAGS: nats
     environment:
       - STAN_URL=nats://stan:4222
+      - JETSTREAM_URL=nats://jetstream:4222
