@@ -14,9 +14,9 @@ require (
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/minio/highwayhash v1.0.2 // indirect
-	github.com/nats-io/nats-server/v2 v2.6.3 // indirect
+	github.com/nats-io/nats-server/v2 v2.6.6 // indirect
 	github.com/nats-io/nats-streaming-server v0.20.0 // indirect
-	github.com/nats-io/nats.go v1.13.1-0.20211018182449-f2416a8b1483
+	github.com/nats-io/nats.go v1.13.1-0.20211122170419-d7c1d78a50fc
 	github.com/nats-io/stan.go v0.8.1
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.7.0 // indirect
