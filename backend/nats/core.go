@@ -35,7 +35,7 @@ func (core core) subscribe(ctx context.Context, bus *EventBus, event string) (*s
 			msgs <- msg.Data
 		})
 		if err != nil {
-			return nil, fmt.Errorf("subscribe with queue group: %w [subject=%v queueGroup=%v]", err, subject, queue)
+			return nil, fmt.Errorf("subscribe with queue group: %w [subject=%v queue=%v]", err, subject, queue)
 		}
 	} else {
 		sub, err = bus.conn.Subscribe(subject, func(msg *nats.Msg) {

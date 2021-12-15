@@ -1,5 +1,7 @@
 // Package natsbus provides an event.Bus implementation with support for both
 // NATS Core and NATS Streaming as the backend.
+//
+// Deprecated: Use github.com/modernice/goes/backend/nats instead.
 package natsbus
 
 import (
@@ -274,6 +276,8 @@ func Streaming(clusterID, clientID string, opts ...stan.Option) Driver {
 //
 // New panics if enc is nil or initialization fails because of a malformed
 // environment variable.
+//
+// Deprecated: Use github.com/modernice/goes/backend/nats instead.
 func New(enc event.Encoder, opts ...Option) *Bus {
 	if enc == nil {
 		panic("nil Encoder")
