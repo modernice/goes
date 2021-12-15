@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"github.com/google/uuid"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 )
 
@@ -20,6 +21,7 @@ func DeleteAggregate(name string, id uuid.UUID) command.Command {
 }
 
 // RegisterCommands registers the built-in commands into a command registry.
-func RegisterCommands(r command.Registry) {
-	r.Register(DeleteAggregateCmd, func() command.Payload { return DeleteAggregatePayload{} })
+func RegisterCommands(r *codec.Registry) {
+	gob := codec.Gob(r)
+	gob.GobRegister(DeleteAggregateCmd, func() interface{} { return DeleteAggregatePayload{} })
 }

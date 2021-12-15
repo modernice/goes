@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
-	"github.com/modernice/goes/command"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command/builtin"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
@@ -48,7 +48,7 @@ func TestDeleteAggregate(t *testing.T) {
 	ebus := eventbus.New()
 	estore := eventstore.WithBus(eventstore.New(), ebus)
 	repo := repository.New(estore)
-	reg := command.NewRegistry()
+	reg := codec.New()
 	builtin.RegisterCommands(reg)
 
 	bus := cmdbus.New(reg, ereg, ebus)

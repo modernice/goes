@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 )
 
 func BenchmarkBus_Dispatch_Synchronous(t *testing.B) {
 	bus, _, enc := newBus()
-	enc.Register("foo", func() command.Payload { return struct{}{} })
+	codec.Gob(enc).GobRegister("foo", func() interface{} { return struct{}{} })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

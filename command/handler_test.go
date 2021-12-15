@@ -163,8 +163,8 @@ L:
 	}
 }
 
-func newEncoder() command.Registry {
-	reg := command.NewRegistry()
-	reg.Register("foo-cmd", func() command.Payload { return mockPayload{} })
+func newEncoder() codec.Encoding {
+	reg := codec.Gob(codec.New())
+	reg.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	return reg
 }

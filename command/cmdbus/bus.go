@@ -50,7 +50,7 @@ type Bus struct {
 	assignTimeout time.Duration
 	drainTimeout  time.Duration
 
-	enc command.Encoder
+	enc codec.Encoding
 	bus event.Bus
 
 	handlerID uuid.UUID
@@ -94,7 +94,7 @@ func DrainTimeout(dur time.Duration) Option {
 }
 
 // New returns an event-driven Command Bus.
-func New(enc command.Encoder, reg *codec.Registry, events event.Bus, opts ...Option) *Bus {
+func New(enc codec.Encoding, reg *codec.Registry, events event.Bus, opts ...Option) *Bus {
 	RegisterEvents(reg)
 	b := Bus{
 		assignTimeout: DefaultAssignTimeout,
@@ -403,10 +403,7 @@ func (b *Bus) handleDispatchEvent(
 }
 
 func (b *Bus) assignCommand(ctx context.Context, cmd command.Command, data CommandRequestedData) error {
-	evt := event.New(CommandAssigned, CommandAssignedData{
-		ID:        data.ID,
-		HandlerID: data.HandlerID,
-	})
+	evt := event.New(CommandAssigned, CommandAssignedData(data))
 
 	var err error
 	b.debugMeasure(fmt.Sprintf("[dispatch] Publishing %q event", evt.Name()), func() {
@@ -514,7 +511,7 @@ func (b *Bus) workSubscription(
 					break
 				}
 
-				load, err := b.enc.Decode(data.Name, bytes.NewReader(data.Payload))
+				load, err := b.enc.Decode(bytes.NewReader(data.Payload), data.Name)
 				if err != nil {
 					outErrs <- fmt.Errorf("decode payload: %w", err)
 					break

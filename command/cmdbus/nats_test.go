@@ -19,8 +19,8 @@ import (
 func TestBus_NATS(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := command.NewRegistry()
-	enc.Register("foo-cmd", func() command.Payload { return mockPayload{} })
+	enc := codec.Gob(codec.New())
+	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	subEventBus := natsbus.New(
 		ereg,
 		natsbus.Use(natsbus.Streaming(

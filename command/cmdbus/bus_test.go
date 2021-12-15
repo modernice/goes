@@ -343,13 +343,13 @@ L:
 	}
 }
 
-func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, command.Registry) {
-	enc := command.NewRegistry()
-	enc.Register("foo-cmd", func() command.Payload {
+func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
+	enc := codec.Gob(codec.New())
+	enc.GobRegister("foo-cmd", func() interface{} {
 		return mockPayload{}
 	})
 	ebus := eventbus.New()
-	return cmdbus.New(enc, codec.New(), ebus, opts...), ebus, enc
+	return cmdbus.New(enc, codec.New(), ebus, opts...), ebus, enc.Registry
 }
 
 func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {
