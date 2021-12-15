@@ -1,6 +1,6 @@
 //go:build nats
 
-package natsbus_test
+package nats_test
 
 import (
 	"context"
@@ -8,16 +8,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/natsbus"
 	"github.com/modernice/goes/event/eventbus/test"
 	eventtest "github.com/modernice/goes/event/test"
 )
-
-func TestEventBus(t *testing.T) {
-	// testEventBus(t, "Core", newBus)
-	// test.EventBus(t, newBus)
-}
 
 func testEventBus(t *testing.T, name string, newBus test.EventBusFactory) {
 	t.Run("Base", func(t *testing.T) {
@@ -37,22 +32,25 @@ func testEventBus(t *testing.T, name string, newBus test.EventBusFactory) {
 	})
 	t.Run("SubscribeConnect", func(t *testing.T) {
 		testSubscribeConnect(t, func(e event.Encoder) event.Bus {
-			return natsbus.New(e, natsbus.EatErrors())
+			return nats.NewEventBus(e, nats.EatErrors())
 		})
 	})
 	t.Run("PublishConnect", func(t *testing.T) {
 		testPublishConnect(t, func(e event.Encoder) event.Bus {
-			return natsbus.New(e, natsbus.EatErrors())
+			return nats.NewEventBus(e, nats.EatErrors())
 		})
 	})
 	t.Run("PublishEncodeError", func(t *testing.T) {
 		testPublishEncodeError(t, func(e event.Encoder) event.Bus {
-			return natsbus.New(e, natsbus.EatErrors())
+			return nats.NewEventBus(e, nats.EatErrors())
 		})
 	})
 }
 
 func testSubscribeConnect(t *testing.T, newBus test.EventBusFactory) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	org := os.Getenv("NATS_URL")
 	if err := os.Setenv("NATS_URL", "what://abc:1234"); err != nil {
 		t.Fatal(fmt.Errorf("set environment variable %q: %w", "NATS_URL", err))
@@ -65,7 +63,12 @@ func testSubscribeConnect(t *testing.T, newBus test.EventBusFactory) {
 	}()
 
 	bus := newBus(eventtest.NewEncoder())
-	events, _, err := bus.Subscribe(context.Background(), "foo")
+	events, errs, err := bus.Subscribe(ctx, "foo")
+	go func() {
+		for err := range errs {
+			panic(err)
+		}
+	}()
 
 	if events != nil {
 		t.Error(fmt.Errorf("events should be nil; got %#v", events))
@@ -103,8 +106,4 @@ func testPublishEncodeError(t *testing.T, newBus test.EventBusFactory) {
 	if err == nil {
 		t.Fatal(fmt.Errorf("expected err not to be nil; got %v", err))
 	}
-}
-
-func newBus(enc event.Encoder) event.Bus {
-	return natsbus.New(enc, natsbus.EatErrors())
 }

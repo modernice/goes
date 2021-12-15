@@ -20,6 +20,9 @@ type EventBusFactory func(event.Encoder) event.Bus
 
 // EventBus tests the core functionality of an event.Bus.
 func EventBus(t *testing.T, newBus EventBusFactory) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	bus := newBus(encoder())
 
 	subErrors := make(chan error)
@@ -27,7 +30,7 @@ func EventBus(t *testing.T, newBus EventBusFactory) {
 	// given 5 subscribers who listen for "foo" events
 	subscribers := make([]<-chan event.Event, 5)
 	for i := 0; i < 5; i++ {
-		events, errs, err := bus.Subscribe(context.Background(), "foo")
+		events, errs, err := bus.Subscribe(ctx, "foo")
 		if err != nil {
 			t.Fatal(fmt.Errorf("[%d] subscribe: %w", i, err))
 		}
@@ -45,7 +48,7 @@ func EventBus(t *testing.T, newBus EventBusFactory) {
 	evt := event.New("foo", data)
 
 	// for every subscriber ...
-	group, _ := errgroup.WithContext(context.Background())
+	group, _ := errgroup.WithContext(ctx)
 	for i, events := range subscribers {
 		i := i
 		events := events
@@ -60,7 +63,7 @@ func EventBus(t *testing.T, newBus EventBusFactory) {
 	// when a "foo" event is published #2
 	publishError := make(chan error)
 	go func() {
-		if err := bus.Publish(context.Background(), evt); err != nil {
+		if err := bus.Publish(ctx, evt); err != nil {
 			publishError <- fmt.Errorf("publish: %w", err)
 		}
 	}()
@@ -87,10 +90,13 @@ func EventBus(t *testing.T, newBus EventBusFactory) {
 // SubscribeMultipleEvents tests if an event.Bus supports subscribing to
 // multiple Events at once.
 func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	bus := newBus(encoder())
 
 	// given a subscriber who listens for "foo" and "bar" events
-	events, _, err := bus.Subscribe(context.Background(), "foo", "bar")
+	events, _, err := bus.Subscribe(ctx, "foo", "bar")
 	if err != nil {
 		t.Fatal(fmt.Errorf("subscribe: %w", err))
 	}
@@ -98,7 +104,7 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	// when a "foo" event is published
 	dataA := test.FooEventData{A: "foobar"}
 	evt := event.New("foo", dataA)
-	if err = bus.Publish(context.Background(), evt); err != nil {
+	if err = bus.Publish(ctx, evt); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
 	}
 
@@ -110,7 +116,7 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	// when a "bar" event is published
 	dataB := test.BarEventData{A: "barbaz"}
 	evt = event.New("bar", dataB)
-	if err = bus.Publish(context.Background(), evt); err != nil {
+	if err = bus.Publish(ctx, evt); err != nil {
 		t.Fatal(fmt.Errorf("publish: %w", err))
 	}
 
@@ -123,10 +129,10 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 // CancelSubscription tests if subscriptions are cancellable through the
 // provided Context.
 func CancelSubscription(t *testing.T, newBus EventBusFactory) {
-	bus := newBus(encoder())
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	bus := newBus(encoder())
 
 	// when subscribed to "foo" events
 	events, errs, err := bus.Subscribe(ctx, "foo")
@@ -143,7 +149,7 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 		for i := range want {
 			defer wg.Done()
 			want[i] = event.New("foo", test.FooEventData{})
-			if err = bus.Publish(context.Background(), want[i]); err != nil {
+			if err = bus.Publish(ctx, want[i]); err != nil {
 				pubErr <- fmt.Errorf("publish: %w", err)
 			}
 			<-time.After(10 * time.Millisecond)
@@ -222,17 +228,31 @@ func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 	// some implementations may return an error, some may not
 	_ = err
 
-	<-time.After(50 * time.Millisecond)
+	go func() {
+		for err := range errs {
+			panic(err)
+		}
+	}()
 
 	if events != nil {
-		if _, ok := <-events; ok {
-			t.Errorf("Event channel should be closed!")
+		select {
+		case <-time.After(time.Second):
+			t.Errorf("event channel not closed after %v", time.Second)
+		case _, ok := <-events:
+			if ok {
+				t.Errorf("event channel should be closed!")
+			}
 		}
 	}
 
 	if errs != nil {
-		if _, ok := <-errs; ok {
-			t.Errorf("error channel should be closed!")
+		select {
+		case <-time.After(time.Second):
+			t.Errorf("error channel not closed after %v", time.Second)
+		case _, ok := <-errs:
+			if ok {
+				t.Errorf("error channel should be closed!")
+			}
 		}
 	}
 }
@@ -279,7 +299,8 @@ func PublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			bus := newBus(encoder())
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			events, errs, err := bus.Subscribe(ctx, tt.subscribe...)
 			if err != nil {

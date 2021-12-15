@@ -235,13 +235,11 @@ func StreamingConn(conn stan.Conn) Option {
 
 // ReceiveTimeout returns an Option that limits the duration the EventBus tries
 // to send Events into the channel returned by bus.Subscribe. When d is exceeded
-// the Event will be dropped and an error will be sent to channels returned by
-// bus.Errors. The default is a duration of 0 and means no timeout.
+// the Event will be dropped. The default is a duration of 0 and means no timeout.
 //
 // Can also be set with the "NATS_RECEIVE_TIMEOUT" environment variable in a
 // format understood by time.ParseDuration. If the environment value is not
-// parseable by time.ParseDuration, no timeout will be used and an error will be
-// sent to the first channel(s) returned by bus.Errors.
+// parseable by time.ParseDuration, no timeout will be used.
 func ReceiveTimeout(d time.Duration) Option {
 	return func(bus *Bus) {
 		bus.receiveTimeout = d
