@@ -7,13 +7,15 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/backend/nats"
+	"github.com/modernice/goes/backend/testing/eventbustest"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/test"
 )
 
 func TestEventBus_JetStream(t *testing.T) {
-	testEventBus(t, "JetStream", newJetStreamBus)
-	test.EventBus(t, newJetStreamBus)
+	t.Run("JetStream", func(t *testing.T) {
+		eventbustest.Run(t, newJetStreamBus)
+		testEventBus(t, newJetStreamBus)
+	})
 }
 
 func newJetStreamBus(enc event.Encoder) event.Bus {

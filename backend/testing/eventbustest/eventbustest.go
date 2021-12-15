@@ -1,5 +1,5 @@
-// Package test tests event.Bus implementations.
-package test
+// Package eventbustest tests event bus implementations.
+package eventbustest
 
 import (
 	"context"
@@ -18,8 +18,17 @@ import (
 // EventBusFactory creates an event.Bus from an event.Encoder.
 type EventBusFactory func(event.Encoder) event.Bus
 
-// EventBus tests the core functionality of an event.Bus.
-func EventBus(t *testing.T, newBus EventBusFactory) {
+// Run tests all functions of the event bus.
+func Run(t *testing.T, newBus EventBusFactory) {
+	Core(t, newBus)
+	SubscribeMultipleEvents(t, newBus)
+	SubscribeCanceledContext(t, newBus)
+	CancelSubscription(t, newBus)
+	PublishMultipleEvents(t, newBus)
+}
+
+// Core tests the core functionality of an event.Bus.
+func Core(t *testing.T, newBus EventBusFactory) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

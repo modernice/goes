@@ -9,27 +9,12 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/backend/nats"
+	"github.com/modernice/goes/backend/testing/eventbustest"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/test"
 	eventtest "github.com/modernice/goes/event/test"
 )
 
-func testEventBus(t *testing.T, name string, newBus test.EventBusFactory) {
-	t.Run("Base", func(t *testing.T) {
-		test.EventBus(t, newBus)
-	})
-	t.Run("SubscribeMultipleEvents", func(t *testing.T) {
-		test.SubscribeMultipleEvents(t, newBus)
-	})
-	t.Run("SubscribeCancel", func(t *testing.T) {
-		test.CancelSubscription(t, newBus)
-	})
-	t.Run("SubscribeCanceledContext", func(t *testing.T) {
-		test.SubscribeCanceledContext(t, newBus)
-	})
-	t.Run("PublishMultipleEvents", func(t *testing.T) {
-		test.PublishMultipleEvents(t, newBus)
-	})
+func testEventBus(t *testing.T, newBus eventbustest.EventBusFactory) {
 	t.Run("SubscribeConnect", func(t *testing.T) {
 		testSubscribeConnect(t, func(e event.Encoder) event.Bus {
 			return nats.NewEventBus(e, nats.EatErrors())
@@ -47,7 +32,7 @@ func testEventBus(t *testing.T, name string, newBus test.EventBusFactory) {
 	})
 }
 
-func testSubscribeConnect(t *testing.T, newBus test.EventBusFactory) {
+func testSubscribeConnect(t *testing.T, newBus eventbustest.EventBusFactory) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -79,7 +64,7 @@ func testSubscribeConnect(t *testing.T, newBus test.EventBusFactory) {
 	}
 }
 
-func testPublishConnect(t *testing.T, newBus test.EventBusFactory) {
+func testPublishConnect(t *testing.T, newBus eventbustest.EventBusFactory) {
 	org := os.Getenv("NATS_URL")
 	if err := os.Setenv("NATS_URL", "what://abc:1234"); err != nil {
 		t.Fatal(fmt.Errorf("set environment variable %q: %w", "NATS_URL", err))
@@ -99,7 +84,7 @@ func testPublishConnect(t *testing.T, newBus test.EventBusFactory) {
 	}
 }
 
-func testPublishEncodeError(t *testing.T, newBus test.EventBusFactory) {
+func testPublishEncodeError(t *testing.T, newBus eventbustest.EventBusFactory) {
 	bus := newBus(eventtest.NewEncoder())
 	err := bus.Publish(context.Background(), event.New("xyz", eventtest.UnregisteredEventData{}))
 

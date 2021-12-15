@@ -6,13 +6,15 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/backend/nats"
+	"github.com/modernice/goes/backend/testing/eventbustest"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/test"
 )
 
 func TestEventBus_Core(t *testing.T) {
-	testEventBus(t, "Core", newCoreEventBus)
-	test.EventBus(t, newCoreEventBus)
+	t.Run("Core", func(t *testing.T) {
+		eventbustest.Run(t, newCoreEventBus)
+		testEventBus(t, newCoreEventBus)
+	})
 }
 
 func newCoreEventBus(enc event.Encoder) event.Bus {
