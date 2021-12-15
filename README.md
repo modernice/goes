@@ -9,7 +9,8 @@ build event-sourced apps without having to write a single line of infrastructure
 code. goes provides:
 
 - Distributed Event Bus (using [NATS](https://nats.io) /
-  [NATS Streaming](https://docs.nats.io/nats-streaming-concepts/intro))
+  [NATS JetStream](https://docs.nats.io/nats-concepts/jetstream) /
+  [NATS Streaming](https://docs.nats.io/legacy/stan))
 - Distributed, event-driven Command Bus
 - Event store (using [MongoDB](https://www.mongodb.com))
 - Projections (continuously & periodically)
