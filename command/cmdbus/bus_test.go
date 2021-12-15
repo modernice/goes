@@ -15,7 +15,7 @@ import (
 	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/chanbus"
+	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -347,7 +347,7 @@ func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, command.Registry) {
 	enc.Register("foo-cmd", func() command.Payload {
 		return mockPayload{}
 	})
-	ebus := chanbus.New()
+	ebus := eventbus.New()
 	return cmdbus.New(enc, event.NewRegistry(), ebus, opts...), ebus, enc
 }
 

@@ -14,9 +14,7 @@ import (
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
-	"github.com/modernice/goes/event/eventbus/chanbus"
 	"github.com/modernice/goes/event/eventstore"
-	"github.com/modernice/goes/event/eventstore/memstore"
 	"github.com/modernice/goes/event/test"
 )
 
@@ -47,8 +45,8 @@ func TestDeleteAggregate(t *testing.T) {
 	defer cancel()
 
 	ereg := test.NewEncoder()
-	ebus := chanbus.New()
-	estore := eventstore.WithBus(memstore.New(), ebus)
+	ebus := eventbus.New()
+	estore := eventstore.WithBus(eventstore.New(), ebus)
 	repo := repository.New(estore)
 	reg := command.NewRegistry()
 	builtin.RegisterCommands(reg)

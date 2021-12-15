@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modernice/goes/event/eventbus/chanbus"
-	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/eventbus"
+	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
@@ -17,7 +17,7 @@ func TestService_Trigger_unregisteredName(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
+	bus := eventbus.New()
 
 	svc := projection.NewService(bus, projection.TriggerTimeout(time.Second))
 
@@ -30,8 +30,8 @@ func TestService_Trigger_serviceNotRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
@@ -47,7 +47,7 @@ func TestService_Trigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
+	bus := eventbus.New()
 	store, storeEvents := newEventStore(t)
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
@@ -97,7 +97,7 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
+	bus := eventbus.New()
 	store, storeEvents := newEventStore(t)
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})

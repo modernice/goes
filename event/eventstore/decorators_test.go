@@ -5,15 +5,14 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/chanbus"
+	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
-	"github.com/modernice/goes/event/eventstore/memstore"
 	"github.com/modernice/goes/event/test"
 )
 
 func TestWithBus(t *testing.T) {
-	s := memstore.New()
-	b := chanbus.New()
+	s := eventstore.New()
+	b := eventbus.New()
 	swb := eventstore.WithBus(s, b)
 
 	ctx, cancel := context.WithCancel(context.Background())

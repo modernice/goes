@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
@@ -18,7 +18,7 @@ func TestPeriodic_Subscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	store := memstore.New()
+	store := eventstore.New()
 
 	events := []event.Event{
 		event.New("foo", test.FooEventData{}),

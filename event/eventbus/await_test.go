@@ -7,12 +7,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
-	"github.com/modernice/goes/event/eventbus/chanbus"
 	"github.com/modernice/goes/event/test"
 )
 
 func TestAwaiter_Once(t *testing.T) {
-	bus := chanbus.New()
+	bus := eventbus.New()
 	aw := eventbus.NewAwaiter(bus)
 
 	ctx, cancel := context.WithCancel(context.Background())

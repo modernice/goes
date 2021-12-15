@@ -13,8 +13,8 @@ import (
 
 	"github.com/logrusorgru/aurora"
 	"github.com/modernice/goes/cli"
-	"github.com/modernice/goes/event/eventbus/chanbus"
-	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/eventbus"
+	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
 )
@@ -35,8 +35,8 @@ func main() {
 		cancel()
 	}()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	foo := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	bar := schedule.Periodically(store, 30*time.Second, []string{"foo", "bar", "baz"})

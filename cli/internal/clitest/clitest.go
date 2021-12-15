@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/chanbus"
-	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/eventbus"
+	"github.com/modernice/goes/event/eventstore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
@@ -16,8 +16,8 @@ import (
 // SetupEvents returns an event registry, bus and store.
 func SetupEvents() (event.Registry, event.Bus, event.Store) {
 	reg := event.NewRegistry()
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 	return reg, bus, store
 }
 

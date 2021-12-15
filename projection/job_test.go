@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/projectiontest"
@@ -410,7 +410,7 @@ func TestWithReset(t *testing.T) {
 }
 
 func newEventStore(t *testing.T, events ...event.Event) (event.Store, []event.Event) {
-	store := memstore.New()
+	store := eventstore.New()
 	now := time.Now()
 	if len(events) == 0 {
 		events = []event.Event{

@@ -9,7 +9,7 @@ import (
 	"github.com/modernice/goes/cli/internal/clitest"
 	"github.com/modernice/goes/cli/internal/projectionrpc"
 	"github.com/modernice/goes/cli/internal/proto"
-	"github.com/modernice/goes/event/eventbus/chanbus"
+	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
@@ -19,7 +19,7 @@ import (
 )
 
 func TestTrigger_unregisteredSchedule(t *testing.T) {
-	bus := chanbus.New()
+	bus := eventbus.New()
 	svc := projection.NewService(bus, projection.TriggerTimeout(20*time.Millisecond))
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {

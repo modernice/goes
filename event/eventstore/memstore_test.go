@@ -1,17 +1,17 @@
-package memstore_test
+package eventstore_test
 
 import (
 	"testing"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/eventstore/test"
 )
 
-var _ event.Store = memstore.New()
+var _ event.Store = eventstore.New()
 
-func TestStore(t *testing.T) {
+func TestMemstore(t *testing.T) {
 	test.EventStore(t, "memstore", func(event.Encoder) event.Store {
-		return memstore.New()
+		return eventstore.New()
 	})
 }

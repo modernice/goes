@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventbus/chanbus"
-	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/eventbus"
+	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/projectiontest"
@@ -19,8 +19,8 @@ func TestContinuous_Subscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
@@ -83,8 +83,8 @@ func TestContinuous_Subscribe_Debounce(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(100*time.Millisecond))
 
@@ -143,8 +143,8 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(100*time.Millisecond))
 
@@ -206,8 +206,8 @@ func TestContinuous_Trigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	storeEvents := []event.Event{
 		event.New("foo", test.FooEventData{}),
@@ -263,8 +263,8 @@ func TestContinuous_Trigger_Filter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	storeEvents := []event.Event{
 		event.New("foo", test.FooEventData{}),
@@ -327,8 +327,8 @@ func TestContinuous_Trigger_Query(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	storeEvents := []event.Event{
 		event.New("foo", test.FooEventData{}),
@@ -390,8 +390,8 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := chanbus.New()
-	store := memstore.New()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	now := time.Now()
 	storeEvents := []event.Event{

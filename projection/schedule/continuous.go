@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventstore/memstore"
+	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/projection"
 )
@@ -179,7 +179,7 @@ func (schedule *Continuous) handleEvents(
 
 		job := projection.NewJob(
 			ctx,
-			memstore.New(events...),
+			eventstore.New(events...),
 			query.New(query.SortBy(event.SortTime, event.SortAsc)),
 			projection.WithHistoryStore(schedule.store),
 		)
