@@ -2,6 +2,7 @@ package codec
 
 import (
 	"encoding/gob"
+	"fmt"
 	"io"
 	"reflect"
 )
@@ -11,7 +12,7 @@ import (
 // decoded using the encoding/gob package.
 type GobRegistry struct {
 	*Registry
-	gobNameFunc func(eventName string) (gobName string)
+	gobNameFunc func(name string) (gobName string)
 }
 
 // GobOption is an option for a GobRegistry.
@@ -19,13 +20,13 @@ type GobOption func(*GobRegistry)
 
 // GobNameFunc returns a GobOption that specifies under which name Event
 // Data is registered with gob.RegisterName. The default name under which Events
-// are registered is "goes.event(eventName)" where eventName is the name of the
+// are registered is "goes.event(name)" where name is the name of the
 // Event.
 
 // GobNameFunc returns a GobOption that specifies the name under which types are
 // registered in the encoding/gob package. If no custom GobNameFunc is provided,
 // the format for gob names is
-//	fmt.Sprintf("goes.event(%s)", eventName)
+//	fmt.Sprintf("goes(%s)", name)
 func GobNameFunc(fn func(string) string) GobOption {
 	return func(r *GobRegistry) {
 		r.gobNameFunc = fn
@@ -94,8 +95,8 @@ func (dec gobDecoder) Decode(r io.Reader) (interface{}, error) {
 	return data, gob.NewDecoder(r).Decode(&data)
 }
 
-func defaultGobNameFunc(eventName string) string {
-	return "goes.event(" + eventName + ")"
+func defaultGobNameFunc(name string) string {
+	return fmt.Sprintf("goes(%s)", name)
 }
 
 func deref(p interface{}) interface{} {
