@@ -35,7 +35,6 @@ func (core core) subscribe(ctx context.Context, bus *EventBus, event string) (*s
 	subject := bus.subjectFunc(event)
 	if queue := bus.queueFunc(event); queue != "" {
 		sub, err = bus.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
-			defer msg.Ack()
 			msgs <- msg.Data
 		})
 		if err != nil {
@@ -43,7 +42,6 @@ func (core core) subscribe(ctx context.Context, bus *EventBus, event string) (*s
 		}
 	} else {
 		sub, err = bus.conn.Subscribe(subject, func(msg *nats.Msg) {
-			defer msg.Ack()
 			msgs <- msg.Data
 		})
 		if err != nil {
