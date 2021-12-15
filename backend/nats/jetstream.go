@@ -54,8 +54,9 @@ func (jetstream *jetStream) subscribe(ctx context.Context, bus *EventBus, event 
 	// generate the stream names or falls back to the user-provided DurableXXX
 	// option. Should the generated stream name be empty, the default function
 	// to generate durable names is used to generate the stream name, which
-	// would be:
-	//	`{{ .Subject }}_{{ .Queue }}`
+	// would is either:
+	//	- `{{ .Subject }}_{{ .Queue }}` if the queue group is not empty
+	//	- `{{ .Subject }}` if the queue group is empty
 	streamName := bus.streamNameFunc(subject, queue)
 	if streamName == "" {
 		streamName = defaultDurableNameFunc(subject, queue)

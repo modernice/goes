@@ -1,7 +1,6 @@
 package nats
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -59,18 +58,18 @@ func EatErrors() EventBusOption {
 // Queue groups can be used to load-balance between multiple subscribers of the
 // same event. When multiple subscribers are subscribed to an event and use the
 // same queue group, only one of the subscribers will receive the event.
-// To load-balance between instances of a replicated (micro-)service, generate a
-// shared id that is the same between the replicated services and use that id to
-// generate the queue group (or use the WithLoadBalancer option):
+// To load-balance between instances of a replicated (micro-)service, use a
+// shared name (service name) that is the same between the replicated services
+// and use that id as the queue group:
 //
 //	serviceName := "foo-service"
 //	bus := NewEventBus(enc,
 //		QueueGroupByFunc(func(eventName) string {
-//			return fmt.Sprintf("%s_%s", eventName, serviceName)
+//			return serviceName
 //		}),
 //	)
 //
-// Using the WithLoadBalancer option:
+// The example above can also be written as:
 //
 //	serviceName := "foo-service"
 //	bus := NewEventBus(enc, WithLoadBalancer(serviceName))
@@ -101,17 +100,14 @@ func QueueGroupByEvent() EventBusOption {
 
 // WithLoadBalancer returns a QueueGroupByFunc option that load-balances events
 // between instances of a replicted (micro-)service. The provided serviceName is
-// used to generate the queue group name for new subscriptions by concatenating
-// the event name together with the service name and an underscore:
+// used as the queue group name.
 //
-//	fmt.Sprintf("%s_%s", eventName, serviceName)
-//
-// Can also be set with the `NATS_LOAD_BALANCER=foo-service` environment variable.
+// Can also be set with the `NATS_LOAD_BALANCER=foo` environment variable.
 //
 // Read more about queue groups: https://docs.nats.io/nats-concepts/core-nats/queue
 func WithLoadBalancer(serviceName string) EventBusOption {
-	return QueueGroupByFunc(func(eventName string) string {
-		return replaceDots(fmt.Sprintf("%s_%s", eventName, serviceName))
+	return QueueGroupByFunc(func(string) string {
+		return replaceDots(serviceName)
 	})
 }
 

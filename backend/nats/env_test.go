@@ -26,6 +26,21 @@ func TestEventBus_envQueueGroupByEvent(t *testing.T) {
 	}
 }
 
+func TestEventBus_envLoadBalancer(t *testing.T) {
+	bus := NewEventBus(test.NewEncoder())
+	if queue := bus.queueFunc("foo"); queue != "" {
+		t.Fatalf("bus.queueFunc(%q) should return %q; got %q", "foo", "", queue)
+	}
+
+	defer env.Temp("NATS_LOAD_BALANCER", "my_queue")()
+
+	bus = NewEventBus(test.NewEncoder())
+	want := "my_queue"
+	if queue := bus.queueFunc("foo"); queue != want {
+		t.Fatalf("bus.queueFunc(%q) should return %q; got %q", "foo", want, queue)
+	}
+}
+
 func TestEventBus_envSubjectPrefix(t *testing.T) {
 	bus := NewEventBus(test.NewEncoder())
 	if subject := bus.subjectFunc("foo"); subject != "foo" {
