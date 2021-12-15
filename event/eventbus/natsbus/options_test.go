@@ -1,4 +1,4 @@
-// +build nats
+//go:build nats
 
 package natsbus
 

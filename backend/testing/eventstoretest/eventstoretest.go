@@ -1,4 +1,4 @@
-package test
+package eventstoretest
 
 import (
 	"context"
@@ -21,8 +21,8 @@ import (
 // EventStoreFactory creates an event.Store.
 type EventStoreFactory func(event.Encoder) event.Store
 
-// EventStore tests an event.Store implementation.
-func EventStore(t *testing.T, name string, newStore EventStoreFactory) {
+// Run tests an event store implementation.
+func Run(t *testing.T, name string, newStore EventStoreFactory) {
 	t.Run(name, func(t *testing.T) {
 		run(t, "Insert", newStore, testInsert)
 		run(t, "Find", newStore, testFind)

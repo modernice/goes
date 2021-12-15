@@ -1,4 +1,4 @@
-// +build mongostore
+//go:build mongostore
 
 package mongostore_test
 
@@ -10,23 +10,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/backend/testing/eventstoretest"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/mongostore"
 	"github.com/modernice/goes/event/eventstore/mongostore/mongotest"
-	"github.com/modernice/goes/event/eventstore/test"
 	etest "github.com/modernice/goes/event/test"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
-		test.EventStore(t, "mongostore", func(enc event.Encoder) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc event.Encoder) event.Store {
 			return mongotest.NewStore(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
 		})
 	})
 
 	t.Run("ReplicaSet", func(t *testing.T) {
-		test.EventStore(t, "mongostore", func(enc event.Encoder) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc event.Encoder) event.Store {
 			return mongotest.NewStore(
 				enc,
 				mongostore.URL(os.Getenv("MONGOREPLSTORE_URL")),
