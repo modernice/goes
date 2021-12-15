@@ -1,121 +1,252 @@
 package nats
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/nats-io/nats.go"
 )
 
-// Use returns an Option that specifies which Driver to use to communicate with
-// NATS. Defaults to Core().
+// Use returns the option to specify the Driver to use to communicate with NATS.
+// By default, the Core Driver is used.
+//
+//	bus := NewEventBus(enc, Use(JetStream()))
 func Use(d Driver) EventBusOption {
 	return func(bus *EventBus) {
 		bus.driver = d
 	}
 }
 
-// QueueGroupByFunc returns an Option that sets the NATS queue group for
-// subscriptions by calling fn with the name of the subscribed Event. This can
-// be used to load-balance Events between subscribers.
-//
-// Read more about queue groups: https://docs.nats.io/nats-concepts/queue
-func QueueGroupByFunc(fn func(eventName string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.queueFunc = fn
-	}
-}
-
-// QueueGroupByEvent returns an Option that sets the NATS queue group for
-// subscriptions to the name of the handled Event. This can be used to
-// load-balance Events between subscribers of the same Event name.
-//
-// Can also be set with the "NATS_QUEUE_GROUP_BY_EVENT" environment variable.
-//
-// Read more about queue groups: https://docs.nats.io/nats-concepts/queue
-func QueueGroupByEvent() EventBusOption {
-	return QueueGroupByFunc(func(eventName string) string {
-		return eventName
-	})
-}
-
-// SubjectFunc returns an Option that sets the NATS subject for subscriptions
-// and outgoing Events by calling fn with the name of the handled Event.
-func SubjectFunc(fn func(eventName string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.subjectFunc = fn
-	}
-}
-
-// SubjectPrefix returns an Option that sets the NATS subject for subscriptions
-// and outgoing Events by prepending prefix to the name of the handled Event.
-//
-// Can also be set with the "NATS_SUBJECT_PREFIX" environment variable.
-func SubjectPrefix(prefix string) EventBusOption {
-	return SubjectFunc(func(eventName string) string {
-		return prefix + eventName
-	})
-}
-
-// DurableFunc returns an Option that sets fn as the function to build the
-// DurableName for the NATS Streaming subscriptions. When fn return an empty
-// string, the subscription will not be made durable.
-//
-// DurableFunc has no effect when using the NATS Core Driver because NATS Core
-// doesn't support durable subscriptions.
-//
-// Can also be set with the "NATS_DURABLE_NAME" environment variable:
-//	`NATS_DURABLE_NAME={{ .Subject }}_{{ .Queue }}`
-//
-// Read more about durable subscriptions:
-// https://docs.nats.io/developing-with-nats-streaming/durables
-func DurableFunc(fn func(subject, queueGroup string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.durableFunc = fn
-	}
-}
-
-// Durable returns an Option that makes the NATS subscriptions durable.
-//
-// If the queue group is not empty, the durable name is built by concatenating
-// the subject and queue group with an underscore:
-//	fmt.Sprintf("%s_%s", subject, queueGroup)
-//
-// If the queue group is an empty string, the durable name is set to the
-// subject.
-//
-// Can also be set with the "NATS_DURABLE_NAME" environment variable:
-//	`NATS_DURABLE_NAME={{ .Subject }}_{{ .Queue }}`
-//
-// Use DurableFunc instead to control how the durable name is built.
-func Durable() EventBusOption {
-	return DurableFunc(defaultDurableNameFunc)
-}
-
-func StreamNameFunc(fn func(subject, queue string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.streamNameFunc = fn
-	}
-}
-
-func SubOpts(opts ...nats.SubOpt) EventBusOption {
-	return func(bus *EventBus) {
-		bus.subOpts = append(bus.subOpts, opts...)
-	}
-}
-
-// URL returns an Option that sets the connection URL to the NATS server. If no
-// URL is specified, the environment variable "NATS_URL" will be used as the
-// connection URL.
-//
-// Can also be set with the "NATS_URL" environment variable.
+// URL returns an option that sets the connection URL to the NATS server. If no
+// URL is specified, the environment variable `NATS_URL` will be used as the
+// connection URL. If that is also not set, the default NATS URL
+// (nats.DefaultURL) is used instead.
 func URL(url string) EventBusOption {
 	return func(bus *EventBus) {
 		bus.url = url
 	}
 }
 
-// Conn returns an Option that provides the underlying *nats.Conn for the
-// EventBus. When the Conn Option is used, the Use Option has no effect.
+// Conn returns an option that provides the underlying *nats.Conn to the
+// event bus. When providing a connection, the event bus does not try to connect
+// to NATS but uses the provided connection instead.
 func Conn(conn *nats.Conn) EventBusOption {
 	return func(bus *EventBus) {
 		bus.conn = conn
+	}
+}
+
+// EatErrors returns an option that discards any asynchronous errors of
+// subscriptions. When subscribing to an event, you can safely ignore the
+// returned error channel:
+//
+//	var bus *EventBus
+//	events, _, err := bus.Subscribe(context.TODO(), ...)
+func EatErrors() EventBusOption {
+	return func(bus *EventBus) {
+		bus.eatErrors = true
+	}
+}
+
+// QueueGroupByFunc returns an option that specifies the NATS queue group for
+// new subscriptions. When subscribing to an event, fn(eventName) is called to
+// determine the queue group name for that subscription. If the returned queue
+// group is an empty string, the queue group feature will not be used for the
+// subscription.
+//
+// Use Case
+//
+// Queue groups can be used to load-balance between multiple subscribers of the
+// same event. When multiple subscribers are subscribed to an event and use the
+// same queue group, only one of the subscribers will receive the event.
+// To load-balance between instances of a replicated (micro-)service, generate a
+// shared id that is the same between the replicated services and use that id to
+// generate the queue group (or use the WithLoadBalancer option):
+//
+//	serviceName := "foo-service"
+//	bus := NewEventBus(enc,
+//		QueueGroupByFunc(func(eventName) string {
+//			return fmt.Sprintf("%s_%s", eventName, serviceName)
+//		}),
+//	)
+//
+// Using the WithLoadBalancer option:
+//
+//	serviceName := "foo-service"
+//	bus := NewEventBus(enc, WithLoadBalancer(serviceName))
+//
+// Queue groups are disabled by default.
+//
+// Read more about queue groups: https://docs.nats.io/nats-concepts/core-nats/queue
+func QueueGroupByFunc(fn func(eventName string) string) EventBusOption {
+	return func(bus *EventBus) {
+		bus.queueFunc = fn
+	}
+}
+
+// QueueGroupByFunc returns an option that specifies the NATS queue group for
+// new subscriptions. When subscribing to an event, the event name is used as
+// the name of the queue group.
+//
+// Use this option if you want events to be received only by a single subscriber.
+//
+// Can also be set with the `NATS_QUEUE_GROUP_BY_EVENT=1` environment variable.
+//
+// Read more about queue groups: https://docs.nats.io/nats-concepts/core-nats/queue
+func QueueGroupByEvent() EventBusOption {
+	return QueueGroupByFunc(func(eventName string) string {
+		return eventName
+	})
+}
+
+// WithLoadBalancer returns a QueueGroupByFunc option that load-balances events
+// between instances of a replicted (micro-)service. The provided serviceName is
+// used to generate the queue group name for new subscriptions by concatenating
+// the event name together with the service name and an underscore:
+//
+//	fmt.Sprintf("%s_%s", eventName, serviceName)
+//
+// Can also be set with the `NATS_LOAD_BALANCER=foo-service` environment variable.
+//
+// Read more about queue groups: https://docs.nats.io/nats-concepts/core-nats/queue
+func WithLoadBalancer(serviceName string) EventBusOption {
+	return QueueGroupByFunc(func(eventName string) string {
+		return replaceDots(fmt.Sprintf("%s_%s", eventName, serviceName))
+	})
+}
+
+// SubjectFunc returns an option that specifies how the NATS subjects for event
+// names are generated.
+//
+// By default, subjects are generated by replacing "." with "_".
+func SubjectFunc(fn func(eventName string) string) EventBusOption {
+	return func(bus *EventBus) {
+		bus.subjectFunc = func(eventName string) string {
+			return replaceDots(fn(eventName))
+		}
+	}
+}
+
+// SubjectFunc returns an option that specifies how the NATS subjects for event
+// names are generated. The provided prefix is simply prepended to the event
+// name and "." replaced with "_".
+//
+// Can also be set with the `NATS_SUBJECT_PREFIX` environment variable.
+func SubjectPrefix(prefix string) EventBusOption {
+	return SubjectFunc(func(eventName string) string {
+		return replaceDots(prefix + eventName)
+	})
+}
+
+// DurableFunc returns an option that specifies the durable name for new
+// subscriptions when using the JetStream Driver. When subscribing to an event,
+// the provided function is called with the event name and queue group (see
+// QueueGroupByXXX and WithLoadBalancer options) and the returned string is used
+// as the durable name for the subscription. If the durable name is an empty
+// string, the subscription is not made durable.
+//
+// Can also be set with the `NATS_DURABLE_NAME` environment variable. The
+// following example generates the durable names by concatenating the subject
+// together with the queue group using an underscore (the environment variable
+// is executed using text/template, so you have access to the subject and queue
+// group):
+//
+//	`NATS_DURABLE_NAME={{ .Subject }}_{{ .Queue }}`
+//
+// This option is valid only for the JetStream Driver.
+//
+// Example
+//
+// The following example uses durable subscriptions while load-balancing between
+// instances of a replicated (micro-)service:
+//
+//	serviceName := "foo-service"
+//	bus := NewEventBus(enc,
+//		WithLoadBalancer(serviceName),
+//		DurableFunc(func(subject, queue string) string {
+//			// Given a subject of "foo-subject"
+//			// queue is "foo-subject_foo-service"
+//			durableName := fmt.Sprintf("%s_%s", subject, queue)
+//			// durableName is "foo-subject_foo-subject_foo-service"
+//			return durableName
+//		})
+//	)
+//
+// The example above can also be written as:
+//
+//	serviceName := "foo-service"
+//	bus := NewEventBus(enc,
+//		WithLoadBalancer(serviceName),
+//		Durable(),
+//	)
+//
+// Read more about durable subscriptions:
+// https://docs.nats.io/nats-concepts/jetstream/consumers#durable-name
+func DurableFunc(fn func(subject, queue string) string) EventBusOption {
+	return func(bus *EventBus) {
+		bus.durableFunc = fn
+	}
+}
+
+// Durable returns an option that specifies the durable name for new
+// subscriptions when using the JetStream Driver. The durable name is generated
+// by concatenating the generated subject with the generated queue group using
+// an underscore:
+//
+//	fmt.Sprintf("%s_%s", subject, queueGroup)
+//
+// If you need to alter how durable names are generated, use the DurableFunc
+// option instead.
+//
+// This option is valid only for the JetStream Driver.
+func Durable() EventBusOption {
+	return DurableFunc(defaultDurableNameFunc)
+}
+
+// StreamNameFunc returns an option that specifies the stream name for new
+// subscriptions when using the JetStream Driver. When subscribing to an event,
+// the provided fn is called with the generated subject and queue group to
+// determine the JetStream stream name for the subscription.
+//
+// If the StreamNameFunc option is not used, the provided DurableXXX option is
+// used to generate the stream name instead. If the generated durable name is
+// empty, the subscription falls back to using the default stream name function,
+// which is the default durable name function.
+//
+// This option is valid only for the JetStream Driver.
+//
+// Read more about streams: https://docs.nats.io/nats-concepts/jetstream/streams
+func StreamNameFunc(fn func(subject, queue string) string) EventBusOption {
+	return func(bus *EventBus) {
+		bus.streamNameFunc = fn
+	}
+}
+
+// SubOpts returns an option that adds custom nats.SubOpts when creating a
+// JetStream subscription.
+//
+// This option is valid only for the JetStream Driver.
+func SubOpts(opts ...nats.SubOpt) EventBusOption {
+	return func(bus *EventBus) {
+		bus.subOpts = append(bus.subOpts, opts...)
+	}
+}
+
+// PullTimeout returns an Option that limits the duration the EventBus tries
+// to send Events into the channel returned by bus.Subscribe. When d is exceeded
+// the Event will be dropped. The default is a duration of 0 and means no timeout.
+//
+// Can also be set with the "NATS_RECEIVE_TIMEOUT" environment variable in a
+// format understood by time.ParseDuration. If the environment value is not
+// parseable by time.ParseDuration, no timeout will be used.
+
+// PullTimeout returns an option that limits the Duration an EventBus tries to
+// push an event into a subscribed event channel. When the pull timeout is
+// exceeded, the event gets dropped and a warning is logged.
+//
+// Default is no timeout.
+func PullTimeout(d time.Duration) EventBusOption {
+	return func(bus *EventBus) {
+		bus.pullTimeout = d
 	}
 }

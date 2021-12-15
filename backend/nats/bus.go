@@ -1,3 +1,6 @@
+// Package nats provides an event bus that uses NATS to publish and subscribe to
+// events over a (distributed) network with support for both NATS Core and NATS
+// JetStream.
 package nats
 
 import (
@@ -20,17 +23,29 @@ import (
 )
 
 var (
-	// ErrReceiveTimeout is returned when an Event is not received from a
-	// subscriber Event channel after the configured ReceiveTimeout.
-	ErrReceiveTimeout = errors.New("receive timed out")
+	// ErrPullTimeout is raised by an EventBus when a subscriber doesn't pull an
+	// event from the event channel within the specified PullTimeout. In such
+	// case, the event is dropped to avoid blocking the application because of a
+	// slow consumer.
+	ErrPullTimeout = errors.New("pull timed out. slow consumer?")
 )
 
+// EventBus is an event bus that uses NATS to publish and subscribe to events.
+//
+// Drivers
+//
+// The event bus supports both NATS Core and NATS JetStream. By default, the
+// Core driver is used, but you can create and specify the JetStream driver with
+// the Use option:
+//
+//	var enc event.Encoder
+//	bus := nats.NewEventBus(enc, nats.Use(nats.JetStream()))
 type EventBus struct {
 	enc event.Encoder
 
-	eatErrors      bool
-	url            string
-	receiveTimeout time.Duration
+	eatErrors   bool
+	url         string
+	pullTimeout time.Duration
 
 	subjectFunc    func(eventName string) (subject string)
 	queueFunc      func(eventName string) (queue string)
@@ -45,13 +60,17 @@ type EventBus struct {
 	onceConnect sync.Once
 }
 
+// EventBusOption is an option for an EventBus.
+type EventBusOption func(*EventBus)
+
+// A Driver provides the specific implementation for interacting with either
+// NATS Core or NATS JetStream. Use the Core or JetStream functions to create
+// a Driver.
 type Driver interface {
 	name() string
 	subscribe(ctx context.Context, bus *EventBus, subject string) (*subscription, error)
 	publish(ctx context.Context, bus *EventBus, evt event.Event) error
 }
-
-type EventBusOption func(*EventBus)
 
 type envelope struct {
 	ID               uuid.UUID
@@ -70,25 +89,14 @@ type subscription struct {
 	unsubbbed chan struct{}
 }
 
-func EatErrors() EventBusOption {
-	return func(bus *EventBus) {
-		bus.eatErrors = true
-	}
-}
-
-// ReceiveTimeout returns an Option that limits the duration the EventBus tries
-// to send Events into the channel returned by bus.Subscribe. When d is exceeded
-// the Event will be dropped. The default is a duration of 0 and means no timeout.
+// NewEventBus returns a NATS event bus.
 //
-// Can also be set with the "NATS_RECEIVE_TIMEOUT" environment variable in a
-// format understood by time.ParseDuration. If the environment value is not
-// parseable by time.ParseDuration, no timeout will be used.
-func ReceiveTimeout(d time.Duration) EventBusOption {
-	return func(bus *EventBus) {
-		bus.receiveTimeout = d
-	}
-}
-
+// The provided Encoder is used to encode and decode event data when publishing
+// and subscribing to events.
+//
+// If no other specified, the returned event bus will use the NATS Core Driver.
+// To use the NATS JetStream Driver instead, explicitly set the Driver:
+//	NewEventBus(enc, Use(JetStream()))
 func NewEventBus(enc event.Encoder, opts ...EventBusOption) *EventBus {
 	if enc == nil {
 		enc = event.NewRegistry()
@@ -103,6 +111,7 @@ func NewEventBus(enc event.Encoder, opts ...EventBusOption) *EventBus {
 	return bus
 }
 
+// Publish publishes events.
 func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 	if err := bus.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -117,6 +126,7 @@ func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 	return nil
 }
 
+// Subscribe subscribes to events.
 func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
 	if err := bus.connectOnce(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
@@ -146,6 +156,10 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 		envOpts = append(envOpts, QueueGroupByEvent())
 	}
 
+	if service := env.String("NATS_LOAD_BALANCER"); service != "" {
+		envOpts = append(envOpts, WithLoadBalancer(service))
+	}
+
 	if prefix := strings.TrimSpace(env.String("NATS_SUBJECT_PREFIX")); prefix != "" {
 		envOpts = append(envOpts, SubjectPrefix(prefix))
 	}
@@ -158,13 +172,13 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 		bus.durableFunc = fn
 	}
 
-	if env.String("NATS_RECEIVE_TIMEOUT") != "" {
-		if d, err := env.Duration("NATS_RECEIVE_TIMEOUT"); err == nil {
-			envOpts = append(envOpts, ReceiveTimeout(d))
+	if env.String("NATS_PULL_TIMEOUT") != "" {
+		if d, err := env.Duration("NATS_PULL_TIMEOUT"); err == nil {
+			envOpts = append(envOpts, PullTimeout(d))
 		} else {
 			panic(fmt.Errorf(
 				"init: parse environment variable %q: %w",
-				"NATS_RECEIVE_TIMEOUT",
+				"NATS_PULL_TIMEOUT",
 				err,
 			))
 		}
@@ -205,6 +219,7 @@ func (bus *EventBus) connectOnce(ctx context.Context) error {
 			return
 		}
 
+		// The JetStream driver initializes the JetStreamContext.
 		if d, ok := bus.driver.(interface{ init(*EventBus) error }); ok {
 			if err = d.init(bus); err != nil {
 				return
@@ -293,15 +308,20 @@ func (bus *EventBus) fanInEvents(ctx context.Context, subs []*subscription) <-ch
 
 				var timeout <-chan time.Time
 				var stop func() bool = func() bool { return false }
-				if bus.receiveTimeout != 0 {
-					timer := time.NewTimer(bus.receiveTimeout)
+				if bus.pullTimeout != 0 {
+					timer := time.NewTimer(bus.pullTimeout)
 					timeout = timer.C
 					stop = timer.Stop
 				}
 
 				drop := func() {
 					stop()
-					sub.logError(ctx, fmt.Errorf("%w: dropping event (timeout) [event=%v, timeout=%v]", ErrReceiveTimeout, evt.Name(), bus.receiveTimeout))
+					sub.logError(ctx, fmt.Errorf(
+						"event dropped: %w [event=%v, timeout=%v]",
+						ErrPullTimeout,
+						evt.Name(),
+						bus.pullTimeout,
+					))
 				}
 
 				select {
@@ -355,14 +375,14 @@ func discardErrors(errs <-chan error) {
 // Uses the event name as the subject but replace "." with "_" because "." is
 // not allowed in subjects.
 func defaultSubjectFunc(eventName string) string {
-	return strings.ReplaceAll(eventName, ".", "_")
+	return replaceDots(eventName)
 }
 
 // Concatenates the subject and queue name together with an underscore.
 // If queue is an empty string, defaultSubjectFunc(subject) is returned.
 func defaultDurableNameFunc(subject, queue string) string {
 	if queue == "" {
-		return defaultSubjectFunc(subject)
+		return subject
 	}
 	return fmt.Sprintf("%s_%s", subject, queue)
 }

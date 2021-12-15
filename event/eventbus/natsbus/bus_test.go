@@ -14,11 +14,9 @@ import (
 	eventtest "github.com/modernice/goes/event/test"
 )
 
-func TestEventBus(t *testing.T) {
-	t.Run("Core", func(t *testing.T) {
-		eventbustest.Run(t, newBus)
-		testEventBus(t, newBus)
-	})
+func TestCoreEventBus(t *testing.T) {
+	eventbustest.Run(t, newBus)
+	testEventBus(t, newBus)
 }
 
 func testEventBus(t *testing.T, newBus eventbustest.EventBusFactory) {

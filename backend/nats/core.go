@@ -11,13 +11,17 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-const coreDriverName = "core"
-
-type core struct{}
-
+// Core returns the NATS Core Driver (which is enabled by default):
+//
+//	bus := NewEventBus(enc, Use(Core())) // or
+//	bus := NewEventBus(enc)
 func Core() Driver {
 	return core{}
 }
+
+const coreDriverName = "core"
+
+type core struct{}
 
 func (core core) name() string { return coreDriverName }
 

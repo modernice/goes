@@ -175,7 +175,7 @@ func TestSubjectFunc_subjectFunc(t *testing.T) {
 		return fmt.Sprintf("prefix.%s", eventName)
 	}))
 
-	want := "prefix.foo"
+	want := "prefix_foo"
 	if got := bus.subjectFunc("foo"); got != want {
 		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", want, got))
 	}
@@ -184,7 +184,7 @@ func TestSubjectFunc_subjectFunc(t *testing.T) {
 func TestSubjectPrefix(t *testing.T) {
 	bus := NewEventBus(test.NewEncoder(), SubjectPrefix("prefix."))
 
-	want := "prefix.foo"
+	want := "prefix_foo"
 	if got := bus.subjectFunc("foo"); got != want {
 		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", want, got))
 	}
@@ -216,11 +216,11 @@ func TestDurable(t *testing.T) {
 	}
 }
 
-func TestReceiveTimeout(t *testing.T) {
+func TestPullTimeout(t *testing.T) {
 	// given a receive timeout of 100ms
 	timeout := 100 * time.Millisecond
 	enc := test.NewEncoder()
-	subBus := NewEventBus(enc, ReceiveTimeout(timeout))
+	subBus := NewEventBus(enc, PullTimeout(timeout))
 	pubBus := NewEventBus(enc)
 
 	// given a "foo" and "bar" subscription
@@ -250,8 +250,8 @@ func TestReceiveTimeout(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal(fmt.Errorf("didn't receive from errs after 100ms"))
 	case err := <-errs:
-		if !errors.Is(err, ErrReceiveTimeout) {
-			t.Fatalf("expected to receive %q error; got %q", ErrReceiveTimeout, err)
+		if !errors.Is(err, ErrPullTimeout) {
+			t.Fatalf("expected to receive %q error; got %q", ErrPullTimeout, err)
 		}
 	}
 

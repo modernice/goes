@@ -3,7 +3,6 @@ package eventstoretest
 import (
 	"context"
 	"fmt"
-	"log"
 	"testing"
 	stdtime "time"
 
@@ -162,7 +161,6 @@ L:
 			t.Fatal("timed out. store sill returns deleted event when calling Find()")
 		case <-ticker.C:
 			found, err := store.Find(context.Background(), foo.ID())
-			log.Println(found, err)
 			if err != nil && found == nil {
 				break L
 			}

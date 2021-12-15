@@ -11,15 +11,26 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-const jetStreamDriverName = "jetstream"
-
-type jetStream struct {
-	ctx nats.JetStreamContext
-}
-
+// JetStream returns the NATS JetStream Driver:
+//
+//	bus := NewEventBus(enc, Use(JetStream()))
+//
+// Consumer Subscriptions
+//
+// Consumer subscriptions are given the following options by default:
+//	- DeliverPolicy: DeliverNew
+//	- AckPolicy: AckAll
+//
+// You can add custom options using the SubOpts option:
+//
+//	bus := NewEventBus(enc, Use(JetStream()), SubOpts(nats.DeliverAll(), nats.AckNone()))
 func JetStream() Driver {
 	return &jetStream{}
 }
+
+const jetStreamDriverName = "jetstream"
+
+type jetStream struct{ ctx nats.JetStreamContext }
 
 func (jetstream *jetStream) name() string { return jetStreamDriverName }
 
