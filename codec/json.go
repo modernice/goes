@@ -1,9 +1,7 @@
 package codec
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 
 	"github.com/mitchellh/mapstructure"
@@ -41,9 +39,6 @@ func (reg *JSONRegistry) JSONRegister(name string, makeFunc func() interface{}) 
 type jsonEncoder struct{}
 
 func (jsonEncoder) Encode(w io.Writer, data interface{}) error {
-	if err := encodeCustomMarshaler(w, data); !errors.Is(err, errNotCustomMarshaler) {
-		return err
-	}
 	return json.NewEncoder(w).Encode(&data)
 }
 
@@ -53,18 +48,11 @@ type jsonDecoder struct {
 }
 
 func (dec jsonDecoder) Decode(r io.Reader) (interface{}, error) {
-	var buf bytes.Buffer
-	r = io.TeeReader(r, &buf)
-
 	data := dec.makeFunc()
-
-	if decoded, err := decodeCustomMarshaler(r, data); !errors.Is(err, errNotCustomMarshaler) {
-		return decoded, err
-	}
 
 	untyped := make(map[string]interface{})
 
-	if err := json.NewDecoder(&buf).Decode(&untyped); err != nil {
+	if err := json.NewDecoder(r).Decode(&untyped); err != nil {
 		return data, err
 	}
 

@@ -21,8 +21,7 @@ type EncoderFunc func(w io.Writer, data interface{}) error
 
 // Decoder is a decoder for a specific event data or command payload.
 type Decoder interface {
-	// Decode decodes the given event data or command payload and returns the
-	// decoded object.
+	// Decode decodes the data in r and returns the decoded data.
 	Decode(r io.Reader) (interface{}, error)
 }
 

@@ -40,7 +40,9 @@ func TestRegistry_Encode_Decode(t *testing.T) {
 			}
 			return mockDataA{A: string(b)}, nil
 		}),
-		nil,
+		func() interface{} {
+			return mockDataA{}
+		},
 	)
 
 	var buf bytes.Buffer

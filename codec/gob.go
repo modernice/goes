@@ -1,7 +1,6 @@
 package codec
 
 import (
-	"bytes"
 	"encoding/gob"
 	"io"
 	"reflect"
@@ -81,9 +80,6 @@ func (reg *GobRegistry) GobRegister(name string, makeFunc func() interface{}) {
 type gobEncoder struct{ name string }
 
 func (enc gobEncoder) Encode(w io.Writer, data interface{}) error {
-	if err := encodeCustomMarshaler(w, data); err != errNotCustomMarshaler {
-		return err
-	}
 	return gob.NewEncoder(w).Encode(&data)
 }
 
@@ -94,16 +90,8 @@ type gobDecoder struct {
 }
 
 func (dec gobDecoder) Decode(r io.Reader) (interface{}, error) {
-	var buf bytes.Buffer
-	r = io.TeeReader(r, &buf)
-
 	data := dec.makeFunc()
-
-	if decoded, err := decodeCustomMarshaler(r, data); err != errNotCustomMarshaler {
-		return decoded, err
-	}
-
-	return data, gob.NewDecoder(&buf).Decode(&data)
+	return data, gob.NewDecoder(r).Decode(&data)
 }
 
 func defaultGobNameFunc(eventName string) string {

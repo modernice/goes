@@ -1,6 +1,7 @@
 package codec
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -61,11 +62,11 @@ func New() *Registry {
 // Register registers the given Encoder and Decoder under the given name.
 // When reg.Encode is called, the provided Encoder is be used to encode the
 // given data. When reg.Decode is called, the provided Decoder is used. The
-// provided makeFunc is optional and only used to create data when calling
-// reg.New().
+// makeFunc is required for custom data unmarshalers to work.
 func (reg *Registry) Register(name string, enc Encoder, dec Decoder, makeFunc func() interface{}) {
 	reg.Lock()
 	defer reg.Unlock()
+
 	reg.encoders[name] = enc
 	reg.decoders[name] = dec
 	reg.factories[name] = makeFunc
@@ -77,6 +78,10 @@ func (reg *Registry) Register(name string, enc Encoder, dec Decoder, makeFunc fu
 func (reg *Registry) Encode(w io.Writer, name string, data interface{}) error {
 	reg.RLock()
 	defer reg.RUnlock()
+
+	if err := encodeCustomMarshaler(w, data); !errors.Is(err, errNotCustomMarshaler) {
+		return err
+	}
 
 	if enc, ok := reg.encoders[name]; ok {
 		return enc.Encode(w, data)
@@ -92,6 +97,25 @@ func (reg *Registry) Decode(r io.Reader, name string) (interface{}, error) {
 	reg.RLock()
 	defer reg.RUnlock()
 
+	if _, ok := reg.factories[name]; ok {
+		data, err := reg.New(name)
+		if err != nil {
+			return nil, err
+		}
+
+		var buf bytes.Buffer
+		r = io.TeeReader(r, &buf)
+
+		if decoded, err := decodeCustomMarshaler(r, data); err != errNotCustomMarshaler {
+			if err != nil {
+				err = fmt.Errorf("custom unmarshaler: %w", err)
+			}
+			return decoded, err
+		}
+
+		r = &buf
+	}
+
 	if dec, ok := reg.decoders[name]; ok {
 		return dec.Decode(r)
 	}
@@ -106,7 +130,7 @@ func (reg *Registry) New(name string) (interface{}, error) {
 	reg.RLock()
 	defer reg.RUnlock()
 
-	if makeFunc, ok := reg.factories[name]; ok {
+	if makeFunc, ok := reg.factories[name]; ok && makeFunc != nil {
 		return makeFunc(), nil
 	}
 
