@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/codec"
 )
 
 const (
@@ -73,20 +73,21 @@ type CommandExecutedData struct {
 }
 
 // RegisterEvents registers the command events into a Registry.
-func RegisterEvents(reg event.Registry) {
-	reg.Register(CommandDispatched, func() event.Data {
+func RegisterEvents(reg *codec.Registry) {
+	gob := codec.Gob(reg)
+	gob.GobRegister(CommandDispatched, func() interface{} {
 		return CommandDispatchedData{}
 	})
-	reg.Register(CommandRequested, func() event.Data {
+	gob.GobRegister(CommandRequested, func() interface{} {
 		return CommandRequestedData{}
 	})
-	reg.Register(CommandAssigned, func() event.Data {
+	gob.GobRegister(CommandAssigned, func() interface{} {
 		return CommandAssignedData{}
 	})
-	reg.Register(CommandAccepted, func() event.Data {
+	gob.GobRegister(CommandAccepted, func() interface{} {
 		return CommandAcceptedData{}
 	})
-	reg.Register(CommandExecuted, func() event.Data {
+	gob.GobRegister(CommandExecuted, func() interface{} {
 		return CommandExecutedData{}
 	})
 }

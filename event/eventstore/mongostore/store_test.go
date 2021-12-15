@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/backend/testing/eventstoretest"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore/mongostore"
 	"github.com/modernice/goes/event/eventstore/mongostore/mongotest"
@@ -20,13 +21,13 @@ import (
 
 func TestStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc event.Encoder) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
 			return mongotest.NewStore(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
 		})
 	})
 
 	t.Run("ReplicaSet", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc event.Encoder) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
 			return mongotest.NewStore(
 				enc,
 				mongostore.URL(os.Getenv("MONGOREPLSTORE_URL")),

@@ -8,7 +8,7 @@ import (
 )
 
 func TestSynchronous(t *testing.T) {
-	cfg := dispatch.Configure(dispatch.Synchronous())
+	cfg := dispatch.Configure(dispatch.Sync())
 	if !cfg.Synchronous {
 		t.Fatalf("cfg.Synchronous should be %t; got %t", true, cfg.Synchronous)
 	}

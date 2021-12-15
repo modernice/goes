@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/time"
@@ -18,7 +19,7 @@ import (
 )
 
 // EventStoreFactory creates an event.Store.
-type EventStoreFactory func(event.Encoder) event.Store
+type EventStoreFactory func(codec.Encoding) event.Store
 
 // Run tests an event store implementation.
 func Run(t *testing.T, name string, newStore EventStoreFactory) {

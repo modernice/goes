@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 )
 
@@ -119,9 +120,10 @@ type Schedule interface {
 
 // RegisterService register the projection service events into an event
 // registry.
-func RegisterService(r event.Registry) {
-	r.Register(Triggered, func() event.Data { return TriggeredData{} })
-	r.Register(TriggerAccepted, func() event.Data { return TriggerAcceptedData{} })
+func RegisterService(r *codec.Registry) {
+	gob := codec.Gob(r)
+	gob.GobRegister(Triggered, func() interface{} { return TriggeredData{} })
+	gob.GobRegister(TriggerAccepted, func() interface{} { return TriggerAcceptedData{} })
 }
 
 // ServiceOption is an option for creating a Service.

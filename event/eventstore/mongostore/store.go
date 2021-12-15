@@ -12,6 +12,7 @@ import (
 	stdtime "time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
@@ -22,7 +23,7 @@ import (
 
 // Store is the MongoDB event.Store.
 type Store struct {
-	enc              event.Encoder
+	enc              codec.Encoding
 	url              string
 	dbname           string
 	entriesCol       string
@@ -137,7 +138,7 @@ func ValidateVersions(v bool) Option {
 }
 
 // New returns a MongoDB event.Store.
-func New(enc event.Encoder, opts ...Option) *Store {
+func New(enc codec.Encoding, opts ...Option) *Store {
 	s := Store{
 		enc:              enc,
 		validateVersions: true,
@@ -563,8 +564,8 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 	return nil
 }
 
-func (e entry) event(enc event.Encoder) (event.Event, error) {
-	data, err := enc.Decode(e.Name, bytes.NewReader(e.Data))
+func (e entry) event(enc codec.Encoding) (event.Event, error) {
+	data, err := enc.Decode(bytes.NewReader(e.Data), e.Name)
 	if err != nil {
 		return nil, fmt.Errorf("decode %q event data: %w", e.Name, err)
 	}

@@ -8,16 +8,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
-	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/natsbus"
 	"github.com/nats-io/stan.go"
 )
 
 func TestBus_NATS(t *testing.T) {
-	ereg := event.NewRegistry()
+	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
 	enc := command.NewRegistry()
 	enc.Register("foo-cmd", func() command.Payload { return mockPayload{} })
@@ -74,7 +74,7 @@ func TestBus_NATS(t *testing.T) {
 		defer close(done)
 		for i := 0; i < 10; i++ {
 			cmd := command.New("foo-cmd", mockPayload{})
-			if err := pubBus.Dispatch(context.Background(), cmd, dispatch.Synchronous()); err != nil {
+			if err := pubBus.Dispatch(context.Background(), cmd, dispatch.Sync()); err != nil {
 				dispatchErrors <- fmt.Errorf("[%d] Dispatch shouldn't fail; failed with %q", i, err)
 			}
 		}

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/backend/testing/eventbustest"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/natsbus"
 	"github.com/nats-io/stan.go"
@@ -21,7 +22,7 @@ func TestStreamingEventBus(t *testing.T) {
 	testEventBus(t, newSTANBus)
 }
 
-func newSTANBus(enc event.Encoder) event.Bus {
+func newSTANBus(enc codec.Encoding) event.Bus {
 	n := atomic.AddInt64(&id, 1)
 	return natsbus.New(
 		enc,

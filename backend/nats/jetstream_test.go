@@ -8,6 +8,7 @@ import (
 
 	"github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/backend/testing/eventbustest"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 )
 
@@ -18,6 +19,6 @@ func TestEventBus_JetStream(t *testing.T) {
 	})
 }
 
-func newJetStreamBus(enc event.Encoder) event.Bus {
+func newJetStreamBus(enc codec.Encoding) event.Bus {
 	return nats.NewEventBus(enc, nats.EatErrors(), nats.Use(nats.JetStream()), nats.URL(os.Getenv("JETSTREAM_URL")))
 }

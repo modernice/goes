@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/backend/testing/eventbustest"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/natsbus"
 	eventtest "github.com/modernice/goes/event/test"
@@ -21,17 +22,17 @@ func TestCoreEventBus(t *testing.T) {
 
 func testEventBus(t *testing.T, newBus eventbustest.EventBusFactory) {
 	t.Run("SubscribeConnect", func(t *testing.T) {
-		testSubscribeConnect(t, func(e event.Encoder) event.Bus {
+		testSubscribeConnect(t, func(e codec.Encoding) event.Bus {
 			return natsbus.New(e, natsbus.EatErrors())
 		})
 	})
 	t.Run("PublishConnect", func(t *testing.T) {
-		testPublishConnect(t, func(e event.Encoder) event.Bus {
+		testPublishConnect(t, func(e codec.Encoding) event.Bus {
 			return natsbus.New(e, natsbus.EatErrors())
 		})
 	})
 	t.Run("PublishEncodeError", func(t *testing.T) {
-		testPublishEncodeError(t, func(e event.Encoder) event.Bus {
+		testPublishEncodeError(t, func(e codec.Encoding) event.Bus {
 			return natsbus.New(e, natsbus.EatErrors())
 		})
 	})
@@ -90,6 +91,6 @@ func testPublishEncodeError(t *testing.T, newBus eventbustest.EventBusFactory) {
 	}
 }
 
-func newBus(enc event.Encoder) event.Bus {
+func newBus(enc codec.Encoding) event.Bus {
 	return natsbus.New(enc, natsbus.EatErrors())
 }

@@ -7,7 +7,7 @@ type Encoding interface {
 	Encode(w io.Writer, name string, data interface{}) error
 
 	// Decode decodes the data in r using the configured decoder for the given name.
-	Decode(name string, r io.Reader) (interface{}, error)
+	Decode(r io.Reader, name string) (interface{}, error)
 }
 
 // Encoder is an encoder for a specific event data or command payload.

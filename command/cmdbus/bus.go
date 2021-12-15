@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/cmdbus/report"
@@ -93,7 +94,7 @@ func DrainTimeout(dur time.Duration) Option {
 }
 
 // New returns an event-driven Command Bus.
-func New(enc command.Encoder, reg event.Registry, events event.Bus, opts ...Option) *Bus {
+func New(enc command.Encoder, reg *codec.Registry, events event.Bus, opts ...Option) *Bus {
 	RegisterEvents(reg)
 	b := Bus{
 		assignTimeout: DefaultAssignTimeout,
@@ -151,7 +152,7 @@ func New(enc command.Encoder, reg event.Registry, events event.Bus, opts ...Opti
 // accepts a dispatched Command.
 //
 // To handle errors that happen during the execution of Commands, use the
-// dispatch.Synchronous() Option to make the dispatch synchronous. A synchronous
+// dispatch.Sync() Option to make the dispatch synchronous. A synchronous
 // dispatch waits for and returns the execution error from the executing Bus.
 //
 // Errors that happen during a synchronous excecution are then also returned by

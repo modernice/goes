@@ -39,7 +39,7 @@ func BenchmarkBus_Dispatch_Synchronous(t *testing.B) {
 
 	for i := 0; i < t.N; i++ {
 		start := time.Now()
-		if err := bus.Dispatch(ctx, cmd, dispatch.Synchronous()); err != nil {
+		if err := bus.Dispatch(ctx, cmd, dispatch.Sync()); err != nil {
 			t.Fatalf("dispatch command: %v", err)
 		}
 		dur := time.Since(start)

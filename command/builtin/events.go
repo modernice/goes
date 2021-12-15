@@ -1,7 +1,7 @@
 package builtin
 
 import (
-	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/codec"
 )
 
 // AggregateDeleted is published when an aggregate has been deleted.
@@ -18,6 +18,7 @@ type AggregateDeletedData struct {
 }
 
 // RegisterEvents registers events of built-in commands into an event registry.
-func RegisterEvents(r event.Registry) {
-	r.Register(AggregateDeleted, func() event.Data { return AggregateDeletedData{} })
+func RegisterEvents(r *codec.Registry) {
+	gob := codec.Gob(r)
+	gob.GobRegister(AggregateDeleted, func() interface{} { return AggregateDeletedData{} })
 }

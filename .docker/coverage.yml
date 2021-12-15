@@ -6,6 +6,10 @@ services:
   stan:
     image: nats-streaming
 
+  jetstream:
+    image: nats
+    command: ["-js"]
+
   mongostore:
     image: mongo
     command: ["--quiet", "--logpath", "/dev/null", "--bind_ip_all"]
@@ -42,6 +46,7 @@ services:
     depends_on:
       - nats
       - stan
+      - jetstream
       - mongostore
       - mongostore_replicaset
       - mongostore_replicaset_init
@@ -56,6 +61,7 @@ services:
     environment:
       - NATS_URL=nats://nats:4222
       - STAN_URL=nats://stan:4222
+      - JETSTREAM_URL=nats://jetstream:4222
       - MONGOSTORE_URL=mongodb://mongostore:27017
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
       - MONGOSNAP_URL=mongodb://mongosnap:27017

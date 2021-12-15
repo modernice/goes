@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/xtime"
 	"golang.org/x/sync/errgroup"
 )
 
-// EventBusFactory creates an event.Bus from an event.Encoder.
-type EventBusFactory func(event.Encoder) event.Bus
+// EventBusFactory creates an event.Bus from an codec.Encoding.
+type EventBusFactory func(codec.Encoding) event.Bus
 
 // Run tests all functions of the event bus.
 func Run(t *testing.T, newBus EventBusFactory) {
@@ -395,10 +396,10 @@ func expectEvent(name string, events <-chan event.Event) error {
 
 var (
 	encMux sync.Mutex
-	enc    event.Encoder
+	enc    codec.Encoding
 )
 
-func encoder() event.Encoder {
+func encoder() codec.Encoding {
 	encMux.Lock()
 	defer encMux.Unlock()
 	if enc != nil {

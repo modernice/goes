@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
@@ -160,7 +161,7 @@ func TestSynchronous(t *testing.T) {
 	dispatchErr := make(chan error)
 	dispatchTime := make(chan time.Time)
 	go func() {
-		dispatchErr <- bus.Dispatch(context.Background(), cmd, dispatch.Synchronous())
+		dispatchErr <- bus.Dispatch(context.Background(), cmd, dispatch.Sync())
 		dispatchTime <- xtime.Now()
 	}()
 
@@ -348,7 +349,7 @@ func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, command.Registry) {
 		return mockPayload{}
 	})
 	ebus := eventbus.New()
-	return cmdbus.New(enc, event.NewRegistry(), ebus, opts...), ebus, enc
+	return cmdbus.New(enc, codec.New(), ebus, opts...), ebus, enc
 }
 
 func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {

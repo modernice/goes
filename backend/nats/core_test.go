@@ -7,6 +7,7 @@ import (
 
 	"github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/backend/testing/eventbustest"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 )
 
@@ -17,6 +18,6 @@ func TestEventBus_Core(t *testing.T) {
 	})
 }
 
-func newCoreEventBus(enc event.Encoder) event.Bus {
+func newCoreEventBus(enc codec.Encoding) event.Bus {
 	return nats.NewEventBus(enc, nats.EatErrors())
 }

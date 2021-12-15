@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/env"
 	"github.com/nats-io/nats.go"
@@ -38,10 +39,10 @@ var (
 // Core driver is used, but you can create and specify the JetStream driver with
 // the Use option:
 //
-//	var enc event.Encoder
+//	var enc codec.Encoding
 //	bus := nats.NewEventBus(enc, nats.Use(nats.JetStream()))
 type EventBus struct {
-	enc event.Encoder
+	enc codec.Encoding
 
 	eatErrors   bool
 	url         string
@@ -97,9 +98,9 @@ type subscription struct {
 // If no other specified, the returned event bus will use the NATS Core Driver.
 // To use the NATS JetStream Driver instead, explicitly set the Driver:
 //	NewEventBus(enc, Use(JetStream()))
-func NewEventBus(enc event.Encoder, opts ...EventBusOption) *EventBus {
+func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
 	if enc == nil {
-		enc = event.NewRegistry()
+		enc = codec.New()
 	}
 
 	bus := &EventBus{enc: enc}
@@ -288,7 +289,7 @@ func (bus *EventBus) fanInEvents(ctx context.Context, subs []*subscription) <-ch
 					continue
 				}
 
-				data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
+				data, err := bus.enc.Decode(bytes.NewReader(env.Data), env.Name)
 				if err != nil {
 					sub.logError(ctx, fmt.Errorf("decode event data: %w [event=%v]", err, env.Name))
 					continue

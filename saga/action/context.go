@@ -115,7 +115,7 @@ func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command, opts 
 	if ctx.commandBus == nil {
 		return ErrMissingBus
 	}
-	opts = append([]command.DispatchOption{dispatch.Synchronous()}, opts...)
+	opts = append([]command.DispatchOption{dispatch.Sync()}, opts...)
 	return ctx.commandBus.Dispatch(c, cmd, opts...)
 }
 

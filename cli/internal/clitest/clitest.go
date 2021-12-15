@@ -6,6 +6,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
@@ -14,8 +15,8 @@ import (
 )
 
 // SetupEvents returns an event registry, bus and store.
-func SetupEvents() (event.Registry, event.Bus, event.Store) {
-	reg := event.NewRegistry()
+func SetupEvents() (*codec.Registry, event.Bus, event.Store) {
+	reg := codec.New()
 	bus := eventbus.New()
 	store := eventstore.New()
 	return reg, bus, store

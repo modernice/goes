@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/env"
 	"github.com/nats-io/nats.go"
@@ -32,7 +33,7 @@ var (
 // Bus is the NATS event.Bus implementation.
 type Bus struct {
 	driver Driver
-	enc    event.Encoder
+	enc    codec.Encoding
 
 	eatErrors bool
 
@@ -278,7 +279,7 @@ func Streaming(clusterID, clientID string, opts ...stan.Option) Driver {
 // environment variable.
 //
 // Deprecated: Use github.com/modernice/goes/backend/nats instead.
-func New(enc event.Encoder, opts ...Option) *Bus {
+func New(enc codec.Encoding, opts ...Option) *Bus {
 	if enc == nil {
 		panic("nil Encoder")
 	}
@@ -711,7 +712,7 @@ func (bus *Bus) workSubscriber(sub *subscription) {
 				break
 			}
 
-			data, err := bus.enc.Decode(env.Name, bytes.NewReader(env.Data))
+			data, err := bus.enc.Decode(bytes.NewReader(env.Data), env.Name)
 			if err != nil {
 				sub.publishError(fmt.Errorf("decode %q event data: %w", env.Name, err))
 				break

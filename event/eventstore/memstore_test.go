@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/backend/testing/eventstoretest"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore"
 )
@@ -11,7 +12,7 @@ import (
 var _ event.Store = eventstore.New()
 
 func TestMemstore(t *testing.T) {
-	eventstoretest.Run(t, "memstore", func(event.Encoder) event.Store {
+	eventstoretest.Run(t, "memstore", func(codec.Encoding) event.Store {
 		return eventstore.New()
 	})
 }

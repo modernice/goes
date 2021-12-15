@@ -10,16 +10,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
-	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus/natsbus"
 	"github.com/nats-io/stan.go"
 )
 
 func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
-	ereg := event.NewRegistry()
+	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
 	enc := command.NewRegistry()
 	enc.Register("foo-cmd", func() command.Payload { return mockPayload{} })
@@ -66,7 +66,7 @@ func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 
 	for i := 0; i < t.N; i++ {
 		start := time.Now()
-		if err := pubBus.Dispatch(ctx, cmd, dispatch.Synchronous()); err != nil {
+		if err := pubBus.Dispatch(ctx, cmd, dispatch.Sync()); err != nil {
 			t.Fatalf("dispatch command: %v", err)
 		}
 		dur := time.Since(start)
