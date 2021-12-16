@@ -8,12 +8,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
-	"github.com/modernice/goes/event/eventbus/natsbus"
-	"github.com/nats-io/stan.go"
 )
 
 func TestBus_NATS(t *testing.T) {
@@ -21,21 +20,15 @@ func TestBus_NATS(t *testing.T) {
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
-	subEventBus := natsbus.New(
+	subEventBus := nats.NewEventBus(
 		ereg,
-		natsbus.Use(natsbus.Streaming(
-			"test-cluster",
-			"test_client_sub",
-			stan.NatsURL(os.Getenv("STAN_URL")),
-		)),
+		nats.Use(nats.JetStream()),
+		nats.URL(os.Getenv("JETSTREAM_URL")),
 	)
-	pubEventBus := natsbus.New(
+	pubEventBus := nats.NewEventBus(
 		ereg,
-		natsbus.Use(natsbus.Streaming(
-			"test-cluster",
-			"test_client_pub",
-			stan.NatsURL(os.Getenv("STAN_URL")),
-		)),
+		nats.Use(nats.JetStream()),
+		nats.URL(os.Getenv("JETSTREAM_URL")),
 	)
 	subBus := cmdbus.New(enc, ereg, subEventBus)
 	pubBus := cmdbus.New(enc, ereg, pubEventBus)
