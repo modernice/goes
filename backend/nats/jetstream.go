@@ -106,7 +106,7 @@ func (jetstream *jetStream) subscribe(ctx context.Context, bus *EventBus, event 
 		defer close(msgs)
 		defer close(errs)
 		<-ctx.Done()
-		if err := sub.Unsubscribe(); err != nil {
+		if err := sub.Unsubscribe(); err != nil && !errors.Is(err, nats.ErrConnectionClosed) {
 			log.Printf("[goes/backend/nats.EventBus] unsubscribe: %v [subject=%v, queue=%v]", err, sub.Subject, sub.Queue)
 		}
 	}()
