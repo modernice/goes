@@ -189,9 +189,9 @@ func DurableFunc(fn func(subject, queue string) string) EventBusOption {
 // by concatenating the generated subject with the generated queue group using
 // an underscore:
 //
-//	fmt.Sprintf("%s_%s", subject, queueGroup)
+//	fmt.Sprintf("%s_%s", subject, queue)
 //
-// If you need to alter how durable names are generated, use the DurableFunc
+// If you need to customize how durable names are generated, use the DurableFunc
 // option instead.
 //
 // This option is valid only for the JetStream Driver.

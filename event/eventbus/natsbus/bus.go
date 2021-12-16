@@ -184,7 +184,7 @@ func SubjectPrefix(prefix string) Option {
 //
 // Read more about durable subscriptions:
 // https://docs.nats.io/developing-with-nats-streaming/durables
-func DurableFunc(fn func(subject, queueGroup string) string) Option {
+func DurableFunc(fn func(subject, queue string) string) Option {
 	return func(bus *Bus) {
 		bus.durableFunc = fn
 	}
@@ -194,7 +194,7 @@ func DurableFunc(fn func(subject, queueGroup string) string) Option {
 //
 // If the queue group is not empty, the durable name is built by concatenating
 // the subject and queue group with an underscore:
-//	fmt.Sprintf("%s_%s", subject, queueGroup)
+//	fmt.Sprintf("%s_%s", subject, queue)
 //
 // If the queue group is an empty string, the durable name is set to the
 // subject.

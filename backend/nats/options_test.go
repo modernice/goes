@@ -198,8 +198,8 @@ func TestDurableFunc(t *testing.T) {
 	}
 
 	// custom durable func
-	bus = NewEventBus(test.NewEncoder(), DurableFunc(func(subject, queueGroup string) string {
-		return fmt.Sprintf("prefix.%s.%s", subject, queueGroup)
+	bus = NewEventBus(test.NewEncoder(), DurableFunc(func(subject, queue string) string {
+		return fmt.Sprintf("prefix.%s.%s", subject, queue)
 	}))
 
 	want := "prefix.foo.bar"
