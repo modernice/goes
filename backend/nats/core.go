@@ -56,7 +56,7 @@ func (core core) subscribe(ctx context.Context, bus *EventBus, event string) (*s
 		defer close(errs)
 		<-ctx.Done()
 		if err := sub.Drain(); err != nil {
-			log.Printf("[nats.EventBus] drain subscription: %v [subject=%v, queue=%v]", err, sub.Subject, sub.Queue)
+			log.Printf("[goes/backend/nats.EventBus] drain subscription: %v [subject=%v, queue=%v]", err, sub.Subject, sub.Queue)
 		}
 	}()
 

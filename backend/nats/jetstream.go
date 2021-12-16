@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/modernice/goes/event"
 	"github.com/nats-io/nats.go"
@@ -52,15 +53,21 @@ func (jetstream *jetStream) subscribe(ctx context.Context, bus *EventBus, event 
 	durableName := bus.durableFunc(subject, queue)
 
 	// bus.streamNameFunc uses either the user-provided StreamNameFunc option to
-	// generate the stream names or falls back to the user-provided DurableXXX
-	// option. Should the generated stream name be empty, the default function
-	// to generate durable names is used to generate the stream name, which
-	// would is either:
-	//	- `{{ .Subject }}_{{ .Queue }}` if the queue group is not empty
-	//	- `{{ .Subject }}` if the queue group is empty
-	streamName := bus.streamNameFunc(subject, queue)
+	// generate the stream names or falls back to the defaultStreamNameFunc,
+	// which just returns the subject as it is.
+	streamName := strings.TrimSpace(bus.streamNameFunc(subject, queue))
+
+	// Now, if the user provided a StreamNameFunc that returns an empty string,
+	// we also fall back to the defaultStreamNameFunc and print a warning that
+	// the option is overriden.
 	if streamName == "" {
-		streamName = defaultDurableNameFunc(subject, queue)
+		streamName = defaultStreamNameFunc(subject, queue)
+
+		log.Printf(
+			"[goes/backend/nats.jetStream] User-provided StreamNameFunc returned an empty string. "+
+				"Using default stream name %q. [event=%v, subject=%v, queue=%v]",
+			streamName, event, subject, queue,
+		)
 	}
 
 	// Create the JetStream stream (if it does not exist yet).
@@ -100,7 +107,7 @@ func (jetstream *jetStream) subscribe(ctx context.Context, bus *EventBus, event 
 		defer close(errs)
 		<-ctx.Done()
 		if err := sub.Unsubscribe(); err != nil {
-			log.Printf("[nats.EventBus] unsubscribe: %v [subject=%v, queue=%v]", err, sub.Subject, sub.Queue)
+			log.Printf("[goes/backend/nats.EventBus] unsubscribe: %v [subject=%v, queue=%v]", err, sub.Subject, sub.Queue)
 		}
 	}()
 

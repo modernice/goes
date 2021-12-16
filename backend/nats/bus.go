@@ -259,12 +259,9 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 		bus.subjectFunc = defaultSubjectFunc
 	}
 
-	// If the StreamNameFunc option is not used, use the DurableFunc option for
-	// the stream names.
-	//
 	// Note: Only used by JetStream driver.
 	if bus.streamNameFunc == nil {
-		bus.streamNameFunc = bus.durableFunc
+		bus.streamNameFunc = defaultStreamNameFunc
 	}
 
 	if bus.driver == nil {
@@ -431,8 +428,8 @@ func envDurableNameFunc() (func(string, string) string, error) {
 	return func(subject, queue string) string {
 		var buf strings.Builder
 		if err := tpl.Execute(&buf, data{Subject: subject, Queue: queue}); err != nil {
-			log.Printf("[nats.EventBus] Failed to execute template on `NATS_DURABLE_NAME` environment variable: %v", err)
-			log.Printf("[nats.EventBus] Falling back to non-durable subscription.")
+			log.Printf("[goes/backend/nats.EventBus] Failed to execute template on `NATS_DURABLE_NAME` environment variable: %v", err)
+			log.Printf("[goes/backend/nats.EventBus] Falling back to non-durable subscription.")
 
 			return nonDurable(subject, queue)
 		}
@@ -443,3 +440,11 @@ func envDurableNameFunc() (func(string, string) string, error) {
 func nonDurable(string, string) string { return "" }
 
 func noQueue(string) (q string) { return }
+
+// Just returns the subject. If the user provides a custom streamNameFunc, the
+// queue name is provided, but we don't want to use it here because subjects are
+// always just event names and we cannot create multiple JetStream streams with
+// the same subjects, so using the queue group here would not really work.
+func defaultStreamNameFunc(subject, _ string) string {
+	return subject
+}

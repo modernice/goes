@@ -30,7 +30,7 @@ func JSON(reg *Registry) *JSONRegistry {
 // to encode and decode the data returned by makeFunc.
 func (reg *JSONRegistry) JSONRegister(name string, makeFunc func() interface{}) {
 	if makeFunc == nil {
-		panic("[goes.codec/JSONRegistry.JSONRegister] nil makeFunc")
+		panic("[goes/codec.JSONRegistry.JSONRegister] nil makeFunc")
 	}
 
 	reg.Registry.Register(name, jsonEnc, jsonDecoder{name: name, makeFunc: makeFunc}, makeFunc)

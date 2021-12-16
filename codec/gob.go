@@ -59,7 +59,7 @@ func Gob(reg *Registry, opts ...GobOption) *GobRegistry {
 // to encode and decode the data returned by makeFunc.
 func (reg *GobRegistry) GobRegister(name string, makeFunc func() interface{}) {
 	if makeFunc == nil {
-		panic("[goes.codec/GobRegistry.GobRegister] nil makeFunc")
+		panic("[goes/codec.GobRegistry.GobRegister] nil makeFunc")
 	}
 
 	reg.Registry.Register(
