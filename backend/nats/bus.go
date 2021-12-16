@@ -112,9 +112,50 @@ func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
 	return bus
 }
 
+// Connects connects to NATS.
+//
+// It is not required to call Connect to use the EventBus because Connect is
+// automatically called by Subscribe and Publish.
+func (bus *EventBus) Connect(ctx context.Context) error {
+	var err error
+	bus.onceConnect.Do(func() {
+		if err = bus.connect(ctx); err != nil {
+			return
+		}
+
+		// The JetStream driver initializes the JetStreamContext.
+		if d, ok := bus.driver.(interface{ init(*EventBus) error }); ok {
+			if err = d.init(bus); err != nil {
+				return
+			}
+		}
+	})
+	return err
+}
+
+func (bus *EventBus) connect(ctx context.Context) error {
+	// *nats.Conn provided via Conn() option.
+	if bus.conn != nil {
+		return nil
+	}
+
+	connectError := make(chan error)
+	go func() {
+		url := bus.natsURL()
+		var err error
+		if bus.conn, err = nats.Connect(url, bus.natsOpts...); err != nil {
+			connectError <- fmt.Errorf("connect: %w [url=%v]", err, url)
+			return
+		}
+		connectError <- nil
+	}()
+
+	return <-connectError
+}
+
 // Publish publishes events.
 func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
-	if err := bus.connectOnce(ctx); err != nil {
+	if err := bus.Connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
@@ -129,7 +170,7 @@ func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 
 // Subscribe subscribes to events.
 func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
-	if err := bus.connectOnce(ctx); err != nil {
+	if err := bus.Connect(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
 
@@ -211,43 +252,6 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 	}
 
 	return nil
-}
-
-func (bus *EventBus) connectOnce(ctx context.Context) error {
-	var err error
-	bus.onceConnect.Do(func() {
-		if err = bus.connect(ctx); err != nil {
-			return
-		}
-
-		// The JetStream driver initializes the JetStreamContext.
-		if d, ok := bus.driver.(interface{ init(*EventBus) error }); ok {
-			if err = d.init(bus); err != nil {
-				return
-			}
-		}
-	})
-	return err
-}
-
-func (bus *EventBus) connect(ctx context.Context) error {
-	// *nats.Conn provided via Conn() option.
-	if bus.conn != nil {
-		return nil
-	}
-
-	connectError := make(chan error)
-	go func() {
-		url := bus.natsURL()
-		var err error
-		if bus.conn, err = nats.Connect(url, bus.natsOpts...); err != nil {
-			connectError <- fmt.Errorf("connect: %w [url=%v]", err, url)
-			return
-		}
-		connectError <- nil
-	}()
-
-	return <-connectError
 }
 
 func (bus *EventBus) natsURL() string {

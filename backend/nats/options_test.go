@@ -129,7 +129,7 @@ func TestConnection(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected bus.conn to be %v; got %v", conn, bus.conn))
 	}
 
-	if err := bus.connectOnce(context.Background()); err != nil {
+	if err := bus.Connect(context.Background()); err != nil {
 		t.Fatal(fmt.Errorf("expected bus.connectOnce not to fail; got %v", err))
 	}
 
