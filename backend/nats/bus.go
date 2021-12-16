@@ -153,6 +153,26 @@ func (bus *EventBus) connect(ctx context.Context) error {
 	return <-connectError
 }
 
+// Disconnect closes the underlying *nats.Conn. Should ctx be canceled before
+// the connection is closed, ctx.Err() is returned.
+func (bus *EventBus) Disconnect(ctx context.Context) error {
+	if bus.conn == nil {
+		return nil
+	}
+
+	closed := make(chan struct{})
+	bus.conn.SetClosedHandler(func(*nats.Conn) { close(closed) })
+	bus.conn.Close()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-closed:
+		bus.conn = nil
+		return nil
+	}
+}
+
 // Publish publishes events.
 func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 	if err := bus.Connect(ctx); err != nil {
