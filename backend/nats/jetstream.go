@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"log"
 
@@ -63,11 +64,8 @@ func (jetstream *jetStream) subscribe(ctx context.Context, bus *EventBus, event 
 	}
 
 	// Create the JetStream stream (if it does not exist yet).
-	if _, err := jetstream.ctx.AddStream(&nats.StreamConfig{
-		Name:     streamName,
-		Subjects: []string{subject},
-	}); err != nil {
-		return nil, fmt.Errorf("add stream: %w", err)
+	if err := jetstream.ensureStream(ctx, streamName, subject); err != nil {
+		return nil, fmt.Errorf("ensure stream: %w", err)
 	}
 
 	var sub *nats.Subscription
@@ -112,6 +110,30 @@ func (jetstream *jetStream) subscribe(ctx context.Context, bus *EventBus, event 
 		errs:      errs,
 		unsubbbed: unsubbed,
 	}, nil
+}
+
+func (jetstream *jetStream) ensureStream(ctx context.Context, streamName, subject string) error {
+	_, err := jetstream.ctx.StreamInfo(streamName)
+	if err == nil {
+		// TODO(bounoable): Validate the stream config and return an error if it
+		// doesn't match.
+		return nil
+	}
+
+	if !errors.Is(err, nats.ErrStreamNotFound) {
+		return fmt.Errorf("get stream info: %w [stream=%v]", err, streamName)
+	}
+
+	subjects := []string{subject}
+
+	if _, err := jetstream.ctx.AddStream(&nats.StreamConfig{
+		Name:     streamName,
+		Subjects: subjects,
+	}); err != nil {
+		return fmt.Errorf("add stream: %w [name=%v, subjects=%v]", err, streamName, subjects)
+	}
+
+	return nil
 }
 
 func (jetstream *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
