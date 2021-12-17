@@ -362,14 +362,14 @@ func defaultSubjectFunc(eventName string) string {
 	return replaceDots(eventName)
 }
 
-// Concatenates the subject and queue name together with an underscore.
-// If queue is an empty string, defaultSubjectFunc(subject) is returned.
-func defaultDurableNameFunc(subject, queue string) string {
-	if queue == "" {
-		return replaceDots(subject)
-	}
-	return replaceDots(fmt.Sprintf("%s_%s", subject, queue))
-}
+// // Concatenates the subject and queue name together with an underscore.
+// // If queue is an empty string, defaultSubjectFunc(subject) is returned.
+// func defaultDurableNameFunc(subject, queue string) string {
+// 	if queue == "" {
+// 		return replaceDots(subject)
+// 	}
+// 	return replaceDots(fmt.Sprintf("%s_%s", subject, queue))
+// }
 
 func envDurableNameFunc() (func(string, string) string, error) {
 	type data struct {

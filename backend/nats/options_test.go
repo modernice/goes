@@ -214,8 +214,8 @@ func TestDurableFunc(t *testing.T) {
 }
 
 func TestDurable(t *testing.T) {
-	bus := NewEventBus(test.NewEncoder(), Durable())
-	want := "foo_bar"
+	bus := NewEventBus(test.NewEncoder(), Durable("foo-dur"))
+	want := "foo-dur"
 	if got := bus.durableFunc("foo", "bar"); got != want {
 		t.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", want, got)
 	}

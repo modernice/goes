@@ -196,18 +196,16 @@ func DurableFunc(fn func(subject, queue string) string) EventBusOption {
 }
 
 // Durable returns an option that specifies the durable name for new
-// subscriptions when using the JetStream Driver. The durable name is generated
-// by concatenating the generated subject with the generated queue group using
-// an underscore:
+// subscriptions when using the JetStream Driver.
 //
-//	fmt.Sprintf("%s_%s", subject, queue)
-//
-// If you need to customize how durable names are generated, use the DurableFunc
-// option instead.
+// Use the DurableFunc option if you need to know the subject or queue group to
+// build the durable name.
 //
 // This option is valid only for the JetStream Driver.
-func Durable() EventBusOption {
-	return DurableFunc(defaultDurableNameFunc)
+func Durable(name string) EventBusOption {
+	return DurableFunc(func(_, _ string) string {
+		return name
+	})
 }
 
 // StreamNameFunc returns an option that specifies the stream name for new
