@@ -3,55 +3,39 @@ package eventbus_test
 import (
 	"context"
 	"testing"
+	"time"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/modernice/goes/backend/testing/eventbustest"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/test"
 )
 
 func TestAwaiter_Once(t *testing.T) {
-	bus := eventbus.New()
-	aw := eventbus.NewAwaiter(bus)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	str, errs, err := aw.Once(ctx, "foo")
-	if err != nil {
-		t.Fatalf("Once() failed with %q", err)
-	}
+	bus := eventbus.New()
+	aw := eventbus.NewAwaiter(bus)
 
-	data := test.FooEventData{A: "bar"}
-	go func() {
-		for i := 0; i < 3; i++ {
-			evt := event.New("foo", data)
-			if err := bus.Publish(ctx, evt); err != nil {
-				panic(err)
-			}
-		}
-	}()
+	// Await a "foo" event once
+	sub := eventbustest.MustSub(aw.Once(ctx, "foo"))
 
-	var count int
-L:
-	for {
-		select {
-		case err := <-errs:
-			t.Fatal(err)
-		case evt, ok := <-str:
-			if !ok {
-				break L
-			}
+	// When "foo" event is published 3 times, it should be received exactly once
+	ex := eventbustest.Expect(ctx)
+	ex.Event(sub, 50*time.Millisecond, "foo")
 
-			if !cmp.Equal(evt.Data(), data) {
-				t.Fatalf("wrong event data.\n\n%s", cmp.Diff(data, evt.Data()))
-			}
-
-			count++
+	for i := 0; i < 3; i++ {
+		evt := event.New("foo", test.FooEventData{})
+		if err := bus.Publish(ctx, evt); err != nil {
+			t.Fatalf("publish event: %v [event=%v, iter=%d]", err, evt.Name(), i)
 		}
 	}
 
-	if count != 1 {
-		t.Fatalf("Event should be received exactly once")
-	}
+	ex.Apply(t)
+
+	// And then the channels should be closed.
+	ex = eventbustest.Expect(ctx)
+	ex.Closed(sub, 50*time.Millisecond)
+	ex.Apply(t)
 }
