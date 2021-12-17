@@ -41,7 +41,7 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Payload() should return type %T; got %T", load, cmd.Payload())
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	ereg := test.NewEncoder()

@@ -25,9 +25,12 @@ type mockPayload struct {
 }
 
 func TestBus_Dispatch(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	bus, _, _ := newBus()
 
-	commands, errs, err := bus.Subscribe(context.Background(), "foo-cmd")
+	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
 	if err != nil {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
@@ -37,12 +40,12 @@ func TestBus_Dispatch(t *testing.T) {
 
 	dispatchErr := make(chan error)
 	go func() {
-		if err = bus.Dispatch(context.Background(), cmd); err != nil {
+		if err = bus.Dispatch(ctx, cmd); err != nil {
 			dispatchErr <- fmt.Errorf("failed to dispatch: %w", err)
 		}
 	}()
 
-	var ctx command.Context
+	var cmdCtx command.Context
 	var ok bool
 L:
 	for {
@@ -53,7 +56,7 @@ L:
 			if ok {
 				t.Fatal(err)
 			}
-		case ctx, ok = <-commands:
+		case cmdCtx, ok = <-commands:
 			if !ok {
 				t.Fatal("Context channel shouldn't be closed!")
 			}
@@ -65,13 +68,17 @@ L:
 		t.Fatalf("Context shouldn't be nil!")
 	}
 
-	assertEqualCommands(t, ctx.Command(), cmd)
+	assertEqualCommands(t, cmdCtx.Command(), cmd)
 }
 
 func TestBus_Dispatch_Report(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	bus, _, _ := newBus()
 
-	commands, errs, err := bus.Subscribe(context.Background(), "foo-cmd")
+	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
+
 	if err != nil {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
@@ -80,9 +87,9 @@ func TestBus_Dispatch_Report(t *testing.T) {
 	var rep report.Report
 
 	dispatchErr := make(chan error)
-	go func() { dispatchErr <- bus.Dispatch(context.Background(), cmd, dispatch.Report(&rep)) }()
+	go func() { dispatchErr <- bus.Dispatch(ctx, cmd, dispatch.Report(&rep)) }()
 
-	var ctx command.Context
+	var cmdCtx command.Context
 	var ok bool
 	select {
 	case err := <-dispatchErr:
@@ -92,7 +99,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 			t.Fatal(err)
 		}
 		errs = nil
-	case ctx, ok = <-commands:
+	case cmdCtx, ok = <-commands:
 		if !ok {
 			t.Fatal("Context channel shouldn't be closed!")
 		}
@@ -100,7 +107,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 
 	mockError := errors.New("mock error")
 	dur := 3 * time.Second
-	if err = ctx.Finish(ctx, finish.WithError(mockError), finish.WithRuntime(dur)); err != nil {
+	if err = cmdCtx.Finish(cmdCtx, finish.WithError(mockError), finish.WithRuntime(dur)); err != nil {
 		t.Fatalf("mark done: %v", err)
 	}
 

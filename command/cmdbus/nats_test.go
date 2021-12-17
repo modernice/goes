@@ -15,25 +15,43 @@ import (
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 )
 
-func TestBus_NATS(t *testing.T) {
+func TestBus_NATS_Core(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
-	subEventBus := nats.NewEventBus(
+	bus := nats.NewEventBus(
 		ereg,
-		nats.Use(nats.JetStream()),
-		nats.URL(os.Getenv("JETSTREAM_URL")),
+		nats.Use(nats.Core()),
+		nats.URL(os.Getenv("NATS_URL")),
 	)
-	pubEventBus := nats.NewEventBus(
-		ereg,
-		nats.Use(nats.JetStream()),
-		nats.URL(os.Getenv("JETSTREAM_URL")),
-	)
-	subBus := cmdbus.New(enc, ereg, subEventBus)
-	pubBus := cmdbus.New(enc, ereg, pubEventBus)
+	testNATSBus(t, bus)
+}
 
-	commands, errs, err := subBus.Subscribe(context.Background(), "foo-cmd")
+func TestBus_NATS_JetStream(t *testing.T) {
+	ereg := codec.New()
+	cmdbus.RegisterEvents(ereg)
+	enc := codec.Gob(codec.New())
+	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
+	bus := nats.NewEventBus(
+		ereg,
+		nats.Use(nats.JetStream()),
+		nats.URL(os.Getenv("JETSTREAM_URL")),
+	)
+	testNATSBus(t, bus)
+}
+
+func testNATSBus(t *testing.T, ebus *nats.EventBus) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ereg := codec.New()
+	cmdbus.RegisterEvents(ereg)
+	enc := codec.Gob(codec.New())
+	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
+	bus := cmdbus.New(enc, ereg, ebus)
+
+	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
 	if err != nil {
 		t.Fatalf("subscribe: %v", err)
 	}
@@ -48,7 +66,7 @@ func TestBus_NATS(t *testing.T) {
 					return
 				}
 				handled = append(handled, ctx)
-				if err := ctx.Finish(context.Background()); err != nil {
+				if err := ctx.Finish(ctx); err != nil {
 					handleErrors <- fmt.Errorf("mark done: %w", err)
 				}
 			case err, ok := <-errs:
@@ -67,8 +85,9 @@ func TestBus_NATS(t *testing.T) {
 		defer close(done)
 		for i := 0; i < 10; i++ {
 			cmd := command.New("foo-cmd", mockPayload{})
-			if err := pubBus.Dispatch(context.Background(), cmd, dispatch.Sync()); err != nil {
+			if err := bus.Dispatch(ctx, cmd, dispatch.Sync()); err != nil {
 				dispatchErrors <- fmt.Errorf("[%d] Dispatch shouldn't fail; failed with %q", i, err)
+				return
 			}
 		}
 	}()

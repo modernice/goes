@@ -34,11 +34,11 @@ const (
 var (
 	// ErrAssignTimeout is returned by a Bus when it fails to assign a Command
 	// to a Handler before a given deadline.
-	ErrAssignTimeout = errors.New("failed to assign Command because of timeout")
+	ErrAssignTimeout = errors.New("failed to assign command because of timeout")
 
 	// ErrDrainTimeout is emitted by a Bus when the DrainTimeout is exceeded
 	// when receiving remaining Commands from a canceled Command subscription.
-	ErrDrainTimeout = errors.New("dropped Command because of timeout")
+	ErrDrainTimeout = errors.New("dropped command because of timeout")
 
 	// ErrDispatchCanceled is returned by a Bus when the dispatch was canceled
 	// by the provided Context.
@@ -108,13 +108,13 @@ func New(enc codec.Encoding, reg *codec.Registry, events event.Bus, opts ...Opti
 	}
 
 	if b.debug {
-		prefix := "[cmdbus/"
+		prefix := "[goes/command/cmdbus.Bus:"
 		if b.debugID != "" {
 			prefix += b.debugID + "] "
 		} else {
 			prefix += b.handlerID.String() + "] "
 		}
-		b.logger = log.New(os.Stdout, prefix, log.LstdFlags)
+		b.logger = log.New(os.Stderr, prefix, log.LstdFlags)
 	}
 
 	return &b
@@ -237,16 +237,19 @@ func (b *Bus) dispatchError(err error) error {
 }
 
 func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Event, <-chan error, error) {
+	// ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	// defer cancel()
+
 	names := []string{CommandRequested, CommandAccepted}
 	if sync {
 		names = append(names, CommandExecuted)
 	}
 
-	b.debugLog("[dispatch] Subscribing to %v commands...", names)
+	b.debugLog("[dispatch] Subscribing to %v events...", names)
 
 	events, errs, err := b.bus.Subscribe(ctx, names...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("subscribe to %v Events: %w", names, err)
+		return nil, nil, fmt.Errorf("subscribe to %v events: %w", names, err)
 	}
 
 	return events, errs, nil
@@ -255,7 +258,7 @@ func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Ev
 func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 	var load bytes.Buffer
 	if err := b.enc.Encode(&load, cmd.Name(), cmd.Payload()); err != nil {
-		return fmt.Errorf("encode Payload: %w", err)
+		return fmt.Errorf("encode payload: %w", err)
 	}
 
 	evt := event.New(CommandDispatched, CommandDispatchedData{
@@ -270,11 +273,13 @@ func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 
 	var err error
 	b.debugMeasure(fmt.Sprintf("[dispatch] Publishing %q event", evt.Name()), func() {
+		// ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		// defer cancel()
 		err = b.bus.Publish(ctx, evt)
 	})
 
 	if err != nil {
-		return fmt.Errorf("publish %q Event: %w", evt.Name(), err)
+		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
 	}
 
 	return nil
@@ -296,7 +301,7 @@ func (b *Bus) workDispatch(
 			b.debugLog("[dispatch] Dispatch of %q command canceled because of canceled Context.")
 			return ErrDispatchCanceled
 		case <-assignTimeout:
-			b.debugLog("[dispatch] Dispatch of %q command canceled because of AssignTimeout (%v).", b.assignTimeout)
+			b.debugLog("[dispatch] Dispatch of %q command canceled because of AssignTimeout (%v).", cmd.Name(), b.assignTimeout)
 			return fmt.Errorf("assign %q Command: %w", cmd.Name(), ErrAssignTimeout)
 		case err, ok := <-errs:
 			if ok {
@@ -337,6 +342,8 @@ func (b *Bus) handleDispatchEvent(
 	status dispatchStatus,
 ) (dispatchStatus, error) {
 	b.debugLog("[dispatch] Handling %q event (%s)...", evt.Name(), evt.ID())
+
+	// log.Printf("EVENT %v", evt.Name())
 
 	switch evt.Name() {
 	case CommandRequested:
