@@ -96,7 +96,7 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 		var err error
 		nsub, err = js.ctx.QueueSubscribe(subject, queue, handleMsg, opts...)
 		if err != nil {
-			return recipient{}, fmt.Errorf("subscribe with queue group: %w [subject=%v, queue=%v]", err, subject, queue)
+			return recipient{}, fmt.Errorf("subscribe with queue group: %w [event=%v, subject=%v, queue=%v, consumer=%v]", err, event, subject, queue, durableName)
 		}
 	} else {
 		var err error

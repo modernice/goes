@@ -126,7 +126,7 @@ func WithLoadBalancer(serviceName string) EventBusOption {
 // SubjectFunc returns an option that specifies how the NATS subjects for event
 // names are generated.
 //
-// By default, subjects are the same as event names
+// By default, subjects are the event names with "." replaced with "_".
 func SubjectFunc(fn func(eventName string) string) EventBusOption {
 	return func(bus *EventBus) {
 		bus.subjectFunc = func(eventName string) string {

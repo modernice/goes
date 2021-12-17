@@ -358,7 +358,9 @@ func discardErrors(rcpts ...recipient) {
 	}
 }
 
-func defaultSubjectFunc(eventName string) string { return eventName }
+func defaultSubjectFunc(eventName string) string {
+	return replaceDots(eventName)
+}
 
 // Concatenates the subject and queue name together with an underscore.
 // If queue is an empty string, defaultSubjectFunc(subject) is returned.
