@@ -364,9 +364,9 @@ func defaultSubjectFunc(eventName string) string { return eventName }
 // If queue is an empty string, defaultSubjectFunc(subject) is returned.
 func defaultDurableNameFunc(subject, queue string) string {
 	if queue == "" {
-		return subject
+		return replaceDots(subject)
 	}
-	return fmt.Sprintf("%s_%s", subject, queue)
+	return replaceDots(fmt.Sprintf("%s_%s", subject, queue))
 }
 
 func envDurableNameFunc() (func(string, string) string, error) {
