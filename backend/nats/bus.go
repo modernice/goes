@@ -4,9 +4,7 @@
 package nats
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
@@ -59,6 +57,7 @@ type EventBus struct {
 	driver   Driver
 
 	onceConnect sync.Once
+	stop        chan struct{}
 }
 
 // EventBusOption is an option for an EventBus.
@@ -69,7 +68,7 @@ type EventBusOption func(*EventBus)
 // a Driver.
 type Driver interface {
 	name() string
-	subscribe(ctx context.Context, bus *EventBus, subject string) (*subscription, error)
+	subscribe(ctx context.Context, bus *EventBus, subject string) (recipient, error)
 	publish(ctx context.Context, bus *EventBus, evt event.Event) error
 }
 
@@ -81,13 +80,6 @@ type envelope struct {
 	AggregateName    string
 	AggregateID      uuid.UUID
 	AggregateVersion int
-}
-
-type subscription struct {
-	sub       *nats.Subscription
-	msgs      chan []byte
-	errs      chan error
-	unsubbbed chan struct{}
 }
 
 // NewEventBus returns a NATS event bus.
@@ -103,7 +95,7 @@ func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
 		enc = codec.New()
 	}
 
-	bus := &EventBus{enc: enc}
+	bus := &EventBus{enc: enc, stop: make(chan struct{})}
 	for _, opt := range opts {
 		opt(bus)
 	}
@@ -168,6 +160,7 @@ func (bus *EventBus) Disconnect(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-closed:
+		close(bus.stop)
 		bus.conn = nil
 		return nil
 	}
@@ -194,22 +187,21 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
 
-	subs := make([]*subscription, len(names))
-	for i, name := range names {
-		sub, err := bus.driver.subscribe(ctx, bus, name)
-		if err != nil {
-			return nil, nil, fmt.Errorf("subscribe: %w [event=%v]", err, name)
-		}
-		subs[i] = sub
-	}
+	rcpts := make([]recipient, len(names))
 
-	events, errs := bus.fanIn(ctx, subs)
+	for i, name := range names {
+		rcpt, err := bus.driver.subscribe(ctx, bus, name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", bus.driver.name(), err)
+		}
+		rcpts[i] = rcpt
+	}
 
 	if bus.eatErrors {
-		go discardErrors(errs)
+		discardErrors(rcpts...)
 	}
 
-	return events, errs, nil
+	return bus.fanInEvents(rcpts), fanInErrors(rcpts), nil
 }
 
 func (bus *EventBus) init(opts ...EventBusOption) error {
@@ -218,20 +210,16 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 		envOpts = append(envOpts, QueueGroupByEvent())
 	}
 
+	if queue := env.String("NATS_QUEUE_GROUP"); queue != "" {
+		envOpts = append(envOpts, QueueGroup(queue))
+	}
+
 	if service := env.String("NATS_LOAD_BALANCER"); service != "" {
 		envOpts = append(envOpts, WithLoadBalancer(service))
 	}
 
 	if prefix := strings.TrimSpace(env.String("NATS_SUBJECT_PREFIX")); prefix != "" {
 		envOpts = append(envOpts, SubjectPrefix(prefix))
-	}
-
-	if bus.durableFunc == nil {
-		fn, err := envDurableNameFunc()
-		if err != nil {
-			panic(err)
-		}
-		bus.durableFunc = fn
 	}
 
 	if env.String("NATS_PULL_TIMEOUT") != "" {
@@ -264,6 +252,14 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 		bus.streamNameFunc = defaultStreamNameFunc
 	}
 
+	if bus.durableFunc == nil {
+		fn, err := envDurableNameFunc()
+		if err != nil {
+			return fmt.Errorf("parse durable name from env: %w", err)
+		}
+		bus.durableFunc = fn
+	}
+
 	if bus.driver == nil {
 		bus.driver = Core()
 	}
@@ -281,124 +277,88 @@ func (bus *EventBus) natsURL() string {
 	return nats.DefaultURL
 }
 
-// Fan-in events and errors from multiple subscriptions.
-func (bus *EventBus) fanIn(ctx context.Context, subs []*subscription) (<-chan event.Event, <-chan error) {
-	return bus.fanInEvents(ctx, subs), fanInErrors(subs)
-}
-
-// Fan-in events from multiple subscriptions.
-func (bus *EventBus) fanInEvents(ctx context.Context, subs []*subscription) <-chan event.Event {
+func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Event {
 	out := make(chan event.Event)
 
 	var wg sync.WaitGroup
-	wg.Add(len(subs))
+	wg.Add(len(rcpts))
 	go func() {
 		wg.Wait()
 		close(out)
 	}()
 
-	for _, sub := range subs {
-		sub := sub
-		go func() {
+	drop := func(rcpt recipient, evt event.Event) {
+		rcpt.log(fmt.Errorf(
+			"[goes/backend/nats.EventBus] event dropped: %w [event=%v, timeout=%v]",
+			ErrPullTimeout,
+			evt.Name(),
+			bus.pullTimeout,
+		))
+	}
+
+	for _, rcpt := range rcpts {
+		go func(rcpt recipient) {
 			defer wg.Done()
-
-			for msg := range sub.msgs {
-				var env envelope
-				dec := gob.NewDecoder(bytes.NewReader(msg))
-				if err := dec.Decode(&env); err != nil {
-					sub.logError(ctx, fmt.Errorf("gob decode envelope: %w", err))
-					continue
-				}
-
-				data, err := bus.enc.Decode(bytes.NewReader(env.Data), env.Name)
-				if err != nil {
-					sub.logError(ctx, fmt.Errorf("decode event data: %w [event=%v]", err, env.Name))
-					continue
-				}
-
-				evt := event.New(
-					env.Name,
-					data,
-					event.ID(env.ID),
-					event.Time(env.Time),
-					event.Aggregate(
-						env.AggregateName,
-						env.AggregateID,
-						env.AggregateVersion,
-					),
-				)
-
+			for evt := range rcpt.events {
 				var timeout <-chan time.Time
-				var stop func() bool = func() bool { return false }
-				if bus.pullTimeout != 0 {
+				stop := func() bool { return false }
+				if bus.pullTimeout > 0 {
 					timer := time.NewTimer(bus.pullTimeout)
 					timeout = timer.C
-					stop = timer.Stop
-				}
-
-				drop := func() {
-					stop()
-					sub.logError(ctx, fmt.Errorf(
-						"event dropped: %w [event=%v, timeout=%v]",
-						ErrPullTimeout,
-						evt.Name(),
-						bus.pullTimeout,
-					))
 				}
 
 				select {
+				case <-rcpt.unsubbed:
+					return
 				case <-timeout:
-					drop()
+					drop(rcpt, evt)
+					stop()
 				case out <- evt:
 					stop()
 				}
 			}
-		}()
+		}(rcpt)
 	}
 
 	return out
 }
 
-func fanInErrors(subs []*subscription) <-chan error {
+func fanInErrors(rcpts []recipient) <-chan error {
 	out := make(chan error)
 
 	var wg sync.WaitGroup
-	wg.Add(len(subs))
+	wg.Add(len(rcpts))
 	go func() {
 		wg.Wait()
 		close(out)
 	}()
 
-	for _, sub := range subs {
-		errs := sub.errs
-		go func() {
+	for _, rcpt := range rcpts {
+		go func(rcpt recipient) {
 			defer wg.Done()
-			for err := range errs {
-				out <- err
+			for err := range rcpt.errs {
+				select {
+				case <-rcpt.unsubbed:
+					return
+				case out <- err:
+				}
 			}
-		}()
+		}(rcpt)
 	}
 
 	return out
 }
 
-func (sub *subscription) logError(ctx context.Context, err error) {
-	select {
-	case <-ctx.Done():
-	case sub.errs <- err:
+func discardErrors(rcpts ...recipient) {
+	for _, rcpt := range rcpts {
+		go func(rcpt recipient) {
+			for range rcpt.errs {
+			}
+		}(rcpt)
 	}
 }
 
-func discardErrors(errs <-chan error) {
-	for range errs {
-	}
-}
-
-// Uses the event name as the subject but replace "." with "_" because "." is
-// not allowed in subjects.
-func defaultSubjectFunc(eventName string) string {
-	return replaceDots(eventName)
-}
+func defaultSubjectFunc(eventName string) string { return eventName }
 
 // Concatenates the subject and queue name together with an underscore.
 // If queue is an empty string, defaultSubjectFunc(subject) is returned.

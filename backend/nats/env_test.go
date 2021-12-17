@@ -55,20 +55,20 @@ func TestEventBus_envSubjectPrefix(t *testing.T) {
 	}
 }
 
-func TestEventBus_envDurableName(t *testing.T) {
-	bus := NewEventBus(test.NewEncoder())
-	if name := bus.durableFunc("foo", "bar"); name != "" {
-		t.Errorf("bus.durableFunc(%q, %q) should return %q; got %q", "foo", "bar", "", name)
-	}
+// func TestEventBus_envDurableName(t *testing.T) {
+// 	bus := NewEventBus(test.NewEncoder())
+// 	if name := bus.durableFunc("foo", "bar"); name != "" {
+// 		t.Errorf("bus.durableFunc(%q, %q) should return %q; got %q", "foo", "bar", "", name)
+// 	}
 
-	defer env.Temp("NATS_DURABLE_NAME", "durable.{{ .Subject }}__{{ .Queue }}")()
+// 	defer env.Temp("NATS_DURABLE_NAME", "durable.{{ .Subject }}__{{ .Queue }}")()
 
-	bus = NewEventBus(test.NewEncoder())
-	want := "durable.foo__bar"
-	if name := bus.durableFunc("foo", "bar"); name != want {
-		t.Errorf("bus.durableFunc(%q, %q) should return %q; got %q", "foo", "bar", want, name)
-	}
-}
+// 	bus = NewEventBus(test.NewEncoder())
+// 	want := "durable.foo__bar"
+// 	if name := bus.durableFunc("foo", "bar"); name != want {
+// 		t.Errorf("bus.durableFunc(%q, %q) should return %q; got %q", "foo", "bar", want, name)
+// 	}
+// }
 
 func TestEventBus_envNATSURL(t *testing.T) {
 	recover := env.Temp("NATS_URL", "")

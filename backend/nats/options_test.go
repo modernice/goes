@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -26,16 +27,20 @@ func TestQueueGroupByFunc(t *testing.T) {
 			return fmt.Sprintf("bar.%s", eventName)
 		}))
 
-		events, _, err := bus.Subscribe(context.Background(), "foo")
+		events, errs, err := bus.Subscribe(context.Background(), "foo")
 		if err != nil {
 			t.Fatal(fmt.Errorf("[%d] subscribe to %q events: %w", i, "foo", err))
 		}
 		subs[i] = events
+
+		go func() {
+			for err := range errs {
+				panic(err)
+			}
+		}()
 	}
 
-	pubBus := NewEventBus(enc, QueueGroupByFunc(func(eventName string) string {
-		return fmt.Sprintf("bar.%s", eventName)
-	}))
+	pubBus := NewEventBus(enc)
 
 	// when a "foo" event is published
 	evt := event.New("foo", test.FooEventData{})
@@ -149,7 +154,7 @@ func TestSubjectFunc(t *testing.T) {
 	}
 
 	evt := event.New("foo", test.FooEventData{A: "foo"})
-	if err = bus.Publish(context.Background(), evt); err != nil {
+	if err := bus.Publish(context.Background(), evt); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
 	}
 
@@ -217,31 +222,38 @@ func TestDurable(t *testing.T) {
 }
 
 func TestPullTimeout(t *testing.T) {
-	// given a receive timeout of 100ms
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// given a pull timeout of 100ms
 	timeout := 100 * time.Millisecond
 	enc := test.NewEncoder()
 	subBus := NewEventBus(enc, PullTimeout(timeout))
 	pubBus := NewEventBus(enc)
 
 	// given a "foo" and "bar" subscription
-	events, errs, err := subBus.Subscribe(context.Background(), "foo", "bar")
+	events, errs, err := subBus.Subscribe(ctx, "foo", "bar")
 	if err != nil {
 		t.Fatal(fmt.Errorf("subscribe to %q events: %w", "foo", err))
 	}
 
-	// when a "foo" event is published
-	foo := event.New("foo", test.FooEventData{A: "foo"})
-	if err = pubBus.Publish(context.Background(), foo); err != nil {
-		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
-	}
+	go func() {
+		// when a "foo" event is published
+		foo := event.New("foo", test.FooEventData{A: "foo bar baz"})
+		if err := pubBus.Publish(ctx, foo); err != nil {
+			panic(fmt.Errorf("publish %q event: %w", "foo", err))
+		}
+	}()
+	start := time.Now()
 
 	// when there's no receive from events for at least 100ms
-	<-time.After(150 * time.Millisecond)
+	<-time.After(500 * time.Millisecond)
 
 	// the event should be dropped
 	select {
 	case evt := <-events:
-		t.Fatal(fmt.Errorf("didn't expected to receive from events; got %v", evt))
+		log.Printf("Received after %v", time.Since(start))
+		t.Fatal(fmt.Errorf("didn't expect to receive from events; got %v", evt))
 	default:
 	}
 
@@ -257,7 +269,7 @@ func TestPullTimeout(t *testing.T) {
 
 	// when another "bar" event is published
 	bar := event.New("bar", test.BarEventData{A: "bar"})
-	if err = pubBus.Publish(context.Background(), bar); err != nil {
+	if err := pubBus.Publish(ctx, bar); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "bar", err))
 	}
 

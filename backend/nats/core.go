@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
-	"log"
+	"sync"
 
 	"github.com/modernice/goes/event"
 	"github.com/nats-io/nats.go"
@@ -16,59 +16,69 @@ import (
 //	bus := NewEventBus(enc, Use(Core())) // or
 //	bus := NewEventBus(enc)
 func Core() Driver {
-	return core{}
+	return &core{subs: make(map[string]*subscription)}
 }
 
 const coreDriverName = "core"
 
-type core struct{}
+type core struct {
+	sync.RWMutex
 
-func (core core) name() string { return coreDriverName }
+	subs map[string]*subscription
+}
 
-func (core core) subscribe(ctx context.Context, bus *EventBus, event string) (*subscription, error) {
+func (core *core) name() string { return coreDriverName }
+
+func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (recipient, error) {
+	core.Lock()
+	defer core.Unlock()
+
+	// If a subscription for that event already exists, return it.
+	if sub, ok := core.subs[event]; ok {
+		return sub.subscribe(ctx)
+	}
+
 	msgs := make(chan []byte)
-	errs := make(chan error)
 
-	var sub *nats.Subscription
+	var nsub *nats.Subscription
 	var err error
 
 	subject := bus.subjectFunc(event)
 	if queue := bus.queueFunc(event); queue != "" {
-		sub, err = bus.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
+		nsub, err = bus.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
 			msgs <- msg.Data
 		})
 		if err != nil {
-			return nil, fmt.Errorf("subscribe with queue group: %w [subject=%v queue=%v]", err, subject, queue)
+			return recipient{}, fmt.Errorf("subscribe with queue group: %w [subject=%v queue=%v]", err, subject, queue)
 		}
 	} else {
-		sub, err = bus.conn.Subscribe(subject, func(msg *nats.Msg) {
-			msgs <- msg.Data
-		})
+		nsub, err = bus.conn.Subscribe(subject, func(msg *nats.Msg) { msgs <- msg.Data })
 		if err != nil {
-			return nil, fmt.Errorf("subscribe: %w [subject=%v]", err, subject)
+			return recipient{}, fmt.Errorf("subscribe: %w [subject=%v]", err, subject)
 		}
 	}
 
-	unsubbed := make(chan struct{})
+	sub := newSubscription(event, bus, nsub, msgs)
+	core.subs[event] = sub
+
+	rcpt, err := sub.subscribe(ctx)
+	if err != nil {
+		return rcpt, err
+	}
+
 	go func() {
-		defer close(unsubbed)
-		defer close(msgs)
-		defer close(errs)
-		<-ctx.Done()
-		if err := sub.Drain(); err != nil {
-			log.Printf("[goes/backend/nats.EventBus] drain subscription: %v [subject=%v, queue=%v]", err, sub.Subject, sub.Queue)
+		<-sub.stop
+		core.Lock()
+		defer core.Unlock()
+		if csub, ok := core.subs[event]; ok && csub == sub {
+			delete(core.subs, event)
 		}
 	}()
 
-	return &subscription{
-		sub:       sub,
-		msgs:      msgs,
-		errs:      errs,
-		unsubbbed: unsubbed,
-	}, nil
+	return rcpt, nil
 }
 
-func (core core) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
+func (core *core) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w [event=%v, type(data)=%T]", err, evt.Name(), evt.Data())

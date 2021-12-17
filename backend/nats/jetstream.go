@@ -7,8 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
+	"sync"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/nats-io/nats.go"
 )
@@ -27,100 +28,106 @@ import (
 //
 //	bus := NewEventBus(enc, Use(JetStream()), SubOpts(nats.DeliverAll(), nats.AckNone()))
 func JetStream() Driver {
-	return &jetStream{}
+	return &jetStream{
+		subs: make(map[string]*subscription),
+	}
 }
 
 const jetStreamDriverName = "jetstream"
 
-type jetStream struct{ ctx nats.JetStreamContext }
+type jetStream struct {
+	sync.RWMutex
 
-func (jetstream *jetStream) name() string { return jetStreamDriverName }
+	ctx  nats.JetStreamContext
+	subs map[string]*subscription
+}
 
-func (jetstream *jetStream) init(bus *EventBus) (err error) {
-	jetstream.ctx, err = bus.conn.JetStream()
+func (js *jetStream) name() string { return jetStreamDriverName }
+
+func (js *jetStream) init(bus *EventBus) (err error) {
+	js.ctx, err = bus.conn.JetStream()
 	if err != nil {
 		err = fmt.Errorf("get JetStreamContext: %w", err)
 	}
 	return
 }
 
-func (jetstream *jetStream) subscribe(ctx context.Context, bus *EventBus, event string) (*subscription, error) {
+func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string) (recipient, error) {
+	// If a subscription for that event already exists, return it.
+	if sub, ok := js.subscription(event); ok {
+		return sub.subscribe(ctx)
+	}
+
 	msgs := make(chan []byte)
-	errs := make(chan error)
 
 	subject := bus.subjectFunc(event)
 	queue := bus.queueFunc(event)
 	durableName := bus.durableFunc(subject, queue)
 
-	// bus.streamNameFunc uses either the user-provided StreamNameFunc option to
-	// generate the stream names or falls back to the defaultStreamNameFunc,
-	// which just returns the subject as it is.
-	streamName := strings.TrimSpace(bus.streamNameFunc(subject, queue))
+	stream := streamName(bus, event, subject, queue)
 
-	// Now, if the user provided a StreamNameFunc that returns an empty string,
-	// we also fall back to the defaultStreamNameFunc and print a warning that
-	// the option is overriden.
-	if streamName == "" {
-		streamName = defaultStreamNameFunc(subject, queue)
-
-		log.Printf(
-			"[goes/backend/nats.jetStream] User-provided StreamNameFunc returned an empty string. "+
-				"Using default stream name %q. [event=%v, subject=%v, queue=%v]",
-			streamName, event, subject, queue,
-		)
+	// Check if the subscription was created by another subscriber in the
+	// meantime and return the subscription if it exists.
+	js.Lock()
+	defer js.Unlock()
+	if sub, ok := js.subs[event]; ok {
+		return sub.subscribe(ctx)
 	}
 
-	// Create the JetStream stream (if it does not exist yet).
-	if err := jetstream.ensureStream(ctx, streamName, subject); err != nil {
-		return nil, fmt.Errorf("ensure stream: %w", err)
+	if err := js.ensureStream(ctx, stream, subject); err != nil {
+		return recipient{}, fmt.Errorf("ensure stream: %w", err)
 	}
 
-	var sub *nats.Subscription
-
-	handleMsg := func(msg *nats.Msg) { msgs <- msg.Data }
-
-	opts := append([]nats.SubOpt{
-		nats.BindStream(streamName),
-		nats.Durable(durableName),
+	opts := []nats.SubOpt{
+		nats.BindStream(stream),
 		nats.DeliverNew(),
 		nats.AckAll(),
-	}, bus.subOpts...)
+	}
+	if durableName != "" {
+		opts = append(opts, nats.Durable(durableName))
+	}
+
+	opts = append(opts, bus.subOpts...)
+
+	var nsub *nats.Subscription
+	handleMsg := func(msg *nats.Msg) { msgs <- msg.Data }
 
 	if queue != "" {
 		var err error
-		sub, err = jetstream.ctx.QueueSubscribe(subject, queue, handleMsg, opts...)
+		nsub, err = js.ctx.QueueSubscribe(subject, queue, handleMsg, opts...)
 		if err != nil {
-			return nil, fmt.Errorf("subscribe with queue group: %w [subject=%v, queue=%v]", err, subject, queue)
+			return recipient{}, fmt.Errorf("subscribe with queue group: %w [subject=%v, queue=%v]", err, subject, queue)
 		}
 	} else {
 		var err error
-		sub, err = jetstream.ctx.Subscribe(subject, handleMsg, opts...)
+		nsub, err = js.ctx.Subscribe(subject, handleMsg, opts...)
 		if err != nil {
-			return nil, fmt.Errorf("subscribe: %w [subject=%v]", err, subject)
+			return recipient{}, fmt.Errorf("subscribe: %w [event=%v, subject=%v, queue=%v, consumer=%v]", err, event, subject, queue, durableName)
 		}
 	}
 
-	unsubbed := make(chan struct{})
+	sub := newSubscription(event, bus, nsub, msgs)
+	js.subs[event] = sub
+
+	rcpt, err := sub.subscribe(ctx)
+	if err != nil {
+		return rcpt, err
+	}
+
 	go func() {
-		defer close(unsubbed)
-		defer close(msgs)
-		defer close(errs)
-		<-ctx.Done()
-		if err := sub.Unsubscribe(); err != nil && !errors.Is(err, nats.ErrConnectionClosed) {
-			log.Printf("[goes/backend/nats.EventBus] unsubscribe: %v [subject=%v, queue=%v]", err, sub.Subject, sub.Queue)
+		<-sub.stop
+		js.Lock()
+		defer js.Unlock()
+		if jssub, ok := js.subs[event]; ok && jssub == sub {
+			delete(js.subs, event)
 		}
 	}()
 
-	return &subscription{
-		sub:       sub,
-		msgs:      msgs,
-		errs:      errs,
-		unsubbbed: unsubbed,
-	}, nil
+	return rcpt, nil
 }
 
-func (jetstream *jetStream) ensureStream(ctx context.Context, streamName, subject string) error {
-	_, err := jetstream.ctx.StreamInfo(streamName)
+func (js *jetStream) ensureStream(ctx context.Context, streamName, subject string) error {
+	_, err := js.ctx.StreamInfo(streamName)
 	if err == nil {
 		// TODO(bounoable): Validate the stream config and return an error if it
 		// doesn't match.
@@ -133,7 +140,7 @@ func (jetstream *jetStream) ensureStream(ctx context.Context, streamName, subjec
 
 	subjects := []string{subject}
 
-	if _, err := jetstream.ctx.AddStream(&nats.StreamConfig{
+	if _, err := js.ctx.AddStream(&nats.StreamConfig{
 		Name:     streamName,
 		Subjects: subjects,
 	}); err != nil {
@@ -143,7 +150,7 @@ func (jetstream *jetStream) ensureStream(ctx context.Context, streamName, subjec
 	return nil
 }
 
-func (jetstream *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
+func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w [event=%v, type(data)=%T]", err, evt.Name(), evt.Data())
@@ -167,9 +174,51 @@ func (jetstream *jetStream) publish(ctx context.Context, bus *EventBus, evt even
 	}
 
 	subject := bus.subjectFunc(env.Name)
-	if _, err := jetstream.ctx.Publish(subject, buf.Bytes()); err != nil {
+	queue := bus.queueFunc(evt.Name())
+	streamName := streamName(bus, evt.Name(), subject, queue)
+
+	if err := js.ensureStream(ctx, streamName, subject); err != nil {
+		return fmt.Errorf("ensure stream: %w", err)
+	}
+
+	var opts []nats.PubOpt
+	if id := evt.ID(); id != uuid.Nil {
+		opts = append(opts, nats.MsgId(id.String()))
+	}
+
+	if _, err := js.ctx.Publish(subject, buf.Bytes(), opts...); err != nil {
 		return fmt.Errorf("jetstream: %w", err)
 	}
 
 	return nil
+}
+
+func (js *jetStream) subscription(event string) (*subscription, bool) {
+	js.RLock()
+	defer js.RUnlock()
+	sub, ok := js.subs[event]
+	return sub, ok
+}
+
+// replaces illegal stream name characters with "_".
+func streamName(bus *EventBus, event, subject, queue string) string {
+	// bus.streamNameFunc uses either the user-provided StreamNameFunc option to
+	// generate the stream names or falls back to the defaultStreamNameFunc,
+	// which just returns the subject as it is.
+	name := replacer.Replace(bus.streamNameFunc(subject, queue))
+
+	// If the user provided a StreamNameFunc that returns an empty string, we
+	// fall back to the defaultStreamNameFunc and print a warning that the
+	// option was overriden.
+	if name == "" {
+		name = replacer.Replace(defaultStreamNameFunc(subject, queue))
+
+		log.Printf(
+			"[goes/backend/nats.jetStream] User-provided StreamNameFunc returned an empty string. "+
+				"Using default stream name %q. [event=%v, subject=%v, queue=%v]",
+			name, event, subject, queue,
+		)
+	}
+
+	return name
 }
