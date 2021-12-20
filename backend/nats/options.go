@@ -112,7 +112,7 @@ func QueueGroup(queue string) EventBusOption {
 
 // WithLoadBalancer returns a QueueGroupByFunc option that load-balances events
 // between instances of a replicted (micro-)service. The provided serviceName is
-// used as the queue group name.
+// used as the queue group name. Any "." in serviceName are replaced with "_".
 //
 // Can also be set with the `NATS_LOAD_BALANCER=foo` environment variable.
 //
