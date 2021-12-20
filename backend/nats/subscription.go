@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"log"
 
@@ -191,7 +192,7 @@ func (sub *subscription) subscribe(ctx context.Context) (recipient, error) {
 }
 
 func (sub *subscription) close() {
-	if err := sub.sub.Unsubscribe(); err != nil {
+	if err := sub.sub.Unsubscribe(); err != nil && !errors.Is(err, nats.ErrConnectionClosed) {
 		log.Printf(
 			"[goes/backend/nats.subscription] Failed to unsubscribe from NATS: %v [event=%v, subject=%v]",
 			err, sub.event, sub.sub.Subject,

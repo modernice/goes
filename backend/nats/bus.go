@@ -158,6 +158,7 @@ func (bus *EventBus) Disconnect(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
+		bus.conn = nil
 		return ctx.Err()
 	case <-closed:
 		close(bus.stop)
