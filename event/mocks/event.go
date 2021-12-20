@@ -10,7 +10,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
-	event "github.com/modernice/goes/event"
 )
 
 // MockEvent is a mock of Event interface.
@@ -36,53 +35,27 @@ func (m *MockEvent) EXPECT() *MockEventMockRecorder {
 	return m.recorder
 }
 
-// AggregateID mocks base method.
-func (m *MockEvent) AggregateID() uuid.UUID {
+// Aggregate mocks base method.
+func (m *MockEvent) Aggregate() (uuid.UUID, string, int) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AggregateID")
+	ret := m.ctrl.Call(m, "Aggregate")
 	ret0, _ := ret[0].(uuid.UUID)
-	return ret0
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(int)
+	return ret0, ret1, ret2
 }
 
-// AggregateID indicates an expected call of AggregateID.
-func (mr *MockEventMockRecorder) AggregateID() *gomock.Call {
+// Aggregate indicates an expected call of Aggregate.
+func (mr *MockEventMockRecorder) Aggregate() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateID", reflect.TypeOf((*MockEvent)(nil).AggregateID))
-}
-
-// AggregateName mocks base method.
-func (m *MockEvent) AggregateName() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AggregateName")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// AggregateName indicates an expected call of AggregateName.
-func (mr *MockEventMockRecorder) AggregateName() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateName", reflect.TypeOf((*MockEvent)(nil).AggregateName))
-}
-
-// AggregateVersion mocks base method.
-func (m *MockEvent) AggregateVersion() int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AggregateVersion")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// AggregateVersion indicates an expected call of AggregateVersion.
-func (mr *MockEventMockRecorder) AggregateVersion() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateVersion", reflect.TypeOf((*MockEvent)(nil).AggregateVersion))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Aggregate", reflect.TypeOf((*MockEvent)(nil).Aggregate))
 }
 
 // Data mocks base method.
-func (m *MockEvent) Data() event.Data {
+func (m *MockEvent) Data() interface{} {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Data")
-	ret0, _ := ret[0].(event.Data)
+	ret0, _ := ret[0].(interface{})
 	return ret0
 }
 
@@ -132,27 +105,4 @@ func (m *MockEvent) Time() time.Time {
 func (mr *MockEventMockRecorder) Time() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Time", reflect.TypeOf((*MockEvent)(nil).Time))
-}
-
-// MockData is a mock of Data interface.
-type MockData struct {
-	ctrl     *gomock.Controller
-	recorder *MockDataMockRecorder
-}
-
-// MockDataMockRecorder is the mock recorder for MockData.
-type MockDataMockRecorder struct {
-	mock *MockData
-}
-
-// NewMockData creates a new mock instance.
-func NewMockData(ctrl *gomock.Controller) *MockData {
-	mock := &MockData{ctrl: ctrl}
-	mock.recorder = &MockDataMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockData) EXPECT() *MockDataMockRecorder {
-	return m.recorder
 }

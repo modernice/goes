@@ -33,7 +33,7 @@ func SkipVersion(v ...int) MakeOption {
 }
 
 // Make returns n Events with the specified name and data.
-func Make(name string, data event.Data, n int, opts ...MakeOption) []event.Event {
+func Make(name string, data interface{}, n int, opts ...MakeOption) []event.Event {
 	var cfg makeConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -57,7 +57,7 @@ func (cfg makeConfig) aggregateVersion(b, i int, skipped *int) int {
 	return v
 }
 
-func makeEvents(name string, data event.Data, n int) []event.Event {
+func makeEvents(name string, data interface{}, n int) []event.Event {
 	events := make([]event.Event, n)
 	for i := range events {
 		events[i] = event.New(name, data)
@@ -65,7 +65,7 @@ func makeEvents(name string, data event.Data, n int) []event.Event {
 	return events
 }
 
-func makeAggregateEvents(name string, data event.Data, n int, cfg makeConfig) []event.Event {
+func makeAggregateEvents(name string, data interface{}, n int, cfg makeConfig) []event.Event {
 	events := make([]event.Event, 0, n*len(cfg.as))
 	for _, a := range cfg.as {
 		var skipped int

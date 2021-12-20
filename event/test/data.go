@@ -4,19 +4,19 @@ import (
 	"github.com/modernice/goes/codec"
 )
 
-// FooEventData is a testing event.Data.
+// FooEventData is a testing event data.
 type FooEventData struct{ A string }
 
-// BarEventData is a testing event.Data.
+// BarEventData is a testing event data.
 type BarEventData struct{ A string }
 
-// BazEventData is a testing event.Data.
+// BazEventData is a testing event data.
 type BazEventData struct{ A string }
 
-// FoobarEventData is a testing event.Data.
+// FoobarEventData is a testing event data.
 type FoobarEventData struct{ A int }
 
-// UnregisteredEventData is a testing event.Data that's not registered in the
+// UnregisteredEventData is a testing event data that's not registered in the
 // Encoder returned by NewEncoder.
 type UnregisteredEventData struct{ A string }
 

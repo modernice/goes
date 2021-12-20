@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/event"
 )
 
 var (
@@ -53,7 +52,7 @@ type ExpectedChangeError struct {
 	Matches int
 
 	cfg          changeConfig
-	mismatchData []event.Data
+	mismatchData []interface{}
 }
 
 func (err ExpectedChangeError) Error() string {
@@ -96,7 +95,7 @@ func (err UnexpectedChangeError) Error() string {
 type ChangeOption func(*changeConfig)
 
 type changeConfig struct {
-	eventData event.Data
+	eventData interface{}
 	atLeast   int
 	atMost    int
 	exactly   int
@@ -104,14 +103,14 @@ type changeConfig struct {
 
 // EventData returns a ChangeOption that also tests the event data of
 // changes instead of just the event name.
-func EventData(d event.Data) ChangeOption {
+func EventData(d interface{}) ChangeOption {
 	return func(cfg *changeConfig) {
 		cfg.eventData = d
 	}
 }
 
 // Deprecated: Use EventData instead.
-func WithEventData(d event.Data) ChangeOption {
+func WithEventData(d interface{}) ChangeOption {
 	return EventData(d)
 }
 
@@ -154,7 +153,7 @@ func Change(t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeO
 	}
 
 	var matches int
-	var mismatchData []event.Data
+	var mismatchData []interface{}
 
 	for _, change := range a.AggregateChanges() {
 		if change.Name() != eventName {

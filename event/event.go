@@ -42,7 +42,7 @@ type Event interface {
 	// Time returns the time of the Event.
 	Time() stdtime.Time
 	// Data returns the Event Data.
-	Data() Data
+	Data() interface{}
 
 	// Aggregate returns the id, name and version of the aggregate that the
 	// event belongs to. Aggregate should return zero values if the event is not
@@ -50,21 +50,29 @@ type Event interface {
 	Aggregate() (id uuid.UUID, name string, version int)
 }
 
-// Data is the data of an Event.
-type Data interface{}
+// Option is an event option.
+type Option func(*E)
 
-// Option is an Event option.
-type Option func(*event)
-
-type event struct {
+// E implements Event.
+type E struct {
 	id               uuid.UUID
 	name             string
 	time             stdtime.Time
-	data             Data
+	data             interface{}
 	aggregateName    string
 	aggregateID      uuid.UUID
 	aggregateVersion int
 }
+
+// type d struct {
+// 	ID               uuid.UUID
+// 	Name             string
+// 	Time             stdtime.Time
+// 	Data             Data
+// 	AggregateName    string
+// 	AggregateID      uuid.UUID
+// 	AggregateVersion int
+// }
 
 // New creates an Event with the given name and Data. A UUID is generated for
 // the Event and its time is set to xtime.Now().
@@ -74,8 +82,8 @@ type event struct {
 //	Time(time.Time): Use a custom Time
 //	Aggregate(string, uuid.UUID, int): Add Aggregate data
 //	Previous(event.Event): Set Aggregate data based on previous Event
-func New(name string, data Data, opts ...Option) Event {
-	evt := event{
+func New(name string, data interface{}, opts ...Option) Event {
+	evt := E{
 		id:   uuid.New(),
 		name: name,
 		time: xtime.Now(),
@@ -89,21 +97,21 @@ func New(name string, data Data, opts ...Option) Event {
 
 // ID returns an Option that overrides the auto-generated UUID of an Event.
 func ID(id uuid.UUID) Option {
-	return func(evt *event) {
+	return func(evt *E) {
 		evt.id = id
 	}
 }
 
 // Time returns an Option that overrides the auto-generated timestamp of an Event.
 func Time(t stdtime.Time) Option {
-	return func(evt *event) {
+	return func(evt *E) {
 		evt.time = t
 	}
 }
 
 // Aggregate returns an Option that links an Event to an Aggregate.
 func Aggregate(id uuid.UUID, name string, version int) Option {
-	return func(evt *event) {
+	return func(evt *E) {
 		evt.aggregateName = name
 		evt.aggregateID = id
 		evt.aggregateVersion = version
@@ -192,36 +200,24 @@ func AggregateVersion(evt Event) int {
 	return v
 }
 
-func (evt event) ID() uuid.UUID {
+func (evt E) ID() uuid.UUID {
 	return evt.id
 }
 
-func (evt event) Name() string {
+func (evt E) Name() string {
 	return evt.name
 }
 
-func (evt event) Time() stdtime.Time {
+func (evt E) Time() stdtime.Time {
 	return evt.time
 }
 
-func (evt event) Data() Data {
+func (evt E) Data() interface{} {
 	return evt.data
 }
 
-func (evt event) Aggregate() (uuid.UUID, string, int) {
+func (evt E) Aggregate() (uuid.UUID, string, int) {
 	return evt.aggregateID, evt.aggregateName, evt.aggregateVersion
-}
-
-func (evt event) AggregateName() string {
-	return evt.aggregateName
-}
-
-func (evt event) AggregateID() uuid.UUID {
-	return evt.aggregateID
-}
-
-func (evt event) AggregateVersion() int {
-	return evt.aggregateVersion
 }
 
 // Test tests the Event evt against the Query q and returns true if q should

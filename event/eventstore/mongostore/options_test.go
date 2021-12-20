@@ -66,7 +66,7 @@ func TestCollection(t *testing.T) {
 		mongostore.Collection("custom"),
 		mongostore.URL(os.Getenv("MONGOSTORE_URL")),
 	)
-	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 1))
+	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 1))
 	if err := store.Insert(context.Background(), evt); err != nil {
 		t.Fatalf("store.Insert: %#v", err)
 	}

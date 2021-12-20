@@ -128,7 +128,7 @@ func NextVersion(a Aggregate) int {
 //
 //	var foo aggregate.Aggregate
 //	evt := aggregate.NextEvent(foo, "event-name", ...)
-func NextEvent(a Aggregate, name string, data event.Data, opts ...event.Option) event.Event {
+func NextEvent(a Aggregate, name string, data interface{}, opts ...event.Option) event.Event {
 	opts = append([]event.Option{
 		event.Aggregate(
 			a.AggregateID(),
