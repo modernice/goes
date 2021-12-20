@@ -10,8 +10,8 @@ import (
 func FilterAggregate(events []event.Event, a aggregate.Aggregate) []event.Event {
 	filtered := make([]event.Event, 0, len(events))
 	for _, evt := range events {
-		if evt.AggregateName() == a.AggregateName() &&
-			evt.AggregateID() == a.AggregateID() {
+		id, name, _ := evt.Aggregate()
+		if name == a.AggregateName() && id == a.AggregateID() {
 			filtered = append(filtered, evt)
 		}
 	}

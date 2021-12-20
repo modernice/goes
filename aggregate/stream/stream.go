@@ -211,9 +211,11 @@ L:
 
 			s.events <- evt
 
+			id, name, _ := evt.Aggregate()
+
 			j := job{
-				name: evt.AggregateName(),
-				id:   evt.AggregateID(),
+				name: name,
+				id:   id,
 			}
 
 			pending[j] = true
@@ -256,7 +258,8 @@ func (s *stream) groupEvents() {
 				events = nil
 				break
 			}
-			j := job{evt.AggregateName(), evt.AggregateID()}
+			id, name, _ := evt.Aggregate()
+			j := job{name, id}
 			groups[j] = append(groups[j], evt)
 		case req, ok := <-groupReqs:
 			if !ok {

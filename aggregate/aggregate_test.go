@@ -45,9 +45,9 @@ func TestBase_TrackChange(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
 	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)),
 	}
 	b.TrackChange(events...)
 	if changes := b.AggregateChanges(); !reflect.DeepEqual(events, changes) {
@@ -59,9 +59,9 @@ func TestBase_FlushChanges(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
 	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)),
 	}
 
 	b.TrackChange(events...)
@@ -92,9 +92,9 @@ func TestApplyHistory(t *testing.T) {
 	)
 
 	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 3)),
 	}
 
 	if err := aggregate.ApplyHistory(foo, events...); err != nil {
@@ -115,7 +115,7 @@ func TestCurrentVersion(t *testing.T) {
 		t.Errorf("current aggregate version should be %d; got %d", 0, v)
 	}
 
-	evt := event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateName(), a.AggregateID(), 1))
+	evt := event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 1))
 
 	a.TrackChange(evt)
 
@@ -123,7 +123,7 @@ func TestCurrentVersion(t *testing.T) {
 		t.Errorf("current aggregate version should be %d; got %d", 1, v)
 	}
 
-	evt = event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateName(), a.AggregateID(), 2))
+	evt = event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 2))
 
 	a.TrackChange(evt)
 
@@ -137,16 +137,18 @@ func TestNextEvent(t *testing.T) {
 	data := etest.FooEventData{A: "foo"}
 	evt := aggregate.NextEvent(a, "bar", data)
 
-	if evt.AggregateName() != a.AggregateName() {
-		t.Errorf("Event should have AggregateName %q; is %q", a.AggregateName(), evt.AggregateName())
+	id, name, v := evt.Aggregate()
+
+	if name != a.AggregateName() {
+		t.Errorf("Event should have AggregateName %q; is %q", a.AggregateName(), name)
 	}
 
-	if evt.AggregateID() != a.AggregateID() {
-		t.Errorf("Event should have AggregateID %s; is %s", a.AggregateID(), evt.AggregateID())
+	if id != a.AggregateID() {
+		t.Errorf("Event should have AggregateID %s; is %s", a.AggregateID(), id)
 	}
 
-	if evt.AggregateVersion() != 4 {
-		t.Errorf("Event should have AggregateVersion 4; is %d", evt.AggregateVersion())
+	if v != 4 {
+		t.Errorf("Event should have AggregateVersion 4; is %d", v)
 	}
 
 	if evt.Data() != data {

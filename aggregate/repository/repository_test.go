@@ -35,9 +35,9 @@ func TestRepository_Save(t *testing.T) {
 
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", etest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 1)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 2)),
+		event.New("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 3)),
 	}
 
 	flushed := make(chan struct{})
@@ -207,9 +207,9 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	aggregateName := "foo"
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateName, aggregateID, 3)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 1)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 2)),
+		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 3)),
 	}
 
 	org := test.NewFoo(aggregateID)
@@ -339,7 +339,7 @@ func TestRepository_Query_name(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := aevents[len(aevents)-1].AggregateVersion()
+		want := event.AggregateVersion(aevents[len(aevents)-1])
 		if a.AggregateVersion() != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, a.AggregateVersion())
 		}
@@ -372,7 +372,7 @@ func TestRepository_Query_name_multiple(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := aevents[len(aevents)-1].AggregateVersion()
+		want := event.AggregateVersion(aevents[len(aevents)-1])
 		if a.AggregateVersion() != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, a.AggregateVersion())
 		}
@@ -407,7 +407,7 @@ func TestRepository_Query_id(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := aevents[len(aevents)-1].AggregateVersion()
+		want := event.AggregateVersion(aevents[len(aevents)-1])
 		if a.AggregateVersion() != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, a.AggregateVersion())
 		}
@@ -443,7 +443,7 @@ func TestRepository_Query_version(t *testing.T) {
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
 		aevents = event.Sort(aevents, event.SortAggregateVersion, event.SortAsc)
-		want := aevents[len(aevents)-1].AggregateVersion()
+		want := event.AggregateVersion(aevents[len(aevents)-1])
 		if want > 20 {
 			want = 20
 		}

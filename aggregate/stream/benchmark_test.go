@@ -196,7 +196,7 @@ func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.E
 			evt := event.New(
 				randomName(),
 				test.FooEventData{},
-				event.Aggregate(a.AggregateName(), a.AggregateID(), a.AggregateVersion()+i+1),
+				event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+i+1),
 			)
 			events[i] = evt
 		}

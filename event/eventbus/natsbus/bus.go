@@ -376,14 +376,16 @@ func (bus *Bus) publish(evt event.Event) error {
 
 	b := buf.Bytes()
 
+	id, name, v := evt.Aggregate()
+
 	env := envelope{
 		ID:               evt.ID(),
 		Name:             evt.Name(),
 		Time:             evt.Time(),
 		Data:             b,
-		AggregateName:    evt.AggregateName(),
-		AggregateID:      evt.AggregateID(),
-		AggregateVersion: evt.AggregateVersion(),
+		AggregateName:    name,
+		AggregateID:      id,
+		AggregateVersion: v,
 	}
 
 	buf = bytes.Buffer{}
@@ -724,8 +726,8 @@ func (bus *Bus) workSubscriber(sub *subscription) {
 				event.ID(env.ID),
 				event.Time(env.Time),
 				event.Aggregate(
-					env.AggregateName,
 					env.AggregateID,
+					env.AggregateName,
 					env.AggregateVersion,
 				),
 			)

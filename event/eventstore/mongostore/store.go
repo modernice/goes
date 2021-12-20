@@ -241,8 +241,7 @@ func (s *Store) validateEventVersions(ctx mongo.SessionContext, events []event.E
 		return state{}, nil
 	}
 
-	aggregateName := events[0].AggregateName()
-	aggregateID := events[0].AggregateID()
+	aggregateID, aggregateName, aggregateVersion := events[0].Aggregate()
 
 	if aggregateName == "" || aggregateID == uuid.Nil {
 		return state{}, nil
@@ -268,7 +267,7 @@ func (s *Store) validateEventVersions(ctx mongo.SessionContext, events []event.E
 		return st, nil
 	}
 
-	if st.Version >= events[0].AggregateVersion() {
+	if st.Version >= aggregateVersion {
 		return st, &VersionError{
 			AggregateName:  aggregateName,
 			AggregateID:    aggregateID,
@@ -284,7 +283,7 @@ func (s *Store) updateState(ctx mongo.SessionContext, st state, events []event.E
 	if len(events) == 0 || st.AggregateName == "" || st.AggregageID == uuid.Nil {
 		return nil
 	}
-	st.Version = events[len(events)-1].AggregateVersion()
+	st.Version = event.AggregateVersion(events[len(events)-1])
 	if _, err := s.states.ReplaceOne(
 		ctx,
 		bson.D{
@@ -310,14 +309,15 @@ func (s *Store) insert(ctx context.Context, events []event.Event) error {
 		if err := s.enc.Encode(&data, evt.Name(), evt.Data()); err != nil {
 			return fmt.Errorf("encode %q event data: %w", evt.Name(), err)
 		}
+		id, name, v := evt.Aggregate()
 		docs[i] = entry{
 			ID:               evt.ID(),
 			Name:             evt.Name(),
 			Time:             evt.Time(),
 			TimeNano:         int64(evt.Time().UnixNano()),
-			AggregateName:    evt.AggregateName(),
-			AggregateID:      evt.AggregateID(),
-			AggregateVersion: evt.AggregateVersion(),
+			AggregateName:    name,
+			AggregateID:      id,
+			AggregateVersion: v,
 			Data:             data.Bytes(),
 		}
 	}
@@ -386,20 +386,21 @@ func (s *Store) Delete(ctx context.Context, events ...event.Event) error {
 			return abort(err)
 		}
 
-		aggregateName := events[0].AggregateName()
-		aggregateID := events[0].AggregateID()
-		aggregateVersion := events[0].AggregateVersion()
+		aggregateName := event.AggregateName(events[0])
+		aggregateID := event.AggregateID(events[0])
+		aggregateVersion := event.AggregateVersion(events[0])
 
 		if aggregateName == "" || aggregateID == uuid.Nil || aggregateVersion != 1 {
 			return commit()
 		}
 
 		for _, evt := range events[1:] {
-			if evt.AggregateName() != aggregateName || evt.AggregateID() != aggregateID {
+			id, name, v := evt.Aggregate()
+			if name != aggregateName || id != aggregateID {
 				return commit()
 			}
 
-			if v := evt.AggregateVersion(); v > aggregateVersion {
+			if v > aggregateVersion {
 				aggregateVersion = v
 			}
 		}
@@ -574,7 +575,7 @@ func (e entry) event(enc codec.Encoding) (event.Event, error) {
 		data,
 		event.ID(e.ID),
 		event.Time(stdtime.Unix(0, e.TimeNano)),
-		event.Aggregate(e.AggregateName, e.AggregateID, e.AggregateVersion),
+		event.Aggregate(e.AggregateID, e.AggregateName, e.AggregateVersion),
 	), nil
 }
 
@@ -582,7 +583,7 @@ func (err *VersionError) Error() string {
 	return fmt.Sprintf(
 		"event should have version %d, but has version %d",
 		err.CurrentVersion+1,
-		err.Event.AggregateVersion(),
+		event.AggregateVersion(err.Event),
 	)
 }
 

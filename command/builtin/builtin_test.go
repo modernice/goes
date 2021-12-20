@@ -111,16 +111,16 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Data() should return type %T; got %T", data, evt.Data())
 	}
 
-	if evt.AggregateName() != aggregateName {
-		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, evt.AggregateName())
+	if event.AggregateName(evt) != aggregateName {
+		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, event.AggregateName(evt))
 	}
 
-	if evt.AggregateID() != aggregateID {
-		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, evt.AggregateID())
+	if event.AggregateID(evt) != aggregateID {
+		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, event.AggregateID(evt))
 	}
 
-	if evt.AggregateVersion() != 0 {
-		t.Fatalf("evt.AggregateVersion() should return 0; got %v", evt.AggregateVersion())
+	if event.AggregateVersion(evt) != 0 {
+		t.Fatalf("evt.AggregateVersion() should return 0; got %v", event.AggregateVersion(evt))
 	}
 
 	if data.Version != 3 {

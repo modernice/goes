@@ -36,7 +36,7 @@ func TestMake_forAggregate(t *testing.T) {
 			data,
 			event.ID(evt.ID()),
 			event.Time(evt.Time()),
-			event.Aggregate(a.AggregateName(), a.AggregateID(), i+1),
+			event.Aggregate(a.AggregateID(), a.AggregateName(), i+1),
 		)
 		if !event.Equal(evt, want) {
 			t.Errorf("made wrong event\n\nwant: %#v\n\ngot: %#v\n\n", want, evt)
@@ -64,7 +64,7 @@ func TestMake_forAggregate_many(t *testing.T) {
 				data,
 				event.ID(evt.ID()),
 				event.Time(evt.Time()),
-				event.Aggregate(a.AggregateName(), a.AggregateID(), i+1),
+				event.Aggregate(a.AggregateID(), a.AggregateName(), i+1),
 			)
 			if !event.Equal(evt, want) {
 				t.Errorf("made wrong event\n\nwant: %#v\n\ngot: %#v\n\n", want, evt)
@@ -91,7 +91,7 @@ func TestMake_skipVersion(t *testing.T) {
 			data,
 			event.ID(evt.ID()),
 			event.Time(evt.Time()),
-			event.Aggregate(a.AggregateName(), a.AggregateID(), v),
+			event.Aggregate(a.AggregateID(), a.AggregateName(), v),
 		)
 		if !event.Equal(evt, want) {
 			t.Errorf("made wrong event\n\nwant: %#v\n\ngot: %#v\n\n", want, evt)
@@ -102,7 +102,7 @@ func TestMake_skipVersion(t *testing.T) {
 func eventsFor(id uuid.UUID, events ...event.Event) []event.Event {
 	result := make([]event.Event, 0, len(events))
 	for _, evt := range events {
-		if evt.AggregateID() == id {
+		if event.AggregateID(evt) == id {
 			result = append(result, evt)
 		}
 	}

@@ -228,9 +228,10 @@ func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate
 	go func() {
 		defer close(out)
 		for evt := range events {
+			id, name, _ := evt.Aggregate()
 			tuple := aggregate.Tuple{
-				Name: evt.AggregateName(),
-				ID:   evt.AggregateID(),
+				Name: name,
+				ID:   id,
 			}
 
 			if found[tuple] {

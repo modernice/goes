@@ -60,7 +60,7 @@ func Handle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opt
 		deletedEvent := event.New(
 			AggregateDeleted,
 			AggregateDeletedData{Version: a.AggregateVersion()},
-			event.Aggregate(cmd.AggregateName(), cmd.AggregateID(), 0),
+			event.Aggregate(cmd.AggregateID(), cmd.AggregateName(), 0),
 		)
 
 		if err := repo.Delete(ctx, a); err != nil {

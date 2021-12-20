@@ -109,23 +109,26 @@ type SortDirection int
 
 // Compare compares a and b and returns -1 if a < b, 0 is a == b or 1 if a > b.
 func (s Sorting) Compare(a, b Event) (cmp int8) {
+	aid, aname, av := a.Aggregate()
+	bid, bname, bv := b.Aggregate()
+
 	switch s {
 	case SortTime:
 		return boolToCmp(a.Time().Before(b.Time()), a.Time().Equal(b.Time()))
 	case SortAggregateName:
 		return boolToCmp(
-			a.AggregateName() < b.AggregateName(),
-			a.AggregateName() == b.AggregateName(),
+			aname < bname,
+			aname == bname,
 		)
 	case SortAggregateID:
 		return boolToCmp(
-			a.AggregateID().String() < b.AggregateID().String(),
-			a.AggregateID() == b.AggregateID(),
+			aid.String() < bid.String(),
+			aid == bid,
 		)
 	case SortAggregateVersion:
 		return boolToCmp(
-			a.AggregateVersion() < b.AggregateVersion(),
-			a.AggregateVersion() == b.AggregateVersion(),
+			av < bv,
+			av == bv,
 		)
 	}
 	return

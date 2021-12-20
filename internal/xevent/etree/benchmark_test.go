@@ -93,6 +93,6 @@ func stackInsert(stack []event.Event, evt event.Event, s bool) []event.Event {
 
 func sortStack(stack []event.Event) {
 	sort.Slice(stack, func(i, j int) bool {
-		return stack[i].AggregateVersion() <= stack[j].AggregateVersion()
+		return event.AggregateVersion(stack[i]) <= event.AggregateVersion(stack[j])
 	})
 }

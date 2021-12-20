@@ -40,9 +40,9 @@ func TestApplyEventFunc(t *testing.T) {
 func TestTrackChangeFunc(t *testing.T) {
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate("foo", aggregateID, 3)),
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate(aggregateID, "foo", 1)),
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate(aggregateID, "foo", 2)),
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate(aggregateID, "foo", 3)),
 	}
 
 	var tracked bool
@@ -67,9 +67,9 @@ func TestFlushChangesFunc(t *testing.T) {
 	aggregateID := uuid.New()
 	foo := test.NewFoo(aggregateID, test.FlushChangesFunc(func(flush func()) {}))
 	events := []event.Event{
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 1)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 2)),
-		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateName(), foo.AggregateID(), 3)),
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 1)),
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 2)),
+		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 3)),
 	}
 	foo.TrackChange(events...)
 

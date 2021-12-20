@@ -21,11 +21,11 @@ func TestSort(t *testing.T) {
 		uuid.MustParse("E0000000-0000-0000-0000-000000000000"),
 	}
 	events := []event.Event{
-		event.New("foo3", test.FooEventData{}, event.Time(now), event.Aggregate("foo3", aggregateIDs[0], 3)),
-		event.New("foo1", test.FooEventData{}, event.Time(now.Add(24*time.Hour)), event.Aggregate("foo1", aggregateIDs[1], 1)),
-		event.New("foo5", test.FooEventData{}, event.Time(now.Add(12*time.Hour)), event.Aggregate("foo5", aggregateIDs[2], 2)),
-		event.New("foo4", test.FooEventData{}, event.Time(now.Add(time.Hour)), event.Aggregate("foo4", aggregateIDs[3], 5)),
-		event.New("foo2", test.FooEventData{}, event.Time(now.Add(48*time.Hour)), event.Aggregate("foo2", aggregateIDs[4], 4)),
+		event.New("foo3", test.FooEventData{}, event.Time(now), event.Aggregate(aggregateIDs[0], "foo3", 3)),
+		event.New("foo1", test.FooEventData{}, event.Time(now.Add(24*time.Hour)), event.Aggregate(aggregateIDs[1], "foo1", 1)),
+		event.New("foo5", test.FooEventData{}, event.Time(now.Add(12*time.Hour)), event.Aggregate(aggregateIDs[2], "foo5", 2)),
+		event.New("foo4", test.FooEventData{}, event.Time(now.Add(time.Hour)), event.Aggregate(aggregateIDs[3], "foo4", 5)),
+		event.New("foo2", test.FooEventData{}, event.Time(now.Add(48*time.Hour)), event.Aggregate(aggregateIDs[4], "foo2", 4)),
 	}
 
 	tests := []struct {
@@ -96,12 +96,12 @@ func TestSortMulti(t *testing.T) {
 	now := xtime.Now()
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Time(now), event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", test.FooEventData{}, event.Time(now), event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", test.FooEventData{}, event.Time(now), event.Aggregate("foo", aggregateID, 3)),
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(12*time.Hour)), event.Aggregate("bar", aggregateID, 1)),
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(12*time.Hour)), event.Aggregate("bar", aggregateID, 2)),
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(12*time.Hour)), event.Aggregate("bar", aggregateID, 3)),
+		event.New("foo", test.FooEventData{}, event.Time(now), event.Aggregate(aggregateID, "foo", 1)),
+		event.New("foo", test.FooEventData{}, event.Time(now), event.Aggregate(aggregateID, "foo", 2)),
+		event.New("foo", test.FooEventData{}, event.Time(now), event.Aggregate(aggregateID, "foo", 3)),
+		event.New("foo", test.FooEventData{}, event.Time(now.Add(12*time.Hour)), event.Aggregate(aggregateID, "bar", 1)),
+		event.New("foo", test.FooEventData{}, event.Time(now.Add(12*time.Hour)), event.Aggregate(aggregateID, "bar", 2)),
+		event.New("foo", test.FooEventData{}, event.Time(now.Add(12*time.Hour)), event.Aggregate(aggregateID, "bar", 3)),
 	}
 	shuffled := xevent.Shuffle(events)
 

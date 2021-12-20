@@ -131,8 +131,8 @@ func NextVersion(a Aggregate) int {
 func NextEvent(a Aggregate, name string, data event.Data, opts ...event.Option) event.Event {
 	opts = append([]event.Option{
 		event.Aggregate(
-			a.AggregateName(),
 			a.AggregateID(),
+			a.AggregateName(),
 			NextVersion(a),
 		),
 		event.Time(nextTime(a)),
@@ -185,7 +185,7 @@ func (b *Base) FlushChanges() {
 	}
 	// b.TrackChange guarantees a correct event order, so we can safely assume
 	// the last element has the highest version.
-	b.Version = b.Changes[len(b.Changes)-1].AggregateVersion()
+	b.Version = event.AggregateVersion(b.Changes[len(b.Changes)-1])
 	b.Changes = b.Changes[:0]
 }
 

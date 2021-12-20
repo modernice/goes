@@ -31,8 +31,8 @@ func TestMake(t *testing.T) {
 		}
 
 		evt := event.New("foo", test.FooEventData{}, event.Aggregate(
-			a.AggregateName(),
 			a.AggregateID(),
+			a.AggregateName(),
 			a.AggregateVersion()+1,
 		))
 		a.ApplyEvent(evt)

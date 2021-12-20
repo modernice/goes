@@ -48,7 +48,7 @@ func testSingleInsert(t *testing.T, newStore EventStoreFactory) {
 	store := newStore(test.NewEncoder())
 
 	// inserting an event shouldn't fail
-	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("bar", uuid.New(), 3))
+	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "bar", 3))
 	if err := store.Insert(context.Background(), evt); err != nil {
 		t.Fatalf("inserting an event shouldn't fail: %v", err)
 	}
@@ -90,12 +90,12 @@ func testInvalidMultiInsert(t *testing.T, newStore EventStoreFactory) {
 	aggregateID := uuid.New()
 	eventID := uuid.New()
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 0)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 3), event.ID(eventID)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", aggregateID, 4), event.ID(eventID)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 0)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3), event.ID(eventID)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 4), event.ID(eventID)),
 	}
 
 	if err := store.Insert(context.Background(), events...); err == nil {
@@ -266,8 +266,8 @@ func testQuery(t *testing.T, newStore EventStoreFactory) {
 func testQueryName(t *testing.T, newStore EventStoreFactory) {
 	events := []event.Event{
 		event.New("foo", test.FooEventData{A: "foo"}),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 10)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 20)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 10)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 20)),
 	}
 
 	// given a store with 3 "foo" events
@@ -337,8 +337,8 @@ func testQueryTime(t *testing.T, newStore EventStoreFactory) {
 func testQueryAggregateName(t *testing.T, newStore EventStoreFactory) {
 	events := []event.Event{
 		event.New("foo", test.FooEventData{A: "foo"}),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 10)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 20)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 10)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 20)),
 	}
 
 	store, err := makeStore(newStore, events...)
@@ -357,9 +357,9 @@ func testQueryAggregateName(t *testing.T, newStore EventStoreFactory) {
 
 func testQueryAggregateID(t *testing.T, newStore EventStoreFactory) {
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 5)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 10)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 20)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 5)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 10)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 20)),
 	}
 
 	store, err := makeStore(newStore, events...)
@@ -368,8 +368,8 @@ func testQueryAggregateID(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	result, err := runQuery(store, query.New(query.AggregateID(
-		events[0].AggregateID(),
-		events[2].AggregateID(),
+		event.AggregateID(events[0]),
+		event.AggregateID(events[2]),
 	)))
 	if err != nil {
 		t.Fatal(err)
@@ -381,11 +381,11 @@ func testQueryAggregateID(t *testing.T, newStore EventStoreFactory) {
 
 func testQueryAggregateVersion(t *testing.T, newStore EventStoreFactory) {
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 4)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 8)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 16)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 32)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 2)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 4)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 8)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 16)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 32)),
 	}
 
 	store, err := makeStore(newStore, events...)
@@ -408,12 +408,12 @@ func testQueryAggregateVersion(t *testing.T, newStore EventStoreFactory) {
 func testQueryAggregate(t *testing.T, newStore EventStoreFactory) {
 	id := uuid.New()
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", uuid.New(), 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foo", id, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("bar", uuid.New(), 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("bar", id, 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("baz", uuid.New(), 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("baz", id, 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(id, "foo", 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "bar", 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(id, "bar", 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "baz", 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(id, "baz", 1)),
 	}
 
 	store, err := makeStore(newStore, events...)
@@ -441,11 +441,11 @@ func testQueryAggregate(t *testing.T, newStore EventStoreFactory) {
 func testQuerySorting(t *testing.T, newStore EventStoreFactory) {
 	now := xtime.Now()
 	events := []event.Event{
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(12*stdtime.Hour)), event.Aggregate("foo1", uuid.New(), 3)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(stdtime.Hour)), event.Aggregate("foo2", uuid.New(), 2)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(48*stdtime.Hour)), event.Aggregate("foo3", uuid.New(), 5)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now), event.Aggregate("foo4", uuid.New(), 1)),
-		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(24*stdtime.Hour)), event.Aggregate("foo5", uuid.New(), 4)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(12*stdtime.Hour)), event.Aggregate(uuid.New(), "foo1", 3)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(stdtime.Hour)), event.Aggregate(uuid.New(), "foo2", 2)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(48*stdtime.Hour)), event.Aggregate(uuid.New(), "foo3", 5)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now), event.Aggregate(uuid.New(), "foo4", 1)),
+		event.New("foo", test.FooEventData{A: "foo"}, event.Time(now.Add(24*stdtime.Hour)), event.Aggregate(uuid.New(), "foo5", 4)),
 	}
 
 	tests := []struct {

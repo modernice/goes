@@ -36,16 +36,16 @@ func TestNew(t *testing.T) {
 		t.Errorf("evt.Time() should almost equal %s; got %s", xtime.Now(), evt.Time())
 	}
 
-	if evt.AggregateName() != "" {
-		t.Errorf("evt.AggregateName() should return %q; got %q", "", evt.AggregateName())
+	if event.AggregateName(evt) != "" {
+		t.Errorf("evt.AggregateName() should return %q; got %q", "", event.AggregateName(evt))
 	}
 
-	if evt.AggregateID() != uuid.Nil {
+	if event.AggregateID(evt) != uuid.Nil {
 		t.Errorf("evt.AggregateID() should return %q; git %q", uuid.Nil, evt.ID())
 	}
 
-	if evt.AggregateVersion() != 0 {
-		t.Errorf("evt.AggrgateVersion() should return %v; got %v", 0, evt.AggregateVersion())
+	if event.AggregateVersion(evt) != 0 {
+		t.Errorf("evt.AggrgateVersion() should return %v; got %v", 0, event.AggregateVersion(evt))
 	}
 }
 
@@ -62,23 +62,23 @@ func TestNew_aggregate(t *testing.T) {
 	aid := uuid.New()
 	v := 3
 
-	evt := event.New("foo", newMockData(), event.Aggregate(aname, aid, v))
-	if evt.AggregateName() != "bar" {
-		t.Errorf("expected evt.AggregateName() to return %q; got %q", "bar", evt.AggregateName())
+	evt := event.New("foo", newMockData(), event.Aggregate(aid, aname, v))
+	if event.AggregateName(evt) != "bar" {
+		t.Errorf("expected event.AggregateName(evt) to return %q; got %q", "bar", event.AggregateName(evt))
 	}
 
-	if evt.AggregateID() != aid {
-		t.Errorf("expected evt.AggregateID() to return %q; got %q", aid, evt.AggregateID())
+	if event.AggregateID(evt) != aid {
+		t.Errorf("expected event.AggregateID(evt) to return %q; got %q", aid, event.AggregateID(evt))
 	}
 
-	if evt.AggregateVersion() != v {
-		t.Errorf("expected evt.AggregateVersion() to return %v; got %v", v, evt.AggregateVersion())
+	if event.AggregateVersion(evt) != v {
+		t.Errorf("expected event.AggregateVersion(evt) to return %v; got %v", v, event.AggregateVersion(evt))
 	}
 }
 
 func TestNew_previous(t *testing.T) {
 	aggregateID := uuid.New()
-	prev := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate("foobar", aggregateID, 3))
+	prev := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foobar", 3))
 	evt := event.New("bar", test.BarEventData{A: "bar"}, event.Previous(prev))
 
 	if evt.Name() != "bar" {
@@ -90,16 +90,16 @@ func TestNew_previous(t *testing.T) {
 		t.Errorf("expected evt.Data to return %#v; got %#v", wantData, evt.Data())
 	}
 
-	if evt.AggregateName() != "foobar" {
-		t.Errorf("expected evt.AggregateName to return %q; got %q", "foobar", evt.AggregateName())
+	if event.AggregateName(evt) != "foobar" {
+		t.Errorf("expected evt.AggregateName to return %q; got %q", "foobar", event.AggregateName(evt))
 	}
 
-	if evt.AggregateID() != aggregateID {
-		t.Errorf("expected evt.AggregateID to return %q; got %q", aggregateID, evt.AggregateID())
+	if event.AggregateID(evt) != aggregateID {
+		t.Errorf("expected evt.AggregateID to return %q; got %q", aggregateID, event.AggregateID(evt))
 	}
 
-	if evt.AggregateVersion() != 4 {
-		t.Errorf("expected evt.AggregateVersion to return %d; got %d", 4, evt.AggregateVersion())
+	if event.AggregateVersion(evt) != 4 {
+		t.Errorf("expected evt.AggregateVersion to return %d; got %d", 4, event.AggregateVersion(evt))
 	}
 }
 
@@ -148,7 +148,7 @@ func TestEqual(t *testing.T) {
 		},
 		{
 			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
-			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.Aggregate("foobar", uuid.New(), 2)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.Aggregate(uuid.New(), "foobar", 2)),
 			want: false,
 		},
 	}

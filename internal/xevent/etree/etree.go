@@ -204,12 +204,12 @@ func (n *node) validate() error {
 		}
 
 		if isLeftOf(n.parent, n) &&
-			n.parent.evt.AggregateVersion() < n.evt.AggregateVersion() {
+			event.AggregateVersion(n.parent.evt) < event.AggregateVersion(n.evt) {
 			return errInvalidOrder
 		}
 
 		if isRightOf(n.parent, n) &&
-			n.parent.evt.AggregateVersion() >= n.evt.AggregateVersion() {
+			event.AggregateVersion(n.parent.evt) >= event.AggregateVersion(n.evt) {
 			return errInvalidOrder
 		}
 	}
@@ -244,8 +244,8 @@ func (n *node) level(l int) []*node {
 }
 
 func (n *node) insert(evt event.Event) *node {
-	v := evt.AggregateVersion()
-	if v <= n.evt.AggregateVersion() {
+	v := event.AggregateVersion(evt)
+	if v <= event.AggregateVersion(n.evt) {
 		return n.insertLeft(evt)
 	}
 	return n.insertRight(evt)

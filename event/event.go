@@ -44,12 +44,10 @@ type Event interface {
 	// Data returns the Event Data.
 	Data() Data
 
-	// AggregateName returns the name of the Aggregate the Event belongs to.
-	AggregateName() string
-	// AggregateID returns the UUID of the Aggregate the Event belongs to.
-	AggregateID() uuid.UUID
-	// AggregateVersion returns the version of the Aggregate the Event is equal to.
-	AggregateVersion() int
+	// Aggregate returns the id, name and version of the aggregate that the
+	// event belongs to. Aggregate should return zero values if the event is not
+	// an aggregate event.
+	Aggregate() (id uuid.UUID, name string, version int)
 }
 
 // Data is the data of an Event.
@@ -104,7 +102,7 @@ func Time(t stdtime.Time) Option {
 }
 
 // Aggregate returns an Option that links an Event to an Aggregate.
-func Aggregate(name string, id uuid.UUID, version int) Option {
+func Aggregate(id uuid.UUID, name string, version int) Option {
 	return func(evt *event) {
 		evt.aggregateName = name
 		evt.aggregateID = id
@@ -116,11 +114,11 @@ func Aggregate(name string, id uuid.UUID, version int) Option {
 // provides non-nil Aggregate data (UUID, name & version), the returned Option
 // adds those to the new Event with its version increased by 1.
 func Previous(prev Event) Option {
-	v := prev.AggregateVersion()
-	if prev.AggregateID() != uuid.Nil {
+	id, name, v := prev.Aggregate()
+	if id != uuid.Nil {
 		v++
 	}
-	return Aggregate(prev.AggregateName(), prev.AggregateID(), v)
+	return Aggregate(id, name, v)
 }
 
 // Equal compares events and determines if they're equal. It works exactly like
@@ -132,18 +130,21 @@ func Equal(events ...Event) bool {
 		return true
 	}
 	first := events[0]
+	fid, fname, fv := first.Aggregate()
 	for _, evt := range events[1:] {
 		if (evt == nil && first != nil) || (evt != nil && first == nil) {
 			return false
 		}
 
+		id, name, v := evt.Aggregate()
+
 		if !(evt.ID() == first.ID() &&
 			evt.Name() == first.Name() &&
 			evt.Time().Equal(first.Time()) &&
 			evt.Data() == first.Data() &&
-			evt.AggregateID() == first.AggregateID() &&
-			evt.AggregateName() == first.AggregateName() &&
-			evt.AggregateVersion() == first.AggregateVersion()) {
+			id == fid &&
+			name == fname &&
+			v == fv) {
 			return false
 		}
 	}
@@ -173,6 +174,24 @@ func SortMulti(events []Event, sorts ...SortOptions) []Event {
 	return sorted
 }
 
+// AggregateID returns the AggregateID of the given event.
+func AggregateID(evt Event) uuid.UUID {
+	id, _, _ := evt.Aggregate()
+	return id
+}
+
+// AggregateName returns the AggregateName of the given event.
+func AggregateName(evt Event) string {
+	_, name, _ := evt.Aggregate()
+	return name
+}
+
+// AggregateVersion returns the AggregateVersion of the given event.
+func AggregateVersion(evt Event) int {
+	_, _, v := evt.Aggregate()
+	return v
+}
+
 func (evt event) ID() uuid.UUID {
 	return evt.id
 }
@@ -187,6 +206,10 @@ func (evt event) Time() stdtime.Time {
 
 func (evt event) Data() Data {
 	return evt.data
+}
+
+func (evt event) Aggregate() (uuid.UUID, string, int) {
+	return evt.aggregateID, evt.aggregateName, evt.aggregateVersion
 }
 
 func (evt event) AggregateName() string {
@@ -235,31 +258,33 @@ func Test(q Query, evt Event) bool {
 		}
 	}
 
+	id, name, v := evt.Aggregate()
+
 	if names := q.AggregateNames(); len(names) > 0 &&
-		!stringsContains(names, evt.AggregateName()) {
+		!stringsContains(names, name) {
 		return false
 	}
 
 	if ids := q.AggregateIDs(); len(ids) > 0 &&
-		!uuidsContains(ids, evt.AggregateID()) {
+		!uuidsContains(ids, id) {
 		return false
 	}
 
 	if versions := q.AggregateVersions(); versions != nil {
 		if exact := versions.Exact(); len(exact) > 0 &&
-			!intsContains(exact, evt.AggregateVersion()) {
+			!intsContains(exact, v) {
 			return false
 		}
 		if ranges := versions.Ranges(); len(ranges) > 0 &&
-			!testVersionRanges(ranges, evt.AggregateVersion()) {
+			!testVersionRanges(ranges, v) {
 			return false
 		}
 		if min := versions.Min(); len(min) > 0 &&
-			!testMinVersions(min, evt.AggregateVersion()) {
+			!testMinVersions(min, v) {
 			return false
 		}
 		if max := versions.Max(); len(max) > 0 &&
-			!testMaxVersions(max, evt.AggregateVersion()) {
+			!testMaxVersions(max, v) {
 			return false
 		}
 	}
@@ -267,8 +292,8 @@ func Test(q Query, evt Event) bool {
 	if aggregates := q.Aggregates(); len(aggregates) > 0 {
 		var found bool
 		for _, aggregate := range aggregates {
-			if aggregate.Name == evt.AggregateName() &&
-				(aggregate.ID == uuid.Nil || aggregate.ID == evt.AggregateID()) {
+			if aggregate.Name == name &&
+				(aggregate.ID == uuid.Nil || aggregate.ID == id) {
 				found = true
 				break
 			}

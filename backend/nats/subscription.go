@@ -134,8 +134,8 @@ func (sub *subscription) send(bus *EventBus, msg []byte) error {
 		event.ID(env.ID),
 		event.Time(env.Time),
 		event.Aggregate(
-			env.AggregateName,
 			env.AggregateID,
+			env.AggregateName,
 			env.AggregateVersion,
 		),
 	)

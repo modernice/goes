@@ -75,7 +75,8 @@ func Validate(a Aggregate, events ...event.Event) error {
 	cv := version
 	var prev event.Event
 	for i, evt := range events {
-		if evt.AggregateID() != id {
+		eid, ename, ev := evt.Aggregate()
+		if eid != id {
 			return &Error{
 				Kind:       ID,
 				Aggregate:  a,
@@ -83,7 +84,7 @@ func Validate(a Aggregate, events ...event.Event) error {
 				EventIndex: i,
 			}
 		}
-		if evt.AggregateName() != name {
+		if ename != name {
 			return &Error{
 				Kind:       Name,
 				Aggregate:  a,
@@ -91,7 +92,7 @@ func Validate(a Aggregate, events ...event.Event) error {
 				EventIndex: i,
 			}
 		}
-		if evt.AggregateVersion() != cv+1 {
+		if ev != cv+1 {
 			return &Error{
 				Kind:       Version,
 				Aggregate:  a,
@@ -127,21 +128,30 @@ func (err *Error) Event() event.Event {
 
 func (err *Error) Error() string {
 	evt := err.Event()
+	var (
+		id   uuid.UUID
+		name string
+		v    int
+	)
+	if evt != nil {
+		id, name, v = evt.Aggregate()
+	}
+
 	switch err.Kind {
 	case ID:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid AggregateID. want=%s got=%s",
-			evt.Name(), err.Aggregate.AggregateID(), evt.AggregateID(),
+			evt.Name(), err.Aggregate.AggregateID(), id,
 		)
 	case Name:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid AggregateName. want=%s got=%s",
-			evt.Name(), err.Aggregate.AggregateName(), evt.AggregateName(),
+			evt.Name(), err.Aggregate.AggregateName(), name,
 		)
 	case Version:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid AggregateVersion. want=%d got=%d",
-			evt.Name(), currentVersion(err.Aggregate)+1+err.EventIndex, evt.AggregateVersion(),
+			evt.Name(), currentVersion(err.Aggregate)+1+err.EventIndex, v,
 		)
 	case Time:
 		return fmt.Sprintf(
