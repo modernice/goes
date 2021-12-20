@@ -93,10 +93,10 @@ func (mr *MockCommandMockRecorder) Name() *gomock.Call {
 }
 
 // Payload mocks base method.
-func (m *MockCommand) Payload() command.Payload {
+func (m *MockCommand) Payload() interface{} {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Payload")
-	ret0, _ := ret[0].(command.Payload)
+	ret0, _ := ret[0].(interface{})
 	return ret0
 }
 

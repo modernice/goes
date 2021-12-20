@@ -27,7 +27,7 @@ type Command interface {
 	Name() string
 
 	// Payload returns the Command Payload.
-	Payload() Payload
+	Payload() interface{}
 
 	// AggregateName returns the Aggregates name the Command belongs to.
 	// (optional)
@@ -37,9 +37,6 @@ type Command interface {
 	// (optional)
 	AggregateID() uuid.UUID
 }
-
-// Payload is the payload of a Command.
-type Payload interface{}
 
 // A Bus dispatches Commands to appropriate handlers.
 type Bus interface {
@@ -96,7 +93,7 @@ type Option func(*command)
 type command struct {
 	id            uuid.UUID
 	name          string
-	payload       Payload
+	payload       interface{}
 	aggregateName string
 	aggregateID   uuid.UUID
 }
@@ -117,7 +114,7 @@ func Aggregate(name string, id uuid.UUID) Option {
 }
 
 // New returns a new Command with the given name and Payload.
-func New(name string, pl Payload, opts ...Option) Command {
+func New(name string, pl interface{}, opts ...Option) Command {
 	cmd := command{
 		id:      uuid.New(),
 		name:    name,
@@ -137,7 +134,7 @@ func (cmd command) Name() string {
 	return cmd.name
 }
 
-func (cmd command) Payload() Payload {
+func (cmd command) Payload() interface{} {
 	return cmd.payload
 }
 
