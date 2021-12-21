@@ -16,7 +16,7 @@ type mockAggregate struct {
 	mockState
 }
 
-type mockSnapshot mockAggregate
+type mockSnapshotter mockAggregate
 
 type mockState struct {
 	A bool
@@ -34,13 +34,13 @@ func TestMarshal_default(t *testing.T) {
 		},
 	}
 
-	if _, err := snapshot.Marshal(a); err != nil {
-		t.Fatalf("Marshal shouldn't fail; failed with %q", err)
+	if _, err := snapshot.Marshal(a); err != snapshot.ErrUnimplemented {
+		t.Fatalf("Marshal() should fail with %q; got %v", snapshot.ErrUnimplemented, err)
 	}
 }
 
 func TestMarshal_marshaler(t *testing.T) {
-	a := &mockSnapshot{
+	a := &mockSnapshotter{
 		Base: aggregate.New("foo", uuid.New()),
 		mockState: mockState{
 			A: true,
@@ -65,15 +65,15 @@ func TestUnmarshal(t *testing.T) {
 	}
 
 	b, err := snapshot.Marshal(a)
-	if err != nil {
-		t.Fatalf("Marshal shouldn't fail; failed with %q", err)
+	if err != snapshot.ErrUnimplemented {
+		t.Fatalf("Marshal() should fail with %q; got %v", snapshot.ErrUnimplemented, err)
 	}
 	snap, _ := snapshot.New(a, snapshot.Data(b))
 
 	unmarshaled := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
 
-	if err = snapshot.Unmarshal(snap, unmarshaled); err != nil {
-		t.Fatalf("Unmarshal shouldn't fail; failed with %q", err)
+	if err = snapshot.Unmarshal(snap, unmarshaled); err != snapshot.ErrUnimplemented {
+		t.Fatalf("Unmarshal() should fail with %q; got %v", snapshot.ErrUnimplemented, err)
 	}
 
 	var want mockState
@@ -83,7 +83,7 @@ func TestUnmarshal(t *testing.T) {
 }
 
 func TestUnmarshal_unmarshaler(t *testing.T) {
-	a := &mockSnapshot{
+	a := &mockSnapshotter{
 		Base: aggregate.New("foo", uuid.New()),
 		mockState: mockState{
 			A: true,
@@ -98,7 +98,7 @@ func TestUnmarshal_unmarshaler(t *testing.T) {
 	}
 	snap, _ := snapshot.New(a, snapshot.Data(b))
 
-	unmarshaled := &mockSnapshot{Base: aggregate.New("foo", uuid.New())}
+	unmarshaled := &mockSnapshotter{Base: aggregate.New("foo", uuid.New())}
 
 	if err = snapshot.Unmarshal(snap, unmarshaled); err != nil {
 		t.Fatalf("Unmarshal shouldn't fail; failed with %q", err)
@@ -109,7 +109,7 @@ func TestUnmarshal_unmarshaler(t *testing.T) {
 	}
 }
 
-func (a *mockSnapshot) MarshalSnapshot() ([]byte, error) {
+func (a *mockSnapshotter) MarshalSnapshot() ([]byte, error) {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(a.mockState); err != nil {
 		return nil, fmt.Errorf("gob: %w", err)
@@ -117,7 +117,7 @@ func (a *mockSnapshot) MarshalSnapshot() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (a *mockSnapshot) UnmarshalSnapshot(p []byte) error {
+func (a *mockSnapshotter) UnmarshalSnapshot(p []byte) error {
 	if err := gob.NewDecoder(bytes.NewReader(p)).Decode(&a.mockState); err != nil {
 		return fmt.Errorf("gob: %w", err)
 	}

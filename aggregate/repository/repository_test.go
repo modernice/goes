@@ -470,9 +470,12 @@ func TestRepository_Fetch_Snapshot(t *testing.T) {
 		repository.WithSnapshots(mockStore, nil),
 	)
 
-	a := aggregate.New("foo", uuid.New(), aggregate.Version(10))
+	a := &mockAggregate{
+		Base: aggregate.New("foo", uuid.New(), aggregate.Version(10)),
+	}
 	snap, _ := snapshot.New(a)
-	a = aggregate.New(a.AggregateName(), a.AggregateID())
+	a.Base = aggregate.New(a.AggregateName(), a.AggregateID())
+
 	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
 
 	if err := eventStore.Insert(context.Background(), events...); err != nil {
@@ -500,7 +503,7 @@ func TestRepository_Fetch_Snapshot(t *testing.T) {
 			return eventStore.Query(ctx, q)
 		})
 
-	res := aggregate.New(a.AggregateName(), a.AggregateID())
+	res := &mockAggregate{Base: aggregate.New(a.AggregateName(), a.AggregateID())}
 	if err := r.Fetch(context.Background(), res); err != nil {
 		t.Fatalf("Fetch shouldn't fail; failed with %q", err)
 	}
@@ -523,9 +526,9 @@ func TestRepository_FetchVersion_Snapshot(t *testing.T) {
 		repository.WithSnapshots(mockStore, nil),
 	)
 
-	a := aggregate.New("foo", uuid.New(), aggregate.Version(10))
+	a := &mockAggregate{Base: aggregate.New("foo", uuid.New(), aggregate.Version(10))}
 	snap, _ := snapshot.New(a)
-	a = aggregate.New(a.AggregateName(), a.AggregateID())
+	a.Base = aggregate.New(a.AggregateName(), a.AggregateID())
 	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
 
 	if err := eventStore.Insert(context.Background(), events...); err != nil {
@@ -553,7 +556,7 @@ func TestRepository_FetchVersion_Snapshot(t *testing.T) {
 			return eventStore.Query(ctx, q)
 		})
 
-	res := aggregate.New(a.AggregateName(), a.AggregateID())
+	res := &mockAggregate{Base: aggregate.New(a.AggregateName(), a.AggregateID())}
 	if err := r.FetchVersion(context.Background(), res, 25); err != nil {
 		t.Fatalf("Fetch shouldn't fail; failed with %q", err)
 	}

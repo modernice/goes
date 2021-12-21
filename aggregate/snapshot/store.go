@@ -10,7 +10,7 @@ import (
 	"github.com/modernice/goes/event/query/time"
 )
 
-// Store is a database for Snapshots.
+// Store is a database for aggregate snapshots.
 type Store interface {
 	// Save saves the given Snapshot into the Store.
 	Save(context.Context, Snapshot) error
@@ -50,7 +50,7 @@ type Store interface {
 	Delete(context.Context, Snapshot) error
 }
 
-// Query is a query for Snapshots.
+// Query is a query for snapshots.
 type Query interface {
 	aggregate.Query
 

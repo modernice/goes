@@ -210,9 +210,10 @@ func (r *Repository) makeSnapshot(ctx context.Context, a aggregate.Aggregate) er
 // it. Only events with a version higher than the current version of the passed
 // Aggregate are fetched from the event store.
 func (r *Repository) Fetch(ctx context.Context, a aggregate.Aggregate) error {
-	if r.snapshots != nil {
+	if _, ok := a.(snapshot.Target); ok && r.snapshots != nil {
 		return r.fetchLatestWithSnapshot(ctx, a)
 	}
+
 	return r.fetch(ctx, a, equery.AggregateVersion(
 		version.Min(aggregate.UncommittedVersion(a)+1),
 	))
@@ -228,7 +229,7 @@ func (r *Repository) fetchLatestWithSnapshot(ctx context.Context, a aggregate.Ag
 		))
 	}
 
-	if a, ok := a.(snapshot.Aggregate); !ok {
+	if a, ok := a.(snapshot.Target); !ok {
 		return fmt.Errorf("aggregate does not implement %T", a)
 	} else {
 		if err := snapshot.Unmarshal(snap, a); err != nil {
@@ -299,7 +300,7 @@ func (r *Repository) fetchVersionWithSnapshot(ctx context.Context, a aggregate.A
 		return r.fetchVersion(ctx, a, v)
 	}
 
-	if a, ok := a.(snapshot.Aggregate); !ok {
+	if a, ok := a.(snapshot.Target); !ok {
 		return fmt.Errorf("aggregate does not implement %T", a)
 	} else {
 		if err = snapshot.Unmarshal(snap, a); err != nil {

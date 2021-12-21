@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -66,13 +67,15 @@ func New(a aggregate.Aggregate, opts ...Option) (Snapshot, error) {
 	for _, opt := range opts {
 		opt(&snap)
 	}
+
 	if snap.state == nil {
-		b, err := Marshal(a)
-		if err != nil {
-			return nil, fmt.Errorf("marshal snapshot: %w", err)
+		if b, err := Marshal(a); err == nil {
+			snap.state = b
+		} else if !errors.Is(err, ErrUnimplemented) {
+			return snap, fmt.Errorf("marshal snapshot: %w", err)
 		}
-		snap.state = b
 	}
+
 	return &snap, nil
 }
 
