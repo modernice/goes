@@ -7,6 +7,11 @@ import (
 	"github.com/modernice/goes/event/query"
 )
 
+// An EventApplier applies events onto itself to build the projection state.
+type EventApplier interface {
+	ApplyEvent(event.Event)
+}
+
 // Progressing makes projections track their projection progress.
 //
 // Embed *Progressor into a projection type to implement this interface.

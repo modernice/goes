@@ -14,11 +14,6 @@ var (
 	ErrProgressed = errors.New("projection already progressed")
 )
 
-// A Projection is a projection of an event stream.
-type Projection interface {
-	ApplyEvent(event.Event)
-}
-
 // ApplyOption is an option for Apply.
 type ApplyOption func(*applyConfig)
 
@@ -31,7 +26,7 @@ func IgnoreProgress() ApplyOption {
 	}
 }
 
-// Apply applies events onto proj.
+// Apply applies events onto the given projection.
 //
 // If proj implements guard (or embeds Guard), proj.GuardProjection(evt) is
 // called for every Event evt to determine if the Event should be applied onto
@@ -39,7 +34,7 @@ func IgnoreProgress() ApplyOption {
 //
 // If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
 // is called for every applied Event evt.
-func Apply(proj Projection, events []event.Event, opts ...ApplyOption) error {
+func Apply(proj EventApplier, events []event.Event, opts ...ApplyOption) error {
 	if len(events) == 0 {
 		return nil
 	}

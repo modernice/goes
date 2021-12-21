@@ -70,7 +70,7 @@ type Job interface {
 	//	str, errs, err := job.EventsFor(job, proj)
 	//	// handle err
 	//	events, err := event.Drain(job, str, errs)
-	EventsFor(context.Context, Projection) (<-chan event.Event, <-chan error, error)
+	EventsFor(context.Context, EventApplier) (<-chan event.Event, <-chan error, error)
 
 	// Aggregates returns a channel of aggregate Tuples and a channel of
 	// asynchronous query errors. It fetches Events, extracts the Tuples from
@@ -94,7 +94,7 @@ type Job interface {
 
 	// Apply applies the Job onto the Projection. A Job may be applied onto as
 	// many Projections as needed.
-	Apply(context.Context, Projection, ...ApplyOption) error
+	Apply(context.Context, EventApplier, ...ApplyOption) error
 }
 
 // JobOption is a Job option.
@@ -162,7 +162,7 @@ func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan eve
 	return j.Events(ctx, query.New(query.AggregateName(aggregateName...)))
 }
 
-func (j *job) EventsFor(ctx context.Context, target Projection) (<-chan event.Event, <-chan error, error) {
+func (j *job) EventsFor(ctx context.Context, target EventApplier) (<-chan event.Event, <-chan error, error) {
 	var filter []event.Query
 
 	hp, isHistoryDependent := target.(HistoryDependent)
@@ -276,7 +276,7 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	return id, nil
 }
 
-func (j *job) Apply(ctx context.Context, proj Projection, opts ...ApplyOption) error {
+func (j *job) Apply(ctx context.Context, proj EventApplier, opts ...ApplyOption) error {
 	opts = append([]ApplyOption{IgnoreProgress()}, opts...)
 
 	if j.reset {
