@@ -72,9 +72,13 @@ type Reporter interface {
 // Context is the context for handling Commands.
 type Context interface {
 	context.Context
+	Command
 
-	// Command returns the actual Command.
-	Command() Command
+	// AggregateID returns the UUID of the attached aggregate, or uuid.Nil.
+	AggregateID() uuid.UUID
+
+	// AggregateName returns the name of the attached aggregate, or an empty string.
+	AggregateName() string
 
 	// Finish should be called after the Command has been handled so that the
 	// Bus that dispatched the Command can be notified about the execution

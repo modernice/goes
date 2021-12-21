@@ -31,7 +31,7 @@ func TestHandler_Handle(t *testing.T) {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case handled <- ctx.Command():
+		case handled <- ctx:
 			return nil
 		}
 	})
@@ -58,7 +58,7 @@ func TestHandler_Handle(t *testing.T) {
 		}
 		t.Fatal(err)
 	case h := <-handled:
-		if !reflect.DeepEqual(h, cmd) {
+		if h.ID() != cmd.ID() || h.Name() != cmd.Name() || !reflect.DeepEqual(h.Payload(), cmd.Payload()) {
 			t.Fatalf("handled Command differs from dispatched Command. want=%v got=%v", cmd, h)
 		}
 	}

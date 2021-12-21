@@ -68,7 +68,7 @@ L:
 		t.Fatalf("Context shouldn't be nil!")
 	}
 
-	assertEqualCommands(t, cmdCtx.Command(), cmd)
+	assertEqualCommands(t, cmdCtx, cmd)
 }
 
 func TestBus_Dispatch_Report(t *testing.T) {

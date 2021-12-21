@@ -12,20 +12,6 @@ import (
 
 type mockPayload struct{}
 
-type ctxKey string
-
-func TestContext(t *testing.T) {
-	base := context.WithValue(context.Background(), ctxKey("foo"), "bar")
-	cmd := command.New("foo", mockPayload{})
-	ctx := cmdctx.New(base, cmd)
-
-	if ctx.Command() != cmd {
-		t.Errorf("Context.Command() should return %v; got %v", cmd, ctx.Command())
-	}
-
-	var _ context.Context = ctx
-}
-
 func TestWhenDone(t *testing.T) {
 	cmd := command.New("foo", mockPayload{})
 	ctx := cmdctx.New(context.Background(), cmd)
@@ -48,10 +34,6 @@ func TestWhenDone_withError(t *testing.T) {
 		cfg = cfg2
 		return mockDoneError
 	}))
-
-	if ctx.Command() != cmd {
-		t.Errorf("ctx.Command should be %v; got %v", cmd, ctx.Command())
-	}
 
 	doneError := ctx.Finish(context.Background(), finish.WithError(mockExecError))
 

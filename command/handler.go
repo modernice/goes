@@ -104,7 +104,7 @@ func (h *Handler) handle(
 			err := handler(ctx)
 			runtime := time.Since(start)
 
-			cmd := ctx.Command()
+			cmd := ctx
 
 			if err != nil {
 				select {
