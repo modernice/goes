@@ -141,11 +141,13 @@ L:
 		}
 	}
 
+	id, name := cmd.Aggregate()
+
 	wantCmd := report.Command{
 		Name:          cmd.Name(),
 		ID:            cmd.ID(),
-		AggregateName: cmd.AggregateName(),
-		AggregateID:   cmd.AggregateID(),
+		AggregateName: name,
+		AggregateID:   id,
 		Payload:       cmd.Payload(),
 	}
 

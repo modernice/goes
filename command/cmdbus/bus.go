@@ -261,11 +261,13 @@ func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 		return fmt.Errorf("encode payload: %w", err)
 	}
 
+	id, name := cmd.Aggregate()
+
 	evt := event.New(CommandDispatched, CommandDispatchedData{
 		ID:            cmd.ID(),
 		Name:          cmd.Name(),
-		AggregateName: cmd.AggregateName(),
-		AggregateID:   cmd.AggregateID(),
+		AggregateName: name,
+		AggregateID:   id,
 		Payload:       load.Bytes(),
 	})
 
@@ -385,12 +387,13 @@ func (b *Bus) handleDispatchEvent(
 		}
 
 		if cfg.Reporter != nil {
+			id, name := cmd.Aggregate()
 			rep := report.New(
 				report.Command{
 					Name:          cmd.Name(),
 					ID:            cmd.ID(),
-					AggregateName: cmd.AggregateName(),
-					AggregateID:   cmd.AggregateID(),
+					AggregateName: name,
+					AggregateID:   id,
 					Payload:       cmd.Payload(),
 				},
 				report.Error(err),

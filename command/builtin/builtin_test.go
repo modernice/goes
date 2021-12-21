@@ -28,12 +28,14 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Name() should return %q; got %q", "goes.command.aggregate.delete", cmd.Name())
 	}
 
-	if cmd.AggregateName() != aggregateName {
-		t.Fatalf("AggregateName() should return %q; got %q", aggregateName, cmd.AggregateName())
+	id, name := cmd.Aggregate()
+
+	if name != aggregateName {
+		t.Fatalf("AggregateName() should return %q; got %q", aggregateName, name)
 	}
 
-	if cmd.AggregateID() != aggregateID {
-		t.Fatalf("AggregateID() should return %q; got %q", aggregateID, cmd.AggregateID())
+	if id != aggregateID {
+		t.Fatalf("AggregateID() should return %q; got %q", aggregateID, id)
 	}
 
 	load, ok := cmd.Payload().(builtin.DeleteAggregatePayload)

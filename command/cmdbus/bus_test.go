@@ -366,11 +366,15 @@ func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {
 	if cmd1.ID() != cmd2.ID() {
 		t.Errorf("Command ID mismatch: %s != %s", cmd1.ID(), cmd2.ID())
 	}
-	if cmd1.AggregateName() != cmd2.AggregateName() {
-		t.Errorf("Command AggregateName mismatch: %q != %q", cmd1.AggregateName(), cmd2.AggregateName())
+
+	id1, name1 := cmd1.Aggregate()
+	id2, name2 := cmd2.Aggregate()
+
+	if name1 != name2 {
+		t.Errorf("Command AggregateName mismatch: %q != %q", name1, name2)
 	}
-	if cmd1.AggregateID() != cmd2.AggregateID() {
-		t.Errorf("Command AggregateID mismatch: %s != %s", cmd1.AggregateID(), cmd2.AggregateID())
+	if id1 != id2 {
+		t.Errorf("Command AggregateID mismatch: %s != %s", id1, id2)
 	}
 	if !reflect.DeepEqual(cmd1.Payload(), cmd2.Payload()) {
 		t.Errorf("Command Payload mismatch: %#v != %#v", cmd1.Payload(), cmd2.Payload())

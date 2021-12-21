@@ -29,13 +29,8 @@ type Command interface {
 	// Payload returns the Command Payload.
 	Payload() interface{}
 
-	// AggregateName returns the Aggregates name the Command belongs to.
-	// (optional)
-	AggregateName() string
-
-	// AggregateID returns the Aggregates UUID the Command belongs to.
-	// (optional)
-	AggregateID() uuid.UUID
+	// Aggregate returns the attached aggregate data.
+	Aggregate() (uuid.UUID, string)
 }
 
 // A Bus dispatches Commands to appropriate handlers.
@@ -138,10 +133,6 @@ func (cmd command) Payload() interface{} {
 	return cmd.payload
 }
 
-func (cmd command) AggregateName() string {
-	return cmd.aggregateName
-}
-
-func (cmd command) AggregateID() uuid.UUID {
-	return cmd.aggregateID
+func (cmd command) Aggregate() (uuid.UUID, string) {
+	return cmd.aggregateID, cmd.aggregateName
 }
