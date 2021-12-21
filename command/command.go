@@ -129,18 +129,22 @@ func New(name string, pl interface{}, opts ...Option) Cmd {
 	return cmd
 }
 
+// ID returns the command id.
 func (cmd Cmd) ID() uuid.UUID {
 	return cmd.Data.ID
 }
 
+// Name returns the command name.
 func (cmd Cmd) Name() string {
 	return cmd.Data.Name
 }
 
+// Payload returns the command payload.
 func (cmd Cmd) Payload() interface{} {
 	return cmd.Data.Payload
 }
 
+// Aggregate returns the attached aggregate data.
 func (cmd Cmd) Aggregate() (uuid.UUID, string) {
 	return cmd.Data.AggregateID, cmd.Data.AggregateName
 }
