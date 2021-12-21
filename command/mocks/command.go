@@ -36,32 +36,19 @@ func (m *MockCommand) EXPECT() *MockCommandMockRecorder {
 	return m.recorder
 }
 
-// AggregateID mocks base method.
-func (m *MockCommand) AggregateID() uuid.UUID {
+// Aggregate mocks base method.
+func (m *MockCommand) Aggregate() (uuid.UUID, string) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AggregateID")
+	ret := m.ctrl.Call(m, "Aggregate")
 	ret0, _ := ret[0].(uuid.UUID)
-	return ret0
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
 }
 
-// AggregateID indicates an expected call of AggregateID.
-func (mr *MockCommandMockRecorder) AggregateID() *gomock.Call {
+// Aggregate indicates an expected call of Aggregate.
+func (mr *MockCommandMockRecorder) Aggregate() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateID", reflect.TypeOf((*MockCommand)(nil).AggregateID))
-}
-
-// AggregateName mocks base method.
-func (m *MockCommand) AggregateName() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AggregateName")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// AggregateName indicates an expected call of AggregateName.
-func (mr *MockCommandMockRecorder) AggregateName() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateName", reflect.TypeOf((*MockCommand)(nil).AggregateName))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Aggregate", reflect.TypeOf((*MockCommand)(nil).Aggregate))
 }
 
 // ID mocks base method.
