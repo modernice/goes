@@ -110,21 +110,24 @@ type History interface {
 
 // Compare compares a and b and returns -1 if a < b, 0 if a == b or 1 if a > b.
 func (s Sorting) Compare(a, b Aggregate) (cmp int8) {
+	aid, aname, av := a.Aggregate()
+	bid, bname, bv := b.Aggregate()
+
 	switch s {
 	case SortName:
 		return boolToCmp(
-			a.AggregateName() < b.AggregateName(),
-			a.AggregateName() == b.AggregateName(),
+			aname < bname,
+			aname == bname,
 		)
 	case SortID:
 		return boolToCmp(
-			a.AggregateID().String() < b.AggregateID().String(),
-			a.AggregateID() == b.AggregateID(),
+			aid.String() < bid.String(),
+			aid == bid,
 		)
 	case SortVersion:
 		return boolToCmp(
-			a.AggregateVersion() < b.AggregateVersion(),
-			a.AggregateVersion() == b.AggregateVersion(),
+			av < bv,
+			av == bv,
 		)
 	}
 	return

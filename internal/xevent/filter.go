@@ -11,7 +11,8 @@ func FilterAggregate(events []event.Event, a aggregate.Aggregate) []event.Event 
 	filtered := make([]event.Event, 0, len(events))
 	for _, evt := range events {
 		id, name, _ := evt.Aggregate()
-		if name == a.AggregateName() && id == a.AggregateID() {
+		aid, aname, _ := a.Aggregate()
+		if name == aname && id == aid {
 			filtered = append(filtered, evt)
 		}
 	}

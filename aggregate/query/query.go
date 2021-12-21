@@ -109,33 +109,35 @@ type queryWithTags interface {
 // include a in its results. Test can be used by in-memory aggregate.Repository
 // implementations to filter aggregates based on the query.
 func Test(q aggregate.Query, a aggregate.Aggregate) bool {
+	id, name, v := a.Aggregate()
+
 	if names := q.Names(); len(names) > 0 {
-		if !stringsContains(names, a.AggregateName()) {
+		if !stringsContains(names, name) {
 			return false
 		}
 	}
 
 	if ids := q.IDs(); len(ids) > 0 {
-		if !uuidsContains(ids, a.AggregateID()) {
+		if !uuidsContains(ids, id) {
 			return false
 		}
 	}
 
 	if versions := q.Versions(); versions != nil {
 		if exact := versions.Exact(); len(exact) > 0 &&
-			!intsContains(exact, a.AggregateVersion()) {
+			!intsContains(exact, v) {
 			return false
 		}
 		if ranges := versions.Ranges(); len(ranges) > 0 &&
-			!testVersionRanges(ranges, a.AggregateVersion()) {
+			!testVersionRanges(ranges, v) {
 			return false
 		}
 		if min := versions.Min(); len(min) > 0 &&
-			!testMinVersions(min, a.AggregateVersion()) {
+			!testMinVersions(min, v) {
 			return false
 		}
 		if max := versions.Max(); len(max) > 0 &&
-			!testMaxVersions(max, a.AggregateVersion()) {
+			!testMaxVersions(max, v) {
 			return false
 		}
 	}

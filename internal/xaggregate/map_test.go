@@ -15,15 +15,16 @@ func TestMap(t *testing.T) {
 	}
 
 	for _, a := range as {
-		a2, ok := am[a.AggregateID()]
+		id, _, _ := a.Aggregate()
+		a2, ok := am[id]
 		if !ok {
-			t.Errorf("aggregate map should contain aggregate for id=%s", a.AggregateID())
+			t.Errorf("aggregate map should contain aggregate for id=%s", id)
 		}
 		if a != a2 {
 			t.Errorf(
 				"aggregate map contains the wrong aggregate for id=%s"+
 					"\n\nwant: %#v\n\ngot: %#v\n\n",
-				a.AggregateID(),
+				id,
 				a,
 				a2,
 			)

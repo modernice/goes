@@ -18,7 +18,7 @@ var names = [...]string{
 }
 
 type mockAggregate struct {
-	aggregate.Aggregate
+	*aggregate.Base
 
 	a float64
 	b string
@@ -156,7 +156,7 @@ L:
 				if !ok {
 					continue L
 				}
-				a := &mockAggregate{Aggregate: aggregate.New(res.AggregateName(), res.AggregateID())}
+				a := &mockAggregate{Base: aggregate.New(res.AggregateName(), res.AggregateID())}
 				as = append(as, a)
 			}
 		}
@@ -193,10 +193,12 @@ func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.E
 	for _, a := range as {
 		events := make([]event.Event, n)
 		for i := range events {
+			id, name, v := a.Aggregate()
+			v += i + 1
 			evt := event.New(
 				randomName(),
 				test.FooEventData{},
-				event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+i+1),
+				event.Aggregate(id, name, v),
 			)
 			events[i] = evt
 		}

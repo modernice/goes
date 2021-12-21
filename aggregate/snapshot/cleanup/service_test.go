@@ -19,7 +19,7 @@ import (
 )
 
 type mockAggregate struct {
-	aggregate.Aggregate
+	*aggregate.Base
 	mockState
 }
 
@@ -32,8 +32,8 @@ type mockState struct {
 func TestService(t *testing.T) {
 	store := memsnap.New()
 
-	foo1 := &mockAggregate{Aggregate: aggregate.New("foo", uuid.New())}
-	foo2 := &mockAggregate{Aggregate: aggregate.New("foo", uuid.New())}
+	foo1 := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
+	foo2 := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
 
 	snap1, err := snapshot.New(foo1)
 	if err != nil {

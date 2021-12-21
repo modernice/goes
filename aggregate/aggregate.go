@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/xtime"
 )
@@ -27,18 +26,6 @@ type Base struct {
 	Changes []event.Event
 }
 
-// New returns a new Base for an Aggregate.
-func New(name string, id uuid.UUID, opts ...Option) *Base {
-	b := &Base{
-		ID:   id,
-		Name: name,
-	}
-	for _, opt := range opts {
-		opt(b)
-	}
-	return b
-}
-
 // Version returns an Option that sets the version of an Aggregate.
 func Version(v int) Option {
 	return func(b *Base) {
@@ -50,7 +37,7 @@ func Version(v int) Option {
 // state of a at the time of the latest event. If the aggregate implements
 // Committer, a.TrackChange(events) and a.Commit() are called before returning.
 func ApplyHistory(a Aggregate, events ...event.Event) error {
-	if err := consistency.Validate(a, events...); err != nil {
+	if err := ValidateConsistency(a, events...); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 	for _, evt := range events {
@@ -89,15 +76,15 @@ func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 	return sorted
 }
 
-// CurrentVersion returns the version of Aggregate a, including any uncommitted
-// changes.
-func CurrentVersion(a Aggregate) int {
-	return a.AggregateVersion() + len(a.AggregateChanges())
+// UncommittedVersion returns the version the aggregate, including any uncommitted changes.
+func UncommittedVersion(a Aggregate) int {
+	_, _, v := a.Aggregate()
+	return v + len(a.AggregateChanges())
 }
 
-// NextVersion returns the next version of an Aggregate (CurrentVersion(a) + 1).
+// NextVersion returns the next (uncommitted) version of an aggregate (UncommittedVersion(a) + 1).
 func NextVersion(a Aggregate) int {
-	return CurrentVersion(a) + 1
+	return UncommittedVersion(a) + 1
 }
 
 // NextEvent makes and returns the next Event e for the aggregate a. NextEvent
@@ -106,10 +93,12 @@ func NextVersion(a Aggregate) int {
 //	var foo aggregate.Aggregate
 //	evt := aggregate.NextEvent(foo, "event-name", ...)
 func NextEvent(a Aggregate, name string, data interface{}, opts ...event.Option) event.Event {
+	aid, aname, _ := a.Aggregate()
+
 	opts = append([]event.Option{
 		event.Aggregate(
-			a.AggregateID(),
-			a.AggregateName(),
+			aid,
+			aname,
 			NextVersion(a),
 		),
 		event.Time(nextTime(a)),
@@ -134,6 +123,22 @@ func HasChange(a Aggregate, eventName string) bool {
 		}
 	}
 	return false
+}
+
+// New returns a new Base for an Aggregate.
+func New(name string, id uuid.UUID, opts ...Option) *Base {
+	b := &Base{
+		ID:   id,
+		Name: name,
+	}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b
+}
+
+func (b *Base) Aggregate() (uuid.UUID, string, int) {
+	return b.ID, b.Name, b.Version
 }
 
 // AggregateID implements Aggregate.
@@ -168,7 +173,7 @@ func (b *Base) Commit() {
 	}
 	// b.TrackChange guarantees a correct event order, so we can safely assume
 	// the last element has the highest version.
-	b.Version = event.AggregateVersion(b.Changes[len(b.Changes)-1])
+	b.Version = event.ExtractAggregateVersion(b.Changes[len(b.Changes)-1])
 	b.Changes = b.Changes[:0]
 }
 

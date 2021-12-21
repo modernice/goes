@@ -35,9 +35,10 @@ func Make(n int, opts ...MakeOption) (
 	as := make([]aggregate.Aggregate, n)
 	gaes := make(map[uuid.UUID]func() []event.Event)
 	for i := range as {
-		a, gae := makeAggregate(cfg.name, uuid.New())
+		id := uuid.New()
+		a, gae := makeAggregate(cfg.name, id)
 		as[i] = a
-		gaes[a.AggregateID()] = gae
+		gaes[id] = gae
 	}
 	return as, func(id uuid.UUID) []event.Event {
 		return gaes[id]()

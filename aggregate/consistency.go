@@ -1,4 +1,4 @@
-package consistency
+package aggregate
 
 import (
 	"fmt"
@@ -8,28 +8,28 @@ import (
 )
 
 const (
-	// UnknownKind is the invalid Kind.
-	UnknownKind = Kind(iota)
+	// unknownConsistencyKind is the invalid Kind.
+	unknownConsistencyKind = ConsistencyKind(iota)
 
 	// ID means there is an inconsistency in the ID of an Aggregate.
-	ID
+	InconsistentID
 
 	// Name means there is an inconsistency in the Aggregate names of the Events
 	// of an Aggregate.
-	Name
+	InconsistentName
 
 	// Version means there is an inconsistency in the Event versions of an
 	// Aggregate.
-	Version
+	InconsistentVersion
 
 	// Time means there is an inconsistency in the Event times of an Aggregate.
-	Time
+	InconsistentTime
 )
 
 // Error is a consistency error.
-type Error struct {
-	// Kind is the kind of consistency error.
-	Kind Kind
+type ConsistencyError struct {
+	// Kind is the kind of incosistency.
+	Kind ConsistencyKind
 	// Aggregate is the handled aggregate.
 	Aggregate Aggregate
 	// Events are the tested events.
@@ -38,23 +38,10 @@ type Error struct {
 	EventIndex int
 }
 
-// Kind is the kind of inconsistency.
-type Kind int
+// ConsistencyKind is the kind of inconsistency.
+type ConsistencyKind int
 
-// Aggregate is a subset of aggregate.Aggregate. Redeclared here to avoid
-// import cycles.
-type Aggregate interface {
-	// AggregateID returns the UUID of the Aggregate.
-	AggregateID() uuid.UUID
-	// AggregateName returns the name of the Aggregate.
-	AggregateName() string
-	// AggregateVersion returns the version of the Aggregate.
-	AggregateVersion() int
-	// AggregateChanges returns the changes of the Aggregate.
-	AggregateChanges() []event.Event
-}
-
-// Validate tests the consistency of the given Events against the Aggregate a.
+// Validate tests the consistency of the given events against the given aggregate.
 //
 // An Event e is invalid if e.AggregateName() doesn't match a.AggregateName(),
 // e.AggregateID() doesn't match a.AggregateID() or if e.AggregateVersion()
@@ -68,33 +55,32 @@ type Aggregate interface {
 // The first Event e in events that is invalid causes Validate to return an
 // *Error containing the Kind of inconsistency and the Event that caused the
 // inconsistency.
-func Validate(a Aggregate, events ...event.Event) error {
-	id := a.AggregateID()
-	name := a.AggregateName()
+func ValidateConsistency(a Aggregate, events ...event.Event) error {
+	id, name, _ := a.Aggregate()
 	version := currentVersion(a)
 	cv := version
 	var prev event.Event
 	for i, evt := range events {
 		eid, ename, ev := evt.Aggregate()
 		if eid != id {
-			return &Error{
-				Kind:       ID,
+			return &ConsistencyError{
+				Kind:       InconsistentID,
 				Aggregate:  a,
 				Events:     events,
 				EventIndex: i,
 			}
 		}
 		if ename != name {
-			return &Error{
-				Kind:       Name,
+			return &ConsistencyError{
+				Kind:       InconsistentName,
 				Aggregate:  a,
 				Events:     events,
 				EventIndex: i,
 			}
 		}
 		if ev != cv+1 {
-			return &Error{
-				Kind:       Version,
+			return &ConsistencyError{
+				Kind:       InconsistentVersion,
 				Aggregate:  a,
 				Events:     events,
 				EventIndex: i,
@@ -104,8 +90,8 @@ func Validate(a Aggregate, events ...event.Event) error {
 			nano := evt.Time().UnixNano()
 			prevNano := prev.Time().UnixNano()
 			if nano <= prevNano {
-				return &Error{
-					Kind:       Time,
+				return &ConsistencyError{
+					Kind:       InconsistentTime,
 					Aggregate:  a,
 					Events:     events,
 					EventIndex: i,
@@ -119,14 +105,14 @@ func Validate(a Aggregate, events ...event.Event) error {
 }
 
 // Event return the first Event that caused an inconsistency.
-func (err *Error) Event() event.Event {
+func (err *ConsistencyError) Event() event.Event {
 	if err.EventIndex < 0 || err.EventIndex >= len(err.Events) {
 		return nil
 	}
 	return err.Events[err.EventIndex]
 }
 
-func (err *Error) Error() string {
+func (err *ConsistencyError) Error() string {
 	evt := err.Event()
 	var (
 		id   uuid.UUID
@@ -137,23 +123,32 @@ func (err *Error) Error() string {
 		id, name, v = evt.Aggregate()
 	}
 
+	var (
+		aid   uuid.UUID
+		aname string
+	)
+
+	if err.Aggregate != nil {
+		aid, aname, _ = err.Aggregate.Aggregate()
+	}
+
 	switch err.Kind {
-	case ID:
+	case InconsistentID:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid AggregateID. want=%s got=%s",
-			evt.Name(), err.Aggregate.AggregateID(), id,
+			evt.Name(), aid, id,
 		)
-	case Name:
+	case InconsistentName:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid AggregateName. want=%s got=%s",
-			evt.Name(), err.Aggregate.AggregateName(), name,
+			evt.Name(), aname, name,
 		)
-	case Version:
+	case InconsistentVersion:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid AggregateVersion. want=%d got=%d",
 			evt.Name(), currentVersion(err.Aggregate)+1+err.EventIndex, v,
 		)
-	case Time:
+	case InconsistentTime:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid Time. want=after %v got=%v",
 			evt.Name(), err.Events[err.EventIndex-1].Time(), evt.Time(),
@@ -163,21 +158,22 @@ func (err *Error) Error() string {
 	}
 }
 
-func (k Kind) String() string {
+func (k ConsistencyKind) String() string {
 	switch k {
-	case ID:
-		return "Kind(ID)"
-	case Name:
-		return "Kind(Name)"
-	case Version:
-		return "Kind(Version)"
-	case Time:
-		return "Kind(Time)"
+	case InconsistentID:
+		return "<InconsistentID>"
+	case InconsistentName:
+		return "<InconsistentName>"
+	case InconsistentVersion:
+		return "<InconsistentVersion>"
+	case InconsistentTime:
+		return "<InconsitentTime>"
 	default:
-		return "Kind(Unknown)"
+		return "<UnknownInconsitency>"
 	}
 }
 
 func currentVersion(a Aggregate) int {
-	return a.AggregateVersion() + len(a.AggregateChanges())
+	_, _, v := a.Aggregate()
+	return v + len(a.AggregateChanges())
 }

@@ -78,13 +78,15 @@ func TestSort_id(t *testing.T) {
 	copy(descAggregates, aggregates)
 
 	sort.Slice(ascAggregates, func(i, j int) bool {
-		return ascAggregates[i].AggregateID().String() <=
-			ascAggregates[j].AggregateID().String()
+		iid, _, _ := ascAggregates[i].Aggregate()
+		jid, _, _ := ascAggregates[j].Aggregate()
+		return iid.String() <= jid.String()
 	})
 
 	sort.Slice(descAggregates, func(i, j int) bool {
-		return descAggregates[i].AggregateID().String() >
-			descAggregates[j].AggregateID().String()
+		iid, _, _ := descAggregates[i].Aggregate()
+		jid, _, _ := descAggregates[j].Aggregate()
+		return iid.String() > jid.String()
 	})
 
 	tests := map[aggregate.SortDirection][]aggregate.Aggregate{

@@ -214,15 +214,17 @@ func (r *Repository) Fetch(ctx context.Context, a aggregate.Aggregate) error {
 		return r.fetchLatestWithSnapshot(ctx, a)
 	}
 	return r.fetch(ctx, a, equery.AggregateVersion(
-		version.Min(aggregate.CurrentVersion(a)+1),
+		version.Min(aggregate.UncommittedVersion(a)+1),
 	))
 }
 
 func (r *Repository) fetchLatestWithSnapshot(ctx context.Context, a aggregate.Aggregate) error {
-	snap, err := r.snapshots.Latest(ctx, a.AggregateName(), a.AggregateID())
+	id, name, _ := a.Aggregate()
+
+	snap, err := r.snapshots.Latest(ctx, name, id)
 	if err != nil || snap == nil {
 		return r.fetch(ctx, a, equery.AggregateVersion(
-			version.Min(a.AggregateVersion()+1),
+			version.Min(aggregate.UncommittedVersion(a)+1),
 		))
 	}
 
@@ -235,14 +237,16 @@ func (r *Repository) fetchLatestWithSnapshot(ctx context.Context, a aggregate.Ag
 	}
 
 	return r.fetch(ctx, a, equery.AggregateVersion(
-		version.Min(a.AggregateVersion()+1),
+		version.Min(aggregate.UncommittedVersion(a)+1),
 	))
 }
 
 func (r *Repository) fetch(ctx context.Context, a aggregate.Aggregate, opts ...equery.Option) error {
+	id, name, _ := a.Aggregate()
+
 	opts = append([]equery.Option{
-		equery.AggregateName(a.AggregateName()),
-		equery.AggregateID(a.AggregateID()),
+		equery.AggregateName(name),
+		equery.AggregateID(id),
 		equery.SortBy(event.SortAggregateVersion, event.SortAsc),
 	}, opts...)
 
@@ -252,7 +256,7 @@ func (r *Repository) fetch(ctx context.Context, a aggregate.Aggregate, opts ...e
 	}
 
 	if err = aggregate.ApplyHistory(a, events...); err != nil {
-		return fmt.Errorf("apply events: %w", err)
+		return fmt.Errorf("apply history: %w", err)
 	}
 
 	return nil
@@ -288,7 +292,9 @@ func (r *Repository) FetchVersion(ctx context.Context, a aggregate.Aggregate, v 
 }
 
 func (r *Repository) fetchVersionWithSnapshot(ctx context.Context, a aggregate.Aggregate, v int) error {
-	snap, err := r.snapshots.Limit(ctx, a.AggregateName(), a.AggregateID(), v)
+	id, name, _ := a.Aggregate()
+
+	snap, err := r.snapshots.Limit(ctx, name, id, v)
 	if err != nil || snap == nil {
 		return r.fetchVersion(ctx, a, v)
 	}
@@ -306,13 +312,14 @@ func (r *Repository) fetchVersionWithSnapshot(ctx context.Context, a aggregate.A
 
 func (r *Repository) fetchVersion(ctx context.Context, a aggregate.Aggregate, v int) error {
 	if err := r.fetch(ctx, a, equery.AggregateVersion(
-		version.Min(a.AggregateVersion()+1),
+		version.Min(aggregate.UncommittedVersion(a)+1),
 		version.Max(v),
 	)); err != nil {
 		return err
 	}
 
-	if a.AggregateVersion() != v {
+	_, _, av := a.Aggregate()
+	if av != v {
 		return ErrVersionNotFound
 	}
 
@@ -321,9 +328,11 @@ func (r *Repository) fetchVersion(ctx context.Context, a aggregate.Aggregate, v 
 
 // Delete deletes an aggregate by deleting its events from the event store.
 func (r *Repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
+	id, name, _ := a.Aggregate()
+
 	str, errs, err := r.store.Query(ctx, equery.New(
-		equery.AggregateName(a.AggregateName()),
-		equery.AggregateID(a.AggregateID()),
+		equery.AggregateName(name),
+		equery.AggregateID(id),
 	))
 	if err != nil {
 		return fmt.Errorf("query events: %w", err)

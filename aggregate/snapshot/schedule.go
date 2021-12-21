@@ -16,8 +16,8 @@ type scheduleFunc func(aggregate.Aggregate) bool
 // every nth Event of that Aggregate.
 func Every(n int) Schedule {
 	return scheduleFunc(func(a aggregate.Aggregate) bool {
-		old := a.AggregateVersion()
-		current := aggregate.CurrentVersion(a)
+		_, _, old := a.Aggregate()
+		current := aggregate.UncommittedVersion(a)
 
 		for v := old + 1; v <= current; v++ {
 			if v%n == 0 {

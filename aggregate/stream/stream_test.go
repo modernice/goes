@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
@@ -40,7 +39,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 		t.Fatalf("drain stream: %v", err)
 	}
 
-	applied := getAppliedEvents(as[0].AggregateID())
+	applied := getAppliedEvents(aggregate.ExtractID(as[0]))
 	test.AssertEqualEvents(t, xevent.FilterAggregate(events, as[0]), applied)
 
 	if len(res) != 1 {
@@ -55,7 +54,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 		t.Errorf("stream should flush aggregate changes. len(changes)=%d", l)
 	}
 
-	if v := res[0].AggregateVersion(); v != 10 {
+	if v := aggregate.ExtractVersion(res[0]); v != 10 {
 		t.Errorf("aggregate should have version %d; got %d", 10, v)
 	}
 }
@@ -74,7 +73,7 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 		t.Fatalf("drain stream: %v", err)
 	}
 
-	applied := getAppliedEvents(as[0].AggregateID())
+	applied := getAppliedEvents(aggregate.ExtractID(as[0]))
 	test.AssertEqualEvents(t, event.Sort(events, event.SortAggregateVersion, event.SortAsc), applied)
 
 	if len(res) != 1 {
@@ -105,7 +104,8 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 	}
 
 	for _, a := range as {
-		applied := getAppliedEvents(a.AggregateID())
+		id, _, _ := a.Aggregate()
+		applied := getAppliedEvents(id)
 		test.AssertEqualEvents(t, event.Sort(
 			xevent.FilterAggregate(events, a),
 			event.SortAggregateVersion,
@@ -140,12 +140,12 @@ func TestStream_inconsistent(t *testing.T) {
 		t.Fatalf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *consistency.Error
+	var cerr *aggregate.ConsistencyError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("stream should return an error of type %T; got %T", cerr, err)
 	}
 
-	if cerr.Aggregate.AggregateID() != as[0].AggregateID() {
+	if aggregate.ExtractID(cerr.Aggregate) != aggregate.ExtractID(as[0]) {
 		t.Errorf("cerr.Aggregate should be %#v; got %#v", as[0], cerr.Aggregate)
 	}
 
@@ -172,12 +172,12 @@ func TestSorted(t *testing.T) {
 		t.Errorf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *consistency.Error
+	var cerr *aggregate.ConsistencyError
 	if !errors.As(err, &cerr) {
 		t.Errorf("stream should return an error of type %T; got %T", cerr, err)
 	}
 
-	if cerr.Aggregate.AggregateID() != as[0].AggregateID() {
+	if aggregate.ExtractID(cerr.Aggregate) != aggregate.ExtractID(as[0]) {
 		t.Errorf("cerr.Aggregate should be %#v; got %#v", as[0], cerr.Aggregate)
 	}
 
@@ -278,10 +278,10 @@ func TestFilter(t *testing.T) {
 		es,
 		stream.Filter(
 			func(evt event.Event) bool {
-				return strings.HasPrefix(event.AggregateName(evt), "foo")
+				return strings.HasPrefix(event.ExtractAggregateName(evt), "foo")
 			},
 			func(evt event.Event) bool {
-				return strings.HasSuffix(event.AggregateName(evt), "bar")
+				return strings.HasSuffix(event.ExtractAggregateName(evt), "bar")
 			},
 		),
 	)

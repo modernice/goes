@@ -33,12 +33,14 @@ var (
 func NewAggregate(t TestingT, newFunc func(uuid.UUID) aggregate.Aggregate, expectedName string) {
 	a := newFunc(ExampleID)
 
-	if name := a.AggregateName(); name != expectedName {
+	id, name, _ := a.Aggregate()
+
+	if name != expectedName {
 		t.Fatal(fmt.Sprintf("AggregateName() should return %q; got %q", expectedName, name))
 	}
 
-	if aid := a.AggregateID(); aid != ExampleID {
-		t.Fatal(fmt.Sprintf("AggregateID() should return %q; got %q", ExampleID, aid))
+	if id != ExampleID {
+		t.Fatal(fmt.Sprintf("AggregateID() should return %q; got %q", ExampleID, id))
 	}
 }
 

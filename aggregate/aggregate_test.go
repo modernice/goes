@@ -1,6 +1,7 @@
 package aggregate_test
 
 import (
+	"log"
 	"reflect"
 	"testing"
 
@@ -108,10 +109,10 @@ func TestApplyHistory(t *testing.T) {
 	etest.AssertEqualEvents(t, events, applied)
 }
 
-func TestCurrentVersion(t *testing.T) {
+func TestUncommittedVersion(t *testing.T) {
 	a := aggregate.New("foo", uuid.New())
 
-	if v := aggregate.CurrentVersion(a); v != 0 {
+	if v := aggregate.UncommittedVersion(a); v != 0 {
 		t.Errorf("current aggregate version should be %d; got %d", 0, v)
 	}
 
@@ -119,7 +120,7 @@ func TestCurrentVersion(t *testing.T) {
 
 	a.TrackChange(evt)
 
-	if v := aggregate.CurrentVersion(a); v != 1 {
+	if v := aggregate.UncommittedVersion(a); v != 1 {
 		t.Errorf("current aggregate version should be %d; got %d", 1, v)
 	}
 
@@ -127,7 +128,7 @@ func TestCurrentVersion(t *testing.T) {
 
 	a.TrackChange(evt)
 
-	if v := aggregate.CurrentVersion(a); v != 2 {
+	if v := aggregate.UncommittedVersion(a); v != 2 {
 		t.Errorf("current aggregate version should be %d; got %d", 2, v)
 	}
 }
@@ -161,6 +162,8 @@ func TestHasChange(t *testing.T) {
 	aggregate.NextEvent(a, "foo", etest.FooEventData{})
 	aggregate.NextEvent(a, "bar", etest.BarEventData{})
 	aggregate.NextEvent(a, "baz", etest.BazEventData{})
+
+	log.Println(a.AggregateChanges())
 
 	wantChanges := []string{"foo", "bar", "baz"}
 	for _, name := range wantChanges {

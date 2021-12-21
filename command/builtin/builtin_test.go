@@ -64,7 +64,7 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Foo should be %d; is %d", 14, foo.Foo)
 	}
 
-	if aggregate.CurrentVersion(foo) != 3 {
+	if aggregate.UncommittedVersion(foo) != 3 {
 		t.Fatalf("AggregateVersion() should return %d; got %d", 3, foo.AggregateVersion())
 	}
 
@@ -111,16 +111,16 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Data() should return type %T; got %T", data, evt.Data())
 	}
 
-	if event.AggregateName(evt) != aggregateName {
-		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, event.AggregateName(evt))
+	if event.ExtractAggregateName(evt) != aggregateName {
+		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, event.ExtractAggregateName(evt))
 	}
 
-	if event.AggregateID(evt) != aggregateID {
-		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, event.AggregateID(evt))
+	if event.ExtractAggregateID(evt) != aggregateID {
+		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, event.ExtractAggregateID(evt))
 	}
 
-	if event.AggregateVersion(evt) != 0 {
-		t.Fatalf("evt.AggregateVersion() should return 0; got %v", event.AggregateVersion(evt))
+	if event.ExtractAggregateVersion(evt) != 0 {
+		t.Fatalf("evt.AggregateVersion() should return 0; got %v", event.ExtractAggregateVersion(evt))
 	}
 
 	if data.Version != 3 {

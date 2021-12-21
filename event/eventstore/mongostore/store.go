@@ -283,7 +283,7 @@ func (s *Store) updateState(ctx mongo.SessionContext, st state, events []event.E
 	if len(events) == 0 || st.AggregateName == "" || st.AggregageID == uuid.Nil {
 		return nil
 	}
-	st.Version = event.AggregateVersion(events[len(events)-1])
+	st.Version = event.ExtractAggregateVersion(events[len(events)-1])
 	if _, err := s.states.ReplaceOne(
 		ctx,
 		bson.D{
@@ -386,9 +386,9 @@ func (s *Store) Delete(ctx context.Context, events ...event.Event) error {
 			return abort(err)
 		}
 
-		aggregateName := event.AggregateName(events[0])
-		aggregateID := event.AggregateID(events[0])
-		aggregateVersion := event.AggregateVersion(events[0])
+		aggregateName := event.ExtractAggregateName(events[0])
+		aggregateID := event.ExtractAggregateID(events[0])
+		aggregateVersion := event.ExtractAggregateVersion(events[0])
 
 		if aggregateName == "" || aggregateID == uuid.Nil || aggregateVersion != 1 {
 			return commit()
@@ -583,7 +583,7 @@ func (err *VersionError) Error() string {
 	return fmt.Sprintf(
 		"event should have version %d, but has version %d",
 		err.CurrentVersion+1,
-		event.AggregateVersion(err.Event),
+		event.ExtractAggregateVersion(err.Event),
 	)
 }
 

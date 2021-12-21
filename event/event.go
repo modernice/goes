@@ -179,24 +179,6 @@ func SortMulti(events []Event, sorts ...SortOptions) []Event {
 	return sorted
 }
 
-// AggregateID returns the AggregateID of the given event.
-func AggregateID(evt Event) uuid.UUID {
-	id, _, _ := evt.Aggregate()
-	return id
-}
-
-// AggregateName returns the AggregateName of the given event.
-func AggregateName(evt Event) string {
-	_, name, _ := evt.Aggregate()
-	return name
-}
-
-// AggregateVersion returns the AggregateVersion of the given event.
-func AggregateVersion(evt Event) int {
-	_, _, v := evt.Aggregate()
-	return v
-}
-
 func (evt E) ID() uuid.UUID {
 	return evt.D.ID
 }

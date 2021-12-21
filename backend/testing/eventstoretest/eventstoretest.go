@@ -368,8 +368,8 @@ func testQueryAggregateID(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	result, err := runQuery(store, query.New(query.AggregateID(
-		event.AggregateID(events[0]),
-		event.AggregateID(events[2]),
+		event.ExtractAggregateID(events[0]),
+		event.ExtractAggregateID(events[2]),
 	)))
 	if err != nil {
 		t.Fatal(err)

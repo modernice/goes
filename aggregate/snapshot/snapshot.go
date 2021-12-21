@@ -12,51 +12,56 @@ import (
 
 // Snapshot is a snapshot of an Aggregate.
 type Snapshot interface {
-	// AggregateName returns the name of the Aggregate.
+	// AggregateName returns the name of the aggregate.
 	AggregateName() string
 
-	// AggregateID returns the UUID of the Aggregate.
+	// AggregateID returns the UUID of the aggregate.
 	AggregateID() uuid.UUID
 
-	// AggregateVersion returns the version of the Aggregate.
+	// AggregateVersion returns the version of the aggregate at the time of the snapshot.
 	AggregateVersion() int
 
-	// Time returns the Time of the Snapshot.
+	// Time returns the time of the snapshot.
 	Time() time.Time
 
-	// State returns the encoded state of the Aggregate.
+	// State returns the encoded state of the aggregate at the time of the snapshot.
 	State() []byte
 }
 
-// Option is a Snapshot option.
+// Option is an option for creating a snapshot.
 type Option func(*snapshot)
 
 type snapshot struct {
-	aggregate.Aggregate
-
-	time  time.Time
-	state []byte
+	id      uuid.UUID
+	name    string
+	version int
+	time    time.Time
+	state   []byte
 }
 
-// Time returns an Option that sets the Time of a Snapshot.
+// Time returns an Option that sets the Time of a snapshot.
 func Time(t time.Time) Option {
 	return func(s *snapshot) {
 		s.time = t
 	}
 }
 
-// Data returns an Option that overrides the encoded data of a Snapshot.
+// Data returns an Option that overrides the encoded data of a snapshot.
 func Data(b []byte) Option {
 	return func(s *snapshot) {
 		s.state = b
 	}
 }
 
-// New creates and returns a Snapshot of the given Aggregate.
+// New creates and returns a snapshot of the given aggregate.
 func New(a aggregate.Aggregate, opts ...Option) (Snapshot, error) {
+	id, name, v := a.Aggregate()
+
 	snap := snapshot{
-		Aggregate: a,
-		time:      xtime.Now(),
+		id:      id,
+		name:    name,
+		version: v,
+		time:    xtime.Now(),
 	}
 	for _, opt := range opts {
 		opt(&snap)
@@ -69,6 +74,26 @@ func New(a aggregate.Aggregate, opts ...Option) (Snapshot, error) {
 		snap.state = b
 	}
 	return &snap, nil
+}
+
+func (s snapshot) AggregateID() uuid.UUID {
+	return s.id
+}
+
+func (s snapshot) AggregateName() string {
+	return s.name
+}
+
+func (s snapshot) AggregateVersion() int {
+	return s.version
+}
+
+func (s snapshot) Time() time.Time {
+	return s.time
+}
+
+func (s snapshot) State() []byte {
+	return s.state
 }
 
 // Sort sorts Snapshot and returns the sorted Snapshots.
@@ -103,12 +128,4 @@ func SortMulti(snaps []Snapshot, sorts ...aggregate.SortOptions) []Snapshot {
 	})
 
 	return sorted
-}
-
-func (s *snapshot) Time() time.Time {
-	return s.time
-}
-
-func (s *snapshot) State() []byte {
-	return s.state
 }

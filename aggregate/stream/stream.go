@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/aggregate/consistency"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/fanin"
 )
@@ -291,7 +290,7 @@ func (s *stream) sortEvents() {
 
 		if s.validateConsistency {
 			a := aggregate.New(j.name, j.id)
-			if err := consistency.Validate(a, events...); err != nil {
+			if err := aggregate.ValidateConsistency(a, events...); err != nil {
 				s.outErrors <- err
 				continue
 			}
