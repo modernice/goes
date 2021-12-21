@@ -8,11 +8,8 @@ import (
 )
 
 const (
-	// unknownConsistencyKind is the invalid Kind.
-	unknownConsistencyKind = ConsistencyKind(iota)
-
 	// ID means there is an inconsistency in the ID of an Aggregate.
-	InconsistentID
+	InconsistentID = ConsistencyKind(iota + 1)
 
 	// Name means there is an inconsistency in the Aggregate names of the Events
 	// of an Aggregate.
