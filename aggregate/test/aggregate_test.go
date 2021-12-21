@@ -63,9 +63,9 @@ func TestTrackChangeFunc(t *testing.T) {
 	eventtest.AssertEqualEvents(t, events, foo.AggregateChanges())
 }
 
-func TestFlushChangesFunc(t *testing.T) {
+func TestCommitFunc(t *testing.T) {
 	aggregateID := uuid.New()
-	foo := test.NewFoo(aggregateID, test.FlushChangesFunc(func(flush func()) {}))
+	foo := test.NewFoo(aggregateID, test.CommitFunc(func(flush func()) {}))
 	events := []event.Event{
 		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 1)),
 		event.New("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 2)),
@@ -73,14 +73,14 @@ func TestFlushChangesFunc(t *testing.T) {
 	}
 	foo.TrackChange(events...)
 
-	foo.FlushChanges()
+	foo.Commit()
 	eventtest.AssertEqualEvents(t, events, foo.AggregateChanges())
 
-	foo = test.NewFoo(aggregateID, test.FlushChangesFunc(func(flush func()) {
+	foo = test.NewFoo(aggregateID, test.CommitFunc(func(flush func()) {
 		flush()
 	}))
 	foo.TrackChange(events...)
 
-	foo.FlushChanges()
+	foo.Commit()
 	eventtest.AssertEqualEvents(t, foo.AggregateChanges(), nil)
 }

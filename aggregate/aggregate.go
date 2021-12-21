@@ -13,34 +13,6 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Aggregate is an event-sourced Aggregate.
-type Aggregate interface {
-	// AggregateID return the UUID of the Aggregate.
-	AggregateID() uuid.UUID
-
-	// AggregateName returns the name of the Aggregate.
-	AggregateName() string
-
-	// AggregateVersion returns the version of the Aggregate.
-	AggregateVersion() int
-
-	// AggregateChanges returns the uncommited changes (Events) of the Aggregate.
-	AggregateChanges() []event.Event
-
-	// TrackChange adds Events as changes to the Aggregate.
-	TrackChange(...event.Event)
-
-	// FlushChanges increases the version of the Aggregate by the number of
-	// changes and empties the changes.
-	FlushChanges()
-
-	// ApplyEvent applies the Event on the Aggregate.
-	ApplyEvent(event.Event)
-
-	// SetVersion sets the version of the Aggregate (without uncommitted Events).
-	SetVersion(int)
-}
-
 // Tuple is a reference to a specific Aggregate with the given Name and ID.
 type Tuple event.AggregateTuple
 
@@ -74,8 +46,9 @@ func Version(v int) Option {
 	}
 }
 
-// ApplyHistory applies the given events to the Aggregate a to reconstruct the
-// state of a at the time of the latest event.
+// ApplyHistory applies the given events to the aggregate a to reconstruct the
+// state of a at the time of the latest event. If the aggregate implements
+// Committer, a.TrackChange(events) and a.Commit() are called before returning.
 func ApplyHistory(a Aggregate, events ...event.Event) error {
 	if err := consistency.Validate(a, events...); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
@@ -83,8 +56,12 @@ func ApplyHistory(a Aggregate, events ...event.Event) error {
 	for _, evt := range events {
 		a.ApplyEvent(evt)
 	}
-	a.TrackChange(events...)
-	a.FlushChanges()
+
+	if c, ok := a.(Committer); ok {
+		c.TrackChange(events...)
+		c.Commit()
+	}
+
 	return nil
 }
 
@@ -137,9 +114,15 @@ func NextEvent(a Aggregate, name string, data interface{}, opts ...event.Option)
 		),
 		event.Time(nextTime(a)),
 	}, opts...)
+
 	evt := event.New(name, data, opts...)
+
 	a.ApplyEvent(evt)
-	a.TrackChange(evt)
+
+	if c, ok := a.(Committer); ok {
+		c.TrackChange(evt)
+	}
+
 	return evt
 }
 
@@ -178,8 +161,8 @@ func (b *Base) TrackChange(events ...event.Event) {
 	b.Changes = append(b.Changes, events...)
 }
 
-// FlushChanges
-func (b *Base) FlushChanges() {
+// Commit implement Aggregate.
+func (b *Base) Commit() {
 	if len(b.Changes) == 0 {
 		return
 	}
@@ -189,15 +172,19 @@ func (b *Base) FlushChanges() {
 	b.Changes = b.Changes[:0]
 }
 
-// ApplyEvent implements Aggregate. Aggregates that embed Base should overide
+// ApplyEvent implements aggregate. Aggregates that embed *Base should overide
 // ApplyEvent.
 func (*Base) ApplyEvent(event.Event) {}
 
-// SetVersion implements Aggregate.
+// SetVersion implements snapshot.Aggregate.
 func (b *Base) SetVersion(v int) {
 	b.Version = v
 }
 
+// nextTime returns the Time for the next event of the given aggregate. The time
+// should most of the time just be time.Now(), but nextTime guarantees that the
+// returned Time is at least 1 nanosecond after the previous event. This is
+// necessary for the projection.Progressing API to work.
 func nextTime(a Aggregate) time.Time {
 	changes := a.AggregateChanges()
 	now := xtime.Now()

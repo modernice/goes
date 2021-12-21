@@ -20,16 +20,17 @@ type Foo struct {
 type AggregateOption func(*testAggregate)
 
 type testAggregate struct {
-	aggregate.Aggregate
+	*aggregate.Base
+
 	applyFuncs map[string]func(event.Event)
 	trackFunc  func([]event.Event, func(...event.Event))
-	flushFunc  func(func())
+	commitFunc func(func())
 }
 
 // NewAggregate returns a new test aggregate.
 func NewAggregate(name string, id uuid.UUID, opts ...AggregateOption) aggregate.Aggregate {
 	a := &testAggregate{
-		Aggregate:  aggregate.New(name, id),
+		Base:       aggregate.New(name, id),
 		applyFuncs: make(map[string]func(event.Event)),
 	}
 	for _, opt := range opts {
@@ -42,7 +43,7 @@ func NewAggregate(name string, id uuid.UUID, opts ...AggregateOption) aggregate.
 func NewFoo(id uuid.UUID, opts ...AggregateOption) *Foo {
 	foo := Foo{
 		testAggregate: testAggregate{
-			Aggregate:  aggregate.New("foo", id),
+			Base:       aggregate.New("foo", id),
 			applyFuncs: make(map[string]func(event.Event)),
 		},
 	}
@@ -70,12 +71,12 @@ func TrackChangeFunc(fn func(changes []event.Event, track func(...event.Event)))
 	}
 }
 
-// FlushChangesFunc returns an AggregateOption that allows users to intercept
-// a.FlushChanges calls. fn accepts a flush() function that can be called to
+// CommitFunc returns an AggregateOption that allows users to intercept
+// a.Commit calls. fn accepts a flush() function that can be called to
 // actually flush the changes.
-func FlushChangesFunc(fn func(flush func())) AggregateOption {
+func CommitFunc(fn func(flush func())) AggregateOption {
 	return func(a *testAggregate) {
-		a.flushFunc = fn
+		a.commitFunc = fn
 	}
 }
 
@@ -99,17 +100,17 @@ func (a *testAggregate) TrackChange(changes ...event.Event) {
 }
 
 func (a *testAggregate) trackChange(changes ...event.Event) {
-	a.Aggregate.TrackChange(changes...)
+	a.Base.TrackChange(changes...)
 }
 
-func (a *testAggregate) FlushChanges() {
-	if a.flushFunc == nil {
-		a.flushChanges()
+func (a *testAggregate) Commit() {
+	if a.commitFunc == nil {
+		a.commit()
 		return
 	}
-	a.flushFunc(a.flushChanges)
+	a.commitFunc(a.commit)
 }
 
-func (a *testAggregate) flushChanges() {
-	a.Aggregate.FlushChanges()
+func (a *testAggregate) commit() {
+	a.Base.Commit()
 }

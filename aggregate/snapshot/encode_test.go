@@ -12,7 +12,7 @@ import (
 )
 
 type mockAggregate struct {
-	aggregate.Aggregate
+	*aggregate.Base
 	mockState
 }
 
@@ -26,7 +26,7 @@ type mockState struct {
 
 func TestMarshal_default(t *testing.T) {
 	a := &mockAggregate{
-		Aggregate: aggregate.New("foo", uuid.New()),
+		Base: aggregate.New("foo", uuid.New()),
 		mockState: mockState{
 			A: true,
 			B: -10,
@@ -41,7 +41,7 @@ func TestMarshal_default(t *testing.T) {
 
 func TestMarshal_marshaler(t *testing.T) {
 	a := &mockSnapshot{
-		Aggregate: aggregate.New("foo", uuid.New()),
+		Base: aggregate.New("foo", uuid.New()),
 		mockState: mockState{
 			A: true,
 			B: -10,
@@ -56,7 +56,7 @@ func TestMarshal_marshaler(t *testing.T) {
 
 func TestUnmarshal(t *testing.T) {
 	a := &mockAggregate{
-		Aggregate: aggregate.New("foo", uuid.New()),
+		Base: aggregate.New("foo", uuid.New()),
 		mockState: mockState{
 			A: true,
 			B: -10,
@@ -70,7 +70,7 @@ func TestUnmarshal(t *testing.T) {
 	}
 	snap, _ := snapshot.New(a, snapshot.Data(b))
 
-	unmarshaled := &mockAggregate{Aggregate: aggregate.New("foo", uuid.New())}
+	unmarshaled := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
 
 	if err = snapshot.Unmarshal(snap, unmarshaled); err != nil {
 		t.Fatalf("Unmarshal shouldn't fail; failed with %q", err)
@@ -84,7 +84,7 @@ func TestUnmarshal(t *testing.T) {
 
 func TestUnmarshal_unmarshaler(t *testing.T) {
 	a := &mockSnapshot{
-		Aggregate: aggregate.New("foo", uuid.New()),
+		Base: aggregate.New("foo", uuid.New()),
 		mockState: mockState{
 			A: true,
 			B: -10,
@@ -98,7 +98,7 @@ func TestUnmarshal_unmarshaler(t *testing.T) {
 	}
 	snap, _ := snapshot.New(a, snapshot.Data(b))
 
-	unmarshaled := &mockSnapshot{Aggregate: aggregate.New("foo", uuid.New())}
+	unmarshaled := &mockSnapshot{Base: aggregate.New("foo", uuid.New())}
 
 	if err = snapshot.Unmarshal(snap, unmarshaled); err != nil {
 		t.Fatalf("Unmarshal shouldn't fail; failed with %q", err)

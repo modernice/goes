@@ -42,7 +42,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestNew_marshaler(t *testing.T) {
-	a := &mockSnapshot{Aggregate: aggregate.New("foo", uuid.New())}
+	a := &mockSnapshot{Base: aggregate.New("foo", uuid.New())}
 	snap, err := snapshot.New(a)
 	if err != nil {
 		t.Errorf("New shouldn't fail; failed with %q", err)

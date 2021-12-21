@@ -41,7 +41,7 @@ func TestRepository_Save(t *testing.T) {
 	}
 
 	flushed := make(chan struct{})
-	foo := test.NewFoo(aggregateID, test.FlushChangesFunc(func(flush func()) {
+	foo := test.NewFoo(aggregateID, test.CommitFunc(func(flush func()) {
 		flush()
 		close(flushed)
 	}))
@@ -70,11 +70,12 @@ func TestRepository_Save_Snapshot(t *testing.T) {
 		repository.WithSnapshots(snapstore, snapshot.Every(3)),
 	)
 
-	foo := &mockAggregate{Aggregate: aggregate.New("foo", uuid.New())}
+	foo := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
 	events := xevent.Make("foo", etest.FooEventData{}, 3, xevent.ForAggregate(foo))
 
 	for _, evt := range events {
 		foo.ApplyEvent(evt)
+
 		foo.TrackChange(evt)
 	}
 
@@ -132,7 +133,7 @@ func TestRepository_Fetch(t *testing.T) {
 		test.ApplyEventFunc("foo", func(evt event.Event) {
 			appliedEvents = append(appliedEvents, evt)
 		}),
-		test.FlushChangesFunc(func(flush func()) {
+		test.CommitFunc(func(flush func()) {
 			flush()
 			flushed = true
 		}),
@@ -152,7 +153,7 @@ func TestRepository_Fetch(t *testing.T) {
 	}
 
 	if !flushed {
-		t.Errorf("expected foo.FlushChanges to have been called")
+		t.Errorf("expected foo.Commit to have been called")
 	}
 }
 
@@ -179,7 +180,7 @@ func TestRepository_FetchVersion(t *testing.T) {
 		test.ApplyEventFunc("foo", func(evt event.Event) {
 			appliedEvents = append(appliedEvents, evt)
 		}),
-		test.FlushChangesFunc(func(flush func()) {
+		test.CommitFunc(func(flush func()) {
 			flush()
 			flushed = true
 		}),
@@ -199,7 +200,7 @@ func TestRepository_FetchVersion(t *testing.T) {
 	}
 
 	if !flushed {
-		t.Errorf("expected foo.FlushChanges to have been called")
+		t.Errorf("expected foo.Commit to have been called")
 	}
 }
 
@@ -790,7 +791,7 @@ func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) a
 }
 
 type mockAggregate struct {
-	aggregate.Aggregate
+	*aggregate.Base
 
 	mockState
 }

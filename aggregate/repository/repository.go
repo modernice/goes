@@ -176,7 +176,9 @@ func (r *Repository) Save(ctx context.Context, a aggregate.Aggregate) error {
 		}
 	}
 
-	a.FlushChanges()
+	if c, ok := a.(aggregate.Committer); ok {
+		c.Commit()
+	}
 
 	if snap {
 		if err := r.makeSnapshot(ctx, a); err != nil {
@@ -224,8 +226,12 @@ func (r *Repository) fetchLatestWithSnapshot(ctx context.Context, a aggregate.Ag
 		))
 	}
 
-	if err := snapshot.Unmarshal(snap, a); err != nil {
-		return fmt.Errorf("unmarshal snapshot: %w", err)
+	if a, ok := a.(snapshot.Aggregate); !ok {
+		return fmt.Errorf("aggregate does not implement %T", a)
+	} else {
+		if err := snapshot.Unmarshal(snap, a); err != nil {
+			return fmt.Errorf("unmarshal snapshot: %w", err)
+		}
 	}
 
 	return r.fetch(ctx, a, equery.AggregateVersion(
@@ -287,8 +293,12 @@ func (r *Repository) fetchVersionWithSnapshot(ctx context.Context, a aggregate.A
 		return r.fetchVersion(ctx, a, v)
 	}
 
-	if err = snapshot.Unmarshal(snap, a); err != nil {
-		return fmt.Errorf("unmarshal snapshot: %w", err)
+	if a, ok := a.(snapshot.Aggregate); !ok {
+		return fmt.Errorf("aggregate does not implement %T", a)
+	} else {
+		if err = snapshot.Unmarshal(snap, a); err != nil {
+			return fmt.Errorf("unmarshal snapshot: %w", err)
+		}
 	}
 
 	return r.fetchVersion(ctx, a, v)

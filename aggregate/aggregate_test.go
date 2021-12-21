@@ -66,7 +66,7 @@ func TestBase_FlushChanges(t *testing.T) {
 
 	b.TrackChange(events...)
 
-	b.FlushChanges()
+	b.Commit()
 
 	if changes := b.AggregateChanges(); len(changes) != 0 {
 		t.Fatalf("expected b.AggregateChanges to return an empty slice; got %#v", changes)
@@ -85,7 +85,7 @@ func TestApplyHistory(t *testing.T) {
 		test.ApplyEventFunc("foo", func(evt event.Event) {
 			applied = append(applied, evt)
 		}),
-		test.FlushChangesFunc(func(flush func()) {
+		test.CommitFunc(func(flush func()) {
 			flush()
 			flushed = true
 		}),
