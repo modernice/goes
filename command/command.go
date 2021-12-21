@@ -13,7 +13,7 @@ import (
 
 var (
 	// ErrAlreadyFinished is returned when a Command is finished multiple times.
-	ErrAlreadyFinished = errors.New("Command already finished")
+	ErrAlreadyFinished = errors.New("command already finished")
 )
 
 // A Command represents a command in the business model of an application or
@@ -82,38 +82,46 @@ type Context interface {
 	Finish(context.Context, ...finish.Option) error
 }
 
-// Option is a Command option.
-type Option func(*command)
+// Option is a command option.
+type Option func(*Cmd)
 
-type command struct {
-	id            uuid.UUID
-	name          string
-	payload       interface{}
-	aggregateName string
-	aggregateID   uuid.UUID
+// Cmd is the implementation of Command.
+type Cmd struct {
+	Data Data
+}
+
+// Data contains the actual fields of Cmd.
+type Data struct {
+	ID            uuid.UUID
+	Name          string
+	Payload       interface{}
+	AggregateName string
+	AggregateID   uuid.UUID
 }
 
 // ID returns an Option that overrides the auto-generated UUID of a Command.
 func ID(id uuid.UUID) Option {
-	return func(b *command) {
-		b.id = id
+	return func(b *Cmd) {
+		b.Data.ID = id
 	}
 }
 
 // Aggregate returns an Option that links a Command to an Aggregate.
 func Aggregate(name string, id uuid.UUID) Option {
-	return func(b *command) {
-		b.aggregateName = name
-		b.aggregateID = id
+	return func(b *Cmd) {
+		b.Data.AggregateName = name
+		b.Data.AggregateID = id
 	}
 }
 
-// New returns a new Command with the given name and Payload.
-func New(name string, pl interface{}, opts ...Option) Command {
-	cmd := command{
-		id:      uuid.New(),
-		name:    name,
-		payload: pl,
+// New returns a new command with the given name and payload.
+func New(name string, pl interface{}, opts ...Option) Cmd {
+	cmd := Cmd{
+		Data: Data{
+			ID:      uuid.New(),
+			Name:    name,
+			Payload: pl,
+		},
 	}
 	for _, opt := range opts {
 		opt(&cmd)
@@ -121,18 +129,18 @@ func New(name string, pl interface{}, opts ...Option) Command {
 	return cmd
 }
 
-func (cmd command) ID() uuid.UUID {
-	return cmd.id
+func (cmd Cmd) ID() uuid.UUID {
+	return cmd.Data.ID
 }
 
-func (cmd command) Name() string {
-	return cmd.name
+func (cmd Cmd) Name() string {
+	return cmd.Data.Name
 }
 
-func (cmd command) Payload() interface{} {
-	return cmd.payload
+func (cmd Cmd) Payload() interface{} {
+	return cmd.Data.Payload
 }
 
-func (cmd command) Aggregate() (uuid.UUID, string) {
-	return cmd.aggregateID, cmd.aggregateName
+func (cmd Cmd) Aggregate() (uuid.UUID, string) {
+	return cmd.Data.AggregateID, cmd.Data.AggregateName
 }
