@@ -1,6 +1,6 @@
 //go:build mongostore
 
-package mongostore_test
+package mongo_test
 
 import (
 	"context"
@@ -10,11 +10,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/backend/mongo"
+	"github.com/modernice/goes/backend/mongo/mongotest"
 	"github.com/modernice/goes/backend/testing/eventstoretest"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventstore/mongostore"
-	"github.com/modernice/goes/event/eventstore/mongostore/mongotest"
 	etest "github.com/modernice/goes/event/test"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -22,16 +22,16 @@ import (
 func TestStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
 		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
-			return mongotest.NewStore(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
+			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
 		})
 	})
 
 	t.Run("ReplicaSet", func(t *testing.T) {
 		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
-			return mongotest.NewStore(
+			return mongotest.NewEventStore(
 				enc,
-				mongostore.URL(os.Getenv("MONGOREPLSTORE_URL")),
-				mongostore.Transactions(true),
+				mongo.URL(os.Getenv("MONGOREPLSTORE_URL")),
+				mongo.Transactions(true),
 			)
 		})
 	})
@@ -39,7 +39,7 @@ func TestStore(t *testing.T) {
 
 func TestStore_Insert_versionError(t *testing.T) {
 	enc := etest.NewEncoder()
-	s := mongostore.New(enc, mongostore.URL(os.Getenv("MONGOSTORE_URL")))
+	s := mongo.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
 
 	if _, err := s.Connect(context.Background()); err != nil {
 		t.Fatalf("failed to connect to mongodb: %v", err)
@@ -64,7 +64,7 @@ func TestStore_Insert_versionError(t *testing.T) {
 
 	err := s.Insert(context.Background(), events...)
 
-	var versionError *mongostore.VersionError
+	var versionError *mongo.VersionError
 	if !errors.As(err, &versionError) {
 		t.Fatalf("Insert should fail a %T error; got %T", versionError, err)
 	}

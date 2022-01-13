@@ -1,6 +1,6 @@
 //go:build mongostore
 
-package mongostore_test
+package mongo_test
 
 import (
 	"context"
@@ -8,16 +8,16 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/backend/mongo"
+	"github.com/modernice/goes/backend/mongo/mongotest"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/eventstore/mongostore"
-	"github.com/modernice/goes/event/eventstore/mongostore/mongotest"
 	"github.com/modernice/goes/event/test"
-	"go.mongodb.org/mongo-driver/mongo"
+	gomongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func TestClient(t *testing.T) {
-	client, err := mongo.Connect(
+	client, err := gomongo.Connect(
 		context.Background(),
 		options.Client().ApplyURI(os.Getenv("MONGOSTORE_URL")),
 	)
@@ -25,7 +25,7 @@ func TestClient(t *testing.T) {
 		t.Fatalf("mongo.Connect: %v", err)
 	}
 
-	store := mongostore.New(test.NewEncoder(), mongostore.Client(client))
+	store := mongo.NewEventStore(test.NewEncoder(), mongo.Client(client))
 	if _, err = store.Connect(context.Background()); err != nil {
 		t.Fatalf("expected store.Connect to succeed; got %#v", err)
 	}
@@ -35,19 +35,19 @@ func TestClient(t *testing.T) {
 	}
 
 	if db := store.Database(); db == nil {
-		t.Errorf("expected store.Database not to return %#v; got %#v", (*mongo.Database)(nil), db)
+		t.Errorf("expected store.Database not to return %#v; got %#v", (*gomongo.Database)(nil), db)
 	}
 
 	if col := store.Collection(); col == nil {
-		t.Errorf("expected store.Collection not to return %#v; got %#v", (*mongo.Collection)(nil), col)
+		t.Errorf("expected store.Collection not to return %#v; got %#v", (*gomongo.Collection)(nil), col)
 	}
 }
 
 func TestDatabase(t *testing.T) {
-	store := mongotest.NewStore(
+	store := mongotest.NewEventStore(
 		test.NewEncoder(),
-		mongostore.Database("event_customdb"),
-		mongostore.URL(os.Getenv("MONGOSTORE_URL")),
+		mongo.Database("event_customdb"),
+		mongo.URL(os.Getenv("MONGOSTORE_URL")),
 	)
 
 	if _, err := store.Connect(context.Background()); err != nil {
@@ -61,10 +61,10 @@ func TestDatabase(t *testing.T) {
 }
 
 func TestCollection(t *testing.T) {
-	store := mongotest.NewStore(
+	store := mongotest.NewEventStore(
 		test.NewEncoder(),
-		mongostore.Collection("custom"),
-		mongostore.URL(os.Getenv("MONGOSTORE_URL")),
+		mongo.Collection("custom"),
+		mongo.URL(os.Getenv("MONGOSTORE_URL")),
 	)
 	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 1))
 	if err := store.Insert(context.Background(), evt); err != nil {
