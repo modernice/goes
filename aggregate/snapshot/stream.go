@@ -77,10 +77,15 @@ func Walk(
 	}
 }
 
-// ForEvery iterates over the given Snapshot and error channels and for every
+// ForEvery is an alias for ForEach.
+//
+// Deprecated: Use ForEach instead.
+var ForEvery = ForEach
+
+// ForEach iterates over the given Snapshot and error channels and for every
 // Snapshot s calls snapFn(s) and for every error e calls errorFn(e) until all
 // channels are closed or ctx is canceled.
-func ForEvery(
+func ForEach(
 	ctx context.Context,
 	snapFn func(Snapshot),
 	errFn func(error),

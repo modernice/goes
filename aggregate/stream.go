@@ -72,10 +72,15 @@ func Walk(
 	}
 }
 
-// ForEvery iterates over the provided History and error channels and for every
+// ForEvery is an alias for ForEach.
+//
+// Deprecated: Use ForEach instead.
+var ForEvery = ForEach
+
+// ForEach iterates over the provided History and error channels and for every
 // History h calls applyFn(h) and for every error e calls errFn(e) until all
 // channels are closed or ctx is canceled.
-func ForEvery(
+func ForEach(
 	applyFn func(h History),
 	errFn func(error),
 	histories <-chan History,
@@ -162,10 +167,15 @@ func WalkTuples(
 	}
 }
 
-// ForEveryTuple iterates over the provided Tuple and error channels and for
+// ForEveryTuple is an alias for ForEachTuple.
+//
+// Deprecated: Use ForEachTuple instead.
+var ForEveryTuple = ForEachTuple
+
+// ForEachTuple iterates over the provided Tuple and error channels and for
 // every Tuple l calls applyFn(l) and for every error e calls errFn(e) until
 // all channels are closed or ctx is canceled.
-func ForEveryTuple(
+func ForEachTuple(
 	applyFn func(Tuple),
 	errFn func(error),
 	tuples <-chan Tuple,

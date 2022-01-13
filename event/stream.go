@@ -85,10 +85,15 @@ func Walk(
 	}
 }
 
-// ForEvery iterates over the provided Event and error channels and for every
+// ForEvery is an alias for ForEach.
+//
+// Deprecated: Use ForEach instead.
+var ForEvery = ForEach
+
+// ForEach iterates over the provided Event and error channels and for every
 // Event evt calls evtFn(evt) and for every error e calls errFn(e) until all
 // channels are closed or ctx is canceled.
-func ForEvery(
+func ForEach(
 	ctx context.Context,
 	evtFn func(evt Event),
 	errFn func(error),
