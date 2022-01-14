@@ -93,13 +93,13 @@ func DrainTimeout(dur time.Duration) Option {
 	}
 }
 
-// New returns an event-driven Command Bus.
-func New(enc codec.Encoding, reg *codec.Registry, events event.Bus, opts ...Option) *Bus {
-	RegisterEvents(reg)
+// New returns an event-driven command bus.
+func New(cmdEnc codec.Encoding, eventReg *codec.Registry, events event.Bus, opts ...Option) *Bus {
+	RegisterEvents(eventReg)
 	b := Bus{
 		assignTimeout: DefaultAssignTimeout,
 		drainTimeout:  DefaultDrainTimeout,
-		enc:           enc,
+		enc:           cmdEnc,
 		bus:           events,
 		handlerID:     uuid.New(),
 	}
