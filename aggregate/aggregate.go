@@ -12,8 +12,11 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Tuple is a reference to a specific Aggregate with the given Name and ID.
-type Tuple event.AggregateTuple
+// Deprecated: Use Ref instead.
+type Tuple = Ref
+
+// Ref is a reference to a specific aggregate, identified by its name and id.
+type Ref = event.AggregateRef
 
 // Option is an Aggregate option.
 type Option func(*Base)

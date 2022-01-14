@@ -89,8 +89,12 @@ type Query interface {
 	Sortings() []SortOptions
 }
 
-// AggregateTuple is a reference to a specific Aggregate with the given Name and ID.
-type AggregateTuple struct {
+// Deprecated: Use AggregateRef instead.
+type AggregateTuple = AggregateRef
+
+// AggregateRef is a reference to a specific aggregate, identified by its name
+// and id.
+type AggregateRef struct {
 	Name string
 	ID   uuid.UUID
 }

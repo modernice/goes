@@ -30,7 +30,7 @@ type Command interface {
 	Payload() interface{}
 
 	// Aggregate returns the attached aggregate data.
-	Aggregate() (uuid.UUID, string)
+	Aggregate() (id uuid.UUID, name string)
 }
 
 // A Bus dispatches Commands to appropriate handlers.
