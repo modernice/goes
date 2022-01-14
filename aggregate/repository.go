@@ -94,17 +94,19 @@ type Sorting int
 // SortDirection is a sorting direction.
 type SortDirection int
 
-// A History is the history of an Aggregate that can be applied to it using the
-// Apply method.
+// A History provides the event history of an aggregate. A History can be
+// applied onto an aggregate to rebuild its current state.
 type History interface {
-	// AggregateName returns the name of the Historys Aggregate.
+	// AggregateName returns the name of the aggregate.
 	AggregateName() string
 
-	// AggregateID returns the UUID of the Historys Aggregate.
+	// AggregateID returns the UUID of the aggregate.
 	AggregateID() uuid.UUID
 
 	// Apply applies the History on an Aggregate. Callers are responsible for
 	// providing an Aggregate that can make use of the Events in the History.
+
+	// Apply applies the history onto the aggregate to rebuild its current state.
 	Apply(Aggregate)
 }
 
