@@ -192,7 +192,7 @@ func TestJob_Aggregates(t *testing.T) {
 		t.Fatalf("Aggregates failed with %q", err)
 	}
 
-	aggregates, err := aggregate.DrainTuples(ctx, str, errs)
+	aggregates, err := aggregate.DrainRefs(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("DrainTuples failed with %q", err)
 	}
@@ -226,7 +226,7 @@ func TestJob_Aggregates_specific(t *testing.T) {
 		t.Fatalf("Aggregates failed with %q", err)
 	}
 
-	aggregates, err := aggregate.DrainTuples(ctx, str, errs)
+	aggregates, err := aggregate.DrainRefs(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("DrainTuples failed with %q", err)
 	}

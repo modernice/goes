@@ -111,32 +111,35 @@ func ForEach(
 	}
 }
 
-// DrainTuple drains the given Tuple channel and returns its Tuples.
+// DrainRefs drains the given Ref channel and returns its Refs.
 //
-// DrainTuple accepts optional error channels which will cause DrainTuple to
-// fail on any error. When DrainTuple encounters an error from any of the error
-// channels, the already drained Tuples and that error are returned. Similarly,
-// when ctx is canceled, the drained Tuples and ctx.Err() are returned.
+// DrainRefs accepts optional error channels which will cause DrainRefs to
+// fail on any error. When DrainRefs encounters an error from any of the error
+// channels, the already drained Refs and that error are returned. Similarly,
+// when ctx is canceled, the drained Refs and ctx.Err() are returned.
 //
-// DrainTuple returns when the provided Tuple channel is closed or it
+// DrainRefs returns when the provided Ref channel is closed or it
 // encounters an error from an error channel and does not wait for the error
 // channels to be closed.
-func DrainTuples(ctx context.Context, str <-chan Tuple, errs ...<-chan error) ([]Tuple, error) {
-	out := make([]Tuple, 0, len(str))
-	err := WalkTuples(ctx, func(t Tuple) error { out = append(out, t); return nil }, str, errs...)
+func DrainRefs(ctx context.Context, str <-chan Ref, errs ...<-chan error) ([]Ref, error) {
+	out := make([]Ref, 0, len(str))
+	err := WalkRefs(ctx, func(r Ref) error { out = append(out, r); return nil }, str, errs...)
 	return out, err
 }
 
-// WalkTuples receives from the given Tuple channel until it and all provided
+// Deprecated: Use RefWalk instead.
+var WalkTuples = WalkRefs
+
+// WalkRefs receives from the given Ref channel until it and all provided
 // error channels are closed, ctx is closed or any of the provided error
-// channels receives an error. For every Tuple t that is received from the Tuple
+// channels receives an error. For every Ref r that is received from the Ref
 // channel, walkFn(h) is called. Should ctx be canceled before the channels are
 // closed, ctx.Err() is returned. Should an error be received from one of the
 // error channels, that error is returned. Otherwise Walk returns nil.
-func WalkTuples(
+func WalkRefs(
 	ctx context.Context,
-	walkFn func(Tuple) error,
-	str <-chan Tuple,
+	walkFn func(Ref) error,
+	str <-chan Ref,
 	errs ...<-chan error,
 ) error {
 	errChan, stop := fanin.Errors(errs...)
@@ -155,12 +158,12 @@ func WalkTuples(
 				return err
 			}
 			errChan = nil
-		case t, ok := <-str:
+		case r, ok := <-str:
 			if !ok {
 				str = nil
 				break
 			}
-			if err := walkFn(t); err != nil {
+			if err := walkFn(r); err != nil {
 				return err
 			}
 		}
@@ -169,23 +172,23 @@ func WalkTuples(
 
 // ForEveryTuple is an alias for ForEachTuple.
 //
-// Deprecated: Use ForEachTuple instead.
-var ForEveryTuple = ForEachTuple
+// Deprecated: Use ForEachRef instead.
+var ForEveryTuple = ForEachRef
 
-// ForEachTuple iterates over the provided Tuple and error channels and for
-// every Tuple l calls applyFn(l) and for every error e calls errFn(e) until
+// ForEachRef iterates over the provided Ref and error channels and for
+// every Ref r calls applyFn(r) and for every error e calls errFn(e) until
 // all channels are closed or ctx is canceled.
-func ForEachTuple(
-	applyFn func(Tuple),
+func ForEachRef(
+	applyFn func(Ref),
 	errFn func(error),
-	tuples <-chan Tuple,
+	refs <-chan Ref,
 	errs ...<-chan error,
 ) {
 	errChan, stop := fanin.Errors(errs...)
 	defer stop()
 
 	for {
-		if errChan == nil && tuples == nil {
+		if errChan == nil && refs == nil {
 			return
 		}
 
@@ -196,12 +199,12 @@ func ForEachTuple(
 				break
 			}
 			errFn(err)
-		case t, ok := <-tuples:
+		case r, ok := <-refs:
 			if !ok {
-				tuples = nil
+				refs = nil
 				break
 			}
-			applyFn(t)
+			applyFn(r)
 		}
 	}
 }

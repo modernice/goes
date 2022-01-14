@@ -259,7 +259,7 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	var id uuid.UUID
 
 	done := errors.New("done")
-	if err := aggregate.WalkTuples(ctx, func(t aggregate.Tuple) error {
+	if err := aggregate.WalkRefs(ctx, func(t aggregate.Tuple) error {
 		if t.Name == name {
 			id = t.ID
 			return done
