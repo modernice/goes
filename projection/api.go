@@ -68,6 +68,7 @@ type GuardFunc func(event.Event) bool
 //
 // Example:
 //
+//	// A Product is a product of a specific shop.
 //	type Product struct {
 //		*aggregate.Base
 //
@@ -75,6 +76,7 @@ type GuardFunc func(event.Event) bool
 //		Name string
 //	}
 //
+//	// SearchIndex projections the product catalog of a specific shop.
 //	type SearchIndex struct {
 //		shopID      uuid.UUID
 //		products    []Product
@@ -83,6 +85,9 @@ type GuardFunc func(event.Event) bool
 //
 //	func (idx SearchIndex) ApplyEvent(event.Event) { ... }
 //
+//	// RequiresFullHistory implements projection.HistoryDependent. If the
+// 	// projection hasn't been run yet, the full history of the events is
+//	// required for the projection.
 //	func (idx SearchIndex) RequiresFullHistory() bool {
 //		return !idx.initialized
 //	}
@@ -94,8 +99,8 @@ type GuardFunc func(event.Event) bool
 //
 //		done := make(map[uuid.UUID]bool) // SearchIndexes that have been projected
 //
-//		return aggregate.WalkTuple(ctx, func(t aggregate.Tuple) error {
-//			p := &Product{Base: aggregate.New("product", t.ID)}
+//		return aggregate.WalkRefs(ctx, func(r aggregate.Ref) error {
+//			p := &Product{Base: aggregate.New("product", r.ID)}
 //			err := repo.Fetch(ctx, p)
 //			shopID := p.ShopID
 //
