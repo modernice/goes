@@ -41,7 +41,10 @@ https://github.com/heynickc/awesome-ddd) before reading further.
   - Projection CLI/UI
 - Documentation
   - Examples / Guides
-- 
+- Generics
+  - `codec.Registry`
+  - `event.Event` (?)
+  - `command.Command` (?)
 
 ## Getting Started
 
