@@ -75,35 +75,35 @@ and Event-Sourcing framework/toolkit. Read a component's README for usage guides
 
 ### Event System
 
-[github.com/modernice/goes/tree/main/event](./event)
+[github.com/modernice/goes/event](./event)
 
 goes defines and implements a unified event system for both application events
 and aggregate events.
 
 ### Aggregates
 
-[github.com/modernice/goes/tree/main/aggregate](./aggregate)
+[github.com/modernice/goes/aggregate](./aggregate)
 
 goes provides utilities to create event-sourced aggregates that build on top of
 the event system.
 
 ### Command System
 
-[github.com/modernice/goes/tree/main/command](./command)
+[github.com/modernice/goes/command](./command)
 
 goes implements a distributed command bus that communicates between processes
 over the event system.
 
 ### Projections
 
-[github.com/modernice/goes/tree/main/projection](./projection)
+[github.com/modernice/goes/projection](./projection)
 
 The `projection` package provides utilities for creating and managing
 projections over events.
 
 ### SAGAs
 
-[github.com/modernice/goes/tree/main/saga](./saga)
+[github.com/modernice/goes/saga](./saga)
 
 The `saga` package implements a SAGA coordinator / process manager for more
 complex multi-step transactions.
