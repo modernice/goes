@@ -248,7 +248,7 @@ func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event,
 		}
 	}
 
-	event.ForEvery(ctx, func(evt event.Event) {
+	event.ForEach(ctx, func(evt event.Event) {
 		data := evt.Data().(TriggeredData)
 
 		s, ok := svc.schedule(data.Schedule)

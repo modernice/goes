@@ -197,10 +197,10 @@ func TestJob_Aggregates(t *testing.T) {
 		t.Fatalf("DrainTuples failed with %q", err)
 	}
 
-	want := make([]aggregate.Tuple, len(storeEvents))
+	want := make([]aggregate.Ref, len(storeEvents))
 	for i, evt := range storeEvents {
 		id, name, _ := evt.Aggregate()
-		want[i] = aggregate.Tuple{Name: name, ID: id}
+		want[i] = aggregate.Ref{Name: name, ID: id}
 	}
 
 	if !reflect.DeepEqual(want, aggregates) {
@@ -231,7 +231,7 @@ func TestJob_Aggregates_specific(t *testing.T) {
 		t.Fatalf("DrainTuples failed with %q", err)
 	}
 
-	want := []aggregate.Tuple{
+	want := []aggregate.Ref{
 		{Name: event.ExtractAggregateName(storeEvents[1]), ID: event.ExtractAggregateID(storeEvents[1])},
 		{Name: event.ExtractAggregateName(storeEvents[3]), ID: event.ExtractAggregateID(storeEvents[3])},
 	}

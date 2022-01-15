@@ -85,7 +85,7 @@ type Job interface {
 	//	str, errs, err := job.Aggregates(job, "foo", "bar", "baz")
 	//	// handle err
 	//	events, err := event.Drain(job, str, errs)
-	Aggregates(_ context.Context, aggregateNames ...string) (<-chan aggregate.Tuple, <-chan error, error)
+	Aggregates(_ context.Context, aggregateNames ...string) (<-chan aggregate.Ref, <-chan error, error)
 
 	// Aggregate returns the UUID of the first aggregate with the given
 	// aggregateName that can be found in the Events of the Job, or
@@ -205,7 +205,7 @@ func (j *job) EventsFor(ctx context.Context, target EventApplier) (<-chan event.
 	return j.Events(ctx, filter...)
 }
 
-func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate.Tuple, <-chan error, error) {
+func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate.Ref, <-chan error, error) {
 	var (
 		events <-chan event.Event
 		errs   <-chan error
@@ -222,14 +222,14 @@ func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate
 		return nil, nil, fmt.Errorf("fetch Events: %w", err)
 	}
 
-	out := make(chan aggregate.Tuple)
-	found := make(map[aggregate.Tuple]bool)
+	out := make(chan aggregate.Ref)
+	found := make(map[aggregate.Ref]bool)
 
 	go func() {
 		defer close(out)
 		for evt := range events {
 			id, name, _ := evt.Aggregate()
-			tuple := aggregate.Tuple{
+			tuple := aggregate.Ref{
 				Name: name,
 				ID:   id,
 			}
@@ -259,7 +259,7 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	var id uuid.UUID
 
 	done := errors.New("done")
-	if err := aggregate.WalkRefs(ctx, func(t aggregate.Tuple) error {
+	if err := aggregate.WalkRefs(ctx, func(t aggregate.Ref) error {
 		if t.Name == name {
 			id = t.ID
 			return done
