@@ -12,16 +12,16 @@ The command system is only needed in applications that consist of multiple
 ## Setup
 
 The command system communicates between processes using the [Event System](
-http://github.com/modernice/goes/tree/main/event). Use the `cmdbus.New` constructor to
-create the event-driven command bus.
+../event). Use the `cmdbus.New` constructor to create the event-driven command
+bus.
 
 ```go
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/codec"
-  "github.com/modernice/goes/tree/main/command/cmdbus"
-  "github.com/modernice/goes/tree/main/event/eventbus"
+  "github.com/modernice/goes/codec"
+  "github.com/modernice/goes/command/cmdbus"
+  "github.com/modernice/goes/event/eventbus"
 )
 
 func example() {
@@ -102,7 +102,7 @@ the command payload.
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/command"
+  "github.com/modernice/goes/command"
 )
 
 func dispatchCommand(bus command.Bus) {
@@ -125,8 +125,8 @@ of the command handler.
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/command"
-  "github.com/modernice/goes/tree/main/command/cmdbus/dispatch"
+  "github.com/modernice/goes/command"
+  "github.com/modernice/goes/command/cmdbus/dispatch"
 )
 
 func syncDispatch(bus command.Bus) {
@@ -192,10 +192,10 @@ goes provides built-in, commonly needed commands and command handlers.
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/aggregate/repository"
-  "github.com/modernice/goes/tree/main/codec"
-  "github.com/modernice/goes/tree/main/command/builtin"
-  "github.com/modernice/goes/tree/main/command/cmdbus"
+  "github.com/modernice/goes/aggregate/repository"
+  "github.com/modernice/goes/codec"
+  "github.com/modernice/goes/command/builtin"
+  "github.com/modernice/goes/command/cmdbus"
 )
 
 func example(ebus event.Bus) {
@@ -224,10 +224,10 @@ event stream from the event store.
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/aggregate/repository"
-  "github.com/modernice/goes/tree/main/codec"
-  "github.com/modernice/goes/tree/main/command/builtin"
-  "github.com/modernice/goes/tree/main/command/cmdbus"
+  "github.com/modernice/goes/aggregate/repository"
+  "github.com/modernice/goes/codec"
+  "github.com/modernice/goes/command/builtin"
+  "github.com/modernice/goes/command/cmdbus"
 )
 
 func example(bus command.Bus) {

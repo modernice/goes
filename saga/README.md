@@ -6,13 +6,12 @@ aggregate and command system to provide convenient access to the different
 components within the defined SAGA actions.
 
 This SAGA implementation is very likely subject to a rewrite. This is due to the
-implementation not working distributed like the [command bus](
-http://github.com/modernice/goes/tree/main/command) or [projection service](
-http://github.com/modernice/goes/tree/main/projection). Instead, a SAGA is executed and
-coordinates from within a single process, which provides no recover strategy for
-when the process that executes the SAGA fails. A rewrite is necessary to make
-SAGAs work event-driven, which should provide the required persistence layer and
-state needed for recovering SAGAs.
+implementation not working distributed like the [command bus](../command) or
+[projection service](../projection). Instead, a SAGA is executed and coordinates
+from within a single process, which provides no recover strategy for when the
+process that executes the SAGA fails. A rewrite is necessary to make SAGAs work
+event-driven, which should provide the required persistence layer and state
+needed for recovering SAGAs.
 
 ## Features
 
@@ -53,8 +52,8 @@ A `saga.Setup` implementation can be instantiated using `saga.New()`. Pass
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/saga"
-  "github.com/modernice/goes/tree/main/saga/action"
+  "github.com/modernice/goes/saga"
+  "github.com/modernice/goes/saga/action"
 )
 
 func example() {
@@ -81,8 +80,8 @@ are run. When an action returns a non-nil error, remaining actions are not run.
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/saga"
-  "github.com/modernice/goes/tree/main/saga/action"
+  "github.com/modernice/goes/saga"
+  "github.com/modernice/goes/saga/action"
 )
 
 func example() {
@@ -111,8 +110,8 @@ other actions can be called from within a running action by name.
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/saga"
-  "github.com/modernice/goes/tree/main/saga/action"
+  "github.com/modernice/goes/saga"
+  "github.com/modernice/goes/saga/action"
 )
 
 func example() {
@@ -151,8 +150,8 @@ configured as the compensating action for another action.
 package example
 
 import (
-  "github.com/modernice/goes/tree/main/saga"
-  "github.com/modernice/goes/tree/main/saga/action"
+  "github.com/modernice/goes/saga"
+  "github.com/modernice/goes/saga/action"
 )
 
 func example() {

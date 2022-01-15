@@ -24,8 +24,8 @@ https://github.com/heynickc/awesome-ddd) before reading further.
 - Distributed Event Bus (using [NATS Core](http://nats.io) / [NATS JetStream](
   https://docs.nats.io/nats-concepts/jetstream))
 - Distributed, event-driven Command Bus
-- Event Store ([In-Memory](http://github.com/modernice/goes/tree/main/event/eventstore) or
-  [MongoDB](http://github.com/modernice/goes/tree/main/backend/mongo))
+- Event Store ([In-Memory](./event/eventstore) or
+  [MongoDB](./backend/mongo))
 - Projections
 - SAGAs
 
@@ -42,7 +42,7 @@ https://github.com/heynickc/awesome-ddd) before reading further.
 - Documentation
   - Examples / Guides
 - Generics
-  - [Helpers](./tree/main/helper)
+  - [Helpers](./helper)
   - `codec.Registry`
   - `event.Event` (?)
   - `command.Command` (?)
@@ -57,17 +57,16 @@ go get github.com/modernice/goes
 
 ### Examples
 
-[~~A full example of an app can be found here.~~ (To-Do)](
-http://github.com/modernice/goes/tree/main/examples)
+[~~A full example of an app can be found here.~~ (To-Do)](./examples)
 
 ### Guides
 
-- [~~Setup Events~~ (To-Do)](http://github.com/modernice/goes/tree/main/examples/setupevents)
-- [~~Publish & Subscribe to Events~~ (To-Do)](http://github.com/modernice/goes/tree/main/examples/pubsubevent)
-- [~~Create & Test an Aggregate~~ (To-Do)](http://github.com/modernice/goes/tree/main/examples/aggregate)
-- [~~Setup Commands~~ (To-Do)](http://github.com/modernice/goes/tree/main/examples/setupcommands)
-- [~~Dispatch & Subscribe to Commands~~ (To-Do)](http://github.com/modernice/goes/tree/main/examples/pubsubcommand)
-- [~~Create Projections~~ (To-Do)](http://github.com/modernice/goes/tree/main/examples/projections)
+- [~~Setup Events~~ (To-Do)](./examples/setupevents)
+- [~~Publish & Subscribe to Events~~ (To-Do)](./examples/pubsubevent)
+- [~~Create & Test an Aggregate~~ (To-Do)](./examples/aggregate)
+- [~~Setup Commands~~ (To-Do)](./examples/setupcommands)
+- [~~Dispatch & Subscribe to Commands~~ (To-Do)](./examples/pubsubcommand)
+- [~~Create Projections~~ (To-Do)](./examples/projections)
 
 ## Components
 
@@ -76,35 +75,35 @@ and Event-Sourcing framework/toolkit. Read a component's README for usage guides
 
 ### Event System
 
-[github.com/modernice/goes/tree/main/event](http://github.com/modernice/goes/tree/main/event)
+[github.com/modernice/goes/tree/main/event](./event)
 
 goes defines and implements a unified event system for both application events
 and aggregate events.
 
 ### Aggregates
 
-[github.com/modernice/goes/tree/main/aggregate](http://github.com/modernice/goes/tree/main/aggregate)
+[github.com/modernice/goes/tree/main/aggregate](./aggregate)
 
 goes provides utilities to create event-sourced aggregates that build on top of
 the event system.
 
 ### Command System
 
-[github.com/modernice/goes/tree/main/command](http://github.com/modernice/goes/tree/main/command)
+[github.com/modernice/goes/tree/main/command](./command)
 
 goes implements a distributed command bus that communicates between processes
 over the event system.
 
 ### Projections
 
-[github.com/modernice/goes/tree/main/projection](http://github.com/modernice/goes/tree/main/projection)
+[github.com/modernice/goes/tree/main/projection](./projection)
 
 The `projection` package provides utilities for creating and managing
 projections over events.
 
 ### SAGAs
 
-[github.com/modernice/goes/tree/main/saga](http://github.com/modernice/goes/tree/main/saga)
+[github.com/modernice/goes/tree/main/saga](./saga)
 
 The `saga` package implements a SAGA coordinator / process manager for more
 complex multi-step transactions.
@@ -113,14 +112,14 @@ complex multi-step transactions.
 
 ### Event Bus
 
-- [Channels (In-Memory)](http://github.com/modernice/goes/tree/main/event/eventbus/chabus.go)
-- [NATS Core](http://github.com/modernice/goes/tree/main/backend/nats)
-- [NATS JetStream](http://github.com/modernice/goes/tree/main/backend/nats)
+- [Channels (In-Memory)](./event/eventbus/chabus.go)
+- [NATS Core](./backend/nats)
+- [NATS JetStream](./backend/nats)
 
 ### Event Store
 
-- [In-Memory](http://github.com/modernice/goes/tree/main/event/eventstore/memstore.go)
-- [MongoDB](http://github.com/modernice/goes/tree/main/backend/mongo)
+- [In-Memory](./event/eventstore/memstore.go)
+- [MongoDB](./backend/mongo)
 
 ## Contributing
 
