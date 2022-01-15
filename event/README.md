@@ -38,7 +38,7 @@ inserting event into the store.
 ### Event Bus
 
 The `event.Bus` interface defines a simple event bus that is accepted by all
-of goes' components. An event bus must be able to publish an subscribe to events:
+of goes' components. An event bus must be able to publish and subscribe to events:
 
 ```go
 package event
@@ -153,7 +153,7 @@ func RegisterEvents(r *codec.GobRegistry) {
 ## Event Registry
 
 Use `codec.New()` to create a registry for event encoders and decoders. Each
-event type has registers its own encoder and decoder for its event data:
+event type registers its own encoder and decoder for its event data:
 
 ```go
 package example

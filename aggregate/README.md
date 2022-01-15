@@ -84,7 +84,7 @@ func NewUser(id uuid.UUID) *User {
   }
 }
 
-// Regiter registers the user with the given name and email address.
+// Register registers the user with the given name and email address.
 func (u *User) Register(name, email string) error {
   if name = strings.TrimSpace(name); name == "" {
     return errors.New("empty name")

@@ -68,14 +68,11 @@ for more information on how to use them:
 
 ## Scheduling
 
-goes' projection tools provide two types of projection schedulers:
+Projection schedules trigger projection jobs based on the schedule type. goes
+provides two types of projection schedules:
 
-- Continuous scheduler
-- Periodic scheduler
-
-Schedulers trigger projection jobs which provide a convenient way to efficiently
-fetch event from the event store to apply them onto as many projections as needed.
-
+- Continuous
+- Periodic
 
 ### Continuous Schedule
 
