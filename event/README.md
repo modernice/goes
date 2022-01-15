@@ -188,7 +188,7 @@ func makeEventData(reg *codec.Registry) {
 
 Or encode and decode event data:
 
-```
+```go
 package example
 
 // codec.Encoding is implemented by *codec.Registry
