@@ -36,16 +36,15 @@ var (
 
 // Setup is the setup for a SAGA.
 type Setup interface {
-	// Sequence returns the names of the Actions that should be run
-	// sequentially.
+	// Sequence returns the names of the actions that should be run sequentially.
 	Sequence() []string
 
-	// Compensator finds and returns the name of the compensating Action for the
+	// Compensator finds and returns the name of the compensating action for the
 	// Action with the given name. If Compensator returns an empty string, there
-	// is no compensator for the given Action was configured.
+	// is no compensator for the given action configured.
 	Compensator(string) string
 
-	// Action returns the Action with the given name. Action returns nil if no
+	// Action returns the action with the given name. Action returns nil if no
 	// Action with that name was configured.
 	Action(string) action.Action
 }
