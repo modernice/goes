@@ -51,17 +51,17 @@ go get github.com/modernice/goes
 
 ### Examples
 
-[~~A full example of an app can be found here.~~](
-http://github.com/modernice/goes/examples) (not yet)
+[~~A full example of an app can be found here.~~ (To-Do)](
+http://github.com/modernice/goes/examples)
 
 ### Guides
 
-- [Setup Events](http://github.com/modernice/goes/examples/setupevents)
-- [Publish & Subscribe to Events](http://github.com/modernice/goes/examples/pubsubevent)
-- [Create & Test an Aggregate](http://github.com/modernice/goes/examples/aggregate)
-- [Setup Commands](http://github.com/modernice/goes/examples/setupcommands)
-- [Dispatch & Subscribe to Commands](http://github.com/modernice/goes/examples/pubsubcommand)
-- [Create Projections](http://github.com/modernice/goes/examples/projections)
+- [~~Setup Events~~ (To-Do)](http://github.com/modernice/goes/examples/setupevents)
+- [~~Publish & Subscribe to Events~~ (To-Do)](http://github.com/modernice/goes/examples/pubsubevent)
+- [~~Create & Test an Aggregate~~ (To-Do)](http://github.com/modernice/goes/examples/aggregate)
+- [~~Setup Commands~~ (To-Do)](http://github.com/modernice/goes/examples/setupcommands)
+- [~~Dispatch & Subscribe to Commands~~ (To-Do)](http://github.com/modernice/goes/examples/pubsubcommand)
+- [~~Create Projections~~ (To-Do)](http://github.com/modernice/goes/examples/projections)
 
 ## Components
 
