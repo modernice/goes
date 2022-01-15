@@ -42,6 +42,7 @@ https://github.com/heynickc/awesome-ddd) before reading further.
 - Documentation
   - Examples / Guides
 - Generics
+  - [Helpers](./tree/main/helper)
   - `codec.Registry`
   - `event.Event` (?)
   - `command.Command` (?)
