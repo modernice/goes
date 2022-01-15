@@ -50,6 +50,11 @@ Example of a user aggregate:
 ```go
 package auth
 
+import (
+  "github.com/modernice/goes/event"
+  "github.com/modernice/goes/aggregate"
+)
+
 // UserAggregate is the name of the User aggregate.
 const UserAggregate = "auth.user"
 
