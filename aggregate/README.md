@@ -1,12 +1,14 @@
 # Aggregates
 
-The `aggregate` package provides the tools to create and manage event-sourced aggregates.
+The `aggregate` package builds on top of the [Event System](../event) to provide
+event-sourced aggregate tooling.
 
 ## Design
 
 The `aggregate.Aggregate` interface defines the minimum method set of an
-aggregate that is usable by goes. This interface is implemented by the
-`aggregate.Base` type that can be embedded into your structs.
+aggregate. The `*aggregate.Base` type implement this interface and can be
+embedded into your structs to provide the base implementation of an aggregate.
+The `aggregate.New()` function instantiates the `*aggregate.Base` type.
 
 ```go
 package aggregate
@@ -23,12 +25,6 @@ type Aggregate interface {
 }
 ```
 
-### Base Aggregate
-
-The `*aggregate.Base` type can be embedded into structs to make them implement
-the `aggregate.Aggregate` interface. The `aggregate.New` function instantiates
-the `*aggregate.Base` type.
-
 ```go
 // Package auth is an example authentication service.
 package auth
@@ -39,6 +35,7 @@ type User struct {
   *aggregate.Base
 }
 
+// NewUser returns the user with the given id.
 func NewUser(id uuid.UUID) *User {
   return &User{
     Base: aggregate.New(UserAggregate, id),
@@ -46,11 +43,85 @@ func NewUser(id uuid.UUID) *User {
 }
 ```
 
+### Example
+
+Example of a user aggregate:
+
+```go
+package auth
+
+// UserAggregate is the name of the User aggregate.
+const UserAggregate = "auth.user"
+
+// Events
+const (
+  UserRegistered = "auth.user.registered"
+)
+
+// UserRegisteredData is the event data for UserRegistered.
+type UserRegisteredData struct {
+  Name  string
+  Email string
+}
+
+// User represents a user of the application.
+type User struct {
+  *aggregate.Base
+
+  Name  string
+  Email string
+}
+
+// NewUser returns the user with the given id.
+func NewUser(id uuid.UUID) *User {
+  return &User{
+    Base: aggregate.New(UserAggregate, id),
+  }
+}
+
+// Regiter registers the user with the given name and email address.
+func (u *User) Register(name, email string) error {
+  if name = strings.TrimSpace(name); name == "" {
+    return errors.New("empty name")
+  }
+
+  if err := validateEmail(email); err != nil {
+    return errors.New("invalid email %q: %v", email, err)
+  }
+
+  // aggregate.NextEvent() creates the next event for the user with the given
+  // name and event data and then calls u.ApplyEvent(evt) with that event.
+  // u.ApplyEvent then calls u.register(evt) which actually applies the event
+  // data on the aggregate and update its state.
+  aggregate.NextEvent(u, UserRegistered, UserRegisteredData{
+    Name:  name,
+    Email: email,
+  })
+
+  return nil
+}
+
+func (u *User) register(evt event.Event) {
+  data := evt.Data().(UserRegisteredData)
+  u.Name = data.Name
+  u.Email = data.Email
+}
+
+// ApplyEvent overrides the ApplyEvent function of u.Base.
+func (u *User) ApplyEvent(evt event.Event) {
+  switch evt.Name() {
+  case UserRegistered:
+    u.register(evt)
+  }
+}
+```
+
 ## Repository
 
 The [github.com/modernice/goes/aggregate/repository](
-../aggregate/repository) package implements the `aggregate.Repository`
-interface, which provides querying of aggregates through the event store.
+../aggregate/repository) package implements the `aggregate.Repository` interface.
+The aggregate repository uses the underlying event store to save and
+query aggregates from and to the event store.
 
 ```go
 package aggregate
@@ -84,12 +155,12 @@ func fetchAggregate(repo aggregate.Repository) {
 ### Query Aggregates
 
 You can query multiple aggregates with the `aggregate.Repository.Query` method,
-which accepts a [query](../aggregate/query) to
-filter aggregate events from the event store.
+which accepts a [query](../aggregate/query) to filter aggregate events from the
+event store.
 
-Queries return streams of `aggregate.History`s, which statically provide the
-name and id of the streamed aggregate. Histories can be applied onto aggregates
-to build their current state.
+Queries return streams of `aggregate.History`s, which provide the name and id of
+the streamed aggregate. Histories can be applied onto aggregates to build their
+current state.
 
 ```go
 package example
