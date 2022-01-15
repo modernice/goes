@@ -7,15 +7,6 @@ import (
 
 // Aggregate is an event-sourced Aggregate.
 type Aggregate interface {
-	// // AggregateID return the UUID of the aggregate.
-	// AggregateID() uuid.UUID
-
-	// // AggregateName returns the name of the aggregate.
-	// AggregateName() string
-
-	// // AggregateVersion returns the version of the aggregate.
-	// AggregateVersion() int
-
 	// Aggregate returns the id, name and version of the aggregate.
 	Aggregate() (uuid.UUID, string, int)
 
