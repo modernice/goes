@@ -48,8 +48,8 @@ func NewUser(id uuid.UUID) *User {
 
 ## Repository
 
-The [github.com/modernice/goes/aggregate/repository](
-http://github.com/modernice/goes/aggregate/repository) package implements the
+The [github.com/modernice/goes/tree/main/aggregate/repository](
+http://github.com/modernice/goes/tree/main/aggregate/repository) package implements the
 `aggregate.Repository` interface, which provides querying of aggregates through
 the event store.
 
@@ -85,7 +85,7 @@ func fetchAggregate(repo aggregate.Repository) {
 ### Query Aggregates
 
 You can query multiple aggregates with the `aggregate.Repository.Query` method,
-which accepts a [query](http://github.com/modernice/goes/aggregate/query) to
+which accepts a [query](http://github.com/modernice/goes/tree/main/aggregate/query) to
 filter aggregate events from the event store.
 
 Queries return streams of `aggregate.History`s, which statically provide the
@@ -97,8 +97,8 @@ package example
 
 import (
   "context"
-  "github.com/modernice/goes/aggregate"
-  "github.com/modernice/goes/aggregate/query"
+  "github.com/modernice/goes/tree/main/aggregate"
+  "github.com/modernice/goes/tree/main/aggregate/query"
 )
 
 func queryAggregates(repo aggregate.Repository) {
@@ -135,8 +135,8 @@ func deleteAggregate(repo aggregate.Repository) {
 
 ## Guides
 
-- [Create & Test an Aggregate](http://github.com/modernice/goes/examples/aggregate)
-- [Create Projections](http://github.com/modernice/goes/examples/projection)
+- [Create & Test an Aggregate](http://github.com/modernice/goes/tree/main/examples/aggregate)
+- [Create Projections](http://github.com/modernice/goes/tree/main/examples/projection)
 
 ## Stream Helpers
 

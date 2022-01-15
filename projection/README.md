@@ -1,7 +1,7 @@
 # Projections
 
 The `projection` package provides the boilerplate to create and apply
-projections from [events](http://github.com/modernice/goes/event).
+projections from [events](http://github.com/modernice/goes/tree/main/event).
 
 
 ## Projections
@@ -36,8 +36,8 @@ package example
 
 import (
   "log"
-  "github.com/modernice/goes/event"
-  "github.com/modernice/goes/projection"
+  "github.com/modernice/goes/tree/main/event"
+  "github.com/modernice/goes/tree/main/projection"
 )
 
 type Foo struct {}
@@ -87,8 +87,8 @@ event bus.
 package example
 
 import (
-  "github.com/modernice/goes/event"
-  "github.com/modernice/goes/projection/schedule"
+  "github.com/modernice/goes/tree/main/event"
+  "github.com/modernice/goes/tree/main/projection/schedule"
 )
 
 type Foo struct {}
@@ -139,8 +139,8 @@ package example
 
 import (
   "log"
-  "github.com/modernice/goes/event"
-  "github.com/modernice/goes/projection/schedule"
+  "github.com/modernice/goes/tree/main/event"
+  "github.com/modernice/goes/tree/main/projection/schedule"
 )
 
 func example(bus event.Bus, store event.Store) {
@@ -169,8 +169,8 @@ projection jobs.
 package example
 
 import (
-  "github.com/modernice/goes/event"
-  "github.com/modernice/goes/projection/schedule"
+  "github.com/modernice/goes/tree/main/event"
+  "github.com/modernice/goes/tree/main/projection/schedule"
 )
 
 type Foo struct {}
