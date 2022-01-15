@@ -216,5 +216,5 @@ func (schedule *Continuous) handleEvents(
 		}
 	}
 
-	event.ForEvery(ctx, addEvent, fail, events, errs)
+	event.ForEach(ctx, addEvent, fail, events, errs)
 }
