@@ -33,7 +33,7 @@ func SkipVersion(v ...int) MakeOption {
 }
 
 // Make returns n Events with the specified name and data.
-func Make(name string, data interface{}, n int, opts ...MakeOption) []event.Event {
+func Make(name string, data interface{}, n int, opts ...MakeOption) []event.Event[any] {
 	var cfg makeConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -57,31 +57,31 @@ func (cfg makeConfig) aggregateVersion(b, i int, skipped *int) int {
 	return v
 }
 
-func makeEvents(name string, data interface{}, n int) []event.Event {
-	events := make([]event.Event, n)
+func makeEvents(name string, data interface{}, n int) []event.Event[any] {
+	events := make([]event.Event[any], n)
 	for i := range events {
 		events[i] = event.New(name, data)
 	}
 	return events
 }
 
-func makeAggregateEvents(name string, data interface{}, n int, cfg makeConfig) []event.Event {
-	events := make([]event.Event, 0, n*len(cfg.as))
+func makeAggregateEvents(name string, data interface{}, n int, cfg makeConfig) []event.Event[any] {
+	events := make([]event.Event[any], 0, n*len(cfg.as))
 	for _, a := range cfg.as {
 		var skipped int
-		aevents := make([]event.Event, n)
+		aevents := make([]event.Event[any], n)
 		t := time.Now()
 
 		aid, aname, av := a.Aggregate()
 
 		for i := range aevents {
-			var opts []event.Option
+			var opts []event.Option[any]
 			v := cfg.aggregateVersion(av, i, &skipped)
-			opts = append(opts, event.Aggregate(
+			opts = append(opts, event.Aggregate[any](
 				aid,
 				aname,
 				v,
-			), event.Time(t))
+			), event.Time[any](t))
 			aevents[i] = event.New(name, data, opts...)
 			t = t.Add(time.Nanosecond)
 		}

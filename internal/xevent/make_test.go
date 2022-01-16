@@ -18,8 +18,8 @@ func TestMake(t *testing.T) {
 	}
 
 	for _, evt := range events {
-		want := event.New("foo", data, event.ID(evt.ID()), event.Time(evt.Time()))
-		if !event.Equal(evt, want) {
+		want := event.New[any]("foo", data, event.ID[any](evt.ID()), event.Time[any](evt.Time()))
+		if !event.Equal(evt, want.Event()) {
 			t.Errorf("made wrong event\n\nwant: %#v\n\ngot: %#v\n\n", want, evt)
 		}
 	}
@@ -31,14 +31,14 @@ func TestMake_forAggregate(t *testing.T) {
 	events := xevent.Make("foo", data, 10, xevent.ForAggregate(a))
 
 	for i, evt := range events {
-		want := event.New(
+		want := event.New[any](
 			"foo",
 			data,
-			event.ID(evt.ID()),
-			event.Time(evt.Time()),
-			event.Aggregate(a.AggregateID(), a.AggregateName(), i+1),
+			event.ID[any](evt.ID()),
+			event.Time[any](evt.Time()),
+			event.Aggregate[any](a.AggregateID(), a.AggregateName(), i+1),
 		)
-		if !event.Equal(evt, want) {
+		if !event.Equal(evt, want.Event()) {
 			t.Errorf("made wrong event\n\nwant: %#v\n\ngot: %#v\n\n", want, evt)
 		}
 	}
@@ -60,14 +60,14 @@ func TestMake_forAggregate_many(t *testing.T) {
 	for _, a := range as {
 		id, name, _ := a.Aggregate()
 		for i, evt := range eventsFor(id, events...) {
-			want := event.New(
+			want := event.New[any](
 				"foo",
 				data,
-				event.ID(evt.ID()),
-				event.Time(evt.Time()),
-				event.Aggregate(id, name, i+1),
+				event.ID[any](evt.ID()),
+				event.Time[any](evt.Time()),
+				event.Aggregate[any](id, name, i+1),
 			)
-			if !event.Equal(evt, want) {
+			if !event.Equal(evt, want.Event()) {
 				t.Errorf("made wrong event\n\nwant: %#v\n\ngot: %#v\n\n", want, evt)
 			}
 		}
@@ -87,21 +87,21 @@ func TestMake_skipVersion(t *testing.T) {
 			skipped++
 		}
 		v += skipped
-		want := event.New(
+		want := event.New[any](
 			"foo",
 			data,
-			event.ID(evt.ID()),
-			event.Time(evt.Time()),
-			event.Aggregate(a.AggregateID(), a.AggregateName(), v),
+			event.ID[any](evt.ID()),
+			event.Time[any](evt.Time()),
+			event.Aggregate[any](a.AggregateID(), a.AggregateName(), v),
 		)
-		if !event.Equal(evt, want) {
+		if !event.Equal(evt, want.Event()) {
 			t.Errorf("made wrong event\n\nwant: %#v\n\ngot: %#v\n\n", want, evt)
 		}
 	}
 }
 
-func eventsFor(id uuid.UUID, events ...event.Event) []event.Event {
-	result := make([]event.Event, 0, len(events))
+func eventsFor(id uuid.UUID, events ...event.Event[any]) []event.Event[any] {
+	result := make([]event.Event[any], 0, len(events))
 	for _, evt := range events {
 		if event.PickAggregateID(evt) == id {
 			result = append(result, evt)

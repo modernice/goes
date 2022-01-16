@@ -107,8 +107,8 @@ func TestTree_Insert(t *testing.T) {
 		tr.Insert(evt)
 	}
 
-	var walked []event.Event
-	tr.Walk(func(evt event.Event) {
+	var walked []event.Event[any]
+	tr.Walk(func(evt event.Event[any]) {
 		walked = append(walked, evt)
 	})
 
@@ -204,7 +204,7 @@ func TestTree_Matrix(t *testing.T) {
 
 	mx := tr.Matrix()
 
-	assertMatrix(t, [][]event.Event{
+	assertMatrix(t, [][]event.Event[any]{
 		{root.evt},
 		{n2.evt, n7.evt},
 		{n1.evt, n3.evt, n6.evt, n8.evt},
@@ -364,7 +364,7 @@ func TestTree_Size(t *testing.T) {
 	}
 }
 
-func toIntMatrix(mx [][]event.Event) [][]int {
+func toIntMatrix(mx [][]event.Event[any]) [][]int {
 	ix := make([][]int, len(mx))
 	for i, events := range mx {
 		ix[i] = make([]int, len(events))
@@ -375,7 +375,7 @@ func toIntMatrix(mx [][]event.Event) [][]int {
 	return ix
 }
 
-func assertMatrix(t *testing.T, want, got [][]event.Event) {
+func assertMatrix(t *testing.T, want, got [][]event.Event[any]) {
 	if len(want) != len(got) {
 		t.Errorf("returned matrix has wrong len. want %d; got %d", len(want), len(got))
 	}
