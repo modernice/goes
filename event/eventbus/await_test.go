@@ -16,7 +16,7 @@ func TestAwaiter_Once(t *testing.T) {
 	defer cancel()
 
 	bus := eventbus.New()
-	aw := eventbus.NewAwaiter(bus)
+	aw := eventbus.NewAwaiter[any](bus)
 
 	// Await a "foo" event once
 	sub := eventbustest.MustSub(aw.Once(ctx, "foo"))
@@ -26,7 +26,7 @@ func TestAwaiter_Once(t *testing.T) {
 	ex.Event(sub, 50*time.Millisecond, "foo")
 
 	for i := 0; i < 3; i++ {
-		evt := event.New("foo", test.FooEventData{})
+		evt := event.New[any]("foo", test.FooEventData{})
 		if err := bus.Publish(ctx, evt); err != nil {
 			t.Fatalf("publish event: %v [event=%v, iter=%d]", err, evt.Name(), i)
 		}

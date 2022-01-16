@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
@@ -24,13 +25,13 @@ func TestWithBus(t *testing.T) {
 	}
 
 	evt := event.New("foo", test.FooEventData{})
-	if err := swb.Insert(ctx, evt); err != nil {
+	if err := swb.Insert(ctx, evt.Any()); err != nil {
 		t.Fatalf("failed to insert Event: %v", err)
 	}
 
-	var walkedEvent event.Event
+	var walkedEvent event.Event[any]
 
-	if err = event.Walk(context.Background(), func(e event.Event) error {
+	if err = event.Walk(context.Background(), func(e event.Event[any]) error {
 		walkedEvent = e
 		cancel()
 		return nil
@@ -38,7 +39,7 @@ func TestWithBus(t *testing.T) {
 		t.Fatalf("Walk shouldn't fail; failed with %q", err)
 	}
 
-	if !event.Equal(walkedEvent, evt) {
-		t.Errorf("received wrong Event. want=%v got=%v", evt, walkedEvent)
+	if !event.Equal(walkedEvent, evt.Any().Event()) {
+		t.Errorf("received wrong event. want=%v got=%v\n\n%s", evt, walkedEvent, cmp.Diff(walkedEvent, evt.Any().Event()))
 	}
 }

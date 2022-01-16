@@ -191,118 +191,118 @@ func TestTest(t *testing.T) {
 	tests := []struct {
 		name  string
 		query event.Query
-		tests map[event.Event]bool
+		tests map[event.Event[any]]bool
 	}{
 		{
 			name:  "Name",
 			query: New(Name("foo", "bar")),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}): true,
-				event.New("bar", test.BarEventData{}): true,
-				event.New("baz", test.BazEventData{}): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}): true,
+				event.New[any]("bar", test.BarEventData{}): true,
+				event.New[any]("baz", test.BazEventData{}): false,
 			},
 		},
 		{
 			name:  "ID",
 			query: New(ID(ids[:2]...)),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.ID(ids[0])): true,
-				event.New("bar", test.BarEventData{}, event.ID(ids[1])): true,
-				event.New("baz", test.BazEventData{}, event.ID(ids[2])): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.ID[any](ids[0])): true,
+				event.New[any]("bar", test.BarEventData{}, event.ID[any](ids[1])): true,
+				event.New[any]("baz", test.BazEventData{}, event.ID[any](ids[2])): false,
 			},
 		},
 		{
 			name:  "Time (exact)",
 			query: New(Time(time.Exact(times[:2]...))),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.Time(times[0])): true,
-				event.New("bar", test.BarEventData{}, event.Time(times[1])): true,
-				event.New("baz", test.BazEventData{}, event.Time(times[2])): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.Time[any](times[0])): true,
+				event.New[any]("bar", test.BarEventData{}, event.Time[any](times[1])): true,
+				event.New[any]("baz", test.BazEventData{}, event.Time[any](times[2])): false,
 			},
 		},
 		{
 			name:  "Time (range)",
 			query: New(Time(time.InRange(time.Range{times[0], times[1]}))),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.Time(times[0])): true,
-				event.New("bar", test.BarEventData{}, event.Time(times[1])): true,
-				event.New("baz", test.BazEventData{}, event.Time(times[2])): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.Time[any](times[0])): true,
+				event.New[any]("bar", test.BarEventData{}, event.Time[any](times[1])): true,
+				event.New[any]("baz", test.BazEventData{}, event.Time[any](times[2])): false,
 			},
 		},
 		{
 			name:  "Time (min/max)",
 			query: New(Time(time.Min(times[0]), time.Max(times[1]))),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.Time(times[0])): true,
-				event.New("bar", test.BarEventData{}, event.Time(times[1])): true,
-				event.New("baz", test.BazEventData{}, event.Time(times[2])): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.Time[any](times[0])): true,
+				event.New[any]("bar", test.BarEventData{}, event.Time[any](times[1])): true,
+				event.New[any]("baz", test.BazEventData{}, event.Time[any](times[2])): false,
 			},
 		},
 		{
 			name:  "AggregateName",
 			query: New(AggregateName("foo", "bar")),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)): true,
-				event.New("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 0)): true,
-				event.New("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 0)): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0)): true,
+				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](uuid.New(), "bar", 0)): true,
+				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](uuid.New(), "baz", 0)): false,
 			},
 		},
 		{
 			name:  "AggregateID",
 			query: New(AggregateID(ids[:2]...)),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.Aggregate(ids[0], "foo", 0)): true,
-				event.New("bar", test.BarEventData{}, event.Aggregate(ids[1], "bar", 0)): true,
-				event.New("baz", test.BazEventData{}, event.Aggregate(ids[2], "baz", 0)): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](ids[0], "foo", 0)): true,
+				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](ids[1], "bar", 0)): true,
+				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](ids[2], "baz", 0)): false,
 			},
 		},
 		{
 			name:  "AggregateVersion (exact)",
 			query: New(AggregateVersion(version.Exact(1, 2))),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
-				event.New("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
-				event.New("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 1)): true,
+				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](uuid.New(), "bar", 2)): true,
+				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](uuid.New(), "baz", 3)): false,
 			},
 		},
 		{
 			name:  "AggregateVersion (range)",
 			query: New(AggregateVersion(version.InRange(version.Range{1, 2}))),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
-				event.New("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
-				event.New("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 1)): true,
+				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](uuid.New(), "bar", 2)): true,
+				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](uuid.New(), "baz", 3)): false,
 			},
 		},
 		{
 			name:  "AggregateVersion (min/max)",
 			query: New(AggregateVersion(version.Min(1), version.Max(2))),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
-				event.New("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
-				event.New("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 1)): true,
+				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](uuid.New(), "bar", 2)): true,
+				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](uuid.New(), "baz", 3)): false,
 			},
 		},
 		{
 			name:  "Aggregate",
 			query: New(Aggregate("foo", aggregateID)),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}):                                         false,
-				event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)):  false,
-				event.New("foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 0)): true,
-				event.New("foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 4)): true,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}):                                              false,
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0)):  false,
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 0)): true,
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 4)): true,
 			},
 		},
 		{
 			name:  "Aggregate (uuid.Nil)",
 			query: New(Aggregate("foo", aggregateID), Aggregate("bar", uuid.Nil)),
-			tests: map[event.Event]bool{
-				event.New("foo", test.FooEventData{}):                                         false,
-				event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)):  false,
-				event.New("foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 0)): true,
-				event.New("foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 4)): true,
-				event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar", 0)):  true,
-				event.New("foo", test.FooEventData{}, event.Aggregate(aggregateID, "bar", 0)): true,
+			tests: map[event.Event[any]]bool{
+				event.New[any]("foo", test.FooEventData{}):                                              false,
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0)):  false,
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 0)): true,
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 4)): true,
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar", 0)):  true,
+				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](aggregateID, "bar", 0)): true,
 			},
 		},
 	}

@@ -21,7 +21,7 @@ func TestStream(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected cur.Err to return %#v; got %#v", error(nil), err))
 	}
 
-	au := cmp.AllowUnexported(event.New("foo", test.FooEventData{}))
+	au := cmp.AllowUnexported(event.New[any]("foo", test.FooEventData{}))
 	if !cmp.Equal(events, result, au) {
 		t.Errorf(
 			"expected cursor events to equal original events\noriginal: %#v\n\ngot: %#v\n\ndiff: %s",
@@ -41,7 +41,7 @@ func TestDrain(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected cursor.Drain not to return an error; got %#v", err))
 	}
 
-	au := cmp.AllowUnexported(event.New("foo", test.FooEventData{}))
+	au := cmp.AllowUnexported(event.New[any]("foo", test.FooEventData{}))
 	if !cmp.Equal(events, result, au) {
 		t.Errorf(
 			"expected cursor events to equal original events\noriginal: %#v\n\ngot: %#v\n\ndiff: %s",
@@ -63,7 +63,7 @@ func TestDrain_partial(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected cursor.Drain not to return an error; got %v", err))
 	}
 
-	au := cmp.AllowUnexported(event.New("foo", test.FooEventData{}))
+	au := cmp.AllowUnexported(event.New[any]("foo", test.FooEventData{}))
 	if !cmp.Equal(events[1:], result, au) {
 		t.Errorf(
 			"expected cursor events to equal original events\noriginal: %#v\n\ngot: %#v\n\ndiff: %s",
@@ -78,8 +78,8 @@ func TestWalk(t *testing.T) {
 	events := makeEvents()
 	str := event.Stream(events...)
 
-	var walked []event.Event
-	err := event.Walk(context.Background(), func(evt event.Event) error {
+	var walked []event.Event[any]
+	err := event.Walk(context.Background(), func(evt event.Event[any]) error {
 		walked = append(walked, evt)
 		return nil
 	}, str)
@@ -100,7 +100,7 @@ func TestWalk_chanError(t *testing.T) {
 	errs <- mockError
 	close(errs)
 
-	err := event.Walk(context.Background(), func(evt event.Event) error { return nil }, str, errs)
+	err := event.Walk(context.Background(), func(evt event.Event[any]) error { return nil }, str, errs)
 
 	if !errors.Is(err, mockError) {
 		t.Errorf("Walk should fail with %q; got %q", mockError, err)
@@ -112,7 +112,7 @@ func TestWalk_error(t *testing.T) {
 	mockError := errors.New("mock error")
 	str := event.Stream(events...)
 
-	err := event.Walk(context.Background(), func(evt event.Event) error { return mockError }, str)
+	err := event.Walk(context.Background(), func(evt event.Event[any]) error { return mockError }, str)
 
 	if !errors.Is(err, mockError) {
 		t.Errorf("Walk should fail with %q; got %q", mockError, err)
@@ -120,13 +120,13 @@ func TestWalk_error(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-		event.New("foobar", test.FooEventData{}),
-		event.New("barbaz", test.FooEventData{}),
-		event.New("foobaz", test.FooEventData{}),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
+		event.New[any]("barbaz", test.FooEventData{}),
+		event.New[any]("foobaz", test.FooEventData{}),
 	}
 
 	str := event.Stream(events...)
@@ -141,13 +141,13 @@ func TestFilter(t *testing.T) {
 		t.Fatalf("drain Events: %v", err)
 	}
 
-	test.AssertEqualEvents(t, filtered, []event.Event{events[2], events[5]})
+	test.AssertEqualEvents(t, filtered, []event.Event[any]{events[2], events[5]})
 }
 
-func makeEvents() []event.Event {
-	return []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.BarEventData{}),
-		event.New("baz", test.BazEventData{}),
+func makeEvents() []event.Event[any] {
+	return []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.BarEventData{}),
+		event.New[any]("baz", test.BazEventData{}),
 	}
 }

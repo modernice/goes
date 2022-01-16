@@ -34,7 +34,7 @@ import (
 // 	    log.Println(fmt.Sprintf("Received %q event: %v", e.Name(), e))
 //	}, res, errs)
 //	// handle err
-type Event interface {
+type Event[D any] interface {
 	// ID returns the unique id of the Event.
 	ID() uuid.UUID
 	// Name returns the name of the Event.
@@ -42,7 +42,7 @@ type Event interface {
 	// Time returns the time of the Event.
 	Time() stdtime.Time
 	// Data returns the Event Data.
-	Data() interface{}
+	Data() D
 
 	// Aggregate returns the id, name and version of the aggregate that the
 	// event belongs to. Aggregate should return zero values if the event is not
@@ -51,21 +51,21 @@ type Event interface {
 }
 
 // Option is an event option.
-type Option func(*E)
+type Option[D any] func(*E[D])
 
 // E implements Event.
-type E struct {
-	D Data
+type E[D any] struct {
+	D Data[D]
 }
 
 // Data can be used to provide the data that is needed to implement the Event
 // interface. E embeds Data and provides the methods that return the data in
 // Data.
-type Data struct {
+type Data[D any] struct {
 	ID               uuid.UUID
 	Name             string
 	Time             stdtime.Time
-	Data             interface{}
+	Data             D
 	AggregateName    string
 	AggregateID      uuid.UUID
 	AggregateVersion int
@@ -79,8 +79,8 @@ type Data struct {
 //	Time(time.Time): Use a custom Time
 //	Aggregate(string, uuid.UUID, int): Add Aggregate data
 //	Previous(event.Event): Set Aggregate data based on previous Event
-func New(name string, data interface{}, opts ...Option) Event {
-	evt := E{D: Data{
+func New[D any](name string, data D, opts ...Option[D]) E[D] {
+	evt := E[D]{D: Data[D]{
 		ID:   uuid.New(),
 		Name: name,
 		Time: xtime.Now(),
@@ -92,23 +92,23 @@ func New(name string, data interface{}, opts ...Option) Event {
 	return evt
 }
 
-// ID returns an Option that overrides the auto-generated UUID of an Event.
-func ID(id uuid.UUID) Option {
-	return func(evt *E) {
+// ID returns an Option that overrides the auto-generated UUID of an event.
+func ID[D any](id uuid.UUID) Option[D] {
+	return func(evt *E[D]) {
 		evt.D.ID = id
 	}
 }
 
 // Time returns an Option that overrides the auto-generated timestamp of an Event.
-func Time(t stdtime.Time) Option {
-	return func(evt *E) {
+func Time[D any](t stdtime.Time) Option[D] {
+	return func(evt *E[D]) {
 		evt.D.Time = t
 	}
 }
 
 // Aggregate returns an Option that links an Event to an Aggregate.
-func Aggregate(id uuid.UUID, name string, version int) Option {
-	return func(evt *E) {
+func Aggregate[D any](id uuid.UUID, name string, version int) Option[D] {
+	return func(evt *E[D]) {
 		evt.D.AggregateName = name
 		evt.D.AggregateID = id
 		evt.D.AggregateVersion = version
@@ -116,21 +116,21 @@ func Aggregate(id uuid.UUID, name string, version int) Option {
 }
 
 // Previous returns an Option that adds Aggregate data to an Event. If prev
-// provides non-nil Aggregate data (UUID, name & version), the returned Option
-// adds those to the new Event with its version increased by 1.
-func Previous(prev Event) Option {
+// provides non-nil aggregate data (id, name & version), the returned Option
+// adds those to the new event with its version increased by 1.
+func Previous[D, P any](prev Event[P]) Option[D] {
 	id, name, v := prev.Aggregate()
 	if id != uuid.Nil {
 		v++
 	}
-	return Aggregate(id, name, v)
+	return Aggregate[D](id, name, v)
 }
 
 // Equal compares events and determines if they're equal. It works exactly like
 // a normal "==" comparison except for the Time field which is being compared by
 // calling a.Time().Equal(b.Time()) for the two Events a and b that are being
 // compared.
-func Equal(events ...Event) bool {
+func Equal[D comparable](events ...Event[D]) bool {
 	if len(events) < 2 {
 		return true
 	}
@@ -157,18 +157,18 @@ func Equal(events ...Event) bool {
 }
 
 // Sort sorts events and returns the sorted events.
-func Sort(events []Event, sort Sorting, dir SortDirection) []Event {
-	return SortMulti(events, SortOptions{Sort: sort, Dir: dir})
+func Sort[D any, Events ~[]Event[D]](events Events, sort Sorting, dir SortDirection) Events {
+	return SortMulti[D, Events](events, SortOptions{Sort: sort, Dir: dir})
 }
 
 // SortMulti sorts events by multiple fields and returns the sorted events.
-func SortMulti(events []Event, sorts ...SortOptions) []Event {
-	sorted := make([]Event, len(events))
+func SortMulti[D any, Events ~[]Event[D]](events Events, sorts ...SortOptions) Events {
+	sorted := make(Events, len(events))
 	copy(sorted, events)
 
 	sort.Slice(sorted, func(i, j int) bool {
 		for _, opts := range sorts {
-			cmp := opts.Sort.Compare(sorted[i], sorted[j])
+			cmp := CompareSorting(opts.Sort, sorted[i], sorted[j])
 			if cmp != 0 {
 				return opts.Dir.Bool(cmp < 0)
 			}
@@ -179,30 +179,82 @@ func SortMulti(events []Event, sorts ...SortOptions) []Event {
 	return sorted
 }
 
-func (evt E) ID() uuid.UUID {
+func (evt E[D]) ID() uuid.UUID {
 	return evt.D.ID
 }
 
-func (evt E) Name() string {
+func (evt E[D]) Name() string {
 	return evt.D.Name
 }
 
-func (evt E) Time() stdtime.Time {
+func (evt E[D]) Time() stdtime.Time {
 	return evt.D.Time
 }
 
-func (evt E) Data() interface{} {
+func (evt E[D]) Data() D {
 	return evt.D.Data
 }
 
-func (evt E) Aggregate() (uuid.UUID, string, int) {
+func (evt E[D]) Aggregate() (uuid.UUID, string, int) {
 	return evt.D.AggregateID, evt.D.AggregateName, evt.D.AggregateVersion
+}
+
+// Any returns the event with its type paramter set to `any`.
+func (evt E[D]) Any() E[any] {
+	return Any[D](evt)
+}
+
+// Event returns the event as an interface.
+func (evt E[D]) Event() Event[D] {
+	return evt
+}
+
+// Any casts the type parameter of the given event to `any` and returns the
+// re-typed event.
+func Any[D any](evt Event[D]) E[any] {
+	return Cast[any](evt)
+}
+
+// Cast casts the type paramater of given event to the type `To` and returns
+// the re-typed event. Cast panic if the event data cannot be casted to `To`.
+//
+// Use TryCast to test if the event data can be casted to `To`.
+func Cast[To, From any](evt Event[From]) E[To] {
+	return New(
+		evt.Name(),
+		interface{}(evt.Data()).(To),
+		ID[To](evt.ID()),
+		Time[To](evt.Time()),
+		Aggregate[To](evt.Aggregate()),
+	)
+}
+
+// TryCast casts the type paramater of given event to the type `To` and returns
+// the re-typed event. Cast returns false if the event data cannot be casted to
+// `To`.
+func TryCast[To, From any](evt Event[From]) (E[To], bool) {
+	data, ok := interface{}(evt.Data()).(To)
+	if !ok {
+		return E[To]{}, false
+	}
+	return New(
+		evt.Name(),
+		data,
+		ID[To](evt.ID()),
+		Time[To](evt.Time()),
+		Aggregate[To](evt.Aggregate()),
+	), true
+}
+
+// Expand expands an interfaced event to a struct.
+func Expand[D any](evt Event[D]) E[D] {
+	return New(evt.Name(), evt.Data(), ID[D](evt.ID()), Aggregate[D](evt.Aggregate()))
 }
 
 // Test tests the Event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
-func Test(q Query, evt Event) bool {
+func Test[D any](q Query, evt Event[D]) bool {
 	if q == nil {
 		return true
 	}

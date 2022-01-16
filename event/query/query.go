@@ -185,17 +185,17 @@ func SortByTime() Option {
 // Test tests the Event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
-func Test(q event.Query, evt event.Event) bool {
+func Test[D any](q event.Query, evt event.Event[D]) bool {
 	return event.Test(q, evt)
 }
 
 // Apply tests Events against the provided Query and returns only those Events
 // that match the Query. Order of Events is preserved.
-func Apply(q event.Query, events ...event.Event) []event.Event {
+func Apply[D any](q event.Query, events ...event.Event[D]) []event.Event[D] {
 	if events == nil {
 		return nil
 	}
-	out := make([]event.Event, 0, len(events))
+	out := make([]event.Event[D], 0, len(events))
 	for _, evt := range events {
 		if Test(q, evt) {
 			out = append(out, evt)

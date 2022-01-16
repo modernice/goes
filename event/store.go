@@ -28,13 +28,13 @@ const (
 	SortDesc
 )
 
-// A Store persists and queries Events.
+// A Store persists and queries events.
 type Store interface {
 	// Insert inserts Events into the store.
-	Insert(context.Context, ...Event) error
+	Insert(context.Context, ...Event[any]) error
 
 	// Find fetches the Event with the specified UUID from the store.
-	Find(context.Context, uuid.UUID) (Event, error)
+	Find(context.Context, uuid.UUID) (Event[any], error)
 
 	// Query queries the Store for Events that fit the given Query and returns a
 	// channel of Events and a channel of errors.
@@ -48,10 +48,10 @@ type Store interface {
 	//		log.Println(fmt.Sprintf("Queried Event: %v", evt))
 	//	}, events, errs)
 	//	// handle err
-	Query(context.Context, Query) (<-chan Event, <-chan error, error)
+	Query(context.Context, Query) (<-chan Event[any], <-chan error, error)
 
 	// Delete deletes Events from the Store.
-	Delete(context.Context, ...Event) error
+	Delete(context.Context, ...Event[any]) error
 }
 
 // A Query is used by Stores to query Events.
@@ -111,8 +111,11 @@ type Sorting int
 // SortDirection is a sorting direction.
 type SortDirection int
 
-// Compare compares a and b and returns -1 if a < b, 0 is a == b or 1 if a > b.
-func (s Sorting) Compare(a, b Event) (cmp int8) {
+// CompareSorting compares a and b based on the given sorting and returns
+//	-1 if a < b
+//	0 is a == b
+//	1 if a > b
+func CompareSorting[A, B any](s Sorting, a Event[A], b Event[B]) (cmp int8) {
 	aid, aname, av := a.Aggregate()
 	bid, bname, bv := b.Aggregate()
 
@@ -136,6 +139,14 @@ func (s Sorting) Compare(a, b Event) (cmp int8) {
 		)
 	}
 	return
+}
+
+// Compare compares a and b based on the given sorting and returns
+//	-1 if a < b
+//	0 is a == b
+//	1 if a > b
+func (s Sorting) Compare(a, b Event[any]) (cmp int8) {
+	return CompareSorting(s, a, b)
 }
 
 // Bool returns either b if dir=SortAsc or !b if dir=SortDesc.

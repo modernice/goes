@@ -8,8 +8,8 @@ import (
 
 // Stream returns an Event channel that is filled and closed with the provided
 // Events in a separate goroutine.
-func Stream(events ...Event) <-chan Event {
-	out := make(chan Event)
+func Stream[D any](events ...Event[D]) <-chan Event[D] {
+	out := make(chan Event[D])
 	go func() {
 		defer close(out)
 		for _, evt := range events {
@@ -29,9 +29,9 @@ func Stream(events ...Event) <-chan Event {
 // Drain returns when the provided Event channel is closed or it encounters an
 // error from an error channel and does not wait for the error channels to be
 // closed.
-func Drain(ctx context.Context, events <-chan Event, errs ...<-chan error) ([]Event, error) {
-	out := make([]Event, 0, len(events))
-	err := Walk(ctx, func(e Event) error { out = append(out, e); return nil }, events, errs...)
+func Drain[D any](ctx context.Context, events <-chan Event[D], errs ...<-chan error) ([]Event[D], error) {
+	out := make([]Event[D], 0, len(events))
+	err := Walk(ctx, func(e Event[D]) error { out = append(out, e); return nil }, events, errs...)
 	return out, err
 }
 
@@ -51,10 +51,10 @@ func Drain(ctx context.Context, events <-chan Event, errs ...<-chan error) ([]Ev
 //		log.Println(fmt.Sprintf("Received %q Event: %v", e.Name(), e))
 //	}, events, errs)
 //	// handle err
-func Walk(
+func Walk[D any](
 	ctx context.Context,
-	walkFn func(Event) error,
-	events <-chan Event,
+	walkFn func(Event[D]) error,
+	events <-chan Event[D],
 	errs ...<-chan error,
 ) error {
 	errChan, stop := fanin.Errors(errs...)
@@ -88,16 +88,16 @@ func Walk(
 // ForEvery is an alias for ForEach.
 //
 // Deprecated: Use ForEach instead.
-var ForEvery = ForEach
+var ForEvery = ForEach[any]
 
 // ForEach iterates over the provided Event and error channels and for every
 // Event evt calls evtFn(evt) and for every error e calls errFn(e) until all
 // channels are closed or ctx is canceled.
-func ForEach(
+func ForEach[D any](
 	ctx context.Context,
-	evtFn func(evt Event),
+	evtFn func(evt Event[D]),
 	errFn func(error),
-	events <-chan Event,
+	events <-chan Event[D],
 	errs ...<-chan error,
 ) {
 	errChan, stop := fanin.Errors(errs...)
@@ -131,8 +131,8 @@ func ForEach(
 // Only Events that test against all provided Queries are pushed into the
 // returned channel. The returned channel is closed when the provided channel is
 // closed.
-func Filter(events <-chan Event, queries ...Query) <-chan Event {
-	out := make(chan Event)
+func Filter[D any](events <-chan Event[D], queries ...Query) <-chan Event[D] {
+	out := make(chan Event[D])
 	go func() {
 		defer close(out)
 	L:
@@ -151,7 +151,7 @@ func Filter(events <-chan Event, queries ...Query) <-chan Event {
 // Await returns the first Event OR error that is received from events or errs.
 // If ctx is canceled before an Event or error is received, ctx.Err() is
 // returned.
-func Await(ctx context.Context, events <-chan Event, errs <-chan error) (Event, error) {
+func Await[D any](ctx context.Context, events <-chan Event[D], errs <-chan error) (Event[D], error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()

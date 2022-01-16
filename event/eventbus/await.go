@@ -10,18 +10,18 @@ import (
 
 // Await is a shortcut for NewAwaiter(bus).Once(ctx, names...). See Awaiter.Once
 // for documentation.
-func Await(ctx context.Context, bus event.Bus, names ...string) (<-chan event.Event, <-chan error, error) {
-	return NewAwaiter(bus).Once(ctx, names...)
+func Await[D any](ctx context.Context, bus event.Bus, names ...string) (<-chan event.Event[D], <-chan error, error) {
+	return NewAwaiter[D](bus).Once(ctx, names...)
 }
 
 // Awaiter can be used to await events in more complex scenarios.
-type Awaiter struct {
+type Awaiter[D any] struct {
 	bus event.Bus
 }
 
 // NewAwaiter returns an Awaiter for the given Bus.
-func NewAwaiter(bus event.Bus) Awaiter {
-	return Awaiter{bus}
+func NewAwaiter[D any](bus event.Bus) Awaiter[D] {
+	return Awaiter[D]{bus}
 }
 
 // Once subscribes to the given events over the event bus and returns a channel
@@ -30,7 +30,7 @@ func NewAwaiter(bus event.Bus) Awaiter {
 // an Event or an error is received, both channels are immediately closed.
 //
 // If len(names) == 0, Once returns nil channels.
-func (a Awaiter) Once(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
+func (a Awaiter[D]) Once(ctx context.Context, names ...string) (<-chan event.Event[D], <-chan error, error) {
 	if len(names) == 0 {
 		return nil, nil, nil
 	}
@@ -43,7 +43,7 @@ func (a Awaiter) Once(ctx context.Context, names ...string) (<-chan event.Event,
 		return nil, nil, fmt.Errorf("subscribe to %q events: %w", names, err)
 	}
 
-	out := make(chan event.Event)
+	out := make(chan event.Event[D])
 	outErrs, fail := concurrent.Errors(ctx)
 
 	go func() {
@@ -57,7 +57,20 @@ func (a Awaiter) Once(ctx context.Context, names ...string) (<-chan event.Event,
 		case err := <-errs:
 			fail(err)
 			return
-		case out <- <-events:
+		case evt := <-events:
+			casted, ok := event.TryCast[D](evt)
+			if !ok {
+				var to D
+				fail(fmt.Errorf("failed to cast event [from=%T, to=%T]", evt, to))
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				fail(ctx.Err())
+				return
+			case out <- casted:
+			}
 		}
 	}()
 

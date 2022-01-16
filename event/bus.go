@@ -6,8 +6,8 @@ import "context"
 
 // Bus is the pub-sub client for Events.
 type Bus interface {
-	// Publish sends the given Events to subscribers of such Events.
-	Publish(ctx context.Context, events ...Event) error
+	// Publish publishes the given events to subscribers of those events.
+	Publish(ctx context.Context, events ...Event[any]) error
 
 	// Subscribe returns a channel of Events and a channel of asynchronous errors.
 	// Only Events whose name is one of the provided names will be received from the
@@ -23,14 +23,14 @@ type Bus interface {
 	// Callers of Subscribe must ensure that errors are received from the
 	// returned error channel; otherwise the Bus may be blocked by the error
 	// channel.
-	Subscribe(ctx context.Context, names ...string) (<-chan Event, <-chan error, error)
+	Subscribe(ctx context.Context, names ...string) (<-chan Event[any], <-chan error, error)
 }
 
 // Must can be used to panic on failed event subscriptions:
 //
 //	var bus Bus
 //	events, errs := Must(bus.Subscribe(context.TODO(), "foo", "bar", "baz"))
-func Must(events <-chan Event, errs <-chan error, err error) (<-chan Event, <-chan error) {
+func Must(events <-chan Event[any], errs <-chan error, err error) (<-chan Event[any], <-chan error) {
 	if err != nil {
 		panic(err)
 	}
