@@ -20,11 +20,11 @@ func TestPeriodic_Subscribe(t *testing.T) {
 
 	store := eventstore.New()
 
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-		event.New("foobar", test.FooEventData{}),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {

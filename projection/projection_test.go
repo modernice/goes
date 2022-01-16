@@ -15,10 +15,10 @@ import (
 func TestApply(t *testing.T) {
 	proj := projectiontest.NewMockProjection()
 
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
 	}
 
 	if err := projection.Apply(proj, events); err != nil {
@@ -32,10 +32,10 @@ func TestApply_Progressor(t *testing.T) {
 	proj := projectiontest.NewMockProgressor()
 
 	now := time.Now()
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(time.Second))),
-		event.New("bar", test.FooEventData{}, event.Time(now.Add(time.Minute))),
-		event.New("baz", test.FooEventData{}, event.Time(now.Add(time.Hour))),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
+		event.New[any]("bar", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
+		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Hour))),
 	}
 
 	if err := projection.Apply(proj, events); err != nil {
@@ -52,7 +52,7 @@ func TestApply_Progressor_ErrProgressed(t *testing.T) {
 	proj := projectiontest.NewMockProgressor()
 	proj.SetProgress(now)
 
-	events := []event.Event{event.New("foo", test.FooEventData{}, event.Time(now))}
+	events := []event.Event[any]{event.New[any]("foo", test.FooEventData{}, event.Time[any](now))}
 
 	if err := projection.Apply(proj, events); !errors.Is(err, projection.ErrProgressed) {
 		t.Fatalf("Apply should fail with %q if Event time is before progress time; got %q", projection.ErrProgressed, err)
@@ -68,9 +68,9 @@ func TestApply_Progressor_IgnoreProgress(t *testing.T) {
 	proj := projectiontest.NewMockProgressor()
 	proj.SetProgress(now)
 
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(-time.Hour))),
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Hour))),
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Minute))),
 	}
 
 	if err := projection.Apply(proj, events, projection.IgnoreProgress()); err != nil {
@@ -86,11 +86,11 @@ func TestApply_Guard(t *testing.T) {
 	guard := projection.QueryGuard(query.New(query.Name("foo", "bar")))
 	proj := projectiontest.NewMockGuardedProjection(guard)
 
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-		event.New("foobar", test.FooEventData{}),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
 	}
 
 	if err := projection.Apply(proj, events); err != nil {

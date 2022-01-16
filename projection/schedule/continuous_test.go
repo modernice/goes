@@ -39,11 +39,11 @@ func TestContinuous_Subscribe(t *testing.T) {
 		t.Fatalf("Subscribe failed with %q", err)
 	}
 
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-		event.New("foobar", test.FooEventData{}),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
 	}
 
 	if err := bus.Publish(ctx, events...); err != nil {
@@ -103,11 +103,11 @@ func TestContinuous_Subscribe_Debounce(t *testing.T) {
 		t.Fatalf("Subscribe failed with %q", err)
 	}
 
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-		event.New("foobar", test.FooEventData{}),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
 	}
 
 	if err := bus.Publish(ctx, events...); err != nil {
@@ -166,11 +166,11 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 		t.Fatalf("Subscribe failed with %q", err)
 	}
 
-	events := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
-		event.New("bar", test.FooEventData{}, event.Time(now)),
-		event.New("baz", test.FooEventData{}, event.Time(now.Add(time.Second))),
-		event.New("foobar", test.FooEventData{}, event.Time(now.Add(time.Minute))),
+	events := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Minute))),
+		event.New[any]("bar", test.FooEventData{}, event.Time[any](now)),
+		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
+		event.New[any]("foobar", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
 	}
 
 	if err := bus.Publish(ctx, events...); err != nil {
@@ -209,11 +209,11 @@ func TestContinuous_Trigger(t *testing.T) {
 	bus := eventbus.New()
 	store := eventstore.New()
 
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-		event.New("foobar", test.FooEventData{}),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {
@@ -266,11 +266,11 @@ func TestContinuous_Trigger_Filter(t *testing.T) {
 	bus := eventbus.New()
 	store := eventstore.New()
 
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-		event.New("foobar", test.FooEventData{}),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {
@@ -330,11 +330,11 @@ func TestContinuous_Trigger_Query(t *testing.T) {
 	bus := eventbus.New()
 	store := eventstore.New()
 
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("bar", test.FooEventData{}),
-		event.New("baz", test.FooEventData{}),
-		event.New("foobar", test.FooEventData{}),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {
@@ -394,11 +394,11 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 	store := eventstore.New()
 
 	now := time.Now()
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Time(now)),
-		event.New("bar", test.FooEventData{}, event.Time(now.Add(time.Second))),
-		event.New("baz", test.FooEventData{}, event.Time(now.Add(time.Minute))),
-		event.New("foobar", test.FooEventData{}, event.Time(now.Add(time.Hour))),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now)),
+		event.New[any]("bar", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
+		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
+		event.New[any]("foobar", test.FooEventData{}, event.Time[any](now.Add(time.Hour))),
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {

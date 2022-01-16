@@ -194,7 +194,7 @@ func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOpt
 		Trigger:   NewTrigger(opts...),
 		Schedule:  name,
 	})
-	if err := svc.bus.Publish(ctx, evt); err != nil {
+	if err := svc.bus.Publish(ctx, evt.Any()); err != nil {
 		return fmt.Errorf("publish %q Event: %w", evt.Name(), err)
 	}
 
@@ -205,7 +205,7 @@ func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOpt
 	}
 
 	done := errors.New("done")
-	if err := event.Walk(ctx, func(evt event.Event) error {
+	if err := event.Walk(ctx, func(evt event.Event[any]) error {
 		data := evt.Data().(TriggerAcceptedData)
 		if data.TriggerID != id {
 			return nil
@@ -238,7 +238,7 @@ func (svc *Service) Run(ctx context.Context) (<-chan error, error) {
 	return out, nil
 }
 
-func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event, errs <-chan error, out chan<- error) {
+func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event[any], errs <-chan error, out chan<- error) {
 	defer close(out)
 
 	fail := func(err error) {
@@ -248,7 +248,7 @@ func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event,
 		}
 	}
 
-	event.ForEach(ctx, func(evt event.Event) {
+	event.ForEach(ctx, func(evt event.Event[any]) {
 		data := evt.Data().(TriggeredData)
 
 		s, ok := svc.schedule(data.Schedule)
@@ -256,7 +256,7 @@ func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event,
 			return
 		}
 
-		evt = event.New(TriggerAccepted, TriggerAcceptedData{TriggerID: data.TriggerID})
+		evt = event.New[any](TriggerAccepted, TriggerAcceptedData{TriggerID: data.TriggerID})
 		if err := svc.bus.Publish(ctx, evt); err != nil {
 			fail(fmt.Errorf("publish %q Event: %w", evt.Name(), err))
 			return

@@ -70,16 +70,16 @@ func TestJob_Events_additionalFilter(t *testing.T) {
 }
 
 func TestJob_EventsOf(t *testing.T) {
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "baz-agg", 0)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foobar-agg", 0)),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "baz-agg", 0)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobar-agg", 0)),
 
-		event.New("bar", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0)),
-		event.New("bar", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0)),
-		event.New("bar", test.FooEventData{}, event.Aggregate(uuid.New(), "baz-agg", 0)),
-		event.New("bar", test.FooEventData{}, event.Aggregate(uuid.New(), "foobar-agg", 0)),
+		event.New[any]("bar", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0)),
+		event.New[any]("bar", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0)),
+		event.New[any]("bar", test.FooEventData{}, event.Aggregate[any](uuid.New(), "baz-agg", 0)),
+		event.New[any]("bar", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobar-agg", 0)),
 	}
 
 	store, _ := newEventStore(t, storeEvents...)
@@ -99,7 +99,7 @@ func TestJob_EventsOf(t *testing.T) {
 		t.Fatalf("drain Events: %v", err)
 	}
 
-	test.AssertEqualEventsUnsorted(t, events, []event.Event{
+	test.AssertEqualEventsUnsorted(t, events, []event.Event[any]{
 		storeEvents[0], storeEvents[2], storeEvents[3],
 	})
 }
@@ -130,11 +130,11 @@ func TestJob_EventsFor_Progressor(t *testing.T) {
 	now := time.Now()
 	target.SetProgress(now)
 
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Time(now)),
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Time(now.Add(time.Hour))),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now)),
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(time.Hour))),
 	}
 	store, _ := newEventStore(t, storeEvents...)
 
@@ -156,11 +156,11 @@ func TestJob_EventsFor_Progressor(t *testing.T) {
 func TestJob_Aggregates(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0), event.Time(now)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0), event.Time(now.Add(time.Second))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "baz-agg", 0), event.Time(now.Add(2*time.Second))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foobar-agg", 0), event.Time(now.Add(3*time.Second))),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0), event.Time[any](now)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0), event.Time[any](now.Add(time.Second))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "baz-agg", 0), event.Time[any](now.Add(2*time.Second))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobar-agg", 0), event.Time[any](now.Add(3*time.Second))),
 	}
 	store, _ := newEventStore(t, storeEvents...)
 
@@ -190,11 +190,11 @@ func TestJob_Aggregates(t *testing.T) {
 func TestJob_Aggregates_specific(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0), event.Time(now)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0), event.Time(now.Add(time.Second))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "baz-agg", 0), event.Time(now.Add(2*time.Second))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foobar-agg", 0), event.Time(now.Add(3*time.Second))),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0), event.Time[any](now)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0), event.Time[any](now.Add(time.Second))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "baz-agg", 0), event.Time[any](now.Add(2*time.Second))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobar-agg", 0), event.Time[any](now.Add(3*time.Second))),
 	}
 	store, _ := newEventStore(t, storeEvents...)
 
@@ -222,11 +222,11 @@ func TestJob_Aggregates_specific(t *testing.T) {
 
 func TestJob_Aggregate(t *testing.T) {
 	ctx := context.Background()
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "baz-agg", 0)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foobar-agg", 0)),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "baz-agg", 0)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobar-agg", 0)),
 	}
 	store, _ := newEventStore(t, storeEvents...)
 
@@ -245,12 +245,12 @@ func TestJob_Aggregate(t *testing.T) {
 func TestJob_Apply(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0), event.Time(now)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0), event.Time(now.Add(time.Second))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0), event.Time(now.Add(time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0), event.Time(now.Add(2*time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0), event.Time(now.Add(3*time.Minute))),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0), event.Time[any](now)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0), event.Time[any](now.Add(time.Second))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0), event.Time[any](now.Add(time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0), event.Time[any](now.Add(2*time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0), event.Time[any](now.Add(3*time.Minute))),
 	}
 	store, _ := newEventStore(t, storeEvents...)
 
@@ -271,12 +271,12 @@ func TestJob_Apply(t *testing.T) {
 func TestJob_Events_cache(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0), event.Time(now)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0), event.Time(now.Add(time.Second))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 0), event.Time(now.Add(time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0), event.Time(now.Add(2*time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar-agg", 0), event.Time(now.Add(3*time.Minute))),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0), event.Time[any](now)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0), event.Time[any](now.Add(time.Second))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo-agg", 0), event.Time[any](now.Add(time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0), event.Time[any](now.Add(2*time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar-agg", 0), event.Time[any](now.Add(3*time.Minute))),
 	}
 	store, _ := newEventStore(t, storeEvents...)
 	delayedStore := newDelayedEventStore(store, 100*time.Millisecond)
@@ -321,13 +321,13 @@ func TestJob_Events_cache(t *testing.T) {
 func TestWithFilter(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0), event.Time(now)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar", 0), event.Time(now.Add(time.Second))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "baz", 0), event.Time(now.Add(time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foobar", 0), event.Time(now.Add(2*time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "barbaz", 0), event.Time(now.Add(3*time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foobaz", 0), event.Time(now.Add(4*time.Minute))),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0), event.Time[any](now)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar", 0), event.Time[any](now.Add(time.Second))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "baz", 0), event.Time[any](now.Add(time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobar", 0), event.Time[any](now.Add(2*time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "barbaz", 0), event.Time[any](now.Add(3*time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobaz", 0), event.Time[any](now.Add(4*time.Minute))),
 	}
 	store, _ := newEventStore(t, storeEvents...)
 
@@ -346,20 +346,20 @@ func TestWithFilter(t *testing.T) {
 		t.Fatalf("drain Events: %v", err)
 	}
 
-	test.AssertEqualEvents(t, events, []event.Event{storeEvents[0], storeEvents[4], storeEvents[5]})
+	test.AssertEqualEvents(t, events, []event.Event[any]{storeEvents[0], storeEvents[4], storeEvents[5]})
 }
 
 func TestWithReset(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
-	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0), event.Time(now.Add(-time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0), event.Time(now)),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar", 0), event.Time(now.Add(time.Second))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "baz", 0), event.Time(now.Add(time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foobar", 0), event.Time(now.Add(2*time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "barbaz", 0), event.Time(now.Add(3*time.Minute))),
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foobaz", 0), event.Time(now.Add(4*time.Minute))),
+	storeEvents := []event.Event[any]{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0), event.Time[any](now.Add(-time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0), event.Time[any](now)),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "bar", 0), event.Time[any](now.Add(time.Second))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "baz", 0), event.Time[any](now.Add(time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobar", 0), event.Time[any](now.Add(2*time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "barbaz", 0), event.Time[any](now.Add(3*time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foobaz", 0), event.Time[any](now.Add(4*time.Minute))),
 	}
 	store, _ := newEventStore(t, storeEvents...)
 
@@ -389,14 +389,14 @@ func TestWithReset(t *testing.T) {
 	}
 }
 
-func newEventStore(t *testing.T, events ...event.Event) (event.Store, []event.Event) {
+func newEventStore(t *testing.T, events ...event.Event[any]) (event.Store, []event.Event[any]) {
 	store := eventstore.New()
 	now := time.Now()
 	if len(events) == 0 {
-		events = []event.Event{
-			event.New("foo", test.FooEventData{}, event.Time(now)),
-			event.New("bar", test.FooEventData{}, event.Time(now.Add(time.Second))),
-			event.New("baz", test.FooEventData{}, event.Time(now.Add(time.Minute))),
+		events = []event.Event[any]{
+			event.New[any]("foo", test.FooEventData{}, event.Time[any](now)),
+			event.New[any]("bar", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
+			event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
 		}
 	}
 	if err := store.Insert(context.Background(), events...); err != nil {
@@ -414,7 +414,7 @@ func newDelayedEventStore(store event.Store, delay time.Duration) *delayedEventS
 	return &delayedEventStore{Store: store, delay: delay}
 }
 
-func (s *delayedEventStore) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
+func (s *delayedEventStore) Query(ctx context.Context, q event.Query) (<-chan event.Event[any], <-chan error, error) {
 	timer := time.NewTimer(s.delay)
 	defer timer.Stop()
 
