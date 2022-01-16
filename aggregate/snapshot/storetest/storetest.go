@@ -317,8 +317,8 @@ func testQueryID(t *testing.T, newStore StoreFactory) {
 	}
 
 	result, err := runQuery(s, query.New(query.ID(
-		aggregate.ExtractID(as[0]),
-		aggregate.ExtractID(as[4]),
+		aggregate.PickID(as[0]),
+		aggregate.PickID(as[4]),
 	)))
 	if err != nil {
 		t.Fatal(err)

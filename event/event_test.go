@@ -36,16 +36,16 @@ func TestNew(t *testing.T) {
 		t.Errorf("evt.Time() should almost equal %s; got %s", xtime.Now(), evt.Time())
 	}
 
-	if event.ExtractAggregateName(evt) != "" {
-		t.Errorf("evt.AggregateName() should return %q; got %q", "", event.ExtractAggregateName(evt))
+	if event.PickAggregateName(evt) != "" {
+		t.Errorf("evt.AggregateName() should return %q; got %q", "", event.PickAggregateName(evt))
 	}
 
-	if event.ExtractAggregateID(evt) != uuid.Nil {
+	if event.PickAggregateID(evt) != uuid.Nil {
 		t.Errorf("evt.AggregateID() should return %q; git %q", uuid.Nil, evt.ID())
 	}
 
-	if event.ExtractAggregateVersion(evt) != 0 {
-		t.Errorf("evt.AggrgateVersion() should return %v; got %v", 0, event.ExtractAggregateVersion(evt))
+	if event.PickAggregateVersion(evt) != 0 {
+		t.Errorf("evt.AggrgateVersion() should return %v; got %v", 0, event.PickAggregateVersion(evt))
 	}
 }
 
@@ -63,16 +63,16 @@ func TestNew_aggregate(t *testing.T) {
 	v := 3
 
 	evt := event.New("foo", newMockData(), event.Aggregate(aid, aname, v))
-	if event.ExtractAggregateName(evt) != "bar" {
-		t.Errorf("expected event.AggregateName(evt) to return %q; got %q", "bar", event.ExtractAggregateName(evt))
+	if event.PickAggregateName(evt) != "bar" {
+		t.Errorf("expected event.AggregateName(evt) to return %q; got %q", "bar", event.PickAggregateName(evt))
 	}
 
-	if event.ExtractAggregateID(evt) != aid {
-		t.Errorf("expected event.AggregateID(evt) to return %q; got %q", aid, event.ExtractAggregateID(evt))
+	if event.PickAggregateID(evt) != aid {
+		t.Errorf("expected event.AggregateID(evt) to return %q; got %q", aid, event.PickAggregateID(evt))
 	}
 
-	if event.ExtractAggregateVersion(evt) != v {
-		t.Errorf("expected event.AggregateVersion(evt) to return %v; got %v", v, event.ExtractAggregateVersion(evt))
+	if event.PickAggregateVersion(evt) != v {
+		t.Errorf("expected event.AggregateVersion(evt) to return %v; got %v", v, event.PickAggregateVersion(evt))
 	}
 }
 
@@ -90,16 +90,16 @@ func TestNew_previous(t *testing.T) {
 		t.Errorf("expected evt.Data to return %#v; got %#v", wantData, evt.Data())
 	}
 
-	if event.ExtractAggregateName(evt) != "foobar" {
-		t.Errorf("expected evt.AggregateName to return %q; got %q", "foobar", event.ExtractAggregateName(evt))
+	if event.PickAggregateName(evt) != "foobar" {
+		t.Errorf("expected evt.AggregateName to return %q; got %q", "foobar", event.PickAggregateName(evt))
 	}
 
-	if event.ExtractAggregateID(evt) != aggregateID {
-		t.Errorf("expected evt.AggregateID to return %q; got %q", aggregateID, event.ExtractAggregateID(evt))
+	if event.PickAggregateID(evt) != aggregateID {
+		t.Errorf("expected evt.AggregateID to return %q; got %q", aggregateID, event.PickAggregateID(evt))
 	}
 
-	if event.ExtractAggregateVersion(evt) != 4 {
-		t.Errorf("expected evt.AggregateVersion to return %d; got %d", 4, event.ExtractAggregateVersion(evt))
+	if event.PickAggregateVersion(evt) != 4 {
+		t.Errorf("expected evt.AggregateVersion to return %d; got %d", 4, event.PickAggregateVersion(evt))
 	}
 }
 

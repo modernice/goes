@@ -232,8 +232,8 @@ func TestJob_Aggregates_specific(t *testing.T) {
 	}
 
 	want := []aggregate.Ref{
-		{Name: event.ExtractAggregateName(storeEvents[1]), ID: event.ExtractAggregateID(storeEvents[1])},
-		{Name: event.ExtractAggregateName(storeEvents[3]), ID: event.ExtractAggregateID(storeEvents[3])},
+		{Name: event.PickAggregateName(storeEvents[1]), ID: event.PickAggregateID(storeEvents[1])},
+		{Name: event.PickAggregateName(storeEvents[3]), ID: event.PickAggregateID(storeEvents[3])},
 	}
 
 	if !reflect.DeepEqual(want, aggregates) {
@@ -258,8 +258,8 @@ func TestJob_Aggregate(t *testing.T) {
 		t.Fatalf("Aggregate failed with %q", err)
 	}
 
-	if id != event.ExtractAggregateID(storeEvents[2]) {
-		t.Fatalf("Aggregate should return %q; got %q", event.ExtractAggregateID(storeEvents[2]), id)
+	if id != event.PickAggregateID(storeEvents[2]) {
+		t.Fatalf("Aggregate should return %q; got %q", event.PickAggregateID(storeEvents[2]), id)
 	}
 }
 

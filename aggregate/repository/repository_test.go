@@ -340,9 +340,9 @@ func TestRepository_Query_name(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := event.ExtractAggregateVersion(aevents[len(aevents)-1])
-		if aggregate.ExtractVersion(a) != want {
-			t.Errorf("aggregate has wrong version. want=%d got=%d", want, aggregate.ExtractVersion(a))
+		want := event.PickAggregateVersion(aevents[len(aevents)-1])
+		if aggregate.PickVersion(a) != want {
+			t.Errorf("aggregate has wrong version. want=%d got=%d", want, aggregate.PickVersion(a))
 		}
 	}
 }
@@ -373,8 +373,8 @@ func TestRepository_Query_name_multiple(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := event.ExtractAggregateVersion(aevents[len(aevents)-1])
-		v := aggregate.ExtractVersion(a)
+		want := event.PickAggregateVersion(aevents[len(aevents)-1])
+		v := aggregate.PickVersion(a)
 		if v != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, v)
 		}
@@ -393,7 +393,7 @@ func TestRepository_Query_id(t *testing.T) {
 	r := repository.New(s)
 
 	result, err := runQuery(r, query.New(
-		query.ID(aggregate.ExtractID(foos[0]), aggregate.ExtractID(bazs[2])),
+		query.ID(aggregate.PickID(foos[0]), aggregate.PickID(bazs[2])),
 	), makeFactory(am))
 	if err != nil {
 		t.Fatal(err)
@@ -409,8 +409,8 @@ func TestRepository_Query_id(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := event.ExtractAggregateVersion(aevents[len(aevents)-1])
-		v := aggregate.ExtractVersion(a)
+		want := event.PickAggregateVersion(aevents[len(aevents)-1])
+		v := aggregate.PickVersion(a)
 		if v != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, v)
 		}
@@ -446,11 +446,11 @@ func TestRepository_Query_version(t *testing.T) {
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
 		aevents = event.Sort(aevents, event.SortAggregateVersion, event.SortAsc)
-		want := event.ExtractAggregateVersion(aevents[len(aevents)-1])
+		want := event.PickAggregateVersion(aevents[len(aevents)-1])
 		if want > 20 {
 			want = 20
 		}
-		v := aggregate.ExtractVersion(a)
+		v := aggregate.PickVersion(a)
 		if v != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, v)
 		}

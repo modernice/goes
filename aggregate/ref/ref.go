@@ -1,5 +1,5 @@
-// Deprecated: Use github.com/modernice/goes/aggregate/ref instead
-package tuple
+// Package ref provides utilities for working with aggregate.Ref.
+package ref
 
 import (
 	"github.com/google/uuid"
@@ -8,28 +8,28 @@ import (
 
 // Names extracts the Names of the given Tuples. Empty names are not included
 // and duplicates are removed.
-func Names(tuples ...aggregate.Tuple) []string {
+func Names(refs ...aggregate.Ref) []string {
 	var names []string
 	found := make(map[string]bool)
-	for _, t := range tuples {
-		if t.Name == "" {
+	for _, r := range refs {
+		if r.Name == "" {
 			continue
 		}
-		if found[t.Name] {
+		if found[r.Name] {
 			continue
 		}
-		found[t.Name] = true
-		names = append(names, t.Name)
+		found[r.Name] = true
+		names = append(names, r.Name)
 	}
 	return names
 }
 
 // IDs extracts the IDs of the given Tuples. Nil-UUIDs are not included and
 // duplicates are removed.
-func IDs(tuples ...aggregate.Tuple) []uuid.UUID {
+func IDs(refs ...aggregate.Ref) []uuid.UUID {
 	var ids []uuid.UUID
 	found := make(map[uuid.UUID]bool)
-	for _, t := range tuples {
+	for _, t := range refs {
 		if t.ID == uuid.Nil {
 			continue
 		}
@@ -44,16 +44,16 @@ func IDs(tuples ...aggregate.Tuple) []uuid.UUID {
 
 // Aggregates extracts the IDs of the given Tuples that have the Name name.
 // Nil-UUIDs are not included and duplicates are removed.
-func Aggregates(name string, tuples ...aggregate.Tuple) []uuid.UUID {
+func Aggregates(name string, refs ...aggregate.Ref) []uuid.UUID {
 	var ids []uuid.UUID
 	found := make(map[uuid.UUID]bool)
-	for _, t := range tuples {
-		if t.Name != "" && t.Name == name {
-			if found[t.ID] {
+	for _, r := range refs {
+		if r.Name != "" && r.Name == name {
+			if found[r.ID] {
 				continue
 			}
-			found[t.ID] = true
-			ids = append(ids, t.ID)
+			found[r.ID] = true
+			ids = append(ids, r.ID)
 		}
 	}
 	return ids

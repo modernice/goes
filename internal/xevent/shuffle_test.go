@@ -17,7 +17,7 @@ func TestShuffle(t *testing.T) {
 	sorted := make([]event.Event, len(events))
 	copy(sorted, events)
 	sort.Slice(sorted, func(i, j int) bool {
-		return event.ExtractAggregateVersion(sorted[i]) < event.ExtractAggregateVersion(sorted[j])
+		return event.PickAggregateVersion(sorted[i]) < event.PickAggregateVersion(sorted[j])
 	})
 	test.AssertEqualEvents(t, sorted, events)
 

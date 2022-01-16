@@ -39,7 +39,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 		t.Fatalf("drain stream: %v", err)
 	}
 
-	applied := getAppliedEvents(aggregate.ExtractID(as[0]))
+	applied := getAppliedEvents(aggregate.PickID(as[0]))
 	test.AssertEqualEvents(t, xevent.FilterAggregate(events, as[0]), applied)
 
 	if len(res) != 1 {
@@ -54,7 +54,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 		t.Errorf("stream should flush aggregate changes. len(changes)=%d", l)
 	}
 
-	if v := aggregate.ExtractVersion(res[0]); v != 10 {
+	if v := aggregate.PickVersion(res[0]); v != 10 {
 		t.Errorf("aggregate should have version %d; got %d", 10, v)
 	}
 }
@@ -73,7 +73,7 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 		t.Fatalf("drain stream: %v", err)
 	}
 
-	applied := getAppliedEvents(aggregate.ExtractID(as[0]))
+	applied := getAppliedEvents(aggregate.PickID(as[0]))
 	test.AssertEqualEvents(t, event.Sort(events, event.SortAggregateVersion, event.SortAsc), applied)
 
 	if len(res) != 1 {
@@ -145,7 +145,7 @@ func TestStream_inconsistent(t *testing.T) {
 		t.Fatalf("stream should return an error of type %T; got %T", cerr, err)
 	}
 
-	if aggregate.ExtractID(cerr.Aggregate) != aggregate.ExtractID(as[0]) {
+	if aggregate.PickID(cerr.Aggregate) != aggregate.PickID(as[0]) {
 		t.Errorf("cerr.Aggregate should be %#v; got %#v", as[0], cerr.Aggregate)
 	}
 
@@ -177,7 +177,7 @@ func TestSorted(t *testing.T) {
 		t.Errorf("stream should return an error of type %T; got %T", cerr, err)
 	}
 
-	if aggregate.ExtractID(cerr.Aggregate) != aggregate.ExtractID(as[0]) {
+	if aggregate.PickID(cerr.Aggregate) != aggregate.PickID(as[0]) {
 		t.Errorf("cerr.Aggregate should be %#v; got %#v", as[0], cerr.Aggregate)
 	}
 
@@ -278,10 +278,10 @@ func TestFilter(t *testing.T) {
 		es,
 		stream.Filter(
 			func(evt event.Event) bool {
-				return strings.HasPrefix(event.ExtractAggregateName(evt), "foo")
+				return strings.HasPrefix(event.PickAggregateName(evt), "foo")
 			},
 			func(evt event.Event) bool {
-				return strings.HasSuffix(event.ExtractAggregateName(evt), "bar")
+				return strings.HasSuffix(event.PickAggregateName(evt), "bar")
 			},
 		),
 	)

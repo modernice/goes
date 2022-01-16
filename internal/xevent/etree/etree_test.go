@@ -369,7 +369,7 @@ func toIntMatrix(mx [][]event.Event) [][]int {
 	for i, events := range mx {
 		ix[i] = make([]int, len(events))
 		for j := range events {
-			ix[i][j] = event.ExtractAggregateVersion(events[j])
+			ix[i][j] = event.PickAggregateVersion(events[j])
 		}
 	}
 	return ix

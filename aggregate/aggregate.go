@@ -176,7 +176,7 @@ func (b *Base) Commit() {
 	}
 	// b.TrackChange guarantees a correct event order, so we can safely assume
 	// the last element has the highest version.
-	b.Version = event.ExtractAggregateVersion(b.Changes[len(b.Changes)-1])
+	b.Version = event.PickAggregateVersion(b.Changes[len(b.Changes)-1])
 	b.Changes = b.Changes[:0]
 }
 
