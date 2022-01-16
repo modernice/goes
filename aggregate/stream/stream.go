@@ -143,8 +143,8 @@ func Filter(fns ...func(event.Event) bool) Option {
 // Use the Drain function to get the Histories as a slice and a single error:
 //
 //	var events <-chan event.Event
-//	res, errs := stream.New(events)
-//	histories, err := stream.Drain(context.TODO(), res, errs)
+//	str, errs := stream.New(events)
+//	histories, err := aggregate.Drain(context.TODO(), str, errs)
 //	// handle err
 //	for _, h := range histories {
 //		foo := newFoo(h.AggregateID())
