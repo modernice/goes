@@ -7,21 +7,22 @@ event-sourced aggregate tooling.
 
 The `aggregate.Aggregate` interface defines the minimum method set of an
 aggregate. The `*aggregate.Base` type implement this interface and can be
-embedded into your structs to provide the base implementation of an aggregate.
-The `aggregate.New()` function instantiates the `*aggregate.Base` type.
+embedded into your structs to provide the base implementation for your
+aggregates. The `aggregate.New()` function instantiates the `*aggregate.Base`
+type.
 
 ```go
 package aggregate
 
 type Aggregate interface {
-	AggregateID() uuid.UUID
-	AggregateName() string
-	AggregateVersion() int
+	// Aggregate returns the id, name and version of the aggregate.
+	Aggregate() (uuid.UUID, string, int)
+
+	// AggregateChanges returns the uncommited events of the aggregate.
 	AggregateChanges() []event.Event
-	TrackChange(...event.Event)
-	FlushChanges()
+
+	// ApplyEvent applies the event on the aggregate.
 	ApplyEvent(event.Event)
-	SetVersion(int)
 }
 ```
 
@@ -45,7 +46,7 @@ func NewUser(id uuid.UUID) *User {
 
 ### Example
 
-Example of a user aggregate:
+Example user aggregate:
 
 ```go
 package auth
@@ -94,10 +95,9 @@ func (u *User) Register(name, email string) error {
     return errors.New("invalid email %q: %v", email, err)
   }
 
-  // aggregate.NextEvent() creates the next event for the user with the given
-  // name and event data and then calls u.ApplyEvent(evt) with that event.
-  // u.ApplyEvent then calls u.register(evt) which actually applies the event
-  // data on the aggregate and update its state.
+  // aggregate.NextEvent() creates and applies the next event for the User using
+  // u.ApplyEvent(evt). u.ApplyEvent then calls u.register(evt) which actually
+  // updates the state of the User.
   aggregate.NextEvent(u, UserRegistered, UserRegisteredData{
     Name:  name,
     Email: email,
@@ -210,8 +210,8 @@ func deleteAggregate(repo aggregate.Repository) {
 
 ## Guides
 
-- [Create & Test an Aggregate](../examples/aggregate)
-- [Create Projections](../examples/projection)
+- [~~Create & Test an Aggregate~~ (To-Do)](../examples/aggregate)
+- [~~Create Projections~~ (To-Do)](../examples/projection)
 
 ## Stream Helpers
 
