@@ -23,7 +23,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 	enc := test.NewEncoder()
 
 	// given 5 "foo" subscribers
-	subs := make([]<-chan event.Event, 5)
+	subs := make([]<-chan event.Event[any], 5)
 	for i := range subs {
 		bus := New(enc, QueueGroupByFunc(func(eventName string) string {
 			return fmt.Sprintf("bar.%s", eventName)
@@ -42,13 +42,13 @@ func TestQueueGroupByFunc(t *testing.T) {
 
 	// when a "foo" event is published
 	evt := event.New("foo", test.FooEventData{})
-	err := pubBus.Publish(context.Background(), evt)
+	err := pubBus.Publish(context.Background(), evt.Any())
 	if err != nil {
 		t.Fatal(fmt.Errorf("publish event %#v: %w", evt, err))
 	}
 
 	// only 1 subscriber should received the event
-	receivedChan := make(chan event.Event, len(subs))
+	receivedChan := make(chan event.Event[any], len(subs))
 	var wg sync.WaitGroup
 	wg.Add(len(subs))
 	go func() {
@@ -56,7 +56,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 		wg.Wait()
 	}()
 	for _, events := range subs {
-		go func(events <-chan event.Event) {
+		go func(events <-chan event.Event[any]) {
 			defer wg.Done()
 			select {
 			case evt := <-events:
@@ -67,7 +67,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 	}
 	wg.Wait()
 
-	var received []event.Event
+	var received []event.Event[any]
 	for evt := range receivedChan {
 		received = append(received, evt)
 	}
@@ -76,7 +76,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected exactly 1 subscriber to receive an event; %d subscribers received it", len(received)))
 	}
 
-	if !event.Equal(received[0], evt) {
+	if !event.Equal(received[0], evt.Any().Event()) {
 		t.Fatal(fmt.Errorf("received event doesn't match published event\npublished: %#v\n\nreceived: %#v", evt, received[0]))
 	}
 }
@@ -166,7 +166,7 @@ func TestSubjectFunc(t *testing.T) {
 	}
 
 	evt := event.New("foo", test.FooEventData{A: "foo"})
-	if err = bus.Publish(context.Background(), evt); err != nil {
+	if err = bus.Publish(context.Background(), evt.Any()); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
 	}
 
@@ -174,7 +174,7 @@ func TestSubjectFunc(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal(fmt.Errorf("didn't receive event after 1s"))
 	case received := <-events:
-		if !event.Equal(received, evt) {
+		if !event.Equal(received, evt.Any().Event()) {
 			t.Fatal(fmt.Errorf("expected received event to equal %#v; got %#v", evt, received))
 		}
 	}
@@ -263,7 +263,7 @@ func TestReceiveTimeout(t *testing.T) {
 
 	// when a "foo" event is published
 	foo := event.New("foo", test.FooEventData{A: "foo"})
-	if err = pubBus.Publish(context.Background(), foo); err != nil {
+	if err = pubBus.Publish(context.Background(), foo.Any()); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
 	}
 
@@ -289,7 +289,7 @@ func TestReceiveTimeout(t *testing.T) {
 
 	// when another "bar" event is published
 	bar := event.New("bar", test.BarEventData{A: "bar"})
-	if err = pubBus.Publish(context.Background(), bar); err != nil {
+	if err = pubBus.Publish(context.Background(), bar.Any()); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "bar", err))
 	}
 
@@ -298,7 +298,7 @@ func TestReceiveTimeout(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal(fmt.Errorf("didn't receive from events after 3s"))
 	case evt := <-events:
-		if !event.Equal(evt, bar) {
+		if !event.Equal(evt, bar.Any().Event()) {
 			t.Fatal(fmt.Errorf("received wrong event\nexpected: %#v\n\ngot: %#v", bar, evt))
 		}
 	}

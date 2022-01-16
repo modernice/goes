@@ -248,7 +248,7 @@ func TryCast[To, From any](evt Event[From]) (E[To], bool) {
 
 // Expand expands an interfaced event to a struct.
 func Expand[D any](evt Event[D]) E[D] {
-	return New(evt.Name(), evt.Data(), ID[D](evt.ID()), Aggregate[D](evt.Aggregate()))
+	return New(evt.Name(), evt.Data(), ID[D](evt.ID()), Time[D](evt.Time()), Aggregate[D](evt.Aggregate()))
 }
 
 // Test tests the Event evt against the Query q and returns true if q should

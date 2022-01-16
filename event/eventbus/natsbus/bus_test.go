@@ -77,7 +77,7 @@ func testPublishConnect(t *testing.T, newBus eventbustest.EventBusFactory) {
 	}()
 
 	bus := newBus(eventtest.NewEncoder())
-	err := bus.Publish(context.Background(), event.New("foo", eventtest.FooEventData{}))
+	err := bus.Publish(context.Background(), event.New[any]("foo", eventtest.FooEventData{}))
 
 	if err == nil {
 		t.Error(fmt.Errorf("err shouldn't be nil; got %#v", err))
@@ -86,7 +86,7 @@ func testPublishConnect(t *testing.T, newBus eventbustest.EventBusFactory) {
 
 func testPublishEncodeError(t *testing.T, newBus eventbustest.EventBusFactory) {
 	bus := newBus(eventtest.NewEncoder())
-	err := bus.Publish(context.Background(), event.New("xyz", eventtest.UnregisteredEventData{}))
+	err := bus.Publish(context.Background(), event.New[any]("xyz", eventtest.UnregisteredEventData{}))
 
 	if err == nil {
 		t.Fatal(fmt.Errorf("expected err not to be nil; got %v", err))
