@@ -263,7 +263,7 @@ func (r *Repository) fetch(ctx context.Context, a aggregate.Aggregate, opts ...e
 	return nil
 }
 
-func (r *Repository) queryEvents(ctx context.Context, q equery.Query) ([]event.Event, error) {
+func (r *Repository) queryEvents(ctx context.Context, q equery.Query) ([]event.Event[any], error) {
 	str, errs, err := r.store.Query(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)

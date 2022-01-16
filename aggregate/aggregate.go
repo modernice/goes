@@ -21,12 +21,12 @@ type Ref = event.AggregateRef
 // Option is an Aggregate option.
 type Option func(*Base)
 
-// Base can be embedded into structs to make them fulfill the Aggregate interface.
+// Base can be embedded into structs to make them implement Aggregate.
 type Base struct {
 	ID      uuid.UUID
 	Name    string
 	Version int
-	Changes []event.Event
+	Changes []event.Event[any]
 }
 
 // Version returns an Option that sets the version of an Aggregate.
@@ -39,12 +39,12 @@ func Version(v int) Option {
 // ApplyHistory applies the given events to the aggregate a to reconstruct the
 // state of a at the time of the latest event. If the aggregate implements
 // Committer, a.TrackChange(events) and a.Commit() are called before returning.
-func ApplyHistory(a Aggregate, events ...event.Event) error {
+func ApplyHistory(a Aggregate, events ...event.Event[any]) error {
 	if err := ValidateConsistency(a, events...); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 	for _, evt := range events {
-		a.ApplyEvent(evt)
+		a.ApplyEvent(event.Expand(evt).Any())
 	}
 
 	if c, ok := a.(Committer); ok {
@@ -95,24 +95,25 @@ func NextVersion(a Aggregate) int {
 //
 //	var foo aggregate.Aggregate
 //	evt := aggregate.NextEvent(foo, "event-name", ...)
-func NextEvent(a Aggregate, name string, data interface{}, opts ...event.Option) event.Event {
+func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option[D]) event.Event[D] {
 	aid, aname, _ := a.Aggregate()
 
-	opts = append([]event.Option{
-		event.Aggregate(
+	opts = append([]event.Option[D]{
+		event.Aggregate[D](
 			aid,
 			aname,
 			NextVersion(a),
 		),
-		event.Time(nextTime(a)),
+		event.Time[D](nextTime(a)),
 	}, opts...)
 
 	evt := event.New(name, data, opts...)
+	anyevt := evt.Any()
 
-	a.ApplyEvent(evt)
+	a.ApplyEvent(anyevt)
 
 	if c, ok := a.(Committer); ok {
-		c.TrackChange(evt)
+		c.TrackChange(anyevt)
 	}
 
 	return evt
@@ -160,12 +161,12 @@ func (b *Base) AggregateVersion() int {
 }
 
 // AggregateChanges implements Aggregate.
-func (b *Base) AggregateChanges() []event.Event {
+func (b *Base) AggregateChanges() []event.Event[any] {
 	return b.Changes
 }
 
 // TrackChange implements Aggregate.
-func (b *Base) TrackChange(events ...event.Event) {
+func (b *Base) TrackChange(events ...event.Event[any]) {
 	b.Changes = append(b.Changes, events...)
 }
 
@@ -182,7 +183,7 @@ func (b *Base) Commit() {
 
 // ApplyEvent implements aggregate. Aggregates that embed *Base should overide
 // ApplyEvent.
-func (*Base) ApplyEvent(event.Event) {}
+func (*Base) ApplyEvent(event.Event[any]) {}
 
 // SetVersion implements snapshot.Aggregate.
 func (b *Base) SetVersion(v int) {

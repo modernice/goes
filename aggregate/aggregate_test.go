@@ -1,7 +1,6 @@
 package aggregate_test
 
 import (
-	"log"
 	"reflect"
 	"testing"
 
@@ -25,7 +24,7 @@ func TestNew(t *testing.T) {
 		t.Errorf("b.Version should return %v; got %v", 0, b.AggregateVersion())
 	}
 	changes := b.AggregateChanges()
-	wantType := []event.Event{}
+	wantType := []event.Event[any]{}
 	if reflect.TypeOf(changes) != reflect.TypeOf(wantType) {
 		t.Errorf("b.Changes should return type %T; got %T", wantType, changes)
 	}
@@ -45,10 +44,10 @@ func TestNew_version(t *testing.T) {
 func TestBase_TrackChange(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)),
+	events := []event.Event[any]{
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 1)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 2)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 3)),
 	}
 	b.TrackChange(events...)
 	if changes := b.AggregateChanges(); !reflect.DeepEqual(events, changes) {
@@ -59,10 +58,10 @@ func TestBase_TrackChange(t *testing.T) {
 func TestBase_FlushChanges(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)),
+	events := []event.Event[any]{
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 1)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 2)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 3)),
 	}
 
 	b.TrackChange(events...)
@@ -79,11 +78,11 @@ func TestBase_FlushChanges(t *testing.T) {
 }
 
 func TestApplyHistory(t *testing.T) {
-	var applied []event.Event
+	var applied []event.Event[any]
 	var flushed bool
 	foo := test.NewFoo(
 		uuid.New(),
-		test.ApplyEventFunc("foo", func(evt event.Event) {
+		test.ApplyEventFunc("foo", func(evt event.Event[any]) {
 			applied = append(applied, evt)
 		}),
 		test.CommitFunc(func(flush func()) {
@@ -92,10 +91,10 @@ func TestApplyHistory(t *testing.T) {
 		}),
 	)
 
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 1)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 2)),
-		event.New("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 3)),
+	events := []event.Event[any]{
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 1)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 2)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 3)),
 	}
 
 	if err := aggregate.ApplyHistory(foo, events...); err != nil {
@@ -116,7 +115,7 @@ func TestUncommittedVersion(t *testing.T) {
 		t.Errorf("current aggregate version should be %d; got %d", 0, v)
 	}
 
-	evt := event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 1))
+	evt := event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), 1))
 
 	a.TrackChange(evt)
 
@@ -124,7 +123,7 @@ func TestUncommittedVersion(t *testing.T) {
 		t.Errorf("current aggregate version should be %d; got %d", 1, v)
 	}
 
-	evt = event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 2))
+	evt = event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), 2))
 
 	a.TrackChange(evt)
 
@@ -162,8 +161,6 @@ func TestHasChange(t *testing.T) {
 	aggregate.NextEvent(a, "foo", etest.FooEventData{})
 	aggregate.NextEvent(a, "bar", etest.BarEventData{})
 	aggregate.NextEvent(a, "baz", etest.BazEventData{})
-
-	log.Println(a.AggregateChanges())
 
 	wantChanges := []string{"foo", "bar", "baz"}
 	for _, name := range wantChanges {

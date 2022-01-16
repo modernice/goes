@@ -16,16 +16,16 @@ type stream struct {
 	isSorted            bool
 	isGrouped           bool
 	validateConsistency bool
-	filters             []func(event.Event) bool
+	filters             []func(event.Event[any]) bool
 
-	stream       <-chan event.Event
+	stream       <-chan event.Event[any]
 	streamErrors []<-chan error
 	inErrors     <-chan error
 	stopErrors   func()
 
 	acceptDone chan struct{}
 
-	events   chan event.Event
+	events   chan event.Event[any]
 	complete chan job
 
 	groupReqs chan groupRequest
@@ -41,7 +41,7 @@ type job struct {
 
 type groupRequest struct {
 	job
-	out chan []event.Event
+	out chan []event.Event[any]
 }
 
 type applier struct {
@@ -130,7 +130,7 @@ func ValidateConsistency(v bool) Option {
 // Filter returns an Option that filters incoming Events before they're handled
 // by the Stream. Events are passed to every fn in fns until a fn returns false.
 // If any of fns returns false, the Event is discarded by the Stream.
-func Filter(fns ...func(event.Event) bool) Option {
+func Filter(fns ...func(event.Event[any]) bool) Option {
 	return func(s *stream) {
 		s.filters = append(s.filters, fns...)
 	}
@@ -142,7 +142,7 @@ func Filter(fns ...func(event.Event) bool) Option {
 //
 // Use the Drain function to get the Histories as a slice and a single error:
 //
-//	var events <-chan event.Event
+//	var events <-chan event.Event[any]
 //	str, errs := stream.New(events)
 //	histories, err := aggregate.Drain(context.TODO(), str, errs)
 //	// handle err
@@ -150,9 +150,9 @@ func Filter(fns ...func(event.Event) bool) Option {
 //		foo := newFoo(h.AggregateID())
 //		h.Apply(foo)
 //	}
-func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <-chan error) {
+func New(events <-chan event.Event[any], opts ...Option) (<-chan aggregate.History, <-chan error) {
 	if events == nil {
-		evts := make(chan event.Event)
+		evts := make(chan event.Event[any])
 		close(evts)
 		events = evts
 	}
@@ -161,7 +161,7 @@ func New(events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <
 		validateConsistency: true,
 		stream:              events,
 		acceptDone:          make(chan struct{}),
-		events:              make(chan event.Event),
+		events:              make(chan event.Event[any]),
 		complete:            make(chan job),
 		groupReqs:           make(chan groupRequest),
 		out:                 make(chan aggregate.History),
@@ -233,7 +233,7 @@ L:
 	}
 }
 
-func (s *stream) shouldDiscard(evt event.Event) bool {
+func (s *stream) shouldDiscard(evt event.Event[any]) bool {
 	for _, fn := range s.filters {
 		if !fn(evt) {
 			return true
@@ -243,7 +243,7 @@ func (s *stream) shouldDiscard(evt event.Event) bool {
 }
 
 func (s *stream) groupEvents() {
-	groups := make(map[job][]event.Event)
+	groups := make(map[job][]event.Event[any])
 	events := s.events
 	groupReqs := s.groupReqs
 	for {
@@ -279,7 +279,7 @@ func (s *stream) sortEvents() {
 	for j := range s.complete {
 		req := groupRequest{
 			job: j,
-			out: make(chan []event.Event),
+			out: make(chan []event.Event[any]),
 		}
 		s.groupReqs <- req
 		events := <-req.out

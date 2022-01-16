@@ -11,10 +11,10 @@ type Aggregate interface {
 	Aggregate() (uuid.UUID, string, int)
 
 	// AggregateChanges returns the uncommited events of the aggregate.
-	AggregateChanges() []event.Event
+	AggregateChanges() []event.Event[any]
 
 	// ApplyEvent applies the event on the aggregate.
-	ApplyEvent(event.Event)
+	ApplyEvent(event.Event[any])
 }
 
 // Committer commits aggregate changes. Types that implement Committer are
@@ -25,7 +25,7 @@ type Aggregate interface {
 // *Base implements Committer.
 type Committer interface {
 	// TrackChange adds events as changes to the aggregate.
-	TrackChange(...event.Event)
+	TrackChange(...event.Event[any])
 
 	// Commit commits the uncommitted changes of the aggregate. The changes
 	// should be removed and the aggregate version set to the version of last

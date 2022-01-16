@@ -30,7 +30,7 @@ type ConsistencyError struct {
 	// Aggregate is the handled aggregate.
 	Aggregate Aggregate
 	// Events are the tested events.
-	Events []event.Event
+	Events []event.Event[any]
 	// EventIndex is the index of the Event that caused the Error.
 	EventIndex int
 }
@@ -52,11 +52,11 @@ type ConsistencyKind int
 // The first Event e in events that is invalid causes Validate to return an
 // *Error containing the Kind of inconsistency and the Event that caused the
 // inconsistency.
-func ValidateConsistency(a Aggregate, events ...event.Event) error {
+func ValidateConsistency(a Aggregate, events ...event.Event[any]) error {
 	id, name, _ := a.Aggregate()
 	version := currentVersion(a)
 	cv := version
-	var prev event.Event
+	var prev event.Event[any]
 	for i, evt := range events {
 		eid, ename, ev := evt.Aggregate()
 		if eid != id {
@@ -102,7 +102,7 @@ func ValidateConsistency(a Aggregate, events ...event.Event) error {
 }
 
 // Event return the first Event that caused an inconsistency.
-func (err *ConsistencyError) Event() event.Event {
+func (err *ConsistencyError) Event() event.Event[any] {
 	if err.EventIndex < 0 || err.EventIndex >= len(err.Events) {
 		return nil
 	}
