@@ -49,8 +49,8 @@ type Repository interface {
 	// A History can be applied on an Aggregate to reconstruct its state from
 	// the History.
 	//
-	// The Drain function in the aggregate/stream package can be used to get the
-	// result of the stream as slice and a single error:
+	// The Drain function can be used to get the result of the stream as slice
+	// and a single error:
 	//
 	//	res, errs, err := r.Query(context.TODO(), query.New())
 	//	// handle err
