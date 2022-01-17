@@ -20,7 +20,7 @@ var (
 	ErrMissingRepository = errors.New("missing repository")
 )
 
-// Context is the context for running Actions.
+// Context is the context for running actions.
 type Context interface {
 	context.Context
 
@@ -29,11 +29,11 @@ type Context interface {
 
 	// Publish publishes the given Events via the underlying Event Bus. If no
 	// Event Bus is available, Publish returns ErrMissingBus.
-	Publish(context.Context, ...event.Event) error
+	Publish(context.Context, ...event.Event[any]) error
 
 	// Dispatch synchronously dispatches the given Command via the underlying
 	// Command Bus. If no Command Bus is available, Dispatch returns ErrMissingBus.
-	Dispatch(context.Context, command.Command, ...command.DispatchOption) error
+	Dispatch(context.Context, command.Command[any], ...command.DispatchOption) error
 
 	// Fetch fetches the provided Aggregate from the underlying Aggregate
 	// Repository. If no Aggregate Repository is available, Fetch returns
@@ -104,14 +104,14 @@ func (ctx *actionContext) Action() Action {
 	return ctx.act
 }
 
-func (ctx *actionContext) Publish(c context.Context, events ...event.Event) error {
+func (ctx *actionContext) Publish(c context.Context, events ...event.Event[any]) error {
 	if ctx.eventBus == nil {
 		return ErrMissingBus
 	}
 	return ctx.eventBus.Publish(c, events...)
 }
 
-func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command, opts ...command.DispatchOption) error {
+func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command[any], opts ...command.DispatchOption) error {
 	if ctx.commandBus == nil {
 		return ErrMissingBus
 	}

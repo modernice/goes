@@ -1,4 +1,4 @@
-package cmdctx_test
+package command_test
 
 import (
 	"context"
@@ -7,14 +7,13 @@ import (
 
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/finish"
-	"github.com/modernice/goes/internal/xcommand/cmdctx"
 )
 
-type mockPayload struct{}
+// type mockPayload struct{}
 
 func TestWhenDone(t *testing.T) {
 	cmd := command.New("foo", mockPayload{})
-	ctx := cmdctx.New[mockPayload](context.Background(), cmd)
+	ctx := command.NewContext[mockPayload](context.Background(), cmd)
 
 	doneError := ctx.Finish(context.Background())
 
@@ -30,7 +29,7 @@ func TestWhenDone_withError(t *testing.T) {
 	mockDoneError := errors.New("mock done error")
 
 	var cfg finish.Config
-	ctx := cmdctx.New[mockPayload](context.Background(), cmd, cmdctx.WhenDone[mockPayload](func(_ context.Context, cfg2 finish.Config) error {
+	ctx := command.NewContext[mockPayload](context.Background(), cmd, command.WhenDone[mockPayload](func(_ context.Context, cfg2 finish.Config) error {
 		cfg = cfg2
 		return mockDoneError
 	}))
@@ -48,7 +47,7 @@ func TestWhenDone_withError(t *testing.T) {
 
 func TestContext_Finish_default(t *testing.T) {
 	cmd := command.New("foo", mockPayload{})
-	ctx := cmdctx.New[mockPayload](context.Background(), cmd)
+	ctx := command.NewContext[mockPayload](context.Background(), cmd)
 
 	mockError := errors.New("mock error")
 	err := ctx.Finish(context.Background(), finish.WithError(mockError))
@@ -60,7 +59,7 @@ func TestContext_Finish_default(t *testing.T) {
 
 func TestContext_Finish_multipleTimes(t *testing.T) {
 	cmd := command.New("foo", mockPayload{})
-	ctx := cmdctx.New[mockPayload](context.Background(), cmd)
+	ctx := command.NewContext[mockPayload](context.Background(), cmd)
 
 	err := ctx.Finish(context.Background())
 

@@ -10,9 +10,9 @@ import (
 )
 
 func TestExecError(t *testing.T) {
-	execError := &cmdbus.ExecutionError{}
+	execError := &cmdbus.ExecutionError[any]{}
 
-	err, ok := cmdbus.ExecError(execError)
+	err, ok := cmdbus.ExecError[any](execError)
 	if !ok {
 		t.Fatalf("ExecError() should return true for %v; got %t", execError, ok)
 	}
@@ -23,8 +23,8 @@ func TestExecError(t *testing.T) {
 }
 
 func TestExecutionError_Error(t *testing.T) {
-	err := &cmdbus.ExecutionError{
-		Cmd: command.New("foo", mockPayload{}),
+	err := &cmdbus.ExecutionError[any]{
+		Cmd: command.New("foo", mockPayload{}).Any(),
 		Err: errors.New("mock error"),
 	}
 

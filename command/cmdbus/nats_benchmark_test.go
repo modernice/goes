@@ -19,9 +19,9 @@ import (
 )
 
 func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
-	ereg := codec.New()
+	ereg := codec.New[any]()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
+	enc := codec.Gob(codec.New[any]())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	subEventBus := natsbus.New(
 		ereg,
@@ -45,8 +45,8 @@ func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h := command.NewHandler(subBus)
-	errs, err := h.Handle(ctx, "foo-cmd", func(command.Context) error {
+	h := command.NewHandler[any](subBus)
+	errs, err := h.Handle(ctx, "foo-cmd", func(command.Context[any]) error {
 		return nil
 	})
 	if err != nil {
@@ -66,7 +66,7 @@ func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 
 	for i := 0; i < t.N; i++ {
 		start := time.Now()
-		if err := pubBus.Dispatch(ctx, cmd, dispatch.Sync()); err != nil {
+		if err := pubBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 			t.Fatalf("dispatch command: %v", err)
 		}
 		dur := time.Since(start)

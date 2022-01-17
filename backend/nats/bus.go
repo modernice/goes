@@ -39,7 +39,7 @@ var (
 //	var enc codec.Encoding
 //	bus := nats.NewEventBus(enc, nats.Use(nats.JetStream()))
 type EventBus struct {
-	enc codec.Encoding
+	enc codec.Encoding[any]
 
 	eatErrors   bool
 	url         string
@@ -68,7 +68,7 @@ type EventBusOption func(*EventBus)
 type Driver interface {
 	name() string
 	subscribe(ctx context.Context, bus *EventBus, subject string) (recipient, error)
-	publish(ctx context.Context, bus *EventBus, evt event.Event) error
+	publish(ctx context.Context, bus *EventBus, evt event.Event[any]) error
 }
 
 type envelope struct {
@@ -89,9 +89,9 @@ type envelope struct {
 // If no other specified, the returned event bus will use the NATS Core Driver.
 // To use the NATS JetStream Driver instead, explicitly set the Driver:
 //	NewEventBus(enc, Use(JetStream()))
-func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
+func NewEventBus(enc codec.Encoding[any], opts ...EventBusOption) *EventBus {
 	if enc == nil {
-		enc = codec.New()
+		enc = codec.New[any]()
 	}
 
 	bus := &EventBus{enc: enc, stop: make(chan struct{})}
@@ -167,7 +167,7 @@ func (bus *EventBus) Disconnect(ctx context.Context) error {
 }
 
 // Publish publishes events.
-func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
+func (bus *EventBus) Publish(ctx context.Context, events ...event.Event[any]) error {
 	if err := bus.Connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
@@ -182,7 +182,7 @@ func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 }
 
 // Subscribe subscribes to events.
-func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
+func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event[any], <-chan error, error) {
 	if err := bus.Connect(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
@@ -277,8 +277,8 @@ func (bus *EventBus) natsURL() string {
 	return nats.DefaultURL
 }
 
-func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Event {
-	out := make(chan event.Event)
+func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Event[any] {
+	out := make(chan event.Event[any])
 
 	var wg sync.WaitGroup
 	wg.Add(len(rcpts))
@@ -287,7 +287,7 @@ func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Event {
 		close(out)
 	}()
 
-	drop := func(rcpt recipient, evt event.Event) {
+	drop := func(rcpt recipient, evt event.Event[any]) {
 		rcpt.log(fmt.Errorf(
 			"[goes/backend/nats.EventBus] event dropped: %w [event=%v, timeout=%v]",
 			ErrPullTimeout,

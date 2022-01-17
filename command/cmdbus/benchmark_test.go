@@ -18,8 +18,8 @@ func BenchmarkBus_Dispatch_Synchronous(t *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h := command.NewHandler(bus)
-	errs, err := h.Handle(ctx, "foo", func(command.Context) error {
+	h := command.NewHandler[any](bus)
+	errs, err := h.Handle(ctx, "foo", func(command.Context[any]) error {
 		return nil
 	})
 	if err != nil {
@@ -40,7 +40,7 @@ func BenchmarkBus_Dispatch_Synchronous(t *testing.B) {
 
 	for i := 0; i < t.N; i++ {
 		start := time.Now()
-		if err := bus.Dispatch(ctx, cmd, dispatch.Sync()); err != nil {
+		if err := bus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 			t.Fatalf("dispatch command: %v", err)
 		}
 		dur := time.Since(start)

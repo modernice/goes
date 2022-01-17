@@ -12,7 +12,7 @@ import (
 )
 
 // EventBusFactory creates an event.Bus from an codec.Encoding.
-type EventBusFactory func(codec.Encoding) event.Bus
+type EventBusFactory func(codec.Encoding[any]) event.Bus
 
 // Run tests all functions of the event bus.
 func Run(t *testing.T, newBus EventBusFactory) {
@@ -56,7 +56,7 @@ func Basic(t *testing.T, newBus EventBusFactory) {
 		ex.Nothing(sub, 50*time.Millisecond)
 	}
 
-	if err := bus.Publish(ctx, event.New("bar", test.BarEventData{})); err != nil {
+	if err := bus.Publish(ctx, event.New("bar", test.BarEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "bar")
 	}
 
@@ -68,7 +68,7 @@ func Basic(t *testing.T, newBus EventBusFactory) {
 		ex.Event(sub, 100*time.Millisecond, "foo")
 	}
 
-	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{})); err != nil {
+	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
 	}
 
@@ -92,9 +92,9 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	ex := Expect(ctx)
 	ex.Events(sub, 100*time.Millisecond, "foo", "baz")
 
-	evts := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("baz", test.BazEventData{}),
+	evts := []event.Event[any]{
+		event.New("foo", test.FooEventData{}).Any(),
+		event.New("baz", test.BazEventData{}).Any(),
 	}
 
 	for _, evt := range evts {
@@ -149,7 +149,7 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 	ex := Expect(ctx)
 	ex.Event(sub, 50*time.Millisecond, "foo")
 
-	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{})); err != nil {
+	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
 	}
 
@@ -165,7 +165,7 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 	ex = Expect(ctx)
 	ex.Closed(sub, 50*time.Millisecond)
 
-	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{})); err != nil {
+	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
 	}
 
@@ -186,10 +186,10 @@ func PublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	ex := Expect(ctx)
 	ex.Events(sub, 500*time.Millisecond, "foo", "baz")
 
-	evts := []event.Event{
-		event.New("foo", test.FooEventData{}),
-		event.New("baz", test.BazEventData{}),
-		event.New("foobar", test.FoobarEventData{}),
+	evts := []event.Event[any]{
+		event.New("foo", test.FooEventData{}).Any(),
+		event.New("baz", test.BazEventData{}).Any(),
+		event.New("foobar", test.FoobarEventData{}).Any(),
 	}
 
 	if err := bus.Publish(ctx, evts...); err != nil {

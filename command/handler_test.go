@@ -19,15 +19,15 @@ import (
 func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, codec.New(), ebus)
-	h := command.NewHandler(bus)
+	bus := cmdbus.New(enc, codec.New[any](), ebus)
+	h := command.NewHandler[mockPayload](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	handled := make(chan command.Command)
+	handled := make(chan command.Command[mockPayload])
 
-	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context) error {
+	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[mockPayload]) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -43,7 +43,7 @@ func TestHandler_Handle(t *testing.T) {
 
 	cmd := command.New("foo-cmd", mockPayload{})
 	go func() {
-		if err := bus.Dispatch(ctx, cmd); err != nil {
+		if err := bus.Dispatch(ctx, cmd.Any()); err != nil {
 			select {
 			case <-ctx.Done():
 			case dispatchError <- fmt.Errorf("dispatch Command: %w", err):
@@ -67,14 +67,14 @@ func TestHandler_Handle(t *testing.T) {
 func TestHandler_Handle_error(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, codec.New(), ebus)
-	h := command.NewHandler(bus)
+	bus := cmdbus.New(enc, codec.New[any](), ebus)
+	h := command.NewHandler[mockPayload](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	mockError := errors.New("mock error")
-	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context) error {
+	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[mockPayload]) error {
 		return mockError
 	})
 	if err != nil {
@@ -82,7 +82,7 @@ func TestHandler_Handle_error(t *testing.T) {
 	}
 
 	cmd := command.New("foo-cmd", mockPayload{})
-	go bus.Dispatch(ctx, cmd)
+	go bus.Dispatch(ctx, cmd.Any())
 
 	select {
 	case <-time.After(100 * time.Millisecond):
@@ -100,14 +100,14 @@ func TestHandler_Handle_error(t *testing.T) {
 func TestHandler_Handle_finish(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, codec.New(), ebus)
-	h := command.NewHandler(bus)
+	bus := cmdbus.New(enc, codec.New[any](), ebus)
+	h := command.NewHandler[mockPayload](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	mockError := errors.New("mock error")
-	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context) error {
+	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[mockPayload]) error {
 		return mockError
 	})
 	if err != nil {
@@ -120,7 +120,7 @@ func TestHandler_Handle_finish(t *testing.T) {
 
 	var rep report.Report
 	go func() {
-		bus.Dispatch(ctx, cmd, dispatch.Report(&rep))
+		bus.Dispatch(ctx, cmd.Any(), dispatch.Report(&rep))
 		close(dispatched)
 	}()
 
@@ -155,9 +155,9 @@ L:
 		t.Fatalf("Report has wrong Command. want=%v got=%v", wantCmd, rep.Command)
 	}
 
-	execError, ok := cmdbus.ExecError(rep.Error)
+	execError, ok := cmdbus.ExecError[any](rep.Error)
 	if !ok {
-		t.Fatalf("Report error should be a %T; got %T", execError, err)
+		t.Fatalf("Report error should be a %T; got %T\n\t%#v", execError, rep.Error, rep.Error)
 	}
 
 	if execError.Err.Error() != mockError.Error() {
@@ -165,8 +165,8 @@ L:
 	}
 }
 
-func newEncoder() codec.Encoding {
-	reg := codec.Gob(codec.New())
+func newEncoder() codec.Encoding[any] {
+	reg := codec.Gob(codec.New[any]())
 	reg.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	return reg
 }

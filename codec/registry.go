@@ -42,20 +42,20 @@ var (
 //
 //	var r io.Reader
 //	err := reg.Decode(r, "foo")
-type Registry struct {
+type Registry[T any] struct {
 	sync.RWMutex
 
-	encoders  map[string]Encoder
-	decoders  map[string]Decoder
-	factories map[string]func() interface{}
+	encoders  map[string]Encoder[T]
+	decoders  map[string]Decoder[T]
+	factories map[string]func() T
 }
 
 // New returns a new Registry for event data or command payloads.
-func New() *Registry {
-	return &Registry{
-		encoders:  make(map[string]Encoder),
-		decoders:  make(map[string]Decoder),
-		factories: make(map[string]func() interface{}),
+func New[T any]() *Registry[T] {
+	return &Registry[T]{
+		encoders:  make(map[string]Encoder[T]),
+		decoders:  make(map[string]Decoder[T]),
+		factories: make(map[string]func() T),
 	}
 }
 
@@ -63,7 +63,7 @@ func New() *Registry {
 // When reg.Encode is called, the provided Encoder is be used to encode the
 // given data. When reg.Decode is called, the provided Decoder is used. The
 // makeFunc is required for custom data unmarshalers to work.
-func (reg *Registry) Register(name string, enc Encoder, dec Decoder, makeFunc func() interface{}) {
+func (reg *Registry[T]) Register(name string, enc Encoder[T], dec Decoder[T], makeFunc func() T) {
 	reg.Lock()
 	defer reg.Unlock()
 
@@ -75,7 +75,7 @@ func (reg *Registry) Register(name string, enc Encoder, dec Decoder, makeFunc fu
 // Encode encodes the data that is registered under the given name using the
 // registered Encoder. If no Encoder is registered for the given name, an error
 // that unwraps to ErrNotFound is returned.
-func (reg *Registry) Encode(w io.Writer, name string, data interface{}) error {
+func (reg *Registry[T]) Encode(w io.Writer, name string, data T) error {
 	reg.RLock()
 	defer reg.RUnlock()
 
@@ -93,24 +93,24 @@ func (reg *Registry) Encode(w io.Writer, name string, data interface{}) error {
 // Decode decodes the data that is registered under the given name using the
 // registered Decoder. If no Decoder is registered for the give name, an error
 // that unwraps to ErrNotFound is returned.
-func (reg *Registry) Decode(r io.Reader, name string) (interface{}, error) {
+func (reg *Registry[T]) Decode(r io.Reader, name string) (zero T, _ error) {
 	reg.RLock()
 	defer reg.RUnlock()
 
 	if _, ok := reg.factories[name]; ok {
 		data, err := reg.New(name)
 		if err != nil {
-			return nil, err
+			return zero, err
 		}
 
 		var buf bytes.Buffer
 		r = io.TeeReader(r, &buf)
 
-		if decoded, err := decodeCustomMarshaler(r, data); err != errNotCustomMarshaler {
+		if err := decodeCustomMarshaler(r, &data); err != errNotCustomMarshaler {
 			if err != nil {
 				err = fmt.Errorf("custom unmarshaler: %w", err)
 			}
-			return decoded, err
+			return data, err
 		}
 
 		r = &buf
@@ -120,13 +120,13 @@ func (reg *Registry) Decode(r io.Reader, name string) (interface{}, error) {
 		return dec.Decode(r)
 	}
 
-	return nil, fmt.Errorf("get decoder: %w [name=%v]", ErrNotFound, name)
+	return zero, fmt.Errorf("get decoder: %w [name=%v]", ErrNotFound, name)
 }
 
 // New creates and returns a new instance of the data that is registered under
 // the given name. If no factory function was provided for this data,
 // ErrMissingFactory is returned.
-func (reg *Registry) New(name string) (interface{}, error) {
+func (reg *Registry[T]) New(name string) (zero T, _ error) {
 	reg.RLock()
 	defer reg.RUnlock()
 
@@ -134,5 +134,5 @@ func (reg *Registry) New(name string) (interface{}, error) {
 		return makeFunc(), nil
 	}
 
-	return nil, ErrMissingFactory
+	return zero, ErrMissingFactory
 }

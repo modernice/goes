@@ -66,8 +66,8 @@ func TestCollection(t *testing.T) {
 		mongo.Collection("custom"),
 		mongo.URL(os.Getenv("MONGOSTORE_URL")),
 	)
-	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 1))
-	if err := store.Insert(context.Background(), evt); err != nil {
+	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate[test.FooEventData](uuid.New(), "foo", 1))
+	if err := store.Insert(context.Background(), evt.Any()); err != nil {
 		t.Fatalf("store.Insert: %#v", err)
 	}
 
@@ -75,7 +75,7 @@ func TestCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected store.Find to succeed; got %#v", err)
 	}
-	if !event.Equal(evt, found) {
+	if !event.Equal(evt.Any().Event(), found) {
 		t.Errorf("store.Find returned the wrong event\n\nwant: %#v\n\ngot: %#v", evt, found)
 	}
 

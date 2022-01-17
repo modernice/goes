@@ -9,7 +9,7 @@ import (
 )
 
 func TestJSONRegistry(t *testing.T) {
-	reg := codec.JSON(codec.New())
+	reg := codec.JSON(codec.New[any]())
 
 	reg.JSONRegister("foo", func() interface{} { return mockDataA{} })
 

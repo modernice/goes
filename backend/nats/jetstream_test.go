@@ -39,7 +39,7 @@ func TestEventBus_JetStream(t *testing.T) {
 
 var n int64
 
-func newJetStreamBus(enc codec.Encoding) event.Bus {
+func newJetStreamBus(enc codec.Encoding[any]) event.Bus {
 	return nats.NewEventBus(
 		enc,
 		nats.EatErrors(),
@@ -49,7 +49,7 @@ func newJetStreamBus(enc codec.Encoding) event.Bus {
 	)
 }
 
-func newDurableJetStreamBus(enc codec.Encoding) event.Bus {
+func newDurableJetStreamBus(enc codec.Encoding[any]) event.Bus {
 	return nats.NewEventBus(
 		enc,
 		nats.EatErrors(),
@@ -63,7 +63,7 @@ func newDurableJetStreamBus(enc codec.Encoding) event.Bus {
 	)
 }
 
-func newQueueGroupJetStreamBus(enc codec.Encoding) event.Bus {
+func newQueueGroupJetStreamBus(enc codec.Encoding[any]) event.Bus {
 	return nats.NewEventBus(
 		enc,
 		nats.EatErrors(),
@@ -74,7 +74,7 @@ func newQueueGroupJetStreamBus(enc codec.Encoding) event.Bus {
 	)
 }
 
-func newDurableQueueGroupJetStreamBus(enc codec.Encoding) event.Bus {
+func newDurableQueueGroupJetStreamBus(enc codec.Encoding[any]) event.Bus {
 	return nats.NewEventBus(
 		enc,
 		nats.EatErrors(),

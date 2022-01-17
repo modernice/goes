@@ -120,7 +120,7 @@ type Schedule interface {
 
 // RegisterService register the projection service events into an event
 // registry.
-func RegisterService(r *codec.Registry) {
+func RegisterService(r *codec.Registry[any]) {
 	gob := codec.Gob(r)
 	gob.GobRegister(Triggered, func() interface{} { return TriggeredData{} })
 	gob.GobRegister(TriggerAccepted, func() interface{} { return TriggerAcceptedData{} })

@@ -18,6 +18,6 @@ func TestEventBus_Core(t *testing.T) {
 	})
 }
 
-func newCoreEventBus(enc codec.Encoding) event.Bus {
+func newCoreEventBus(enc codec.Encoding[any]) event.Bus {
 	return nats.NewEventBus(enc, nats.EatErrors(), nats.SubjectPrefix("core:"))
 }

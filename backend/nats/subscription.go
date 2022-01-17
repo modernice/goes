@@ -28,7 +28,7 @@ type subscription struct {
 
 type recipient struct {
 	sub      *subscription
-	events   chan event.Event
+	events   chan event.Event[any]
 	errs     chan error
 	unsubbed chan struct{}
 }
@@ -131,9 +131,9 @@ func (sub *subscription) send(bus *EventBus, msg []byte) error {
 	evt := event.New(
 		env.Name,
 		data,
-		event.ID(env.ID),
-		event.Time(env.Time),
-		event.Aggregate(
+		event.ID[any](env.ID),
+		event.Time[any](env.Time),
+		event.Aggregate[any](
 			env.AggregateID,
 			env.AggregateName,
 			env.AggregateVersion,
@@ -156,7 +156,7 @@ func (sub *subscription) subscribe(ctx context.Context) (recipient, error) {
 
 	rcpt := recipient{
 		sub:      sub,
-		events:   make(chan event.Event),
+		events:   make(chan event.Event[any]),
 		errs:     make(chan error),
 		unsubbed: make(chan struct{}),
 	}

@@ -10,10 +10,10 @@ import (
 	"github.com/modernice/goes/codec"
 )
 
-var _ codec.Encoding = (*codec.Registry)(nil)
+var _ codec.Encoding[any] = (*codec.Registry[any])(nil)
 
 func TestRegistry_Encode_ErrNotFound(t *testing.T) {
-	reg := codec.New()
+	reg := codec.New[any]()
 
 	var w bytes.Buffer
 	if err := reg.Encode(&w, "foo", mockDataA{}); !errors.Is(err, codec.ErrNotFound) {
@@ -22,18 +22,18 @@ func TestRegistry_Encode_ErrNotFound(t *testing.T) {
 }
 
 func TestRegistry_Encode_Decode(t *testing.T) {
-	reg := codec.New()
+	reg := codec.New[any]()
 
 	reg.Register(
 		"foo",
 		// Register an Encoder that purely uses the mockDataA.A field to encode
 		// the data.
-		codec.EncoderFunc(func(w io.Writer, data interface{}) error {
+		codec.EncoderFunc[any](func(w io.Writer, data any) error {
 			_, err := w.Write([]byte(data.(mockDataA).A))
 			return err
 		}),
 		// Register a Decoder that uses the single string to re-create the data.
-		codec.DecoderFunc(func(r io.Reader) (interface{}, error) {
+		codec.DecoderFunc[any](func(r io.Reader) (any, error) {
 			b, err := io.ReadAll(r)
 			if err != nil {
 				return nil, err
@@ -70,7 +70,7 @@ func TestRegistry_Encode_Decode(t *testing.T) {
 }
 
 func TestRegistry_New_ErrMissingFactory(t *testing.T) {
-	reg := codec.New()
+	reg := codec.New[any]()
 
 	if _, err := reg.New("foo"); !errors.Is(err, codec.ErrMissingFactory) {
 		t.Fatalf("New() should fail with %q for data that has no factory function; got %v", codec.ErrMissingFactory, err)
@@ -78,7 +78,7 @@ func TestRegistry_New_ErrMissingFactory(t *testing.T) {
 }
 
 func TestRegistry_New(t *testing.T) {
-	reg := codec.Gob(codec.New())
+	reg := codec.Gob(codec.New[any]())
 
 	var want mockDataA
 	reg.GobRegister("foo", func() interface{} { return want })

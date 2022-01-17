@@ -38,11 +38,6 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("AggregateID() should return %q; got %q", aggregateID, id)
 	}
 
-	load, ok := cmd.Payload().(builtin.DeleteAggregatePayload)
-	if !ok {
-		t.Fatalf("Payload() should return type %T; got %T", load, cmd.Payload())
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -50,7 +45,7 @@ func TestDeleteAggregate(t *testing.T) {
 	ebus := eventbus.New()
 	estore := eventstore.WithBus(eventstore.New(), ebus)
 	repo := repository.New(estore)
-	reg := codec.New()
+	reg := codec.New[any]()
 	builtin.RegisterCommands(reg)
 
 	bus := cmdbus.New(reg, ereg, ebus)
@@ -92,9 +87,9 @@ func TestDeleteAggregate(t *testing.T) {
 	awaitCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
-	str, errs := event.Must(eventbus.Await(awaitCtx, ebus, builtin.AggregateDeleted))
+	str, errs := event.Must(eventbus.Await[any](awaitCtx, ebus, builtin.AggregateDeleted))
 
-	if err := bus.Dispatch(ctx, cmd, dispatch.Sync()); err != nil {
+	if err := bus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 		t.Fatalf("dispatch command: %v", err)
 	}
 
@@ -163,11 +158,11 @@ func newMockAggregate(id uuid.UUID) *mockAggregate {
 	}
 }
 
-func (ma *mockAggregate) ApplyEvent(evt event.Event) {
+func (ma *mockAggregate) ApplyEvent(evt event.Event[any]) {
 	data := evt.Data().(test.FoobarEventData)
 	ma.Foo += data.A
 }
 
-func newMockEvent(a aggregate.Aggregate, foo int) event.Event {
-	return aggregate.NextEvent(a, "foobar", test.FoobarEventData{A: foo})
+func newMockEvent(a aggregate.Aggregate, foo int) event.Event[any] {
+	return aggregate.NextEvent[any](a, "foobar", test.FoobarEventData{A: foo})
 }

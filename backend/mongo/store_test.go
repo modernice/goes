@@ -21,13 +21,13 @@ import (
 
 func TestStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding[any]) event.Store {
 			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
 		})
 	})
 
 	t.Run("ReplicaSet", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding[any]) event.Store {
 			return mongotest.NewEventStore(
 				enc,
 				mongo.URL(os.Getenv("MONGOREPLSTORE_URL")),
@@ -56,10 +56,10 @@ func TestStore_Insert_versionError(t *testing.T) {
 		t.Fatalf("failed to insert state: %v", err)
 	}
 
-	events := []event.Event{
-		event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+5)),
-		event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+6)),
-		event.New("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+7)),
+	events := []event.Event[any]{
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+5)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+6)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+7)),
 	}
 
 	err := s.Insert(context.Background(), events...)

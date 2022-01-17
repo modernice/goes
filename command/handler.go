@@ -10,26 +10,26 @@ import (
 )
 
 // Handler can be used to subscribe to and handle Commands.
-type Handler struct {
+type Handler[P any] struct {
 	bus Bus
 }
 
 // NewHandler returns a Handler for Commands that uses the provided Bus to
 // subscribe to Commands.
-func NewHandler(bus Bus) *Handler {
-	return &Handler{bus}
+func NewHandler[P any](bus Bus) *Handler[P] {
+	return &Handler[P]{bus}
 }
 
 // Handle is a shortcut for
 //	NewHandler(bus).Handle(ctx, name, handler)
-func Handle(ctx context.Context, bus Bus, name string, handler func(Context) error) (<-chan error, error) {
-	return NewHandler(bus).Handle(ctx, name, handler)
+func Handle[P any](ctx context.Context, bus Bus, name string, handler func(Context[P]) error) (<-chan error, error) {
+	return NewHandler[P](bus).Handle(ctx, name, handler)
 }
 
 // MustHandle is a shortcut for
 //	NewHandler(bus).MustHandle(ctx, name, handler)
-func MustHandle(ctx context.Context, bus Bus, name string, handler func(Context) error) <-chan error {
-	return NewHandler(bus).MustHandle(ctx, name, handler)
+func MustHandle[P any](ctx context.Context, bus Bus, name string, handler func(Context[P]) error) <-chan error {
+	return NewHandler[P](bus).MustHandle(ctx, name, handler)
 }
 
 // Handle registers the function handler as a handler for the given Command name.
@@ -47,7 +47,7 @@ func MustHandle(ctx context.Context, bus Bus, name string, handler func(Context)
 // channel to prevent the handler from blocking indefinitely.
 //
 // When ctx is canceled, the returned error channel is closed.
-func (h *Handler) Handle(ctx context.Context, name string, handler func(Context) error) (<-chan error, error) {
+func (h *Handler[P]) Handle(ctx context.Context, name string, handler func(Context[P]) error) (<-chan error, error) {
 	str, errs, err := h.bus.Subscribe(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to %v Command: %w", name, err)
@@ -60,7 +60,7 @@ func (h *Handler) Handle(ctx context.Context, name string, handler func(Context)
 }
 
 // MustHandle does the same as Handle, but panics if the event subscription fails.
-func (h *Handler) MustHandle(ctx context.Context, name string, handler func(Context) error) <-chan error {
+func (h *Handler[P]) MustHandle(ctx context.Context, name string, handler func(Context[P]) error) <-chan error {
 	errs, err := h.Handle(ctx, name, handler)
 	if err != nil {
 		panic(err)
@@ -68,10 +68,10 @@ func (h *Handler) MustHandle(ctx context.Context, name string, handler func(Cont
 	return errs
 }
 
-func (h *Handler) handle(
+func (h *Handler[P]) handle(
 	ctx context.Context,
-	handler func(Context) error,
-	str <-chan Context,
+	handler func(Context[P]) error,
+	str <-chan Context[any],
 	errs <-chan error,
 	out chan<- error,
 ) {
@@ -92,7 +92,7 @@ func (h *Handler) handle(
 			select {
 			case <-ctx.Done():
 				return
-			case out <- fmt.Errorf("Command subscription: %w", err):
+			case out <- fmt.Errorf("command subscription: %w", err):
 			}
 		case ctx, ok := <-str:
 			if !ok {
@@ -100,8 +100,17 @@ func (h *Handler) handle(
 				break
 			}
 
+			casted, ok := TryCastContext[P](ctx)
+			if !ok {
+				select {
+				case <-ctx.Done():
+					return
+				case out <- fmt.Errorf("failed to cast context [from=%T, to=%T]", ctx, casted):
+				}
+			}
+
 			start := xtime.Now()
-			err := handler(ctx)
+			err := handler(casted)
 			runtime := time.Since(start)
 
 			cmd := ctx
@@ -110,7 +119,7 @@ func (h *Handler) handle(
 				select {
 				case <-ctx.Done():
 					return
-				case out <- fmt.Errorf("handle %q Command: %w", cmd.Name(), err):
+				case out <- fmt.Errorf("handle %q command: %w", cmd.Name(), err):
 				}
 			}
 
@@ -118,7 +127,7 @@ func (h *Handler) handle(
 				select {
 				case <-ctx.Done():
 					return
-				case out <- fmt.Errorf("finish %q Command: %w", cmd.Name(), err):
+				case out <- fmt.Errorf("finish %q command: %w", cmd.Name(), err):
 				}
 			}
 		}

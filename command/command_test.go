@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 
 func TestID(t *testing.T) {
 	id := uuid.New()
-	cmd := command.New("foo", mockPayload{}, command.ID(id))
+	cmd := command.New[any]("foo", mockPayload{}, command.ID[any](id))
 
 	if cmd.ID() != id {
 		t.Errorf("ID Option did not apply. want=%s got=%s", id, cmd.ID())
@@ -46,10 +46,10 @@ func TestID(t *testing.T) {
 
 func TestAggregateName(t *testing.T) {
 	a := aggregate.New("foo", uuid.New())
-	cmd := command.New(
+	cmd := command.New[any](
 		"foo",
 		mockPayload{},
-		command.Aggregate(a.AggregateName(), a.AggregateID()),
+		command.Aggregate[any](a.AggregateID(), a.AggregateName()),
 	)
 
 	id, name := cmd.Aggregate()

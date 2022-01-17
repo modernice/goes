@@ -19,7 +19,7 @@ var (
 // A Command represents a command in the business model of an application or
 // service. Commands can be dispatched through a Bus to handlers of such
 // Commands.
-type Command interface {
+type Command[P any] interface {
 	// ID returns the Command ID.
 	ID() uuid.UUID
 
@@ -27,7 +27,7 @@ type Command interface {
 	Name() string
 
 	// Payload returns the Command Payload.
-	Payload() interface{}
+	Payload() P
 
 	// Aggregate returns the attached aggregate data.
 	Aggregate() (id uuid.UUID, name string)
@@ -38,12 +38,12 @@ type Bus interface {
 	// Dispatch sends the Command to the appropriate subscriber. Dispatch must
 	// only return nil if the Command has been successfully received by a
 	// subscriber.
-	Dispatch(context.Context, Command, ...DispatchOption) error
+	Dispatch(context.Context, Command[any], ...DispatchOption) error
 
 	// Subscribe subscribes to Commands with the given names and returns a
 	// channel of Contexts. Implementations of Bus must ensure that Commands
 	// aren't received by multiple subscribers.
-	Subscribe(ctx context.Context, names ...string) (<-chan Context, <-chan error, error)
+	Subscribe(ctx context.Context, names ...string) (<-chan Context[any], <-chan error, error)
 }
 
 // Config is the configuration for dispatching a Command.
@@ -70,9 +70,9 @@ type Reporter interface {
 }
 
 // Context is the context for handling Commands.
-type Context interface {
+type Context[P any] interface {
 	context.Context
-	Command
+	Command[P]
 
 	// AggregateID returns the UUID of the attached aggregate, or uuid.Nil.
 	AggregateID() uuid.UUID
@@ -87,41 +87,41 @@ type Context interface {
 }
 
 // Option is a command option.
-type Option func(*Cmd)
+type Option[P any] func(*Cmd[P])
 
 // Cmd is the implementation of Command.
-type Cmd struct {
-	Data Data
+type Cmd[P any] struct {
+	Data Data[P]
 }
 
 // Data contains the actual fields of Cmd.
-type Data struct {
+type Data[P any] struct {
 	ID            uuid.UUID
 	Name          string
-	Payload       interface{}
+	Payload       P
 	AggregateName string
 	AggregateID   uuid.UUID
 }
 
 // ID returns an Option that overrides the auto-generated UUID of a Command.
-func ID(id uuid.UUID) Option {
-	return func(b *Cmd) {
+func ID[P any](id uuid.UUID) Option[P] {
+	return func(b *Cmd[P]) {
 		b.Data.ID = id
 	}
 }
 
 // Aggregate returns an Option that links a Command to an Aggregate.
-func Aggregate(name string, id uuid.UUID) Option {
-	return func(b *Cmd) {
+func Aggregate[P any](id uuid.UUID, name string) Option[P] {
+	return func(b *Cmd[P]) {
 		b.Data.AggregateName = name
 		b.Data.AggregateID = id
 	}
 }
 
 // New returns a new command with the given name and payload.
-func New(name string, pl interface{}, opts ...Option) Cmd {
-	cmd := Cmd{
-		Data: Data{
+func New[P any](name string, pl P, opts ...Option[P]) Cmd[P] {
+	cmd := Cmd[P]{
+		Data: Data[P]{
 			ID:      uuid.New(),
 			Name:    name,
 			Payload: pl,
@@ -134,21 +134,48 @@ func New(name string, pl interface{}, opts ...Option) Cmd {
 }
 
 // ID returns the command id.
-func (cmd Cmd) ID() uuid.UUID {
+func (cmd Cmd[P]) ID() uuid.UUID {
 	return cmd.Data.ID
 }
 
 // Name returns the command name.
-func (cmd Cmd) Name() string {
+func (cmd Cmd[P]) Name() string {
 	return cmd.Data.Name
 }
 
 // Payload returns the command payload.
-func (cmd Cmd) Payload() interface{} {
+func (cmd Cmd[P]) Payload() P {
 	return cmd.Data.Payload
 }
 
 // Aggregate returns the attached aggregate data.
-func (cmd Cmd) Aggregate() (uuid.UUID, string) {
+func (cmd Cmd[P]) Aggregate() (uuid.UUID, string) {
 	return cmd.Data.AggregateID, cmd.Data.AggregateName
+}
+
+// Any returns the command with its type paramter set to `any`.
+func (cmd Cmd[P]) Any() Cmd[any] {
+	return Any[P](cmd)
+}
+
+// Command returns the command as an interface.
+func (cmd Cmd[P]) Command() Command[P] {
+	return cmd
+}
+
+// Any returns the command with its type paramter set to `any`.
+func Any[P any](cmd Command[P]) Cmd[any] {
+	return New[any](cmd.Name(), cmd.Payload(), ID[any](cmd.ID()), Aggregate[any](cmd.Aggregate()))
+}
+
+func TryCast[To, From any](cmd Command[From]) (Cmd[To], bool) {
+	load, ok := interface{}(cmd.Payload()).(To)
+	if !ok {
+		return Cmd[To]{}, false
+	}
+	return New(cmd.Name(), load, ID[To](cmd.ID()), Aggregate[To](cmd.Aggregate())), true
+}
+
+func Cast[To, From any](cmd Command[From]) Cmd[To] {
+	return New(cmd.Name(), interface{}(cmd.Payload()).(To), ID[To](cmd.ID()), Aggregate[To](cmd.Aggregate()))
 }

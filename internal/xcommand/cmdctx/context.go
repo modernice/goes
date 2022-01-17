@@ -9,9 +9,9 @@ import (
 	"github.com/modernice/goes/command/finish"
 )
 
-type cmdctx struct {
+type cmdctx[P any] struct {
 	context.Context
-	command.Command
+	command.Command[P]
 
 	whenDone func(context.Context, finish.Config) error
 	mux      sync.Mutex
@@ -19,19 +19,19 @@ type cmdctx struct {
 }
 
 // Option is a Context option.
-type Option func(*cmdctx)
+type Option[P any] func(*cmdctx[P])
 
 // WhenDone returns an Option that makes the delegates calls to ctx.Done() to
 // fn.
-func WhenDone(fn func(context.Context, finish.Config) error) Option {
-	return func(ctx *cmdctx) {
+func WhenDone[P any](fn func(context.Context, finish.Config) error) Option[P] {
+	return func(ctx *cmdctx[P]) {
 		ctx.whenDone = fn
 	}
 }
 
 // New returns a Context for the given Command.
-func New(base context.Context, cmd command.Command, opts ...Option) command.Context {
-	ctx := cmdctx{
+func New[P any](base context.Context, cmd command.Command[P], opts ...Option[P]) command.Context[P] {
+	ctx := cmdctx[P]{
 		Context: base,
 		Command: cmd,
 	}
@@ -41,17 +41,17 @@ func New(base context.Context, cmd command.Command, opts ...Option) command.Cont
 	return &ctx
 }
 
-func (ctx *cmdctx) AggregateID() uuid.UUID {
+func (ctx *cmdctx[P]) AggregateID() uuid.UUID {
 	id, _ := ctx.Aggregate()
 	return id
 }
 
-func (ctx *cmdctx) AggregateName() string {
+func (ctx *cmdctx[P]) AggregateName() string {
 	_, name := ctx.Aggregate()
 	return name
 }
 
-func (ctx *cmdctx) Finish(c context.Context, opts ...finish.Option) error {
+func (ctx *cmdctx[P]) Finish(c context.Context, opts ...finish.Option) error {
 	ctx.mux.Lock()
 	defer ctx.mux.Unlock()
 	if ctx.finished {

@@ -40,12 +40,12 @@ func TestBus_Dispatch(t *testing.T) {
 
 	dispatchErr := make(chan error)
 	go func() {
-		if err = bus.Dispatch(ctx, cmd); err != nil {
+		if err = bus.Dispatch(ctx, cmd.Any()); err != nil {
 			dispatchErr <- fmt.Errorf("failed to dispatch: %w", err)
 		}
 	}()
 
-	var cmdCtx command.Context
+	var cmdCtx command.Context[any]
 	var ok bool
 L:
 	for {
@@ -68,7 +68,7 @@ L:
 		t.Fatalf("Context shouldn't be nil!")
 	}
 
-	assertEqualCommands(t, cmdCtx, cmd)
+	assertEqualCommands(t, cmdCtx, cmd.Any())
 }
 
 func TestBus_Dispatch_Report(t *testing.T) {
@@ -83,13 +83,13 @@ func TestBus_Dispatch_Report(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	cmd := command.New("foo-cmd", mockPayload{A: "foo"})
+	cmd := command.New[any]("foo-cmd", mockPayload{A: "foo"})
 	var rep report.Report
 
 	dispatchErr := make(chan error)
 	go func() { dispatchErr <- bus.Dispatch(ctx, cmd, dispatch.Report(&rep)) }()
 
-	var cmdCtx command.Context
+	var cmdCtx command.Context[any]
 	var ok bool
 	select {
 	case err := <-dispatchErr:
@@ -122,7 +122,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 		t.Fatalf("Dispatch should return an error!")
 	}
 
-	var execError *cmdbus.ExecutionError
+	var execError *cmdbus.ExecutionError[any]
 	if !errors.As(dispatchError, &execError) {
 		t.Fatalf("Dispatch should return a %T error; got %T", execError, dispatchError)
 	}
@@ -143,7 +143,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 func TestBus_Dispatch_cancel(t *testing.T) {
 	bus, _, _ := newBus()
 
-	cmd := command.New("foo-cmd", mockPayload{})
+	cmd := command.New[any]("foo-cmd", mockPayload{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -163,7 +163,7 @@ func TestSynchronous(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	cmd := command.New("foo-cmd", mockPayload{A: "foo"})
+	cmd := command.New[any]("foo-cmd", mockPayload{A: "foo"})
 
 	dispatchErr := make(chan error)
 	dispatchTime := make(chan time.Time)
@@ -172,7 +172,7 @@ func TestSynchronous(t *testing.T) {
 		dispatchTime <- xtime.Now()
 	}()
 
-	var ctx command.Context
+	var ctx command.Context[any]
 	var ok bool
 L:
 	for {
@@ -218,7 +218,7 @@ func TestAssignTimeout(t *testing.T) {
 	cmd := command.New("foo-cmd", mockPayload{})
 
 	dispatchErrc := make(chan error)
-	go func() { dispatchErrc <- bus.Dispatch(context.Background(), cmd) }()
+	go func() { dispatchErrc <- bus.Dispatch(context.Background(), cmd.Any()) }()
 
 	var err error
 	select {
@@ -238,7 +238,7 @@ func TestAssignTimeout_0(t *testing.T) {
 	cmd := command.New("foo-cmd", mockPayload{})
 
 	dispatchErrc := make(chan error)
-	go func() { dispatchErrc <- bus.Dispatch(context.Background(), cmd) }()
+	go func() { dispatchErrc <- bus.Dispatch(context.Background(), cmd.Any()) }()
 
 	select {
 	case <-dispatchErrc:
@@ -258,8 +258,8 @@ func TestDrainTimeout(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	newCmd := func() command.Command {
-		return command.New("foo-cmd", mockPayload{})
+	newCmd := func() command.Command[any] {
+		return command.New[any]("foo-cmd", mockPayload{})
 	}
 	dispatchErrc := make(chan error)
 
@@ -309,8 +309,8 @@ func TestDrainTimeout_0(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	newCmd := func() command.Command {
-		return command.New("foo-cmd", mockPayload{})
+	newCmd := func() command.Command[any] {
+		return command.New[any]("foo-cmd", mockPayload{})
 	}
 	dispatchErrc := make(chan error)
 
@@ -350,16 +350,16 @@ L:
 	}
 }
 
-func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
-	enc := codec.Gob(codec.New())
+func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry[any]) {
+	enc := codec.Gob(codec.New[any]())
 	enc.GobRegister("foo-cmd", func() interface{} {
 		return mockPayload{}
 	})
 	ebus := eventbus.New()
-	return cmdbus.New(enc, codec.New(), ebus, opts...), ebus, enc.Registry
+	return cmdbus.New(enc, codec.New[any](), ebus, opts...), ebus, enc.Registry
 }
 
-func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {
+func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command[any]) {
 	if cmd1.Name() != cmd2.Name() {
 		t.Errorf("Command Name mismatch: %q != %q", cmd1.Name(), cmd2.Name())
 	}

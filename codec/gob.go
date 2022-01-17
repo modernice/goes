@@ -10,13 +10,13 @@ import (
 // A GobRegistry allows registering data into a Registry using factory
 // functions. Data that is registered via a GobRegistry will be encoded and
 // decoded using the encoding/gob package.
-type GobRegistry struct {
-	*Registry
+type GobRegistry[T any] struct {
+	*Registry[T]
 	gobNameFunc func(name string) (gobName string)
 }
 
 // GobOption is an option for a GobRegistry.
-type GobOption func(*GobRegistry)
+type GobOption[T any] func(*GobRegistry[T])
 
 // GobNameFunc returns a GobOption that specifies under which name Event
 // Data is registered with gob.RegisterName. The default name under which Events
@@ -27,8 +27,8 @@ type GobOption func(*GobRegistry)
 // registered in the encoding/gob package. If no custom GobNameFunc is provided,
 // the format for gob names is
 //	fmt.Sprintf("goes(%s)", name)
-func GobNameFunc(fn func(string) string) GobOption {
-	return func(r *GobRegistry) {
+func GobNameFunc[T any](fn func(string) string) GobOption[T] {
+	return func(r *GobRegistry[T]) {
 		r.gobNameFunc = fn
 	}
 }
@@ -37,12 +37,12 @@ func GobNameFunc(fn func(string) string) GobOption {
 // GobRegister function to register data using a factory function.
 //
 // If reg is nil, a new underlying Registry is created with New().
-func Gob(reg *Registry, opts ...GobOption) *GobRegistry {
+func Gob[T any](reg *Registry[T], opts ...GobOption[T]) *GobRegistry[T] {
 	if reg == nil {
-		reg = New()
+		reg = New[T]()
 	}
 
-	r := &GobRegistry{Registry: reg}
+	r := &GobRegistry[T]{Registry: reg}
 	for _, opt := range opts {
 		opt(r)
 	}
@@ -57,15 +57,15 @@ func Gob(reg *Registry, opts ...GobOption) *GobRegistry {
 // GobRegister registers data with the given name into the underlying registry.
 // makeFunc is used create instances of the data and encoding/gob will be used
 // to encode and decode the data returned by makeFunc.
-func (reg *GobRegistry) GobRegister(name string, makeFunc func() interface{}) {
+func (reg *GobRegistry[T]) GobRegister(name string, makeFunc func() T) {
 	if makeFunc == nil {
 		panic("[goes/codec.GobRegistry.GobRegister] nil makeFunc")
 	}
 
 	reg.Registry.Register(
 		name,
-		gobEncoder{name},
-		gobDecoder{name: name, makeFunc: makeFunc},
+		gobEncoder[T]{name},
+		gobDecoder[T]{name: name, makeFunc: makeFunc},
 		makeFunc,
 	)
 
@@ -78,19 +78,19 @@ func (reg *GobRegistry) GobRegister(name string, makeFunc func() interface{}) {
 }
 
 // gobEncoder is the gob encoder for the given named data.
-type gobEncoder struct{ name string }
+type gobEncoder[T any] struct{ name string }
 
-func (enc gobEncoder) Encode(w io.Writer, data interface{}) error {
+func (enc gobEncoder[T]) Encode(w io.Writer, data T) error {
 	return gob.NewEncoder(w).Encode(&data)
 }
 
 // gobDecoder is the gob decoder for the given named data.
-type gobDecoder struct {
+type gobDecoder[T any] struct {
 	name     string
-	makeFunc func() interface{}
+	makeFunc func() T
 }
 
-func (dec gobDecoder) Decode(r io.Reader) (interface{}, error) {
+func (dec gobDecoder[T]) Decode(r io.Reader) (T, error) {
 	data := dec.makeFunc()
 	return data, gob.NewDecoder(r).Decode(&data)
 }

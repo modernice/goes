@@ -11,11 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	mock_aggregate "github.com/modernice/goes/aggregate/mocks"
-	"github.com/modernice/goes/command"
-	mock_command "github.com/modernice/goes/command/mocks"
-	"github.com/modernice/goes/event"
-	mock_event "github.com/modernice/goes/event/mocks"
-	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/saga"
 	"github.com/modernice/goes/saga/action"
 	"github.com/modernice/goes/saga/report"
@@ -347,45 +342,45 @@ func TestExecute_sequence(t *testing.T) {
 	}
 }
 
-func TestExecute_eventBus(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// func TestExecute_eventBus(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	evt := event.New("foo", test.FooEventData{})
-	s := saga.New(
-		saga.Action("foo", func(c action.Context) error {
-			return c.Publish(c, evt)
-		}),
-	)
+// 	evt := event.New("foo", test.FooEventData{})
+// 	s := saga.New(
+// 		saga.Action("foo", func(c action.Context) error {
+// 			return c.Publish(c, evt)
+// 		}),
+// 	)
 
-	bus := mock_event.NewMockBus(ctrl)
-	bus.EXPECT().Publish(gomock.Any(), evt).Return(nil)
+// 	bus := mock_event.NewMockBus(ctrl)
+// 	bus.EXPECT().Publish(gomock.Any(), evt).Return(nil)
 
-	if err := saga.Execute(context.Background(), s, saga.EventBus(bus)); err != nil {
-		t.Errorf("SAGA shouldn't fail; failed with %q", err)
-	}
-}
+// 	if err := saga.Execute(context.Background(), s, saga.EventBus(bus)); err != nil {
+// 		t.Errorf("SAGA shouldn't fail; failed with %q", err)
+// 	}
+// }
 
-func TestExecute_commandBus(t *testing.T) {
-	type mockPayload struct{}
+// func TestExecute_commandBus(t *testing.T) {
+// 	type mockPayload struct{}
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	cmd := command.New("foo", mockPayload{})
-	s := saga.New(
-		saga.Action("foo", func(c action.Context) error {
-			return c.Dispatch(c, cmd)
-		}),
-	)
+// 	cmd := command.New("foo", mockPayload{})
+// 	s := saga.New(
+// 		saga.Action("foo", func(c action.Context) error {
+// 			return c.Dispatch(c, cmd)
+// 		}),
+// 	)
 
-	bus := mock_command.NewMockBus(ctrl)
-	bus.EXPECT().Dispatch(gomock.Any(), cmd, gomock.Any()).Return(nil)
+// 	bus := mock_command.NewMockBus(ctrl)
+// 	bus.EXPECT().Dispatch(gomock.Any(), cmd, gomock.Any()).Return(nil)
 
-	if err := saga.Execute(context.Background(), s, saga.CommandBus(bus)); err != nil {
-		t.Errorf("SAGA shouldn't fail; failed with %q", err)
-	}
-}
+// 	if err := saga.Execute(context.Background(), s, saga.CommandBus(bus)); err != nil {
+// 		t.Errorf("SAGA shouldn't fail; failed with %q", err)
+// 	}
+// }
 
 func TestExecute_repository(t *testing.T) {
 	ctrl := gomock.NewController(t)

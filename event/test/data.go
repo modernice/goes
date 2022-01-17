@@ -22,18 +22,18 @@ type UnregisteredEventData struct{ A string }
 
 // NewEncoder returns a "gob" event.Encoder with registered "foo", "bar" and
 // "baz" events.
-func NewEncoder() *codec.Registry {
-	reg := codec.Gob(codec.New())
-	reg.GobRegister("foo", func() interface{} {
+func NewEncoder() *codec.Registry[any] {
+	reg := codec.Gob(codec.New[any]())
+	reg.GobRegister("foo", func() any {
 		return FooEventData{}
 	})
-	reg.GobRegister("bar", func() interface{} {
+	reg.GobRegister("bar", func() any {
 		return BarEventData{}
 	})
-	reg.GobRegister("baz", func() interface{} {
+	reg.GobRegister("baz", func() any {
 		return BazEventData{}
 	})
-	reg.GobRegister("foobar", func() interface{} {
+	reg.GobRegister("foobar", func() any {
 		return FoobarEventData{}
 	})
 	return reg.Registry

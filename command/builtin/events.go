@@ -18,7 +18,7 @@ type AggregateDeletedData struct {
 }
 
 // RegisterEvents registers events of built-in commands into an event registry.
-func RegisterEvents(r *codec.Registry) {
+func RegisterEvents(r *codec.Registry[any]) {
 	gob := codec.Gob(r)
 	gob.GobRegister(AggregateDeleted, func() interface{} { return AggregateDeletedData{} })
 }

@@ -16,9 +16,9 @@ import (
 )
 
 func TestBus_NATS_Core(t *testing.T) {
-	ereg := codec.New()
+	ereg := codec.New[any]()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
+	enc := codec.Gob(codec.New[any]())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	bus := nats.NewEventBus(
 		ereg,
@@ -29,9 +29,9 @@ func TestBus_NATS_Core(t *testing.T) {
 }
 
 func TestBus_NATS_JetStream(t *testing.T) {
-	ereg := codec.New()
+	ereg := codec.New[any]()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
+	enc := codec.Gob(codec.New[any]())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	bus := nats.NewEventBus(
 		ereg,
@@ -45,9 +45,9 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ereg := codec.New()
+	ereg := codec.New[any]()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
+	enc := codec.Gob(codec.New[any]())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	bus := cmdbus.New(enc, ereg, ebus)
 
@@ -57,7 +57,7 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 	}
 
 	handleErrors := make(chan error)
-	var handled []command.Context
+	var handled []command.Context[any]
 	go func() {
 		for {
 			select {
@@ -85,7 +85,7 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 		defer close(done)
 		for i := 0; i < 10; i++ {
 			cmd := command.New("foo-cmd", mockPayload{})
-			if err := bus.Dispatch(ctx, cmd, dispatch.Sync()); err != nil {
+			if err := bus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 				dispatchErrors <- fmt.Errorf("[%d] Dispatch shouldn't fail; failed with %q", i, err)
 				return
 			}

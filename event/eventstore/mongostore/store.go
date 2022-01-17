@@ -9,6 +9,6 @@ import (
 // New returns a MongoDB event.Store.
 //
 // Deprecated: Use github.com/modernice/goes/backend/mongo.NewEventStore instead.
-func New(enc codec.Encoding, opts ...mongo.EventStoreOption) *mongo.EventStore {
+func New(enc codec.Encoding[any], opts ...mongo.EventStoreOption) *mongo.EventStore {
 	return mongo.NewEventStore(enc, opts...)
 }
