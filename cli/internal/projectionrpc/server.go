@@ -10,20 +10,20 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type server struct {
+type server[E any] struct {
 	proto.UnimplementedProjectionServiceServer
 
-	svc *projection.Service
+	svc *projection.Service[E]
 }
 
 // NewServer returns the projection gRPC server.
-func NewServer(svc *projection.Service) proto.ProjectionServiceServer {
-	return &server{
+func NewServer[E any](svc *projection.Service[E]) proto.ProjectionServiceServer {
+	return &server[E]{
 		svc: svc,
 	}
 }
 
-func (s *server) Trigger(ctx context.Context, req *proto.TriggerRequest) (*proto.TriggerResponse, error) {
+func (s *server[E]) Trigger(ctx context.Context, req *proto.TriggerRequest) (*proto.TriggerResponse, error) {
 	var opts []projection.TriggerOption
 	if req.GetReset_() {
 		opts = append(opts, projection.Reset(true))

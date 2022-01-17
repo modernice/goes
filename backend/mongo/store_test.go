@@ -21,13 +21,13 @@ import (
 
 func TestStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding[any]) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding[any]) event.Store[any] {
 			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
 		})
 	})
 
 	t.Run("ReplicaSet", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding[any]) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding[any]) event.Store[any] {
 			return mongotest.NewEventStore(
 				enc,
 				mongo.URL(os.Getenv("MONGOREPLSTORE_URL")),
@@ -45,7 +45,7 @@ func TestStore_Insert_versionError(t *testing.T) {
 		t.Fatalf("failed to connect to mongodb: %v", err)
 	}
 
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New[any]("foo", uuid.New())
 
 	states := s.StateCollection()
 	if _, err := states.InsertOne(context.Background(), bson.M{

@@ -21,7 +21,7 @@ type Event interface {
 	// Time returns the time of the event.
 	Time() time.Time
 	// Data returns the event data.
-	Data() interface{}
+	Data() any
 
 	// Aggregate returns the id, name and version of the aggregate that the
 	// event belongs to. Aggregate should return zero values if the event is not
@@ -146,7 +146,7 @@ type UserRegisteredData struct {
 }
 
 func RegisterEvents(r *codec.GobRegistry) {
-  r.GobRegister(UserRegistered, func() interface{} { return UserRegisteredData{} })
+  r.GobRegister(UserRegistered, func() any { return UserRegisteredData{} })
 }
 ```
 
@@ -162,11 +162,11 @@ func setupEvents() {
   reg := codec.New()
   reg.Register(
     "example.foo",
-    codec.EncoderFunc(func(w io.Writer, data interface{}) error {
+    codec.EncoderFunc(func(w io.Writer, data any) error {
       // encode the event data and write into w
       return nil
     }),
-    codec.DecoderFunc(func(r io.Reader) (interface{}, error) {
+    codec.DecoderFunc(func(r io.Reader) (any, error) {
       // decode and return the event data in r
     }),
   )

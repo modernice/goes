@@ -27,7 +27,7 @@ import (
 )
 
 func TestRepository_Save(t *testing.T) {
-	r := repository.New(eventstore.New())
+	r := repository.New(eventstore.New[any]())
 
 	aggregateID := uuid.New()
 	events := []event.Event[any]{
@@ -59,14 +59,14 @@ func TestRepository_Save(t *testing.T) {
 }
 
 func TestRepository_Save_Snapshot(t *testing.T) {
-	store := eventstore.New()
+	store := eventstore.New[any]()
 	snapstore := memsnap.New()
 	r := repository.New(
 		store,
-		repository.WithSnapshots(snapstore, snapshot.Every(3)),
+		repository.WithSnapshots(snapstore, snapshot.Every[any](3)),
 	)
 
-	foo := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
+	foo := &mockAggregate{Base: aggregate.New[any]("foo", uuid.New())}
 	events := xevent.Make("foo", etest.FooEventData{}, 3, xevent.ForAggregate(foo))
 
 	for _, evt := range events {
@@ -112,12 +112,12 @@ func TestRepository_Fetch(t *testing.T) {
 	aggregateID := uuid.New()
 
 	org := test.NewFoo(aggregateID)
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
 	events := org.AggregateChanges()
 
-	r := repository.New(eventstore.New())
+	r := repository.New(eventstore.New[any]())
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -157,14 +157,14 @@ func TestRepository_FetchVersion(t *testing.T) {
 	aggregateID := uuid.New()
 
 	org := test.NewFoo(aggregateID)
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
 	events := org.AggregateChanges()
 
-	r := repository.New(eventstore.New())
+	r := repository.New(eventstore.New[any]())
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -212,7 +212,7 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	org := test.NewFoo(aggregateID)
 	org.TrackChange(events...)
 
-	r := repository.New(eventstore.New())
+	r := repository.New(eventstore.New[any]())
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -251,11 +251,11 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 	aggregateID := uuid.New()
 
 	org := test.NewFoo(aggregateID)
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](org, "foo", etest.FooEventData{A: "foo"})
 
-	r := repository.New(eventstore.New())
+	r := repository.New(eventstore.New[any]())
 	if err := r.Save(context.Background(), org); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
@@ -280,9 +280,9 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 
 func TestRepository_Delete(t *testing.T) {
 	foo := test.NewFoo(uuid.New())
-	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](foo, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](foo, "foo", etest.FooEventData{A: "foo"})
+	aggregate.NextEvent[any](foo, "foo", etest.FooEventData{A: "foo"})
 	changes := foo.AggregateChanges()
 
 	s := eventstore.New(changes...)
@@ -395,7 +395,7 @@ func TestRepository_Query_id(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := []aggregate.Aggregate{foos[0], bazs[2]}
+	want := []aggregate.Aggregate[any]{foos[0], bazs[2]}
 	want = aggregate.Sort(want, aggregate.SortID, aggregate.SortAsc)
 	result = aggregate.Sort(result, aggregate.SortID, aggregate.SortAsc)
 
@@ -467,10 +467,10 @@ func TestRepository_Query_version(t *testing.T) {
 // 	)
 
 // 	a := &mockAggregate{
-// 		Base: aggregate.New("foo", uuid.New(), aggregate.Version(10)),
+// 		Base: aggregate.New[any]("foo", uuid.New(), aggregate.Version(10)),
 // 	}
 // 	snap, _ := snapshot.New(a)
-// 	a.Base = aggregate.New(a.AggregateName(), a.AggregateID())
+// 	a.Base = aggregate.New[any](a.AggregateName(), a.AggregateID())
 
 // 	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
 
@@ -499,7 +499,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 			return eventStore.Query(ctx, q)
 // 		})
 
-// 	res := &mockAggregate{Base: aggregate.New(a.AggregateName(), a.AggregateID())}
+// 	res := &mockAggregate{Base: aggregate.New[any](a.AggregateName(), a.AggregateID())}
 // 	if err := r.Fetch(context.Background(), res); err != nil {
 // 		t.Fatalf("Fetch shouldn't fail; failed with %q", err)
 // 	}
@@ -522,9 +522,9 @@ func TestRepository_Query_version(t *testing.T) {
 // 		repository.WithSnapshots(mockStore, nil),
 // 	)
 
-// 	a := &mockAggregate{Base: aggregate.New("foo", uuid.New(), aggregate.Version(10))}
+// 	a := &mockAggregate{Base: aggregate.New[any]("foo", uuid.New(), aggregate.Version(10))}
 // 	snap, _ := snapshot.New(a)
-// 	a.Base = aggregate.New(a.AggregateName(), a.AggregateID())
+// 	a.Base = aggregate.New[any](a.AggregateName(), a.AggregateID())
 // 	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
 
 // 	if err := eventStore.Insert(context.Background(), events...); err != nil {
@@ -552,7 +552,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 			return eventStore.Query(ctx, q)
 // 		})
 
-// 	res := &mockAggregate{Base: aggregate.New(a.AggregateName(), a.AggregateID())}
+// 	res := &mockAggregate{Base: aggregate.New[any](a.AggregateName(), a.AggregateID())}
 // 	if err := r.FetchVersion(context.Background(), res, 25); err != nil {
 // 		t.Fatalf("Fetch shouldn't fail; failed with %q", err)
 // 	}
@@ -606,8 +606,8 @@ func TestRepository_Query_version(t *testing.T) {
 
 // func TestBeforeInsert(t *testing.T) {
 // 	store := eventstore.New()
-// 	saved := make(chan aggregate.Aggregate)
-// 	repo := repository.New(store, repository.BeforeInsert(func(_ context.Context, a aggregate.Aggregate) error {
+// 	saved := make(chan aggregate.Aggregate[any])
+// 	repo := repository.New(store, repository.BeforeInsert(func(_ context.Context, a aggregate.Aggregate[any]) error {
 // 		go func() { saved <- a }()
 // 		return nil
 // 	}))
@@ -629,8 +629,8 @@ func TestRepository_Query_version(t *testing.T) {
 
 // func TestAfterInsert(t *testing.T) {
 // 	store := eventstore.New()
-// 	saved := make(chan aggregate.Aggregate)
-// 	repo := repository.New(store, repository.AfterInsert(func(_ context.Context, a aggregate.Aggregate) error {
+// 	saved := make(chan aggregate.Aggregate[any])
+// 	repo := repository.New(store, repository.AfterInsert(func(_ context.Context, a aggregate.Aggregate[any]) error {
 // 		go func() { saved <- a }()
 // 		return nil
 // 	}))
@@ -657,7 +657,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 	store := mock_event.NewMockStore(ctrl)
 
 // 	gotError := make(chan error)
-// 	gotAggregate := make(chan aggregate.Aggregate)
+// 	gotAggregate := make(chan aggregate.Aggregate[any])
 
 // 	mockError := errors.New("mock error")
 // 	store.EXPECT().
@@ -666,7 +666,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 			return mockError
 // 		})
 
-// 	repo := repository.New(store, repository.OnFailedInsert(func(_ context.Context, a aggregate.Aggregate, err error) error {
+// 	repo := repository.New(store, repository.OnFailedInsert(func(_ context.Context, a aggregate.Aggregate[any], err error) error {
 // 		go func() {
 // 			gotError <- err
 // 			gotAggregate <- a
@@ -674,7 +674,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 		return nil
 // 	}))
 
-// 	foo := aggregate.New("foo", uuid.New())
+// 	foo := aggregate.New[any]("foo", uuid.New())
 
 // 	if err := repo.Save(context.Background(), foo); !errors.Is(err, mockError) {
 // 		t.Fatalf("Save should fail with %q; got %q", mockError, err)
@@ -709,11 +709,11 @@ func TestRepository_Query_version(t *testing.T) {
 // 		})
 
 // 	mockHookError := errors.New("mock hook error")
-// 	repo := repository.New(store, repository.OnFailedInsert(func(_ context.Context, a aggregate.Aggregate, err error) error {
+// 	repo := repository.New(store, repository.OnFailedInsert(func(_ context.Context, a aggregate.Aggregate[any], err error) error {
 // 		return mockHookError
 // 	}))
 
-// 	foo := aggregate.New("foo", uuid.New())
+// 	foo := aggregate.New[any]("foo", uuid.New())
 
 // 	if err := repo.Save(context.Background(), foo); !errors.Is(err, mockHookError) {
 // 		t.Fatalf("Save should fail with %q; got %q", mockHookError, err)
@@ -721,10 +721,10 @@ func TestRepository_Query_version(t *testing.T) {
 // }
 
 func TestOnDelete(t *testing.T) {
-	estore := eventstore.New()
+	estore := eventstore.New[any]()
 
-	deleted := make(chan aggregate.Aggregate)
-	r := repository.New(estore, repository.OnDelete(func(_ context.Context, a aggregate.Aggregate) error {
+	deleted := make(chan aggregate.Aggregate[any])
+	r := repository.New(estore, repository.OnDelete(func(_ context.Context, a aggregate.Aggregate[any]) error {
 		go func() { deleted <- a }()
 		return nil
 	}))
@@ -746,10 +746,10 @@ func TestOnDelete(t *testing.T) {
 }
 
 func TestOnDelete_error(t *testing.T) {
-	estore := eventstore.New()
+	estore := eventstore.New[any]()
 
 	mockError := errors.New("mock error")
-	r := repository.New(estore, repository.OnDelete(func(_ context.Context, a aggregate.Aggregate) error {
+	r := repository.New(estore, repository.OnDelete(func(_ context.Context, a aggregate.Aggregate[any]) error {
 		return mockError
 	}))
 
@@ -760,13 +760,13 @@ func TestOnDelete_error(t *testing.T) {
 	}
 }
 
-func runQuery(r aggregate.Repository, q query.Query, factory func(string, uuid.UUID) aggregate.Aggregate) ([]aggregate.Aggregate, error) {
+func runQuery(r aggregate.Repository[any], q query.Query, factory func(string, uuid.UUID) aggregate.Aggregate[any]) ([]aggregate.Aggregate[any], error) {
 	appliers, errs, err := r.Query(context.Background(), q)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
 
-	out := make([]aggregate.Aggregate, 0, len(appliers))
+	out := make([]aggregate.Aggregate[any], 0, len(appliers))
 	for {
 		select {
 		case err, ok := <-errs:
@@ -786,14 +786,14 @@ func runQuery(r aggregate.Repository, q query.Query, factory func(string, uuid.U
 	}
 }
 
-func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) aggregate.Aggregate {
-	return func(_ string, id uuid.UUID) aggregate.Aggregate {
+func makeFactory(am map[uuid.UUID]aggregate.Aggregate[any]) func(string, uuid.UUID) aggregate.Aggregate[any] {
+	return func(_ string, id uuid.UUID) aggregate.Aggregate[any] {
 		return am[id]
 	}
 }
 
 type mockAggregate struct {
-	*aggregate.Base
+	*aggregate.Base[any]
 
 	mockState
 }

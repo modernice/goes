@@ -18,7 +18,7 @@ type HandleOption func(*handleConfig)
 //
 // The following events are published by the handler:
 //	- AggregateDeleted ("goes.command.aggregate.deleted")
-func PublishEvents(bus event.Bus, store event.Store) HandleOption {
+func PublishEvents[D any](bus event.Bus[any], store event.Store[any]) HandleOption {
 	return func(cfg *handleConfig) {
 		cfg.bus = bus
 		cfg.store = store
@@ -26,7 +26,7 @@ func PublishEvents(bus event.Bus, store event.Store) HandleOption {
 }
 
 // MustHandle does the same as Handle, but panic if command registration fails.
-func MustHandle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) <-chan error {
+func MustHandle[P, D any](ctx context.Context, bus command.Bus[P], repo aggregate.Repository[D], opts ...HandleOption) <-chan error {
 	errs, err := Handle(ctx, bus, repo, opts...)
 	if err != nil {
 		panic(err)
@@ -41,18 +41,18 @@ func MustHandle(ctx context.Context, bus command.Bus, repo aggregate.Repository,
 //
 // The following commands are handled:
 //	- DeleteAggregateCmd ("goes.command.aggregate.delete")
-func Handle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) (<-chan error, error) {
+func Handle[P, D any](ctx context.Context, bus command.Bus[P], repo aggregate.Repository[D], opts ...HandleOption) (<-chan error, error) {
 	var cfg handleConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
-	h := command.NewHandler[any](bus)
+	h := command.NewHandler(bus)
 
-	deleteErrors, err := h.Handle(ctx, DeleteAggregateCmd, func(ctx command.Context[any]) error {
+	deleteErrors, err := h.Handle(ctx, DeleteAggregateCmd, func(ctx command.Context[P]) error {
 		cmd := ctx
 		id, name := cmd.Aggregate()
-		a := aggregate.New(name, id)
+		a := aggregate.New[D](name, id)
 
 		if err := repo.Fetch(ctx, a); err != nil {
 			return fmt.Errorf("fetch aggregate: %w", err)
@@ -90,6 +90,6 @@ func Handle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opt
 }
 
 type handleConfig struct {
-	bus   event.Bus
-	store event.Store
+	bus   event.Bus[any]
+	store event.Store[any]
 }

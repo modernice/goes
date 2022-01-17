@@ -21,7 +21,7 @@ var (
 
 // Temp calls os.Setenv(key, fmt.Sprint(val)) and returns a function that
 // restores the previous value of that environment variable.
-func Temp(key string, val interface{}) func() {
+func Temp(key string, val any) func() {
 	org := os.Getenv(key)
 	if err := os.Setenv(key, fmt.Sprint(val)); err != nil {
 		panic(err)

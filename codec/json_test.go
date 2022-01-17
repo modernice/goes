@@ -11,7 +11,7 @@ import (
 func TestJSONRegistry(t *testing.T) {
 	reg := codec.JSON(codec.New())
 
-	reg.JSONRegister("foo", func() interface{} { return mockDataA{} })
+	reg.JSONRegister("foo", func() any { return mockDataA{} })
 
 	var buf bytes.Buffer
 	val := "test-val"

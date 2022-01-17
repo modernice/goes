@@ -46,12 +46,12 @@ var (
 )
 
 // Bus is an Event-driven Command Bus.
-type Bus struct {
+type Bus[P any] struct {
 	assignTimeout time.Duration
 	drainTimeout  time.Duration
 
-	enc codec.Encoding[any]
-	bus event.Bus
+	enc codec.Encoding[P]
+	bus event.Bus[any]
 
 	handlerID uuid.UUID
 
@@ -61,12 +61,12 @@ type Bus struct {
 }
 
 // Option is a Command Bus option.
-type Option func(*Bus)
+type Option[P any] func(*Bus[P])
 
 // Debug enables verbose logging for debugging purposes. Optional id may be
 // specified to annotate debug output.
-func Debug(id string) Option {
-	return func(b *Bus) {
+func Debug[P any](id string) Option[P] {
+	return func(b *Bus[P]) {
 		b.debug = true
 		b.debugID = id
 	}
@@ -76,8 +76,8 @@ func Debug(id string) Option {
 // Command to a Handler. A zero Duration means no timeout.
 //
 // A zero Duration means no timeout. The default timeout is 5s.
-func AssignTimeout(dur time.Duration) Option {
-	return func(b *Bus) {
+func AssignTimeout[P any](dur time.Duration) Option[P] {
+	return func(b *Bus[P]) {
 		b.assignTimeout = dur
 	}
 }
@@ -87,16 +87,16 @@ func AssignTimeout(dur time.Duration) Option {
 // canceled.
 //
 // A zero Duration means no timeout. The default timeout is 10s.
-func DrainTimeout(dur time.Duration) Option {
-	return func(b *Bus) {
+func DrainTimeout[P any](dur time.Duration) Option[P] {
+	return func(b *Bus[P]) {
 		b.drainTimeout = dur
 	}
 }
 
 // New returns an event-driven command bus.
-func New(cmdEnc codec.Encoding[any], eventReg *codec.Registry[any], events event.Bus, opts ...Option) *Bus {
+func New[P any](cmdEnc codec.Encoding[P], eventReg *codec.RegistryOf[any], events event.Bus[any], opts ...Option[P]) *Bus[P] {
 	RegisterEvents(eventReg)
-	b := Bus{
+	b := Bus[P]{
 		assignTimeout: DefaultAssignTimeout,
 		drainTimeout:  DefaultDrainTimeout,
 		enc:           cmdEnc,
@@ -180,7 +180,7 @@ func New(cmdEnc codec.Encoding[any], eventReg *codec.Registry[any], events event
 // 	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
 // 	log.Println(fmt.Sprintf("Error: %v", err))
-func (b *Bus) Dispatch(ctx context.Context, cmd command.Command[any], opts ...command.DispatchOption) error {
+func (b *Bus[P]) Dispatch(ctx context.Context, cmd command.Command[P], opts ...command.DispatchOption) error {
 	var err error
 	b.debugMeasure(fmt.Sprintf("[dispatch] Dispatching %q command", cmd.Name()), func() {
 		cfg := dispatch.Configure(opts...)
@@ -224,7 +224,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command[any], opts ...co
 	return err
 }
 
-func (b *Bus) dispatchError(err error) error {
+func (b *Bus[P]) dispatchError(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -236,7 +236,7 @@ func (b *Bus) dispatchError(err error) error {
 	return err
 }
 
-func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Event[any], <-chan error, error) {
+func (b *Bus[P]) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Event[any], <-chan error, error) {
 	// ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	// defer cancel()
 
@@ -255,7 +255,7 @@ func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Ev
 	return events, errs, nil
 }
 
-func (b *Bus) dispatch(ctx context.Context, cmd command.Command[any]) error {
+func (b *Bus[P]) dispatch(ctx context.Context, cmd command.Command[P]) error {
 	var load bytes.Buffer
 	if err := b.enc.Encode(&load, cmd.Name(), cmd.Payload()); err != nil {
 		return fmt.Errorf("encode payload: %w", err)
@@ -287,10 +287,10 @@ func (b *Bus) dispatch(ctx context.Context, cmd command.Command[any]) error {
 	return nil
 }
 
-func (b *Bus) workDispatch(
+func (b *Bus[P]) workDispatch(
 	ctx context.Context,
 	cfg command.DispatchConfig,
-	cmd command.Command[any],
+	cmd command.Command[P],
 	events <-chan event.Event[any],
 	errs <-chan error,
 	assignTimeout <-chan time.Time,
@@ -336,10 +336,10 @@ type dispatchStatus struct {
 	executed bool
 }
 
-func (b *Bus) handleDispatchEvent(
+func (b *Bus[P]) handleDispatchEvent(
 	ctx context.Context,
 	cfg command.DispatchConfig,
-	cmd command.Command[any],
+	cmd command.Command[P],
 	evt event.Event[any],
 	status dispatchStatus,
 ) (dispatchStatus, error) {
@@ -380,7 +380,7 @@ func (b *Bus) handleDispatchEvent(
 
 		var err error
 		if data.Error != "" {
-			err = &ExecutionError[any]{
+			err = &ExecutionError[P]{
 				Cmd: cmd,
 				Err: errors.New(data.Error),
 			}
@@ -412,7 +412,7 @@ func (b *Bus) handleDispatchEvent(
 	}
 }
 
-func (b *Bus) assignCommand(ctx context.Context, cmd command.Command[any], data CommandRequestedData) error {
+func (b *Bus[P]) assignCommand(ctx context.Context, cmd command.Command[P], data CommandRequestedData) error {
 	evt := event.New(CommandAssigned, CommandAssignedData(data))
 
 	var err error
@@ -446,20 +446,20 @@ func (b *Bus) assignCommand(ctx context.Context, cmd command.Command[any], data 
 // are pushed into the Context channel before it is closed. Use the DrainTimeout
 // Option to specify the timeout after which the remaining Commands are being
 // discarded.
-func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Context[any], <-chan error, error) {
+func (b *Bus[P]) Subscribe(ctx context.Context, names ...string) (<-chan command.Context[P], <-chan error, error) {
 	events, errs, err := b.subscribeSubscribe(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	out, outErrs := make(chan command.Context[any]), make(chan error)
+	out, outErrs := make(chan command.Context[P]), make(chan error)
 
 	go b.workSubscription(ctx, events, errs, out, outErrs, names)
 
 	return out, outErrs, nil
 }
 
-func (b *Bus) subscribeSubscribe(ctx context.Context) (events <-chan event.Event[any], errs <-chan error, err error) {
+func (b *Bus[P]) subscribeSubscribe(ctx context.Context) (events <-chan event.Event[any], errs <-chan error, err error) {
 	names := []string{CommandDispatched, CommandAssigned}
 	b.debugMeasure(fmt.Sprintf("[subscribe] Subscribing to %q events", names), func() {
 		events, errs, err = b.bus.Subscribe(ctx, names...)
@@ -470,19 +470,19 @@ func (b *Bus) subscribeSubscribe(ctx context.Context) (events <-chan event.Event
 	return events, errs, nil
 }
 
-func (b *Bus) workSubscription(
+type commandRequest[P any] struct {
+	cmd  command.Command[P]
+	time time.Time
+}
+
+func (b *Bus[P]) workSubscription(
 	parentCtx context.Context,
 	events <-chan event.Event[any],
 	errs <-chan error,
-	out chan<- command.Context[any],
+	out chan<- command.Context[P],
 	outErrs chan<- error,
 	names []string,
 ) {
-	type commandRequest struct {
-		cmd  command.Command[any]
-		time time.Time
-	}
-
 	isDone := make(chan struct{})
 	defer close(isDone)
 
@@ -491,7 +491,7 @@ func (b *Bus) workSubscription(
 
 	ctx := b.newSubscriptionContext(parentCtx, isDone)
 
-	requested := make(map[uuid.UUID]commandRequest)
+	requested := make(map[uuid.UUID]commandRequest[P])
 
 	for {
 		if events == nil && errs == nil {
@@ -530,8 +530,8 @@ func (b *Bus) workSubscription(
 				cmd := command.New(
 					data.Name,
 					load,
-					command.ID[any](data.ID),
-					command.Aggregate[any](data.AggregateID, data.AggregateName),
+					command.ID[P](data.ID),
+					command.Aggregate[P](data.AggregateID, data.AggregateName),
 				)
 
 				if err := b.requestCommand(ctx, cmd); err != nil {
@@ -539,7 +539,7 @@ func (b *Bus) workSubscription(
 					break
 				}
 
-				requested[cmd.ID()] = commandRequest{
+				requested[cmd.ID()] = commandRequest[P]{
 					cmd:  cmd,
 					time: xtime.Now(),
 				}
@@ -569,7 +569,7 @@ func (b *Bus) workSubscription(
 				case out <- cmdctx.New(
 					context.Background(),
 					req.cmd,
-					cmdctx.WhenDone[any](func(ctx context.Context, cfg finish.Config) error {
+					cmdctx.WhenDone[P](func(ctx context.Context, cfg finish.Config) error {
 						return b.markDone(ctx, req.cmd, cfg)
 					}),
 				):
@@ -579,7 +579,7 @@ func (b *Bus) workSubscription(
 	}
 }
 
-func (b *Bus) newSubscriptionContext(parent context.Context, done <-chan struct{}) context.Context {
+func (b *Bus[P]) newSubscriptionContext(parent context.Context, done <-chan struct{}) context.Context {
 	if b.drainTimeout == 0 {
 		return context.Background()
 	}
@@ -605,7 +605,7 @@ func (b *Bus) newSubscriptionContext(parent context.Context, done <-chan struct{
 	return ctx
 }
 
-func (b *Bus) requestCommand(ctx context.Context, cmd command.Command[any]) error {
+func (b *Bus[P]) requestCommand(ctx context.Context, cmd command.Command[P]) error {
 	evt := event.New(CommandRequested, CommandRequestedData{
 		ID:        cmd.ID(),
 		HandlerID: b.handlerID,
@@ -620,7 +620,7 @@ func (b *Bus) requestCommand(ctx context.Context, cmd command.Command[any]) erro
 	return nil
 }
 
-func (b *Bus) acceptCommand(ctx context.Context, cmd command.Command[any]) error {
+func (b *Bus[P]) acceptCommand(ctx context.Context, cmd command.Command[P]) error {
 	evt := event.New(CommandAccepted, CommandAcceptedData{
 		ID:        cmd.ID(),
 		HandlerID: b.handlerID,
@@ -635,7 +635,7 @@ func (b *Bus) acceptCommand(ctx context.Context, cmd command.Command[any]) error
 	return nil
 }
 
-func (b *Bus) markDone(ctx context.Context, cmd command.Command[any], cfg finish.Config) error {
+func (b *Bus[P]) markDone(ctx context.Context, cmd command.Command[P], cfg finish.Config) error {
 	var errmsg string
 	if cfg.Err != nil {
 		errmsg = cfg.Err.Error()
@@ -655,13 +655,13 @@ func (b *Bus) markDone(ctx context.Context, cmd command.Command[any], cfg finish
 	return nil
 }
 
-func (b *Bus) debugLog(format string, v ...interface{}) {
+func (b *Bus[P]) debugLog(format string, v ...any) {
 	if b.logger != nil {
 		b.logger.Printf(format+"\n", v...)
 	}
 }
 
-func (b *Bus) debugMeasure(action string, fn func()) {
+func (b *Bus[P]) debugMeasure(action string, fn func()) {
 	start := time.Now()
 	fn()
 

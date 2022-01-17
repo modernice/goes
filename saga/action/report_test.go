@@ -14,7 +14,7 @@ func TestReport(t *testing.T) {
 	dur := 12345678 * time.Millisecond
 	end := start.Add(dur)
 
-	act := action.New("foo", nil)
+	act := action.New[any, any]("foo", nil)
 	r := action.NewReport(act, start, end)
 
 	if r.Action != act {
@@ -36,8 +36,8 @@ func TestReport(t *testing.T) {
 
 func TestError(t *testing.T) {
 	mockError := errors.New("mock error")
-	act := action.New("foo", nil)
-	r := action.NewReport(act, xtime.Now(), xtime.Now(), action.Error(mockError))
+	act := action.New[any, any]("foo", nil)
+	r := action.NewReport(act, xtime.Now(), xtime.Now(), action.Error[any, any](mockError))
 
 	if r.Error != mockError {
 		t.Errorf("Error() should return %q; got %q", mockError, r.Error)
@@ -45,8 +45,8 @@ func TestError(t *testing.T) {
 }
 
 func TestCompensatedBy(t *testing.T) {
-	act := action.New("foo", nil)
-	comp := action.New("bar", nil)
+	act := action.New[any, any]("foo", nil)
+	comp := action.New[any, any]("bar", nil)
 	compRep := action.NewReport(comp, xtime.Now(), xtime.Now())
 	r := action.NewReport(act, xtime.Now(), xtime.Now(), action.CompensatedBy(compRep))
 

@@ -79,10 +79,10 @@ func New(opts ...Option) Query {
 // include s in its results. Test can be used by snapshot.Store implementations
 // to filter events based on the query.
 func Test(q snapshot.Query, s snapshot.Snapshot) bool {
-	if !query.Test(q, aggregate.New(
+	if !query.Test[any](q, aggregate.New(
 		s.AggregateName(),
 		s.AggregateID(),
-		aggregate.Version(s.AggregateVersion()),
+		aggregate.Version[any](s.AggregateVersion()),
 	)) {
 		return false
 	}

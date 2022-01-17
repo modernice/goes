@@ -18,8 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// EventStoreFactory creates an event.Store.
-type EventStoreFactory func(codec.Encoding[any]) event.Store
+// EventStoreFactory creates an event.Store[any].
+type EventStoreFactory func(codec.Encoding[any]) event.Store[any]
 
 // Run tests an event store implementation.
 func Run(t *testing.T, name string, newStore EventStoreFactory) {
@@ -546,7 +546,7 @@ func testQuerySorting(t *testing.T, newStore EventStoreFactory) {
 	}
 }
 
-func makeStore(newStore EventStoreFactory, events ...event.Event[any]) (event.Store, error) {
+func makeStore(newStore EventStoreFactory, events ...event.Event[any]) (event.Store[any], error) {
 	store := newStore(test.NewEncoder())
 	for i, evt := range events {
 		if err := store.Insert(context.Background(), evt); err != nil {
@@ -556,7 +556,7 @@ func makeStore(newStore EventStoreFactory, events ...event.Event[any]) (event.St
 	return store, nil
 }
 
-func runQuery(s event.Store, q event.Query) ([]event.Event[any], error) {
+func runQuery(s event.Store[any], q event.Query) ([]event.Event[any], error) {
 	events, _, err := s.Query(context.Background(), q)
 	if err != nil {
 		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)

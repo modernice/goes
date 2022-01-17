@@ -54,8 +54,12 @@ func Data(b []byte) Option {
 	}
 }
 
+func New(a aggregate.Aggregate[any], opts ...Option) (Snapshot, error) {
+	return NewOf(a, opts...)
+}
+
 // New creates and returns a snapshot of the given aggregate.
-func New(a aggregate.Aggregate, opts ...Option) (Snapshot, error) {
+func NewOf[D any](a aggregate.Aggregate[D], opts ...Option) (Snapshot, error) {
 	id, name, v := a.Aggregate()
 
 	snap := snapshot{
@@ -115,12 +119,12 @@ func SortMulti(snaps []Snapshot, sorts ...aggregate.SortOptions) []Snapshot {
 			ai := aggregate.New(
 				sorted[i].AggregateName(),
 				sorted[i].AggregateID(),
-				aggregate.Version(sorted[i].AggregateVersion()),
+				aggregate.Version[any](sorted[i].AggregateVersion()),
 			)
 			aj := aggregate.New(
 				sorted[j].AggregateName(),
 				sorted[j].AggregateID(),
-				aggregate.Version(sorted[j].AggregateVersion()),
+				aggregate.Version[any](sorted[j].AggregateVersion()),
 			)
 			cmp := opts.Sort.Compare(ai, aj)
 			if cmp != 0 {

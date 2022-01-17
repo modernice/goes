@@ -12,7 +12,7 @@ type MakeOption func(*makeConfig)
 
 type makeConfig struct {
 	name string
-	opts []aggregate.Option
+	opts []aggregate.Option[any]
 }
 
 // Name returns a MakeOption that specifies the AggregateName.
@@ -25,14 +25,14 @@ func Name(name string) MakeOption {
 // Make returns n "foo" aggregates and a function to retrieve the applied events
 // for those aggregates.
 func Make(n int, opts ...MakeOption) (
-	_ []aggregate.Aggregate,
+	_ []aggregate.Aggregate[any],
 	getAppliedEvents func(uuid.UUID) []event.Event[any],
 ) {
 	var cfg makeConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	as := make([]aggregate.Aggregate, n)
+	as := make([]aggregate.Aggregate[any], n)
 	gaes := make(map[uuid.UUID]func() []event.Event[any])
 	for i := range as {
 		id := uuid.New()
@@ -45,7 +45,7 @@ func Make(n int, opts ...MakeOption) (
 	}
 }
 
-func makeAggregate(name string, id uuid.UUID) (_ aggregate.Aggregate, getAppliedEvents func() []event.Event[any]) {
+func makeAggregate(name string, id uuid.UUID) (_ aggregate.Aggregate[any], getAppliedEvents func() []event.Event[any]) {
 	if name == "" {
 		name = "foo"
 	}

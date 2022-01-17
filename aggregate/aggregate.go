@@ -19,19 +19,19 @@ type Tuple = Ref
 type Ref = event.AggregateRef
 
 // Option is an Aggregate option.
-type Option func(*Base)
+type Option[D any] func(*Base[D])
 
 // Base can be embedded into structs to make them implement Aggregate.
-type Base struct {
+type Base[D any] struct {
 	ID      uuid.UUID
 	Name    string
 	Version int
-	Changes []event.Event[any]
+	Changes []event.Event[D]
 }
 
 // Version returns an Option that sets the version of an Aggregate.
-func Version(v int) Option {
-	return func(b *Base) {
+func Version[D any](v int) Option[D] {
+	return func(b *Base[D]) {
 		b.Version = v
 	}
 }
@@ -39,15 +39,15 @@ func Version(v int) Option {
 // ApplyHistory applies the given events to the aggregate a to reconstruct the
 // state of a at the time of the latest event. If the aggregate implements
 // Committer, a.TrackChange(events) and a.Commit() are called before returning.
-func ApplyHistory(a Aggregate, events ...event.Event[any]) error {
+func ApplyHistory[D any](a Aggregate[D], events ...event.Event[D]) error {
 	if err := ValidateConsistency(a, events...); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 	for _, evt := range events {
-		a.ApplyEvent(event.Expand(evt).Any())
+		a.ApplyEvent(evt)
 	}
 
-	if c, ok := a.(Committer); ok {
+	if c, ok := a.(Committer[D]); ok {
 		c.TrackChange(events...)
 		c.Commit()
 	}
@@ -56,19 +56,19 @@ func ApplyHistory(a Aggregate, events ...event.Event[any]) error {
 }
 
 // Sort sorts aggregates and returns the sorted aggregates.
-func Sort(as []Aggregate, s Sorting, dir SortDirection) []Aggregate {
+func Sort[D any](as []Aggregate[D], s Sorting, dir SortDirection) []Aggregate[D] {
 	return SortMulti(as, SortOptions{Sort: s, Dir: dir})
 }
 
 // SortMulti sorts aggregates by multiple fields and returns the sorted
 // aggregates.
-func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
-	sorted := make([]Aggregate, len(as))
+func SortMulti[D any](as []Aggregate[D], sorts ...SortOptions) []Aggregate[D] {
+	sorted := make([]Aggregate[D], len(as))
 	copy(sorted, as)
 
 	sort.Slice(sorted, func(i, j int) bool {
 		for _, opts := range sorts {
-			cmp := opts.Sort.Compare(sorted[i], sorted[j])
+			cmp := opts.Sort.Compare(ToAny(sorted[i]), ToAny(sorted[j]))
 			if cmp != 0 {
 				return opts.Dir.Bool(cmp < 0)
 			}
@@ -80,13 +80,13 @@ func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 }
 
 // UncommittedVersion returns the version the aggregate, including any uncommitted changes.
-func UncommittedVersion(a Aggregate) int {
+func UncommittedVersion[D any](a Aggregate[D]) int {
 	_, _, v := a.Aggregate()
 	return v + len(a.AggregateChanges())
 }
 
 // NextVersion returns the next (uncommitted) version of an aggregate (UncommittedVersion(a) + 1).
-func NextVersion(a Aggregate) int {
+func NextVersion[D any](a Aggregate[D]) int {
 	return UncommittedVersion(a) + 1
 }
 
@@ -95,7 +95,7 @@ func NextVersion(a Aggregate) int {
 //
 //	var foo aggregate.Aggregate
 //	evt := aggregate.NextEvent(foo, "event-name", ...)
-func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option[D]) event.Event[D] {
+func NextEvent[D any](a Aggregate[D], name string, data D, opts ...event.Option[D]) event.Event[D] {
 	aid, aname, _ := a.Aggregate()
 
 	opts = append([]event.Option[D]{
@@ -108,19 +108,18 @@ func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option[D])
 	}, opts...)
 
 	evt := event.New(name, data, opts...)
-	anyevt := evt.Any()
 
-	a.ApplyEvent(anyevt)
+	a.ApplyEvent(evt)
 
-	if c, ok := a.(Committer); ok {
-		c.TrackChange(anyevt)
+	if c, ok := a.(Committer[D]); ok {
+		c.TrackChange(evt)
 	}
 
 	return evt
 }
 
 // HasChange returns whether Aggregate a has an uncommitted Event with the given name.
-func HasChange(a Aggregate, eventName string) bool {
+func HasChange[D any](a Aggregate[D], eventName string) bool {
 	for _, change := range a.AggregateChanges() {
 		if change.Name() == eventName {
 			return true
@@ -129,9 +128,16 @@ func HasChange(a Aggregate, eventName string) bool {
 	return false
 }
 
+func ToAny[D any](a Aggregate[D]) (out Aggregate[any]) {
+	if a, ok := any(a).(Aggregate[any]); ok {
+		return a
+	}
+	panic(fmt.Errorf("%T is not a %T", a, out))
+}
+
 // New returns a new Base for an Aggregate.
-func New(name string, id uuid.UUID, opts ...Option) *Base {
-	b := &Base{
+func New[D any](name string, id uuid.UUID, opts ...Option[D]) *Base[D] {
+	b := &Base[D]{
 		ID:   id,
 		Name: name,
 	}
@@ -141,37 +147,37 @@ func New(name string, id uuid.UUID, opts ...Option) *Base {
 	return b
 }
 
-func (b *Base) Aggregate() (uuid.UUID, string, int) {
+func (b *Base[D]) Aggregate() (uuid.UUID, string, int) {
 	return b.ID, b.Name, b.Version
 }
 
 // AggregateID implements Aggregate.
-func (b *Base) AggregateID() uuid.UUID {
+func (b *Base[D]) AggregateID() uuid.UUID {
 	return b.ID
 }
 
 // AggregateName implements Aggregate.
-func (b *Base) AggregateName() string {
+func (b *Base[D]) AggregateName() string {
 	return b.Name
 }
 
 // AggregateVersion implements Aggregate.
-func (b *Base) AggregateVersion() int {
+func (b *Base[D]) AggregateVersion() int {
 	return b.Version
 }
 
 // AggregateChanges implements Aggregate.
-func (b *Base) AggregateChanges() []event.Event[any] {
+func (b *Base[D]) AggregateChanges() []event.Event[D] {
 	return b.Changes
 }
 
 // TrackChange implements Aggregate.
-func (b *Base) TrackChange(events ...event.Event[any]) {
+func (b *Base[D]) TrackChange(events ...event.Event[D]) {
 	b.Changes = append(b.Changes, events...)
 }
 
 // Commit implement Aggregate.
-func (b *Base) Commit() {
+func (b *Base[D]) Commit() {
 	if len(b.Changes) == 0 {
 		return
 	}
@@ -183,10 +189,10 @@ func (b *Base) Commit() {
 
 // ApplyEvent implements aggregate. Aggregates that embed *Base should overide
 // ApplyEvent.
-func (*Base) ApplyEvent(event.Event[any]) {}
+func (*Base[D]) ApplyEvent(event.Event[D]) {}
 
 // SetVersion implements snapshot.Aggregate.
-func (b *Base) SetVersion(v int) {
+func (b *Base[D]) SetVersion(v int) {
 	b.Version = v
 }
 
@@ -194,7 +200,7 @@ func (b *Base) SetVersion(v int) {
 // should most of the time just be time.Now(), but nextTime guarantees that the
 // returned Time is at least 1 nanosecond after the previous event. This is
 // necessary for the projection.Progressing API to work.
-func nextTime(a Aggregate) time.Time {
+func nextTime[D any](a Aggregate[D]) time.Time {
 	changes := a.AggregateChanges()
 	now := xtime.Now()
 	if len(changes) == 0 {

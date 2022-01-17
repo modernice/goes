@@ -27,7 +27,7 @@ func TestMake(t *testing.T) {
 
 func TestMake_forAggregate(t *testing.T) {
 	data := test.FooEventData{A: "foo"}
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New[any]("foo", uuid.New())
 	events := xevent.Make("foo", data, 10, xevent.ForAggregate(a))
 
 	for i, evt := range events {
@@ -46,10 +46,10 @@ func TestMake_forAggregate(t *testing.T) {
 
 func TestMake_forAggregate_many(t *testing.T) {
 	data := test.FooEventData{A: "foo"}
-	as := []aggregate.Aggregate{
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
+	as := []aggregate.Aggregate[any]{
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
 	}
 	events := xevent.Make("foo", data, 10, xevent.ForAggregate(as[0]), xevent.ForAggregate(as[1:]...))
 
@@ -76,7 +76,7 @@ func TestMake_forAggregate_many(t *testing.T) {
 
 func TestMake_skipVersion(t *testing.T) {
 	data := test.FooEventData{A: "foo"}
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New[any]("foo", uuid.New())
 	events := xevent.Make("foo", data, 10, xevent.ForAggregate(a), xevent.SkipVersion(2, 6))
 
 	var skipped int

@@ -22,7 +22,7 @@ func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
+	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
 	subEventBus := natsbus.New(
 		ereg,
 		natsbus.Use(natsbus.Streaming(
@@ -39,8 +39,8 @@ func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 			stan.NatsURL(os.Getenv("STAN_URL")),
 		)),
 	)
-	subBus := cmdbus.New(enc, ereg, subEventBus)
-	pubBus := cmdbus.New(enc, ereg, pubEventBus)
+	subBus := cmdbus.New[any](enc, ereg, subEventBus)
+	pubBus := cmdbus.New[any](enc, ereg, pubEventBus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

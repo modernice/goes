@@ -12,8 +12,8 @@ import (
 )
 
 func TestWithBus(t *testing.T) {
-	s := eventstore.New()
-	b := eventbus.New()
+	s := eventstore.New[any]()
+	b := eventbus.New[any]()
 	swb := eventstore.WithBus(s, b)
 
 	ctx, cancel := context.WithCancel(context.Background())

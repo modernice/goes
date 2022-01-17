@@ -11,6 +11,8 @@ const (
 	FooAggregate = "foo"
 )
 
+var _ aggregate.Aggregate[any] = (*Foo)(nil)
+
 // Foo is an example Aggregate used for testing.
 type Foo struct {
 	testAggregate
@@ -20,7 +22,7 @@ type Foo struct {
 type AggregateOption func(*testAggregate)
 
 type testAggregate struct {
-	*aggregate.Base
+	*aggregate.Base[any]
 
 	applyFuncs map[string]func(event.Event[any])
 	trackFunc  func([]event.Event[any], func(...event.Event[any]))
@@ -28,9 +30,9 @@ type testAggregate struct {
 }
 
 // NewAggregate returns a new test aggregate.
-func NewAggregate(name string, id uuid.UUID, opts ...AggregateOption) aggregate.Aggregate {
+func NewAggregate(name string, id uuid.UUID, opts ...AggregateOption) aggregate.Aggregate[any] {
 	a := &testAggregate{
-		Base:       aggregate.New(name, id),
+		Base:       aggregate.New[any](name, id),
 		applyFuncs: make(map[string]func(event.Event[any])),
 	}
 	for _, opt := range opts {
@@ -43,7 +45,7 @@ func NewAggregate(name string, id uuid.UUID, opts ...AggregateOption) aggregate.
 func NewFoo(id uuid.UUID, opts ...AggregateOption) *Foo {
 	foo := Foo{
 		testAggregate: testAggregate{
-			Base:       aggregate.New("foo", id),
+			Base:       aggregate.New[any]("foo", id),
 			applyFuncs: make(map[string]func(event.Event[any])),
 		},
 	}

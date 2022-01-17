@@ -66,7 +66,7 @@ func RegisterProjectionServiceServer(s grpc.ServiceRegistrar, srv ProjectionServ
 	s.RegisterService(&ProjectionService_ServiceDesc, srv)
 }
 
-func _ProjectionService_Trigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ProjectionService_Trigger_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(TriggerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func _ProjectionService_Trigger_Handler(srv interface{}, ctx context.Context, de
 		Server:     srv,
 		FullMethod: "/cli.projection.ProjectionService/Trigger",
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(ProjectionServiceServer).Trigger(ctx, req.(*TriggerRequest))
 	}
 	return interceptor(ctx, in, info, handler)

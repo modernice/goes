@@ -447,7 +447,7 @@ func (e entry) snapshot() (snapshot.Snapshot, error) {
 		aggregate.New(
 			e.AggregateName,
 			e.AggregateID,
-			aggregate.Version(e.AggregateVersion),
+			aggregate.Version[any](e.AggregateVersion),
 		),
 		snapshot.Time(stdtime.Unix(0, e.TimeNano)),
 		snapshot.Data(e.Data),

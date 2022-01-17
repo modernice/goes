@@ -18,16 +18,16 @@ import (
 
 func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
-	ebus := eventbus.New()
-	bus := cmdbus.New(enc, codec.New(), ebus)
-	h := command.NewHandler[mockPayload](bus)
+	ebus := eventbus.New[any]()
+	bus := cmdbus.New[any](enc, codec.New(), ebus)
+	h := command.NewHandler[any](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	handled := make(chan command.Command[mockPayload])
+	handled := make(chan command.Command[any])
 
-	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[mockPayload]) error {
+	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[any]) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -66,15 +66,15 @@ func TestHandler_Handle(t *testing.T) {
 
 func TestHandler_Handle_error(t *testing.T) {
 	enc := newEncoder()
-	ebus := eventbus.New()
+	ebus := eventbus.New[any]()
 	bus := cmdbus.New(enc, codec.New(), ebus)
-	h := command.NewHandler[mockPayload](bus)
+	h := command.NewHandler[any](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	mockError := errors.New("mock error")
-	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[mockPayload]) error {
+	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[any]) error {
 		return mockError
 	})
 	if err != nil {
@@ -99,15 +99,15 @@ func TestHandler_Handle_error(t *testing.T) {
 
 func TestHandler_Handle_finish(t *testing.T) {
 	enc := newEncoder()
-	ebus := eventbus.New()
+	ebus := eventbus.New[any]()
 	bus := cmdbus.New(enc, codec.New(), ebus)
-	h := command.NewHandler[mockPayload](bus)
+	h := command.NewHandler[any](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	mockError := errors.New("mock error")
-	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[mockPayload]) error {
+	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[any]) error {
 		return mockError
 	})
 	if err != nil {
@@ -167,6 +167,6 @@ L:
 
 func newEncoder() codec.Encoding[any] {
 	reg := codec.Gob(codec.New())
-	reg.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
+	reg.GobRegister("foo-cmd", func() any { return mockPayload{} })
 	return reg
 }

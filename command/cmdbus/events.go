@@ -73,7 +73,7 @@ type CommandExecutedData struct {
 }
 
 // RegisterEvents registers the command events into a Registry.
-func RegisterEvents(reg *codec.Registry[any]) {
+func RegisterEvents(reg *codec.Registry) {
 	gob := codec.Gob(reg)
 	gob.GobRegister(CommandDispatched, func() any {
 		return CommandDispatchedData{}

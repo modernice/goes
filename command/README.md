@@ -86,7 +86,7 @@ func RegisterUser(id uuid.UUID, name, email string) command.Command {
 
 func RegisterCommands(r *codec.Registry) {
   gr := codec.Gob(r)
-  gr.GobRegister(RegisterUserCmd, func() interface{} {
+  gr.GobRegister(RegisterUserCmd, func() any {
     return registerUserPayload{}
   })
 }

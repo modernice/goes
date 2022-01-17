@@ -6,15 +6,15 @@ import (
 )
 
 // Aggregate is an event-sourced Aggregate.
-type Aggregate interface {
+type Aggregate[D any] interface {
 	// Aggregate returns the id, name and version of the aggregate.
 	Aggregate() (uuid.UUID, string, int)
 
 	// AggregateChanges returns the uncommited events of the aggregate.
-	AggregateChanges() []event.Event[any]
+	AggregateChanges() []event.Event[D]
 
 	// ApplyEvent applies the event on the aggregate.
-	ApplyEvent(event.Event[any])
+	ApplyEvent(event.Event[D])
 }
 
 // Committer commits aggregate changes. Types that implement Committer are
@@ -23,9 +23,9 @@ type Aggregate interface {
 // (using the ApplyEvent function) to commit the changes to the aggregate.
 //
 // *Base implements Committer.
-type Committer interface {
+type Committer[D any] interface {
 	// TrackChange adds events as changes to the aggregate.
-	TrackChange(...event.Event[any])
+	TrackChange(...event.Event[D])
 
 	// Commit commits the uncommitted changes of the aggregate. The changes
 	// should be removed and the aggregate version set to the version of last

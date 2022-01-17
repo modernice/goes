@@ -12,8 +12,8 @@ import (
 
 // Periodic is a projection schedule that creates projection Jobs in a defined
 // interval.
-type Periodic struct {
-	*schedule
+type Periodic[E any] struct {
+	*schedule[E]
 
 	interval time.Duration
 }
@@ -21,8 +21,8 @@ type Periodic struct {
 // Periodically returns a Periodic schedule that, when subscribed to, creates a
 // projection Job every interval Duration and passes that Job to every
 // subscriber of the schedule.
-func Periodically(store event.Store, interval time.Duration, eventNames []string) *Periodic {
-	return &Periodic{
+func Periodically[E any](store event.Store[E], interval time.Duration, eventNames []string) *Periodic[E] {
+	return &Periodic[E]{
 		schedule: newSchedule(store, eventNames),
 		interval: interval,
 	}
@@ -58,11 +58,11 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 //
 // When the schedule is triggered by calling schedule.Trigger, a projection Job
 // will be created and passed to apply.
-func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.Job) error) (<-chan error, error) {
+func (schedule *Periodic[E]) Subscribe(ctx context.Context, apply func(projection.Job[E]) error) (<-chan error, error) {
 	ticker := time.NewTicker(schedule.interval)
 
 	out := make(chan error)
-	jobs := make(chan projection.Job)
+	jobs := make(chan projection.Job[E])
 	triggers := schedule.newTriggers()
 	done := make(chan struct{})
 
@@ -86,10 +86,10 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 	return out, nil
 }
 
-func (schedule *Periodic) handleTicker(
+func (schedule *Periodic[E]) handleTicker(
 	ctx context.Context,
 	ticker *time.Ticker,
-	jobs chan<- projection.Job,
+	jobs chan<- projection.Job[E],
 	out chan<- error,
 	wg *sync.WaitGroup,
 ) {

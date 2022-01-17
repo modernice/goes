@@ -11,7 +11,7 @@ import (
 func TestGobRegistry(t *testing.T) {
 	reg := codec.Gob(codec.New())
 
-	reg.GobRegister("foo", func() interface{} { return mockDataA{} })
+	reg.GobRegister("foo", func() any { return mockDataA{} })
 
 	var buf bytes.Buffer
 	val := "test-val"

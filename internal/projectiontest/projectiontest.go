@@ -66,11 +66,11 @@ func NewMockProgressor() *MockProgressor {
 // MockGuardedProjection is a projection mock that embeds a projection.Guard.
 type MockGuardedProjection struct {
 	*MockProjection
-	projection.QueryGuard
+	projection.QueryGuard[any]
 }
 
 // NewMockGuardedProjection returns a MockGuardedProjection.
-func NewMockGuardedProjection(guard projection.QueryGuard) *MockGuardedProjection {
+func NewMockGuardedProjection(guard projection.QueryGuard[any]) *MockGuardedProjection {
 	return &MockGuardedProjection{
 		MockProjection: NewMockProjection(),
 		QueryGuard:     guard,

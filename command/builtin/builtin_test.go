@@ -42,15 +42,15 @@ func TestDeleteAggregate(t *testing.T) {
 	defer cancel()
 
 	ereg := test.NewEncoder()
-	ebus := eventbus.New()
-	estore := eventstore.WithBus(eventstore.New(), ebus)
+	ebus := eventbus.New[any]()
+	estore := eventstore.WithBus(eventstore.New[any](), ebus)
 	repo := repository.New(estore)
 	reg := codec.New()
 	builtin.RegisterCommands(reg)
 
-	bus := cmdbus.New(reg, ereg.Registry, ebus)
+	bus := cmdbus.New[any](reg, ereg.RegistryOf, ebus)
 
-	go panicOn(builtin.MustHandle(ctx, bus, repo, builtin.PublishEvents(ebus, nil)))
+	go panicOn(builtin.MustHandle[any, any](ctx, bus, repo, builtin.PublishEvents[any](ebus, nil)))
 
 	foo := newMockAggregate(aggregateID)
 	newMockEvent(foo, 2)
@@ -61,7 +61,7 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Foo should be %d; is %d", 14, foo.Foo)
 	}
 
-	if aggregate.UncommittedVersion(foo) != 3 {
+	if aggregate.UncommittedVersion[any](foo) != 3 {
 		t.Fatalf("AggregateVersion() should return %d; got %d", 3, foo.AggregateVersion())
 	}
 
@@ -87,7 +87,7 @@ func TestDeleteAggregate(t *testing.T) {
 	awaitCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
-	str, errs := event.Must(eventbus.Await[any](awaitCtx, ebus, builtin.AggregateDeleted))
+	str, errs := event.Must(eventbus.Await(awaitCtx, ebus, builtin.AggregateDeleted))
 
 	if err := bus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 		t.Fatalf("dispatch command: %v", err)
@@ -147,14 +147,14 @@ func panicOn(errs <-chan error) {
 }
 
 type mockAggregate struct {
-	*aggregate.Base
+	*aggregate.Base[any]
 
 	Foo int
 }
 
 func newMockAggregate(id uuid.UUID) *mockAggregate {
 	return &mockAggregate{
-		Base: aggregate.New("foo", id),
+		Base: aggregate.New[any]("foo", id),
 	}
 }
 
@@ -163,6 +163,6 @@ func (ma *mockAggregate) ApplyEvent(evt event.Event[any]) {
 	ma.Foo += data.A
 }
 
-func newMockEvent(a aggregate.Aggregate, foo int) event.Event[any] {
+func newMockEvent(a aggregate.Aggregate[any], foo int) event.Event[any] {
 	return aggregate.NextEvent[any](a, "foobar", test.FoobarEventData{A: foo})
 }

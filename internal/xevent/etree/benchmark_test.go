@@ -29,7 +29,7 @@ func BenchmarkTree_Insert1000000(b *testing.B) { benchmarkTree_Insert(b, 1000000
 func BenchmarkTree_Insert5000000(b *testing.B) { benchmarkTree_Insert(b, 5000000) }
 
 func benchmarkTree_Insert(b *testing.B, n int) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New[any]("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, n, xevent.ForAggregate(a))
 
 	b.ReportAllocs()
@@ -66,7 +66,7 @@ func BenchmarkSlice_Insert1000000(b *testing.B) { benchmarkSlice_Insert(b, 10000
 func BenchmarkSlice_Insert5000000(b *testing.B) { benchmarkSlice_Insert(b, 5000000) }
 
 func benchmarkSlice_Insert(b *testing.B, n int) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New[any]("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, n, xevent.ForAggregate(a))
 
 	b.ReportAllocs()

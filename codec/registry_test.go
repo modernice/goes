@@ -10,7 +10,7 @@ import (
 	"github.com/modernice/goes/codec"
 )
 
-var _ codec.Encoding[any] = (*codec.Registry[any])(nil)
+var _ codec.Encoding[any] = (*codec.RegistryOf[any])(nil)
 
 func TestRegistry_Encode_ErrNotFound(t *testing.T) {
 	reg := codec.New()
@@ -40,7 +40,7 @@ func TestRegistry_Encode_Decode(t *testing.T) {
 			}
 			return mockDataA{A: string(b)}, nil
 		}),
-		func() interface{} {
+		func() any {
 			return mockDataA{}
 		},
 	)
@@ -81,7 +81,7 @@ func TestRegistry_New(t *testing.T) {
 	reg := codec.Gob(codec.New())
 
 	var want mockDataA
-	reg.GobRegister("foo", func() interface{} { return want })
+	reg.GobRegister("foo", func() any { return want })
 
 	data, err := reg.New("foo")
 	if err != nil {

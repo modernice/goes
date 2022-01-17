@@ -19,16 +19,16 @@ func TestContinuous_Subscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.New()
+	bus := eventbus.New[any]()
+	store := eventstore.New[any]()
 
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	proj := projectiontest.NewMockProjection()
 	applyErrors := make(chan error)
-	appliedJobs := make(chan projection.Job)
+	appliedJobs := make(chan projection.Job[any])
 
-	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
+	errs, err := schedule.Subscribe(ctx, func(job projection.Job[any]) error {
 		if err := job.Apply(job, proj); err != nil {
 			applyErrors <- err
 		}
@@ -83,16 +83,16 @@ func TestContinuous_Subscribe_Debounce(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.New()
+	bus := eventbus.New[any]()
+	store := eventstore.New[any]()
 
-	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(100*time.Millisecond))
+	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce[any](100*time.Millisecond))
 
 	proj := projectiontest.NewMockProjection()
 	applyErrors := make(chan error)
-	appliedJobs := make(chan projection.Job)
+	appliedJobs := make(chan projection.Job[any])
 
-	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
+	errs, err := schedule.Subscribe(ctx, func(job projection.Job[any]) error {
 		if err := job.Apply(job, proj); err != nil {
 			applyErrors <- err
 		}
@@ -143,19 +143,19 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.New()
+	bus := eventbus.New[any]()
+	store := eventstore.New[any]()
 
-	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(100*time.Millisecond))
+	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce[any](100*time.Millisecond))
 
 	proj := projectiontest.NewMockProgressor()
 	now := time.Now()
 	proj.SetProgress(now)
 
 	applyErrors := make(chan error)
-	appliedJobs := make(chan projection.Job)
+	appliedJobs := make(chan projection.Job[any])
 
-	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
+	errs, err := schedule.Subscribe(ctx, func(job projection.Job[any]) error {
 		if err := job.Apply(job, proj); err != nil {
 			applyErrors <- err
 		}
@@ -206,8 +206,8 @@ func TestContinuous_Trigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.New()
+	bus := eventbus.New[any]()
+	store := eventstore.New[any]()
 
 	storeEvents := []event.Event[any]{
 		event.New[any]("foo", test.FooEventData{}),
@@ -226,7 +226,7 @@ func TestContinuous_Trigger(t *testing.T) {
 
 	applied := make(chan struct{})
 
-	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
+	errs, err := schedule.Subscribe(ctx, func(job projection.Job[any]) error {
 		if err := job.Apply(job, proj); err != nil {
 			return err
 		}
@@ -263,8 +263,8 @@ func TestContinuous_Trigger_Filter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.New()
+	bus := eventbus.New[any]()
+	store := eventstore.New[any]()
 
 	storeEvents := []event.Event[any]{
 		event.New[any]("foo", test.FooEventData{}),
@@ -283,7 +283,7 @@ func TestContinuous_Trigger_Filter(t *testing.T) {
 
 	applied := make(chan struct{})
 
-	errs, err := sch.Subscribe(ctx, func(job projection.Job) error {
+	errs, err := sch.Subscribe(ctx, func(job projection.Job[any]) error {
 		if err := job.Apply(job, proj); err != nil {
 			return err
 		}
@@ -327,8 +327,8 @@ func TestContinuous_Trigger_Query(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.New()
+	bus := eventbus.New[any]()
+	store := eventstore.New[any]()
 
 	storeEvents := []event.Event[any]{
 		event.New[any]("foo", test.FooEventData{}),
@@ -347,7 +347,7 @@ func TestContinuous_Trigger_Query(t *testing.T) {
 
 	applied := make(chan struct{})
 
-	errs, err := sch.Subscribe(ctx, func(job projection.Job) error {
+	errs, err := sch.Subscribe(ctx, func(job projection.Job[any]) error {
 		if err := job.Apply(job, proj); err != nil {
 			return err
 		}
@@ -390,8 +390,8 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.New()
+	bus := eventbus.New[any]()
+	store := eventstore.New[any]()
 
 	now := time.Now()
 	storeEvents := []event.Event[any]{
@@ -409,13 +409,13 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 
 	proj := projectiontest.NewMockResetProjection(7)
 
-	if err := projection.Apply(proj, storeEvents); err != nil {
+	if err := projection.Apply[any](proj, storeEvents); err != nil {
 		t.Fatalf("apply projection: %v", err)
 	}
 
 	applied := make(chan struct{})
 
-	errs, err := sch.Subscribe(ctx, func(job projection.Job) error {
+	errs, err := sch.Subscribe(ctx, func(job projection.Job[any]) error {
 		if err := job.Apply(job, proj); err != nil {
 			return err
 		}

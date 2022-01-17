@@ -7,16 +7,19 @@ import (
 	"reflect"
 )
 
-// A GobRegistry allows registering data into a Registry using factory
-// functions. Data that is registered via a GobRegistry will be encoded and
+// GobRegistry is a GobRegistryOf[any].
+type GobRegistry = GobRegistryOf[any]
+
+// A GobRegistryOf allows registering data into a Registry using factory
+// functions. Data that is registered via a GobRegistryOf will be encoded and
 // decoded using the encoding/gob package.
-type GobRegistry[T any] struct {
-	*Registry[T]
+type GobRegistryOf[T any] struct {
+	*RegistryOf[T]
 	gobNameFunc func(name string) (gobName string)
 }
 
 // GobOption is an option for a GobRegistry.
-type GobOption[T any] func(*GobRegistry[T])
+type GobOption[T any] func(*GobRegistryOf[T])
 
 // GobNameFunc returns a GobOption that specifies under which name Event
 // Data is registered with gob.RegisterName. The default name under which Events
@@ -28,7 +31,7 @@ type GobOption[T any] func(*GobRegistry[T])
 // the format for gob names is
 //	fmt.Sprintf("goes(%s)", name)
 func GobNameFunc[T any](fn func(string) string) GobOption[T] {
-	return func(r *GobRegistry[T]) {
+	return func(r *GobRegistryOf[T]) {
 		r.gobNameFunc = fn
 	}
 }
@@ -37,12 +40,12 @@ func GobNameFunc[T any](fn func(string) string) GobOption[T] {
 // GobRegister function to register data using a factory function.
 //
 // If reg is nil, a new underlying Registry is created with New().
-func Gob[T any](reg *Registry[T], opts ...GobOption[T]) *GobRegistry[T] {
+func Gob[T any](reg *RegistryOf[T], opts ...GobOption[T]) *GobRegistryOf[T] {
 	if reg == nil {
 		reg = NewOf[T]()
 	}
 
-	r := &GobRegistry[T]{Registry: reg}
+	r := &GobRegistryOf[T]{RegistryOf: reg}
 	for _, opt := range opts {
 		opt(r)
 	}
@@ -57,12 +60,12 @@ func Gob[T any](reg *Registry[T], opts ...GobOption[T]) *GobRegistry[T] {
 // GobRegister registers data with the given name into the underlying registry.
 // makeFunc is used create instances of the data and encoding/gob will be used
 // to encode and decode the data returned by makeFunc.
-func (reg *GobRegistry[T]) GobRegister(name string, makeFunc func() T) {
+func (reg *GobRegistryOf[T]) GobRegister(name string, makeFunc func() T) {
 	if makeFunc == nil {
 		panic("[goes/codec.GobRegistry.GobRegister] nil makeFunc")
 	}
 
-	reg.Registry.Register(
+	reg.RegistryOf.Register(
 		name,
 		gobEncoder[T]{name},
 		gobDecoder[T]{name: name, makeFunc: makeFunc},
@@ -99,11 +102,11 @@ func defaultGobNameFunc(name string) string {
 	return fmt.Sprintf("goes(%s)", name)
 }
 
-func deref(p interface{}) interface{} {
+func deref(p any) any {
 	return reflect.ValueOf(p).Elem().Interface()
 }
 
-func newPtr(data interface{}) interface{} {
+func newPtr(data any) any {
 	rval := reflect.ValueOf(data)
 	nval := reflect.New(rval.Type())
 	nval.Elem().Set(rval)

@@ -34,16 +34,16 @@ type Command[P any] interface {
 }
 
 // A Bus dispatches Commands to appropriate handlers.
-type Bus interface {
+type Bus[P any] interface {
 	// Dispatch sends the Command to the appropriate subscriber. Dispatch must
 	// only return nil if the Command has been successfully received by a
 	// subscriber.
-	Dispatch(context.Context, Command[any], ...DispatchOption) error
+	Dispatch(context.Context, Command[P], ...DispatchOption) error
 
 	// Subscribe subscribes to Commands with the given names and returns a
 	// channel of Contexts. Implementations of Bus must ensure that Commands
 	// aren't received by multiple subscribers.
-	Subscribe(ctx context.Context, names ...string) (<-chan Context[any], <-chan error, error)
+	Subscribe(ctx context.Context, names ...string) (<-chan Context[P], <-chan error, error)
 }
 
 // Config is the configuration for dispatching a Command.
@@ -169,7 +169,7 @@ func Any[P any](cmd Command[P]) Cmd[any] {
 }
 
 func TryCast[To, From any](cmd Command[From]) (Cmd[To], bool) {
-	load, ok := interface{}(cmd.Payload()).(To)
+	load, ok := any(cmd.Payload()).(To)
 	if !ok {
 		return Cmd[To]{}, false
 	}
@@ -177,5 +177,5 @@ func TryCast[To, From any](cmd Command[From]) (Cmd[To], bool) {
 }
 
 func Cast[To, From any](cmd Command[From]) Cmd[To] {
-	return New(cmd.Name(), interface{}(cmd.Payload()).(To), ID[To](cmd.ID()), Aggregate[To](cmd.Aggregate()))
+	return New(cmd.Name(), any(cmd.Payload()).(To), ID[To](cmd.ID()), Aggregate[To](cmd.Aggregate()))
 }

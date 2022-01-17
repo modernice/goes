@@ -13,12 +13,12 @@ import (
 
 func BenchmarkBus_Dispatch_Synchronous(t *testing.B) {
 	bus, _, enc := newBus()
-	codec.Gob(enc).GobRegister("foo", func() interface{} { return struct{}{} })
+	codec.Gob(enc).GobRegister("foo", func() any { return struct{}{} })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h := command.NewHandler[any](bus)
+	h := command.NewHandler(bus)
 	errs, err := h.Handle(ctx, "foo", func(command.Context[any]) error {
 		return nil
 	})

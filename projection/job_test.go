@@ -124,6 +124,27 @@ func TestJob_EventsFor(t *testing.T) {
 	test.AssertEqualEventsUnsorted(t, events, storeEvents)
 }
 
+func TestJob_EventsFor_Guard(t *testing.T) {
+	ctx := context.Background()
+	guard := projection.QueryGuard[any](query.New(query.Name("bar", "baz")))
+	target := projectiontest.NewMockGuardedProjection(guard)
+	store, storeEvents := newEventStore(t)
+
+	job := projection.NewJob(ctx, store, query.New(query.Name("foo", "bar", "baz")))
+
+	str, errs, err := job.EventsFor(job, target)
+	if err != nil {
+		t.Fatalf("EventsFor failed with %q", err)
+	}
+
+	events, err := event.Drain(ctx, str, errs)
+	if err != nil {
+		t.Fatalf("drain Events: %v", err)
+	}
+
+	test.AssertEqualEventsUnsorted(t, events, storeEvents[1:])
+}
+
 func TestJob_EventsFor_Progressor(t *testing.T) {
 	ctx := context.Background()
 	target := projectiontest.NewMockProgressor()
@@ -281,7 +302,7 @@ func TestJob_Events_cache(t *testing.T) {
 	store, _ := newEventStore(t, storeEvents...)
 	delayedStore := newDelayedEventStore(store, 100*time.Millisecond)
 
-	job := projection.NewJob(ctx, delayedStore, query.New())
+	job := projection.NewJob[any](ctx, delayedStore, query.New())
 
 	start := time.Now()
 	str, errs, err := job.Events(job)
@@ -331,7 +352,7 @@ func TestWithFilter(t *testing.T) {
 	}
 	store, _ := newEventStore(t, storeEvents...)
 
-	job := projection.NewJob(ctx, store, query.New(query.SortBy(event.SortTime, event.SortAsc)), projection.WithFilter(
+	job := projection.NewJob(ctx, store, query.New(query.SortBy(event.SortTime, event.SortAsc)), projection.WithFilter[any](
 		query.New(query.AggregateName("foo", "baz", "barbaz", "foobaz")),
 		query.New(query.AggregateName("foo", "barbaz", "foobaz")),
 	))
@@ -365,11 +386,11 @@ func TestWithReset(t *testing.T) {
 
 	proj := projectiontest.NewMockResetProjection(3)
 
-	if err := projection.Apply(proj, storeEvents); err != nil {
+	if err := projection.Apply[any](proj, storeEvents); err != nil {
 		t.Fatalf("Apply failed with %q", err)
 	}
 
-	job := projection.NewJob(ctx, store, query.New(query.SortBy(event.SortTime, event.SortAsc)), projection.WithReset())
+	job := projection.NewJob(ctx, store, query.New(query.SortBy(event.SortTime, event.SortAsc)), projection.WithReset[any]())
 
 	if err := job.Apply(job, proj); err != nil {
 		t.Fatalf("Apply failed with %q", err)
@@ -389,8 +410,8 @@ func TestWithReset(t *testing.T) {
 	}
 }
 
-func newEventStore(t *testing.T, events ...event.Event[any]) (event.Store, []event.Event[any]) {
-	store := eventstore.New()
+func newEventStore(t *testing.T, events ...event.Event[any]) (event.Store[any], []event.Event[any]) {
+	store := eventstore.New[any]()
 	now := time.Now()
 	if len(events) == 0 {
 		events = []event.Event[any]{
@@ -406,11 +427,11 @@ func newEventStore(t *testing.T, events ...event.Event[any]) (event.Store, []eve
 }
 
 type delayedEventStore struct {
-	event.Store
+	event.Store[any]
 	delay time.Duration
 }
 
-func newDelayedEventStore(store event.Store, delay time.Duration) *delayedEventStore {
+func newDelayedEventStore(store event.Store[any], delay time.Duration) *delayedEventStore {
 	return &delayedEventStore{Store: store, delay: delay}
 }
 

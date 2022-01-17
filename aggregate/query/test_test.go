@@ -15,52 +15,52 @@ func TestTest(t *testing.T) {
 	tests := []struct {
 		name  string
 		query aggregate.Query
-		tests map[aggregate.Aggregate]bool
+		tests map[aggregate.Aggregate[any]]bool
 	}{
 		{
 			name:  "Name",
 			query: query.New(query.Name("foo", "bar")),
-			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New()): true,
-				aggregate.New("bar", uuid.New()): true,
-				aggregate.New("baz", uuid.New()): false,
+			tests: map[aggregate.Aggregate[any]]bool{
+				aggregate.New[any]("foo", uuid.New()): true,
+				aggregate.New[any]("bar", uuid.New()): true,
+				aggregate.New[any]("baz", uuid.New()): false,
 			},
 		},
 		{
 			name:  "ID",
 			query: query.New(query.ID(ids[0], ids[2])),
-			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", ids[0]): true,
-				aggregate.New("bar", ids[1]): false,
-				aggregate.New("baz", ids[2]): true,
-				aggregate.New("foo", ids[3]): false,
+			tests: map[aggregate.Aggregate[any]]bool{
+				aggregate.New[any]("foo", ids[0]): true,
+				aggregate.New[any]("bar", ids[1]): false,
+				aggregate.New[any]("baz", ids[2]): true,
+				aggregate.New[any]("foo", ids[3]): false,
 			},
 		},
 		{
 			name:  "Version (exact)",
 			query: query.New(query.Version(version.Exact(2, 3))),
-			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New(), aggregate.Version(1)): false,
-				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(3)): true,
+			tests: map[aggregate.Aggregate[any]]bool{
+				aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](1)): false,
+				aggregate.New[any]("bar", uuid.New(), aggregate.Version[any](2)): true,
+				aggregate.New[any]("baz", uuid.New(), aggregate.Version[any](3)): true,
 			},
 		},
 		{
 			name:  "Version (range)",
 			query: query.New(query.Version(version.InRange(version.Range{1, 2}))),
-			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New(), aggregate.Version(1)): true,
-				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(3)): false,
+			tests: map[aggregate.Aggregate[any]]bool{
+				aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](1)): true,
+				aggregate.New[any]("bar", uuid.New(), aggregate.Version[any](2)): true,
+				aggregate.New[any]("baz", uuid.New(), aggregate.Version[any](3)): false,
 			},
 		},
 		{
 			name:  "Version (min/max)",
 			query: query.New(query.Version(version.Min(2), version.Max(3))),
-			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New(), aggregate.Version(1)): false,
-				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(3)): true,
+			tests: map[aggregate.Aggregate[any]]bool{
+				aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](1)): false,
+				aggregate.New[any]("bar", uuid.New(), aggregate.Version[any](2)): true,
+				aggregate.New[any]("baz", uuid.New(), aggregate.Version[any](3)): true,
 			},
 		},
 		{
@@ -71,13 +71,13 @@ func TestTest(t *testing.T) {
 				version.InRange(version.Range{3, 5}),
 				version.Exact(1, 2, 3, 4),
 			)),
-			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New(), aggregate.Version(1)): false,
-				aggregate.New("bar", uuid.New(), aggregate.Version(2)): false,
-				aggregate.New("baz", uuid.New(), aggregate.Version(3)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(4)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(5)): false,
-				aggregate.New("baz", uuid.New(), aggregate.Version(6)): false,
+			tests: map[aggregate.Aggregate[any]]bool{
+				aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](1)): false,
+				aggregate.New[any]("bar", uuid.New(), aggregate.Version[any](2)): false,
+				aggregate.New[any]("baz", uuid.New(), aggregate.Version[any](3)): true,
+				aggregate.New[any]("baz", uuid.New(), aggregate.Version[any](4)): true,
+				aggregate.New[any]("baz", uuid.New(), aggregate.Version[any](5)): false,
+				aggregate.New[any]("baz", uuid.New(), aggregate.Version[any](6)): false,
 			},
 		},
 	}

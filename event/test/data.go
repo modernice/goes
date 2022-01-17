@@ -23,7 +23,7 @@ type UnregisteredEventData struct{ A string }
 
 // NewEncoder returns a "gob" event.Encoding with registered "foo", "bar" and
 // "baz" events.
-func NewEncoder() *codec.GobRegistry[any] {
+func NewEncoder() *codec.GobRegistryOf[any] {
 	reg := codec.Gob(event.NewRegistry())
 	reg.GobRegister("foo", func() any {
 		return FooEventData{}

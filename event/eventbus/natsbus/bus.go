@@ -62,7 +62,7 @@ type Driver interface {
 }
 
 type connection interface {
-	get() interface{}
+	get() any
 	close(context.Context) error
 	subscribe(bus *Bus, subject string) (*subscription, error)
 	queueSubscribe(bus *Bus, subject, queue string) (*subscription, error)
@@ -656,7 +656,7 @@ func (d *streaming) connect(url string) (connection, error) {
 	}, nil
 }
 
-func (c *natsConn) get() interface{} {
+func (c *natsConn) get() any {
 	return c.conn
 }
 
@@ -852,7 +852,7 @@ func (c *natsConn) publish(subject string, data []byte) error {
 	return c.conn.Publish(subject, data)
 }
 
-func (c *stanConn) get() interface{} {
+func (c *stanConn) get() any {
 	return c.conn
 }
 

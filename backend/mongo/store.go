@@ -302,7 +302,7 @@ func (s *EventStore) insert(ctx context.Context, events []event.Event[any]) erro
 		return nil
 	}
 
-	docs := make([]interface{}, len(events))
+	docs := make([]any, len(events))
 	for i, evt := range events {
 		var data bytes.Buffer
 		if err := s.enc.Encode(&data, evt.Name(), evt.Data()); err != nil {

@@ -12,19 +12,19 @@ import (
 )
 
 func TestSort_name(t *testing.T) {
-	aggregates := []aggregate.Aggregate{
-		aggregate.New("b", uuid.New()),
-		aggregate.New("3", uuid.New()),
-		aggregate.New("a", uuid.New()),
-		aggregate.New("d", uuid.New()),
-		aggregate.New("2", uuid.New()),
-		aggregate.New("c", uuid.New()),
-		aggregate.New("f", uuid.New()),
-		aggregate.New("1", uuid.New()),
-		aggregate.New("e", uuid.New()),
+	aggregates := []aggregate.Aggregate[any]{
+		aggregate.New[any]("b", uuid.New()),
+		aggregate.New[any]("3", uuid.New()),
+		aggregate.New[any]("a", uuid.New()),
+		aggregate.New[any]("d", uuid.New()),
+		aggregate.New[any]("2", uuid.New()),
+		aggregate.New[any]("c", uuid.New()),
+		aggregate.New[any]("f", uuid.New()),
+		aggregate.New[any]("1", uuid.New()),
+		aggregate.New[any]("e", uuid.New()),
 	}
 
-	tests := map[aggregate.SortDirection][]aggregate.Aggregate{
+	tests := map[aggregate.SortDirection][]aggregate.Aggregate[any]{
 		aggregate.SortAsc: {
 			aggregates[7],
 			aggregates[4],
@@ -60,20 +60,20 @@ func TestSort_name(t *testing.T) {
 }
 
 func TestSort_id(t *testing.T) {
-	aggregates := []aggregate.Aggregate{
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
+	aggregates := []aggregate.Aggregate[any]{
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
+		aggregate.New[any]("foo", uuid.New()),
 	}
 
-	ascAggregates := make([]aggregate.Aggregate, len(aggregates))
-	descAggregates := make([]aggregate.Aggregate, len(aggregates))
+	ascAggregates := make([]aggregate.Aggregate[any], len(aggregates))
+	descAggregates := make([]aggregate.Aggregate[any], len(aggregates))
 	copy(ascAggregates, aggregates)
 	copy(descAggregates, aggregates)
 
@@ -89,7 +89,7 @@ func TestSort_id(t *testing.T) {
 		return iid.String() > jid.String()
 	})
 
-	tests := map[aggregate.SortDirection][]aggregate.Aggregate{
+	tests := map[aggregate.SortDirection][]aggregate.Aggregate[any]{
 		aggregate.SortAsc:  ascAggregates,
 		aggregate.SortDesc: descAggregates,
 	}
@@ -104,19 +104,19 @@ func TestSort_id(t *testing.T) {
 	}
 }
 func TestSort_version(t *testing.T) {
-	aggregates := []aggregate.Aggregate{
-		aggregate.New("foo", uuid.New(), aggregate.Version(0)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(5)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(3)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(7)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(2)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(8)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(1)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(6)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(4)),
+	aggregates := []aggregate.Aggregate[any]{
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](0)),
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](5)),
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](3)),
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](7)),
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](2)),
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](8)),
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](1)),
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](6)),
+		aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](4)),
 	}
 
-	tests := map[aggregate.SortDirection][]aggregate.Aggregate{
+	tests := map[aggregate.SortDirection][]aggregate.Aggregate[any]{
 		aggregate.SortAsc: {
 			aggregates[0],
 			aggregates[6],
@@ -152,16 +152,16 @@ func TestSort_version(t *testing.T) {
 }
 
 func TestSortMulti(t *testing.T) {
-	as := []aggregate.Aggregate{
-		aggregate.New("foo1", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version(1)),
-		aggregate.New("foo1", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version(2)),
-		aggregate.New("foo1", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version(3)),
-		aggregate.New("foo2", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version(1)),
-		aggregate.New("foo2", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version(2)),
-		aggregate.New("foo2", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version(3)),
-		aggregate.New("foo3", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version(1)),
-		aggregate.New("foo3", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version(2)),
-		aggregate.New("foo3", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version(3)),
+	as := []aggregate.Aggregate[any]{
+		aggregate.New[any]("foo1", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version[any](1)),
+		aggregate.New[any]("foo1", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version[any](2)),
+		aggregate.New[any]("foo1", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version[any](3)),
+		aggregate.New[any]("foo2", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version[any](1)),
+		aggregate.New[any]("foo2", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version[any](2)),
+		aggregate.New[any]("foo2", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version[any](3)),
+		aggregate.New[any]("foo3", uuid.MustParse("A0000000-0000-0000-0000-000000000000"), aggregate.Version[any](1)),
+		aggregate.New[any]("foo3", uuid.MustParse("B0000000-0000-0000-0000-000000000000"), aggregate.Version[any](2)),
+		aggregate.New[any]("foo3", uuid.MustParse("C0000000-0000-0000-0000-000000000000"), aggregate.Version[any](3)),
 	}
 
 	shuffled := xaggregate.Shuffle(as)
@@ -172,7 +172,7 @@ func TestSortMulti(t *testing.T) {
 		aggregate.SortOptions{Sort: aggregate.SortVersion, Dir: aggregate.SortAsc},
 	)
 
-	want := []aggregate.Aggregate{
+	want := []aggregate.Aggregate[any]{
 		as[6], as[7], as[8],
 		as[3], as[4], as[5],
 		as[0], as[1], as[2],
@@ -187,7 +187,7 @@ func TestSortMulti(t *testing.T) {
 		aggregate.SortOptions{Sort: aggregate.SortVersion, Dir: aggregate.SortDesc},
 	)
 
-	want = []aggregate.Aggregate{
+	want = []aggregate.Aggregate[any]{
 		as[2], as[1], as[0],
 		as[5], as[4], as[3],
 		as[8], as[7], as[6],
@@ -202,7 +202,7 @@ func TestSortMulti(t *testing.T) {
 		aggregate.SortOptions{Sort: aggregate.SortName, Dir: aggregate.SortDesc},
 	)
 
-	want = []aggregate.Aggregate{
+	want = []aggregate.Aggregate[any]{
 		as[8], as[5], as[2],
 		as[7], as[4], as[1],
 		as[6], as[3], as[0],
@@ -217,7 +217,7 @@ func TestSortMulti(t *testing.T) {
 		aggregate.SortOptions{Sort: aggregate.SortID, Dir: aggregate.SortDesc},
 	)
 
-	want = []aggregate.Aggregate{
+	want = []aggregate.Aggregate[any]{
 		as[2], as[1], as[0],
 		as[5], as[4], as[3],
 		as[8], as[7], as[6],

@@ -18,7 +18,7 @@ type Command struct {
 	Name          string
 	AggregateName string
 	AggregateID   uuid.UUID
-	Payload       interface{}
+	Payload       any
 }
 
 // Option is a Report option.

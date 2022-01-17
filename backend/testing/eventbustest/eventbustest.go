@@ -12,7 +12,7 @@ import (
 )
 
 // EventBusFactory creates an event.Bus from an codec.Encoding.
-type EventBusFactory func(codec.Encoding[any]) event.Bus
+type EventBusFactory func(codec.Encoding[any]) event.Bus[any]
 
 // Run tests all functions of the event bus.
 func Run(t *testing.T, newBus EventBusFactory) {

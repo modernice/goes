@@ -140,7 +140,7 @@ func TestStream_inconsistent(t *testing.T) {
 		t.Fatalf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *aggregate.ConsistencyError
+	var cerr *aggregate.ConsistencyError[any]
 	if !errors.As(err, &cerr) {
 		t.Fatalf("stream should return an error of type %T; got %T", cerr, err)
 	}
@@ -164,7 +164,7 @@ func TestSorted(t *testing.T) {
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
 	es := event.Stream(events...)
-	str, errs := stream.New(es, stream.Sorted(true))
+	str, errs := stream.New(es, stream.Sorted[any](true))
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
 
@@ -172,7 +172,7 @@ func TestSorted(t *testing.T) {
 		t.Errorf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *aggregate.ConsistencyError
+	var cerr *aggregate.ConsistencyError[any]
 	if !errors.As(err, &cerr) {
 		t.Errorf("stream should return an error of type %T; got %T", cerr, err)
 	}
@@ -204,7 +204,7 @@ func TestGrouped(t *testing.T) {
 	es := event.Stream(events...)
 	es = xstream.Delayed(100*time.Millisecond, es)
 
-	str, errs := stream.New(es, stream.Grouped(true))
+	str, errs := stream.New(es, stream.Grouped[any](true))
 	start := xtime.Now()
 	select {
 	case err, ok := <-errs:
@@ -243,9 +243,9 @@ func TestValidateConsistency(t *testing.T) {
 	str, errs := stream.New(
 		es,
 		// prevent sorting of events
-		stream.Sorted(true),
+		stream.Sorted[any](true),
 		// disable consistency validation
-		stream.ValidateConsistency(false),
+		stream.ValidateConsistency[any](false),
 	)
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
@@ -299,12 +299,12 @@ func TestFilter(t *testing.T) {
 	}
 }
 
-func drain(
-	s <-chan aggregate.History,
+func drain[D any](
+	s <-chan aggregate.History[D],
 	errs <-chan error,
 	timeout time.Duration,
-	factory func(string, uuid.UUID) aggregate.Aggregate,
-) ([]aggregate.Aggregate, error) {
+	factory func(string, uuid.UUID) aggregate.Aggregate[D],
+) ([]aggregate.Aggregate[D], error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -321,7 +321,7 @@ func drain(
 		return nil, err
 	}
 
-	as := make([]aggregate.Aggregate, len(results))
+	as := make([]aggregate.Aggregate[D], len(results))
 	for i, res := range results {
 		as[i] = factory(res.AggregateName(), res.AggregateID())
 		res.Apply(as[i])
@@ -330,8 +330,8 @@ func drain(
 	return as, nil
 }
 
-func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) aggregate.Aggregate {
-	return func(_ string, id uuid.UUID) aggregate.Aggregate {
+func makeFactory[D any](am map[uuid.UUID]aggregate.Aggregate[D]) func(string, uuid.UUID) aggregate.Aggregate[D] {
+	return func(_ string, id uuid.UUID) aggregate.Aggregate[D] {
 		return am[id]
 	}
 }

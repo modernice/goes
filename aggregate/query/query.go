@@ -108,7 +108,7 @@ type queryWithTags interface {
 // Test tests the Aggregate a against the Query q and returns true if q should
 // include a in its results. Test can be used by in-memory aggregate.Repository
 // implementations to filter aggregates based on the query.
-func Test(q aggregate.Query, a aggregate.Aggregate) bool {
+func Test[D any](q aggregate.Query, a aggregate.Aggregate[D]) bool {
 	id, name, v := a.Aggregate()
 
 	if names := q.Names(); len(names) > 0 {

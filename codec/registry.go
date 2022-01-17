@@ -18,20 +18,20 @@ var (
 	ErrMissingFactory = errors.New("missing factory for data. forgot to register?")
 )
 
-// A Registry provides the Encoders and Decoders for event data or command
+// A RegistryOf provides the Encoders and Decoders for event data or command
 // payloads. Use the Register method to register the Encoder and Decoder for a
 // specific type.
 //
 // You likely don't want to use this registry directly, as it requires you to
 // define an Encoder and Decoder for every registered type/name. You can for
-// example wrap this *Registry in a *GobRegistry to use encoding/gob for
+// example wrap this *RegistryOf in a *GobRegistry to use encoding/gob for
 // encoding and decoding data:
 //
 // Register
 //
 //	type fooData struct { ... }
 //	reg := Gob(New())
-//	reg.GobRegister("foo", func() interface{} { return fooData{}})
+//	reg.GobRegister("foo", func() any { return fooData{}})
 //
 // Encode
 //
@@ -42,7 +42,7 @@ var (
 //
 //	var r io.Reader
 //	err := reg.Decode(r, "foo")
-type Registry[T any] struct {
+type RegistryOf[T any] struct {
 	sync.RWMutex
 
 	encoders  map[string]Encoder[T]
@@ -50,14 +50,17 @@ type Registry[T any] struct {
 	factories map[string]func() T
 }
 
+// Registry is a RegistryOf[any].
+type Registry = RegistryOf[any]
+
 // New returns a new Registry for event data or command payloads.
-func New() *Registry[any] {
+func New() *RegistryOf[any] {
 	return NewOf[any]()
 }
 
 // NewOf returns a new Registry that can register types of type T.
-func NewOf[T any]() *Registry[T] {
-	return &Registry[T]{
+func NewOf[T any]() *RegistryOf[T] {
+	return &RegistryOf[T]{
 		encoders:  make(map[string]Encoder[T]),
 		decoders:  make(map[string]Decoder[T]),
 		factories: make(map[string]func() T),
@@ -68,7 +71,7 @@ func NewOf[T any]() *Registry[T] {
 // When reg.Encode is called, the provided Encoder is be used to encode the
 // given data. When reg.Decode is called, the provided Decoder is used. The
 // makeFunc is required for custom data unmarshalers to work.
-func (reg *Registry[T]) Register(name string, enc Encoder[T], dec Decoder[T], makeFunc func() T) {
+func (reg *RegistryOf[T]) Register(name string, enc Encoder[T], dec Decoder[T], makeFunc func() T) {
 	reg.Lock()
 	defer reg.Unlock()
 
@@ -80,7 +83,7 @@ func (reg *Registry[T]) Register(name string, enc Encoder[T], dec Decoder[T], ma
 // Encode encodes the data that is registered under the given name using the
 // registered Encoder. If no Encoder is registered for the given name, an error
 // that unwraps to ErrNotFound is returned.
-func (reg *Registry[T]) Encode(w io.Writer, name string, data T) error {
+func (reg *RegistryOf[T]) Encode(w io.Writer, name string, data T) error {
 	reg.RLock()
 	defer reg.RUnlock()
 
@@ -98,7 +101,7 @@ func (reg *Registry[T]) Encode(w io.Writer, name string, data T) error {
 // Decode decodes the data that is registered under the given name using the
 // registered Decoder. If no Decoder is registered for the give name, an error
 // that unwraps to ErrNotFound is returned.
-func (reg *Registry[T]) Decode(r io.Reader, name string) (zero T, _ error) {
+func (reg *RegistryOf[T]) Decode(r io.Reader, name string) (zero T, _ error) {
 	reg.RLock()
 	defer reg.RUnlock()
 
@@ -131,7 +134,7 @@ func (reg *Registry[T]) Decode(r io.Reader, name string) (zero T, _ error) {
 // New creates and returns a new instance of the data that is registered under
 // the given name. If no factory function was provided for this data,
 // ErrMissingFactory is returned.
-func (reg *Registry[T]) New(name string) (zero T, _ error) {
+func (reg *RegistryOf[T]) New(name string) (zero T, _ error) {
 	reg.RLock()
 	defer reg.RUnlock()
 

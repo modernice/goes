@@ -29,12 +29,12 @@ const (
 )
 
 // A Store persists and queries events.
-type Store interface {
+type Store[D any] interface {
 	// Insert inserts Events into the store.
-	Insert(context.Context, ...Event[any]) error
+	Insert(context.Context, ...Event[D]) error
 
 	// Find fetches the Event with the specified UUID from the store.
-	Find(context.Context, uuid.UUID) (Event[any], error)
+	Find(context.Context, uuid.UUID) (Event[D], error)
 
 	// Query queries the Store for Events that fit the given Query and returns a
 	// channel of Events and a channel of errors.
@@ -48,10 +48,10 @@ type Store interface {
 	//		log.Println(fmt.Sprintf("Queried Event: %v", evt))
 	//	}, events, errs)
 	//	// handle err
-	Query(context.Context, Query) (<-chan Event[any], <-chan error, error)
+	Query(context.Context, Query) (<-chan Event[D], <-chan error, error)
 
 	// Delete deletes Events from the Store.
-	Delete(context.Context, ...Event[any]) error
+	Delete(context.Context, ...Event[D]) error
 }
 
 // A Query is used by Stores to query Events.

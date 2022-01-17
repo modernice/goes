@@ -33,7 +33,7 @@ func IgnoreProgress() ApplyOption {
 //
 // If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
 // is called for every applied Event evt.
-func Apply(proj EventApplier, events []event.Event[any], opts ...ApplyOption) error {
+func Apply[D any](proj EventApplier[D], events []event.Event[D], opts ...ApplyOption) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -41,7 +41,7 @@ func Apply(proj EventApplier, events []event.Event[any], opts ...ApplyOption) er
 	cfg := newApplyConfig(opts...)
 
 	progressor, isProgressor := proj.(Progressing)
-	guard, hasGuard := proj.(Guard)
+	guard, hasGuard := proj.(Guard[D])
 
 	for _, evt := range events {
 		if hasGuard && !guard.GuardProjection(evt) {

@@ -34,9 +34,9 @@ func (m *MockTestingT) EXPECT() *MockTestingTMockRecorder {
 }
 
 // Fatal mocks base method.
-func (m *MockTestingT) Fatal(arg0 ...interface{}) {
+func (m *MockTestingT) Fatal(arg0 ...any) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{}
+	varargs := []any{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
@@ -44,7 +44,7 @@ func (m *MockTestingT) Fatal(arg0 ...interface{}) {
 }
 
 // Fatal indicates an expected call of Fatal.
-func (mr *MockTestingTMockRecorder) Fatal(arg0 ...interface{}) *gomock.Call {
+func (mr *MockTestingTMockRecorder) Fatal(arg0 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fatal", reflect.TypeOf((*MockTestingT)(nil).Fatal), arg0...)
 }

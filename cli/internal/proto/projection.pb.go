@@ -159,7 +159,7 @@ func file_projection_proto_rawDescGZIP() []byte {
 }
 
 var file_projection_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_projection_proto_goTypes = []interface{}{
+var file_projection_proto_goTypes = []any{
 	(*TriggerRequest)(nil),  // 0: cli.projection.TriggerRequest
 	(*TriggerResponse)(nil), // 1: cli.projection.TriggerResponse
 }
@@ -179,7 +179,7 @@ func file_projection_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_projection_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_projection_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*TriggerRequest); i {
 			case 0:
 				return &v.state
@@ -191,7 +191,7 @@ func file_projection_proto_init() {
 				return nil
 			}
 		}
-		file_projection_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_projection_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*TriggerResponse); i {
 			case 0:
 				return &v.state

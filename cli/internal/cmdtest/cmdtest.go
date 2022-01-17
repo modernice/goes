@@ -29,7 +29,7 @@ func Error(t *testing.T, cmd *cobra.Command, args []string, want error) string {
 }
 
 // Output expects cmd to output fmt.Sprint(want) and returns the actual output.
-func Output(t *testing.T, cmd *cobra.Command, args []string, want interface{}) string {
+func Output(t *testing.T, cmd *cobra.Command, args []string, want any) string {
 	cmd.SetArgs(args)
 
 	var out bytes.Buffer
@@ -48,7 +48,7 @@ func Output(t *testing.T, cmd *cobra.Command, args []string, want interface{}) s
 // TableOutput expects cmd to output want as a table and returns the actual
 // output. If colorize is non-nil, it is used to colorize the expected output
 // before comparing to the actual output.
-func TableOutput(t *testing.T, cmd *cobra.Command, args []string, want [][]string, colorize func(interface{}) aurora.Value) string {
+func TableOutput(t *testing.T, cmd *cobra.Command, args []string, want [][]string, colorize func(any) aurora.Value) string {
 	cmd.SetArgs(args)
 
 	var out bytes.Buffer

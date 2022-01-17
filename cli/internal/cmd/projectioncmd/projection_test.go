@@ -25,7 +25,7 @@ func TestCommand_Trigger_unhandledTrigger(t *testing.T) {
 	defer cancel()
 
 	_, bus, _ := clitest.SetupEvents()
-	svc := projection.NewService(bus, projection.TriggerTimeout(20*time.Millisecond))
+	svc := projection.NewService(bus, projection.TriggerTimeout[any](20*time.Millisecond))
 	_, conn, lis := clitest.NewServer(t, func(s *grpc.Server) {
 		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
 	})
@@ -48,7 +48,7 @@ func TestCommand_Trigger(t *testing.T) {
 	_, bus, store := clitest.SetupEvents()
 	schedule := schedule.Continuously(bus, store, []string{"foo"})
 	received := make(chan struct{})
-	subscribeErrors, err := schedule.Subscribe(ctx, func(projection.Job) error {
+	subscribeErrors, err := schedule.Subscribe(ctx, func(projection.Job[any]) error {
 		received <- struct{}{}
 		return nil
 	})
@@ -57,9 +57,9 @@ func TestCommand_Trigger(t *testing.T) {
 	}
 	svc := projection.NewService(
 		bus,
-		projection.RegisterSchedule("foo", schedule),
-		projection.RegisterSchedule("bar", schedule),
-		projection.RegisterSchedule("baz", schedule),
+		projection.RegisterSchedule[any]("foo", schedule),
+		projection.RegisterSchedule[any]("bar", schedule),
+		projection.RegisterSchedule[any]("baz", schedule),
 	)
 	serviceErrors, err := svc.Run(ctx)
 	if err != nil {
@@ -118,14 +118,14 @@ func TestCommand_Trigger_reset(t *testing.T) {
 	schedule := schedule.Continuously(bus, store, []string{"foo"})
 	proj := projectiontest.NewMockResetProjection(8)
 	applied := make(chan struct{})
-	subscribeErrors, err := schedule.Subscribe(ctx, func(job projection.Job) error {
+	subscribeErrors, err := schedule.Subscribe(ctx, func(job projection.Job[any]) error {
 		defer close(applied)
 		return job.Apply(job, proj)
 	})
 	if err != nil {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
-	svc := projection.NewService(bus, projection.RegisterSchedule("foo", schedule))
+	svc := projection.NewService(bus, projection.RegisterSchedule[any]("foo", schedule))
 	serviceErrors, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)

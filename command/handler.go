@@ -9,27 +9,27 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Handler can be used to subscribe to and handle Commands.
+// Handler can be used to subscribe to and handle commands.
 type Handler[P any] struct {
-	bus Bus
+	bus Bus[P]
 }
 
-// NewHandler returns a Handler for Commands that uses the provided Bus to
-// subscribe to Commands.
-func NewHandler[P any](bus Bus) *Handler[P] {
+// NewHandler returns a handler for commands that uses the provided Bus to
+// subscribe to commands.
+func NewHandler[P any](bus Bus[P]) *Handler[P] {
 	return &Handler[P]{bus}
 }
 
 // Handle is a shortcut for
 //	NewHandler(bus).Handle(ctx, name, handler)
-func Handle[P any](ctx context.Context, bus Bus, name string, handler func(Context[P]) error) (<-chan error, error) {
-	return NewHandler[P](bus).Handle(ctx, name, handler)
+func Handle[P any](ctx context.Context, bus Bus[P], name string, handler func(Context[P]) error) (<-chan error, error) {
+	return NewHandler(bus).Handle(ctx, name, handler)
 }
 
 // MustHandle is a shortcut for
 //	NewHandler(bus).MustHandle(ctx, name, handler)
-func MustHandle[P any](ctx context.Context, bus Bus, name string, handler func(Context[P]) error) <-chan error {
-	return NewHandler[P](bus).MustHandle(ctx, name, handler)
+func MustHandle[P any](ctx context.Context, bus Bus[P], name string, handler func(Context[P]) error) <-chan error {
+	return NewHandler(bus).MustHandle(ctx, name, handler)
 }
 
 // Handle registers the function handler as a handler for the given Command name.
@@ -71,7 +71,7 @@ func (h *Handler[P]) MustHandle(ctx context.Context, name string, handler func(C
 func (h *Handler[P]) handle(
 	ctx context.Context,
 	handler func(Context[P]) error,
-	str <-chan Context[any],
+	str <-chan Context[P],
 	errs <-chan error,
 	out chan<- error,
 ) {

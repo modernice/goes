@@ -8,24 +8,24 @@ import (
 )
 
 func TestAction_Name(t *testing.T) {
-	a := action.New("foo", func(action.Context) error { return nil })
+	a := action.New("foo", func(action.Context[any, any]) error { return nil })
 	if a.Name() != "foo" {
 		t.Fatalf("Name() should return %q; got %q", "foo", a.Name())
 	}
 }
 
 func TestAction_Run(t *testing.T) {
-	var ctx action.Context
-	a := action.New("foo", func(action.Context) error { return nil })
+	var ctx action.Context[any, any]
+	a := action.New("foo", func(action.Context[any, any]) error { return nil })
 	if err := a.Run(ctx); err != nil {
 		t.Errorf("Action should not fail; failed with %q", err)
 	}
 }
 
 func TestAction_Run_error(t *testing.T) {
-	var ctx action.Context
+	var ctx action.Context[any, any]
 	mockError := errors.New("mock error")
-	a := action.New("foo", func(action.Context) error { return mockError })
+	a := action.New("foo", func(action.Context[any, any]) error { return mockError })
 
 	err := a.Run(ctx)
 	if err != mockError {

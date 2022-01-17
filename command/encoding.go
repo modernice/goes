@@ -7,6 +7,6 @@ type Encoding = codec.Encoding[any]
 
 // NewRegistry returns a new command registry that can register commands with
 // any command payload.
-func NewRegistry() *codec.Registry[any] {
+func NewRegistry() *codec.RegistryOf[any] {
 	return codec.New()
 }

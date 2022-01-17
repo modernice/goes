@@ -19,8 +19,8 @@ import (
 )
 
 func TestTrigger_unregisteredSchedule(t *testing.T) {
-	bus := eventbus.New()
-	svc := projection.NewService(bus, projection.TriggerTimeout(20*time.Millisecond))
+	bus := eventbus.New[any]()
+	svc := projection.NewService(bus, projection.TriggerTimeout[any](20*time.Millisecond))
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
 		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
@@ -55,7 +55,7 @@ func TestTrigger(t *testing.T) {
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	received := make(chan struct{})
-	scheduleErrors, err := schedule.Subscribe(ctx, func(projection.Job) error {
+	scheduleErrors, err := schedule.Subscribe(ctx, func(projection.Job[any]) error {
 		close(received)
 		return nil
 	})
@@ -63,14 +63,14 @@ func TestTrigger(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
+	svc := projection.NewService(bus, projection.RegisterSchedule[any]("example", schedule))
 	errs, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
 	}
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService[any](bus)))
 	})
 	defer conn.Close()
 
@@ -109,7 +109,7 @@ func TestTrigger_reset(t *testing.T) {
 
 	proj := projectiontest.NewMockResetProjection(5)
 	applied := make(chan struct{})
-	scheduleErrors, err := schedule.Subscribe(ctx, func(job projection.Job) error {
+	scheduleErrors, err := schedule.Subscribe(ctx, func(job projection.Job[any]) error {
 		defer close(applied)
 		return job.Apply(job, proj)
 	})
@@ -117,14 +117,14 @@ func TestTrigger_reset(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
+	svc := projection.NewService(bus, projection.RegisterSchedule[any]("example", schedule))
 	errs, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
 	}
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService[any](bus)))
 	})
 	defer conn.Close()
 

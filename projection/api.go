@@ -8,8 +8,8 @@ import (
 )
 
 // An EventApplier applies events onto itself to build the projection state.
-type EventApplier interface {
-	ApplyEvent(event.Event[any])
+type EventApplier[D any] interface {
+	ApplyEvent(event.Event[D])
 }
 
 // Progressing makes projections track their projection progress.
@@ -63,22 +63,22 @@ type Resetter interface {
 // events. When a projection p implements Guard, p.GuardProjection(e) is called
 // for every Event e and prevents the p.ApplyEvent(e) call if GuardProjection
 // returns false.
-type Guard interface {
+type Guard[D any] interface {
 	// GuardProjection determines whether an Event is allowed to be applied onto a projection.
-	GuardProjection(event.Event[any]) bool
+	GuardProjection(event.Event[D]) bool
 }
 
-// type Filter interface{}
+// type Filter any
 
 // A QueryGuard is an event query that determines which Events are allows to be
 // applied onto a projection.
 
 // QueryGuard is a Guard that used an event query to determine the events that
 // are allowed to be applied onto a projection.
-type QueryGuard query.Query
+type QueryGuard[D any] query.Query
 
 // GuardFunc allows functions to be used as Guards.
-type GuardFunc func(event.Event[any]) bool
+type GuardFunc[D any] func(event.Event[D]) bool
 
 // HistoryDependent can be implemented by continuous projections that need the
 // full event history (of the events that are configured in the Schedule) instead
@@ -101,7 +101,7 @@ type GuardFunc func(event.Event[any]) bool
 //		initialized bool
 //	}
 //
-//	func (idx SearchIndex) ApplyEvent(event.Event[any]) { ... }
+//	func (idx SearchIndex) ApplyEvent(event.Event[D]) { ... }
 //
 //	// RequiresFullHistory implements projection.HistoryDependent. If the
 // 	// projection hasn't been run yet, the full history of the events is
@@ -147,12 +147,12 @@ type HistoryDependent interface {
 }
 
 // GuardProjection returns guard(evt).
-func (guard GuardFunc) GuardProjection(evt event.Event[any]) bool {
+func (guard GuardFunc[D]) GuardProjection(evt event.Event[D]) bool {
 	return guard(evt)
 }
 
 // GuardProjection tests the Guard's Query against a given Event and returns
 // whether the Event is allowed to be applied onto the projection.
-func (g QueryGuard) GuardProjection(evt event.Event[any]) bool {
+func (g QueryGuard[D]) GuardProjection(evt event.Event[D]) bool {
 	return query.Test(query.Query(g), evt)
 }

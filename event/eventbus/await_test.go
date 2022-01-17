@@ -15,7 +15,7 @@ func TestAwaiter_Once(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
+	bus := eventbus.New[any]()
 	aw := eventbus.NewAwaiter[any](bus)
 
 	// Await a "foo" event once

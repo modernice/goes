@@ -213,7 +213,7 @@ L:
 }
 
 func TestAssignTimeout(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.AssignTimeout(500 * time.Millisecond))
+	bus, _, _ := newBus(cmdbus.AssignTimeout[any](500 * time.Millisecond))
 
 	cmd := command.New("foo-cmd", mockPayload{})
 
@@ -233,7 +233,7 @@ func TestAssignTimeout(t *testing.T) {
 }
 
 func TestAssignTimeout_0(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.AssignTimeout(0))
+	bus, _, _ := newBus(cmdbus.AssignTimeout[any](0))
 
 	cmd := command.New("foo-cmd", mockPayload{})
 
@@ -248,7 +248,7 @@ func TestAssignTimeout_0(t *testing.T) {
 }
 
 func TestDrainTimeout(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.DrainTimeout(100 * time.Millisecond))
+	bus, _, _ := newBus(cmdbus.DrainTimeout[any](100 * time.Millisecond))
 
 	subCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -299,7 +299,7 @@ L:
 }
 
 func TestDrainTimeout_0(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.DrainTimeout(0))
+	bus, _, _ := newBus(cmdbus.DrainTimeout[any](0))
 
 	subCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -350,13 +350,13 @@ L:
 	}
 }
 
-func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry[any]) {
+func newBus(opts ...cmdbus.Option[any]) (command.Bus[any], event.Bus[any], *codec.RegistryOf[any]) {
 	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() interface{} {
+	enc.GobRegister("foo-cmd", func() any {
 		return mockPayload{}
 	})
-	ebus := eventbus.New()
-	return cmdbus.New(enc, codec.New(), ebus, opts...), ebus, enc.Registry
+	ebus := eventbus.New[any]()
+	return cmdbus.New[any](enc, codec.New(), ebus, opts...), ebus, enc.RegistryOf
 }
 
 func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command[any]) {

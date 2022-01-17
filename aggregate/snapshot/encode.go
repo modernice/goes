@@ -47,7 +47,7 @@ type Unmarshaler interface {
 // encoding.BinaryMarshaler, a.MarshalBinary() is returned and if a implements
 // encoding.TextMarshaler, a.MarshalText is returned. If a implements none of
 // these interfaces, Marshal uses encoding/gob to marshal the snapshot.
-func Marshal(a interface{}) ([]byte, error) {
+func Marshal(a any) ([]byte, error) {
 	if m, ok := a.(Marshaler); ok {
 		return m.MarshalSnapshot()
 	}

@@ -222,7 +222,7 @@ func Any[D any](evt Event[D]) E[any] {
 func Cast[To, From any](evt Event[From]) E[To] {
 	return New(
 		evt.Name(),
-		interface{}(evt.Data()).(To),
+		any(evt.Data()).(To),
 		ID[To](evt.ID()),
 		Time[To](evt.Time()),
 		Aggregate[To](evt.Aggregate()),
@@ -233,7 +233,7 @@ func Cast[To, From any](evt Event[From]) E[To] {
 // the re-typed event. Cast returns false if the event data cannot be casted to
 // `To`.
 func TryCast[To, From any](evt Event[From]) (E[To], bool) {
-	data, ok := interface{}(evt.Data()).(To)
+	data, ok := any(evt.Data()).(To)
 	if !ok {
 		return E[To]{}, false
 	}
