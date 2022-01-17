@@ -45,10 +45,10 @@ func TestDeleteAggregate(t *testing.T) {
 	ebus := eventbus.New()
 	estore := eventstore.WithBus(eventstore.New(), ebus)
 	repo := repository.New(estore)
-	reg := codec.New[any]()
+	reg := codec.New()
 	builtin.RegisterCommands(reg)
 
-	bus := cmdbus.New(reg, ereg, ebus)
+	bus := cmdbus.New(reg, ereg.Registry, ebus)
 
 	go panicOn(builtin.MustHandle(ctx, bus, repo, builtin.PublishEvents(ebus, nil)))
 

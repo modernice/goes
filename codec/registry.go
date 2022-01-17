@@ -51,7 +51,12 @@ type Registry[T any] struct {
 }
 
 // New returns a new Registry for event data or command payloads.
-func New[T any]() *Registry[T] {
+func New() *Registry[any] {
+	return NewOf[any]()
+}
+
+// NewOf returns a new Registry that can register types of type T.
+func NewOf[T any]() *Registry[T] {
 	return &Registry[T]{
 		encoders:  make(map[string]Encoder[T]),
 		decoders:  make(map[string]Decoder[T]),

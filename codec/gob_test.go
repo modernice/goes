@@ -9,7 +9,7 @@ import (
 )
 
 func TestGobRegistry(t *testing.T) {
-	reg := codec.Gob(codec.New[any]())
+	reg := codec.Gob(codec.New())
 
 	reg.GobRegister("foo", func() interface{} { return mockDataA{} })
 

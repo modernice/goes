@@ -16,9 +16,9 @@ import (
 )
 
 func TestBus_NATS_Core(t *testing.T) {
-	ereg := codec.New[any]()
+	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New[any]())
+	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	bus := nats.NewEventBus(
 		ereg,
@@ -29,9 +29,9 @@ func TestBus_NATS_Core(t *testing.T) {
 }
 
 func TestBus_NATS_JetStream(t *testing.T) {
-	ereg := codec.New[any]()
+	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New[any]())
+	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	bus := nats.NewEventBus(
 		ereg,
@@ -45,9 +45,9 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ereg := codec.New[any]()
+	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New[any]())
+	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	bus := cmdbus.New(enc, ereg, ebus)
 

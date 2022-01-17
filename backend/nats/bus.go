@@ -91,7 +91,7 @@ type envelope struct {
 //	NewEventBus(enc, Use(JetStream()))
 func NewEventBus(enc codec.Encoding[any], opts ...EventBusOption) *EventBus {
 	if enc == nil {
-		enc = codec.New[any]()
+		enc = event.NewRegistry()
 	}
 
 	bus := &EventBus{enc: enc, stop: make(chan struct{})}

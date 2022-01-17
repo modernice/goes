@@ -19,7 +19,7 @@ import (
 func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, codec.New[any](), ebus)
+	bus := cmdbus.New(enc, codec.New(), ebus)
 	h := command.NewHandler[mockPayload](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -67,7 +67,7 @@ func TestHandler_Handle(t *testing.T) {
 func TestHandler_Handle_error(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, codec.New[any](), ebus)
+	bus := cmdbus.New(enc, codec.New(), ebus)
 	h := command.NewHandler[mockPayload](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -100,7 +100,7 @@ func TestHandler_Handle_error(t *testing.T) {
 func TestHandler_Handle_finish(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, codec.New[any](), ebus)
+	bus := cmdbus.New(enc, codec.New(), ebus)
 	h := command.NewHandler[mockPayload](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -166,7 +166,7 @@ L:
 }
 
 func newEncoder() codec.Encoding[any] {
-	reg := codec.Gob(codec.New[any]())
+	reg := codec.Gob(codec.New())
 	reg.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	return reg
 }

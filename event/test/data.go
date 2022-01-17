@@ -2,6 +2,7 @@ package test
 
 import (
 	"github.com/modernice/goes/codec"
+	"github.com/modernice/goes/event"
 )
 
 // FooEventData is a testing event data.
@@ -20,10 +21,10 @@ type FoobarEventData struct{ A int }
 // Encoder returned by NewEncoder.
 type UnregisteredEventData struct{ A string }
 
-// NewEncoder returns a "gob" event.Encoder with registered "foo", "bar" and
+// NewEncoder returns a "gob" event.Encoding with registered "foo", "bar" and
 // "baz" events.
-func NewEncoder() *codec.Registry[any] {
-	reg := codec.Gob(codec.New[any]())
+func NewEncoder() *codec.GobRegistry[any] {
+	reg := codec.Gob(event.NewRegistry())
 	reg.GobRegister("foo", func() any {
 		return FooEventData{}
 	})
@@ -36,5 +37,5 @@ func NewEncoder() *codec.Registry[any] {
 	reg.GobRegister("foobar", func() any {
 		return FoobarEventData{}
 	})
-	return reg.Registry
+	return reg
 }

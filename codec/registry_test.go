@@ -13,7 +13,7 @@ import (
 var _ codec.Encoding[any] = (*codec.Registry[any])(nil)
 
 func TestRegistry_Encode_ErrNotFound(t *testing.T) {
-	reg := codec.New[any]()
+	reg := codec.New()
 
 	var w bytes.Buffer
 	if err := reg.Encode(&w, "foo", mockDataA{}); !errors.Is(err, codec.ErrNotFound) {
@@ -22,7 +22,7 @@ func TestRegistry_Encode_ErrNotFound(t *testing.T) {
 }
 
 func TestRegistry_Encode_Decode(t *testing.T) {
-	reg := codec.New[any]()
+	reg := codec.New()
 
 	reg.Register(
 		"foo",
@@ -70,7 +70,7 @@ func TestRegistry_Encode_Decode(t *testing.T) {
 }
 
 func TestRegistry_New_ErrMissingFactory(t *testing.T) {
-	reg := codec.New[any]()
+	reg := codec.New()
 
 	if _, err := reg.New("foo"); !errors.Is(err, codec.ErrMissingFactory) {
 		t.Fatalf("New() should fail with %q for data that has no factory function; got %v", codec.ErrMissingFactory, err)
@@ -78,7 +78,7 @@ func TestRegistry_New_ErrMissingFactory(t *testing.T) {
 }
 
 func TestRegistry_New(t *testing.T) {
-	reg := codec.Gob(codec.New[any]())
+	reg := codec.Gob(codec.New())
 
 	var want mockDataA
 	reg.GobRegister("foo", func() interface{} { return want })

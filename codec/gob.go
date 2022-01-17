@@ -39,7 +39,7 @@ func GobNameFunc[T any](fn func(string) string) GobOption[T] {
 // If reg is nil, a new underlying Registry is created with New().
 func Gob[T any](reg *Registry[T], opts ...GobOption[T]) *GobRegistry[T] {
 	if reg == nil {
-		reg = New[T]()
+		reg = NewOf[T]()
 	}
 
 	r := &GobRegistry[T]{Registry: reg}

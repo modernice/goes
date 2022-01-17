@@ -18,7 +18,7 @@ type JSONRegistry[T any] struct{ *Registry[T] }
 // If reg is nil, a new underlying Registry is created with New().
 func JSON[T any](reg *Registry[T]) *JSONRegistry[T] {
 	if reg == nil {
-		reg = New[T]()
+		reg = NewOf[T]()
 	}
 	return &JSONRegistry[T]{Registry: reg}
 }

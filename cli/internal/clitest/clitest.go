@@ -16,7 +16,7 @@ import (
 
 // SetupEvents returns an event registry, bus and store.
 func SetupEvents() (*codec.Registry[any], event.Bus, event.Store) {
-	reg := codec.New[any]()
+	reg := event.NewRegistry()
 	bus := eventbus.New()
 	store := eventstore.New()
 	return reg, bus, store

@@ -19,9 +19,9 @@ import (
 )
 
 func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
-	ereg := codec.New[any]()
+	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New[any]())
+	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() interface{} { return mockPayload{} })
 	subEventBus := natsbus.New(
 		ereg,
