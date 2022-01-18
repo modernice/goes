@@ -7,7 +7,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
-	"github.com/modernice/goes/helper/fanin"
+	"github.com/modernice/goes/helper/streams"
 )
 
 const (
@@ -67,5 +67,5 @@ func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.User) <
 		})
 	})
 
-	return fanin.ErrorsContext(ctx, addErrors, removeErrors, doneErrors)
+	return streams.FanInContext(ctx, addErrors, removeErrors, doneErrors)
 }

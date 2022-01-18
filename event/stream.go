@@ -3,7 +3,7 @@ package event
 import (
 	"context"
 
-	"github.com/modernice/goes/helper/fanin"
+	"github.com/modernice/goes/helper/streams"
 )
 
 // Stream returns an Event channel that is filled and closed with the provided
@@ -57,7 +57,7 @@ func Walk[D any](
 	events <-chan EventOf[D],
 	errs ...<-chan error,
 ) error {
-	errChan, stop := fanin.Errors(errs...)
+	errChan, stop := streams.FanIn(errs...)
 	defer stop()
 
 	for {
@@ -100,7 +100,7 @@ func ForEach[D any](
 	events <-chan EventOf[D],
 	errs ...<-chan error,
 ) {
-	errChan, stop := fanin.Errors(errs...)
+	errChan, stop := streams.FanIn(errs...)
 	defer stop()
 
 	for {

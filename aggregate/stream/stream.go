@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/helper/fanin"
+	"github.com/modernice/goes/helper/streams"
 )
 
 // Option is a stream option.
@@ -171,7 +171,7 @@ func New[D any, Events ~<-chan event.EventOf[D]](events Events, opts ...Option[D
 		opt(&aes)
 	}
 
-	aes.inErrors, aes.stopErrors = fanin.Errors(aes.streamErrors...)
+	aes.inErrors, aes.stopErrors = streams.FanIn(aes.streamErrors...)
 
 	go aes.acceptEvents()
 	go aes.groupEvents()

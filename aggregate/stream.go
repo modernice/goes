@@ -3,7 +3,7 @@ package aggregate
 import (
 	"context"
 
-	"github.com/modernice/goes/helper/fanin"
+	"github.com/modernice/goes/helper/streams"
 )
 
 // Drain drains the given History channel and returns its Histories.
@@ -44,7 +44,7 @@ func Walk(
 	str <-chan History,
 	errs ...<-chan error,
 ) error {
-	errChan, stop := fanin.Errors(errs...)
+	errChan, stop := streams.FanIn(errs...)
 	defer stop()
 
 	for {
@@ -81,7 +81,7 @@ func ForEach(
 	histories <-chan History,
 	errs ...<-chan error,
 ) {
-	errChan, stop := fanin.Errors(errs...)
+	errChan, stop := streams.FanIn(errs...)
 	defer stop()
 
 	for {
@@ -137,7 +137,7 @@ func WalkRefs(
 	str <-chan Ref,
 	errs ...<-chan error,
 ) error {
-	errChan, stop := fanin.Errors(errs...)
+	errChan, stop := streams.FanIn(errs...)
 	defer stop()
 
 	for {
@@ -179,7 +179,7 @@ func ForEachRef(
 	refs <-chan Ref,
 	errs ...<-chan error,
 ) {
-	errChan, stop := fanin.Errors(errs...)
+	errChan, stop := streams.FanIn(errs...)
 	defer stop()
 
 	for {

@@ -3,7 +3,7 @@ package snapshot
 import (
 	"context"
 
-	"github.com/modernice/goes/helper/fanin"
+	"github.com/modernice/goes/helper/streams"
 )
 
 // Drain drains the given Snapshot channel and returns its Snapshots.
@@ -49,7 +49,7 @@ func Walk(
 	snaps <-chan Snapshot,
 	errs ...<-chan error,
 ) error {
-	errChan, stop := fanin.Errors(errs...)
+	errChan, stop := streams.FanIn(errs...)
 	defer stop()
 
 	for {
@@ -92,7 +92,7 @@ func ForEach(
 	str <-chan Snapshot,
 	errs ...<-chan error,
 ) {
-	errChan, stop := fanin.Errors(errs...)
+	errChan, stop := streams.FanIn(errs...)
 	defer stop()
 
 	for {

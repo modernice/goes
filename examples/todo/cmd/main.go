@@ -15,7 +15,7 @@ import (
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/examples/todo"
-	"github.com/modernice/goes/helper/fanin"
+	"github.com/modernice/goes/helper/streams"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func setupCommands(bus event.Bus) (*codec.GobRegistry, command.Bus) {
 }
 
 func logErrors(ctx context.Context, errs ...<-chan error) {
-	in := fanin.ErrorsContext(ctx, errs...)
+	in := streams.FanInContext(ctx, errs...)
 	for err := range in {
 		log.Println(err)
 	}
