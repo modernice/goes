@@ -45,7 +45,7 @@ func RegisterCommands(r *codec.GobRegistry) {
 // HandleCommands handles commands until ctx is canceled. Any asynchronous
 // errors that happen during the command handling are reported to the returned
 // error channel.
-func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.User) <-chan error {
+func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.Repository) <-chan error {
 	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.ContextOf[string]) error {
 		list := New(ctx.AggregateID())
 		return repo.Use(ctx, list, func() error {

@@ -63,26 +63,28 @@ type Repository interface {
 	//	}
 	Query(ctx context.Context, q Query) (<-chan History, <-chan error, error)
 
-	// Delete deletes an Aggregate by deleting its Events from the Event Store.
-	Delete(ctx context.Context, a Aggregate) error
-}
-
-// User is a repository that provides a convenient Use() function.
-//
-//	func example(repo User) {
-//		var a Aggregate // Initialize
-//		err := repo.Use(ctx, a, func() error {
-//			// Work with a
-//			return nil
-//		})
-//	}
-//
-// github.com/modernice/goes/aggregate/repository.Repository implement User.
-type User interface {
 	// Use first fetches the Aggregate a from the event store, then calls fn(a)
 	// and finally saves the aggregate changes. If fn returns a non-nil error,
 	// the aggregate is not saved and the error is returned.
 	Use(ctx context.Context, a Aggregate, fn func() error) error
+
+	// Delete deletes an Aggregate by deleting its Events from the Event Store.
+	Delete(ctx context.Context, a Aggregate) error
+}
+
+type TypedRepository[A Aggregate] interface {
+	Save(ctx context.Context, a Aggregate) error
+
+	Fetch(ctx context.Context, id uuid.UUID) (A, error)
+
+	FetchVersion(ctx context.Context, id uuid.UUID, v int) (A, error)
+
+	Query(ctx context.Context, q Query) (<-chan A, <-chan error, error)
+
+	Use(ctx context.Context, id uuid.UUID, fn func(A) error) error
+
+	// Delete deletes an Aggregate by deleting its Events from the Event Store.
+	Delete(ctx context.Context, a A) error
 }
 
 // Query is used by Repositories to filter aggregates.

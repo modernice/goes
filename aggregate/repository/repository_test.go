@@ -27,8 +27,8 @@ import (
 )
 
 var (
-	_ aggregate.Repository = (*repository.Repository)(nil)
-	_ aggregate.User       = (*repository.Repository)(nil)
+	_ aggregate.Repository                           = (*repository.Repository)(nil)
+	_ aggregate.TypedRepository[aggregate.Aggregate] = (*repository.TypedRepository[aggregate.Aggregate])(nil)
 )
 
 func TestRepository_Save(t *testing.T) {
