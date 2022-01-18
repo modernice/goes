@@ -1,6 +1,5 @@
 // Package nats provides an event bus that uses NATS to publish and subscribe to
-// events over a (distributed) network with support for both NATS Core and NATS
-// JetStream.
+// events over a network with support for both NATS Core and NATS JetStream.
 package nats
 
 import (

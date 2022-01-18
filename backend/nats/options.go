@@ -162,7 +162,7 @@ func SubjectPrefix(prefix string) EventBusOption {
 //
 // This option is valid only for the JetStream Driver.
 //
-// Example
+// Use Case
 //
 // The following example uses durable subscriptions while load-balancing between
 // instances of a replicated (micro-)service:
@@ -170,21 +170,7 @@ func SubjectPrefix(prefix string) EventBusOption {
 //	serviceName := "foo-service"
 //	bus := NewEventBus(enc,
 //		WithLoadBalancer(serviceName),
-//		DurableFunc(func(subject, queue string) string {
-//			// Given a subject of "foo-subject"
-//			// queue is "foo-subject_foo-service"
-//			durableName := fmt.Sprintf("%s_%s", subject, queue)
-//			// durableName is "foo-subject_foo-subject_foo-service"
-//			return durableName
-//		})
-//	)
-//
-// The example above can also be written as:
-//
-//	serviceName := "foo-service"
-//	bus := NewEventBus(enc,
-//		WithLoadBalancer(serviceName),
-//		Durable(),
+//		Durable(serviceName),
 //	)
 //
 // Read more about durable subscriptions:
