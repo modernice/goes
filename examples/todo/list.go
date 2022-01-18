@@ -1,7 +1,6 @@
 package todo
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/google/uuid"
@@ -24,10 +23,28 @@ func New(id uuid.UUID) *List {
 	}
 }
 
+func (list *List) Tasks() []string {
+	return list.tasks
+}
+
+func (list *List) Archive() []string {
+	return list.archive
+}
+
+func (list *List) Contains(task string) bool {
+	task = strings.ToLower(task)
+	for _, t := range list.tasks {
+		if strings.ToLower(t) == task {
+			return true
+		}
+	}
+	return false
+}
+
 func (list *List) Add(task string) error {
 	for _, t := range list.tasks {
 		if strings.ToLower(t) == strings.ToLower(task) {
-			return errors.New("task already exists")
+			return nil
 		}
 	}
 
@@ -41,14 +58,11 @@ func (list *List) add(evt event.EventOf[TaskAddedEvent]) {
 }
 
 func (list *List) Remove(task string) error {
-	ltask := strings.ToLower(task)
-	for _, t := range list.tasks {
-		if strings.ToLower(t) == ltask {
-			aggregate.NextEvent(list, TaskRemoved, TaskRemovedEvent{task})
-			return nil
-		}
+	if !list.Contains(task) {
+		return nil
 	}
-	return errors.New("task not found")
+	aggregate.NextEvent(list, TaskRemoved, TaskRemovedEvent{task})
+	return nil
 }
 
 func (list *List) remove(evt event.EventOf[TaskRemovedEvent]) {
@@ -64,11 +78,11 @@ func (list *List) Done(task string) error {
 	ltask := strings.ToLower(task)
 	for _, t := range list.tasks {
 		if strings.ToLower(t) == ltask {
-			aggregate.NextEvent[any](list, TaskDone, TaskDoneEvent{task})
+			aggregate.NextEvent(list, TaskDone, TaskDoneEvent{task})
 			return nil
 		}
 	}
-	return errors.New("task not found")
+	return nil
 }
 
 func (list *List) done(evt event.EventOf[TaskDoneEvent]) {

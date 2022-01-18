@@ -7,6 +7,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
+	"github.com/modernice/goes/helper/fanin"
 )
 
 const (
@@ -45,7 +46,27 @@ func RegisterCommands(r *codec.GobRegistry) {
 	r.GobRegister(DoneTaskCmd, func() any { return doneTaskPayload{} })
 }
 
-func HandleCommands[P any](ctx context.Context, bus command.Bus, repo aggregate.Repository) <-chan error {
-	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.Context[addTaskPayload]) error {
+func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.Repository) <-chan error {
+	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.ContextOf[addTaskPayload]) error {
+		list := New(ctx.AggregateID())
+		return repo.Use(ctx, list, func() error {
+			return list.Add(ctx.Payload().Task)
+		})
 	})
+
+	removeErrors := command.MustHandle(ctx, bus, RemoveTaskCmd, func(ctx command.ContextOf[removeTaskPayload]) error {
+		list := New(ctx.AggregateID())
+		return repo.Use(ctx, list, func() error {
+			return list.Remove(ctx.Payload().Task)
+		})
+	})
+
+	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.ContextOf[doneTaskPayload]) error {
+		list := New(ctx.AggregateID())
+		return repo.Use(ctx, list, func() error {
+			return list.Done(ctx.Payload().Task)
+		})
+	})
+
+	return fanin.ErrorsContext(ctx, addErrors, removeErrors, doneErrors)
 }
