@@ -10,12 +10,13 @@ const (
 	TaskDone    = "todo.list.task_done"
 )
 
-type TaskAddedEvent struct{ Task string }
+type (
+	TaskAddedEvent   struct{ Task string }
+	TaskRemovedEvent struct{ Task string }
+	TaskDoneEvent    struct{ Tasks []string }
+)
 
-type TaskRemovedEvent struct{ Task string }
-
-type TaskDoneEvent struct{ Task string }
-
+// RegisterEvents registers events into a registry.
 func RegisterEvents(r *codec.GobRegistry) {
 	r.GobRegister(TaskAdded, func() any { return TaskAddedEvent{} })
 	r.GobRegister(TaskRemoved, func() any { return TaskRemovedEvent{} })

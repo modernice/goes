@@ -76,6 +76,8 @@ type Repository interface {
 //			return nil
 //		})
 //	}
+//
+// github.com/modernice/goes/aggregate/repository.Repository implement User.
 type User interface {
 	// Use first fetches the Aggregate a from the event store, then calls fn(a)
 	// and finally saves the aggregate changes. If fn returns a non-nil error,

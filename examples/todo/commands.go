@@ -16,55 +16,54 @@ const (
 	DoneTaskCmd   = "todo.list.done_task"
 )
 
-type addTaskPayload struct {
-	Task string
+// AddTask returns the command to add the given task to the given todo list.
+func AddTask(listID uuid.UUID, task string) command.Cmd[string] {
+	return command.New(AddTaskCmd, task, command.Aggregate[string](listID, ListAggregate))
 }
 
-func AddTask(listID uuid.UUID, task string) command.Cmd[addTaskPayload] {
-	return command.New(AddTaskCmd, addTaskPayload{task}, command.Aggregate[addTaskPayload](listID, ListAggregate))
+// RemoveTask removes the command to remove the given task from the given todo list.
+func RemoveTask(listID uuid.UUID, task string) command.Cmd[string] {
+	return command.New(RemoveTaskCmd, task, command.Aggregate[string](listID, ListAggregate))
 }
 
-type removeTaskPayload struct {
-	Task string
+type donePayload struct {
+	Tasks []string
 }
 
-func RemoveTask(listID uuid.UUID, task string) command.Cmd[removeTaskPayload] {
-	return command.New(RemoveTaskCmd, removeTaskPayload{task}, command.Aggregate[removeTaskPayload](listID, ListAggregate))
+// DoneTasks returns the command to mark the given tasks within the given list a done.
+func DoneTasks(listID uuid.UUID, tasks ...string) command.Cmd[donePayload] {
+	return command.New(DoneTaskCmd, donePayload{tasks}, command.Aggregate[donePayload](listID, ListAggregate))
 }
 
-type doneTaskPayload struct {
-	Task string
-}
-
-func DoneTask(listID uuid.UUID, task string) command.Cmd[doneTaskPayload] {
-	return command.New(DoneTaskCmd, doneTaskPayload{task}, command.Aggregate[doneTaskPayload](listID, ListAggregate))
-}
-
+// RegisterCommands registers commands into a registry.
 func RegisterCommands(r *codec.GobRegistry) {
-	r.GobRegister(AddTaskCmd, func() any { return addTaskPayload{} })
-	r.GobRegister(RemoveTaskCmd, func() any { return removeTaskPayload{} })
-	r.GobRegister(DoneTaskCmd, func() any { return doneTaskPayload{} })
+	r.GobRegister(AddTaskCmd, func() any { return "" })
+	r.GobRegister(RemoveTaskCmd, func() any { return "" })
+	r.GobRegister(DoneTaskCmd, func() any { return donePayload{} })
 }
 
-func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.Repository) <-chan error {
-	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.ContextOf[addTaskPayload]) error {
+// HandleCommands handles commands until ctx is canceled. Any asynchronous
+// errors that happen during the command handling are reported to the returned
+// error channel.
+func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.User) <-chan error {
+	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.ContextOf[string]) error {
 		list := New(ctx.AggregateID())
 		return repo.Use(ctx, list, func() error {
-			return list.Add(ctx.Payload().Task)
+			return list.Add(ctx.Payload())
 		})
 	})
 
-	removeErrors := command.MustHandle(ctx, bus, RemoveTaskCmd, func(ctx command.ContextOf[removeTaskPayload]) error {
+	removeErrors := command.MustHandle(ctx, bus, RemoveTaskCmd, func(ctx command.ContextOf[string]) error {
 		list := New(ctx.AggregateID())
 		return repo.Use(ctx, list, func() error {
-			return list.Remove(ctx.Payload().Task)
+			return list.Remove(ctx.Payload())
 		})
 	})
 
-	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.ContextOf[doneTaskPayload]) error {
+	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.ContextOf[donePayload]) error {
 		list := New(ctx.AggregateID())
 		return repo.Use(ctx, list, func() error {
-			return list.Done(ctx.Payload().Task)
+			return list.Done(ctx.Payload().Tasks...)
 		})
 	})
 

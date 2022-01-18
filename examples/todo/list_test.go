@@ -78,8 +78,9 @@ func TestList_Done(t *testing.T) {
 	list := todo.New(uuid.New())
 
 	list.Add("foo")
+	list.Add("bar")
 
-	if err := list.Done("foo"); err != nil {
+	if err := list.Done("foo", "bar"); err != nil {
 		t.Fatalf("Done(%q) failed with %q", "foo", err)
 	}
 
@@ -87,7 +88,11 @@ func TestList_Done(t *testing.T) {
 		t.Fatalf("List shouldn't contain the task %q after marking as done", "foo")
 	}
 
+	if list.Contains("bar") {
+		t.Fatalf("List shouldn't contain the task %q after marking as done", "bar")
+	}
+
 	test.Change(t, list, todo.TaskDone, test.EventData(todo.TaskDoneEvent{
-		Task: "foo",
+		Tasks: []string{"foo", "bar"},
 	}))
 }
