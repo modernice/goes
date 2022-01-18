@@ -41,16 +41,15 @@ func TestDeleteAggregate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ereg := test.NewEncoder()
-	ebus := eventbus.New[any]()
-	estore := eventstore.WithBus(eventstore.New[any](), ebus)
+	ebus := eventbus.New()
+	estore := eventstore.WithBus(eventstore.New(), ebus)
 	repo := repository.New(estore)
 	reg := codec.New()
 	builtin.RegisterCommands(reg)
 
-	bus := cmdbus.New[any](reg, ereg.RegistryOf, ebus)
+	bus := cmdbus.New(reg, ebus)
 
-	go panicOn(builtin.MustHandle[any, any](ctx, bus, repo, builtin.PublishEvents[any](ebus, nil)))
+	go panicOn(builtin.MustHandle[any](ctx, bus, repo, builtin.PublishEvents(ebus, nil)))
 
 	foo := newMockAggregate(aggregateID)
 	newMockEvent(foo, 2)
@@ -87,7 +86,7 @@ func TestDeleteAggregate(t *testing.T) {
 	awaitCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
-	str, errs := event.Must(eventbus.Await(awaitCtx, ebus, builtin.AggregateDeleted))
+	str, errs := event.Must(eventbus.Await[any](awaitCtx, ebus, builtin.AggregateDeleted))
 
 	if err := bus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 		t.Fatalf("dispatch command: %v", err)

@@ -150,7 +150,7 @@ func Filter[D any](fns ...func(event.EventOf[D]) bool) Option[D] {
 //		foo := newFoo(h.AggregateID())
 //		h.Apply(foo)
 //	}
-func New[D any](events <-chan event.EventOf[D], opts ...Option[D]) (<-chan aggregate.History, <-chan error) {
+func New[D any, Events ~<-chan event.EventOf[D]](events Events, opts ...Option[D]) (<-chan aggregate.History, <-chan error) {
 	if events == nil {
 		evts := make(chan event.EventOf[D])
 		close(evts)

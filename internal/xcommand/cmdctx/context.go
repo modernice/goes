@@ -30,7 +30,7 @@ func WhenDone[P any](fn func(context.Context, finish.Config) error) Option[P] {
 }
 
 // New returns a Context for the given Command.
-func New[P any](base context.Context, cmd command.CommandOf[P], opts ...Option[P]) command.Context[P] {
+func New[P any](base context.Context, cmd command.CommandOf[P], opts ...Option[P]) command.ContextOf[P] {
 	ctx := cmdctx[P]{
 		Context:   base,
 		CommandOf: cmd,

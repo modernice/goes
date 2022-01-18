@@ -10,16 +10,16 @@ import (
 	"github.com/modernice/goes/projection"
 )
 
-type schedule[E any] struct {
-	store      event.Store[E]
+type schedule struct {
+	store      event.Store
 	eventNames []string
 
 	triggersMux sync.RWMutex
 	triggers    []chan projection.Trigger
 }
 
-func newSchedule[E any](store event.Store[E], eventNames []string) *schedule[E] {
-	return &schedule[E]{
+func newSchedule(store event.Store, eventNames []string) *schedule {
+	return &schedule{
 		store:      store,
 		eventNames: eventNames,
 	}
@@ -77,7 +77,7 @@ func newSchedule[E any](store event.Store[E], eventNames []string) *schedule[E] 
 //	})
 //
 //	schedule.Trigger(context.TODO())
-func (schedule *schedule[E]) Trigger(ctx context.Context, opts ...projection.TriggerOption) error {
+func (schedule *schedule) Trigger(ctx context.Context, opts ...projection.TriggerOption) error {
 	schedule.triggersMux.RLock()
 	triggers := make([]chan projection.Trigger, len(schedule.triggers))
 	copy(triggers, schedule.triggers)
@@ -94,7 +94,7 @@ func (schedule *schedule[E]) Trigger(ctx context.Context, opts ...projection.Tri
 	return nil
 }
 
-func (schedule *schedule[E]) newTriggers() <-chan projection.Trigger {
+func (schedule *schedule) newTriggers() <-chan projection.Trigger {
 	schedule.triggersMux.Lock()
 	defer schedule.triggersMux.Unlock()
 
@@ -104,7 +104,7 @@ func (schedule *schedule[E]) newTriggers() <-chan projection.Trigger {
 	return triggers
 }
 
-func (schedule *schedule[E]) newTrigger(opts ...projection.TriggerOption) projection.Trigger {
+func (schedule *schedule) newTrigger(opts ...projection.TriggerOption) projection.Trigger {
 	t := projection.NewTrigger(opts...)
 	if t.Query == nil {
 		t.Query = query.New(query.Name(schedule.eventNames...), query.SortBy(event.SortTime, event.SortAsc))
@@ -112,7 +112,7 @@ func (schedule *schedule[E]) newTrigger(opts ...projection.TriggerOption) projec
 	return t
 }
 
-func (schedule *schedule[E]) removeTriggers(triggers <-chan projection.Trigger) {
+func (schedule *schedule) removeTriggers(triggers <-chan projection.Trigger) {
 	schedule.triggersMux.Lock()
 	defer schedule.triggersMux.Unlock()
 	for i, striggers := range schedule.triggers {
@@ -123,10 +123,10 @@ func (schedule *schedule[E]) removeTriggers(triggers <-chan projection.Trigger) 
 	}
 }
 
-func (schedule *schedule[E]) handleTriggers(
+func (schedule *schedule) handleTriggers(
 	ctx context.Context,
 	triggers <-chan projection.Trigger,
-	jobs chan<- projection.Job[E],
+	jobs chan<- projection.Job,
 	out chan<- error,
 	wg *sync.WaitGroup,
 ) {
@@ -137,13 +137,13 @@ func (schedule *schedule[E]) handleTriggers(
 		case <-ctx.Done():
 			return
 		case trigger := <-triggers:
-			opts := []projection.JobOption[E]{
-				projection.WithHistoryStore(schedule.store),
-				projection.WithFilter[E](trigger.Filter...),
+			opts := []projection.JobOption{
+				projection.WithHistoryStore[any](schedule.store),
+				projection.WithFilter[any](trigger.Filter...),
 			}
 
 			if trigger.Reset {
-				opts = append(opts, projection.WithReset[E]())
+				opts = append(opts, projection.WithReset[any]())
 			}
 
 			job := projection.NewJob(ctx, schedule.store, trigger.Query, opts...)
@@ -157,10 +157,10 @@ func (schedule *schedule[E]) handleTriggers(
 	}
 }
 
-func (schedule *schedule[E]) applyJobs(
+func (schedule *schedule) applyJobs(
 	ctx context.Context,
-	apply func(projection.Job[E]) error,
-	jobs <-chan projection.Job[E],
+	apply func(projection.Job) error,
+	jobs <-chan projection.Job,
 	out chan<- error,
 	done chan struct{},
 ) {

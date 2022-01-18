@@ -22,15 +22,15 @@ import (
 //	errs, err := s.Subscribe(context.TODO(), func(job projection.Job) error {
 //		return job.Apply(job, proj)
 //	})
-type Continuous[E any] struct {
-	*schedule[E]
+type Continuous struct {
+	*schedule
 
-	bus      event.Bus[E]
+	bus      event.Bus
 	debounce time.Duration
 }
 
 // ContinuousOption is an option for the Continuous schedule.
-type ContinuousOption[E any] func(*Continuous[E])
+type ContinuousOption func(*Continuous)
 
 // Debounce returns a ContinuousOption that debounces projection Jobs by the
 // given Duration. When multiple Events are published within the given Duration,
@@ -51,8 +51,8 @@ type ContinuousOption[E any] func(*Continuous[E])
 //		event.New("bar", ...),
 //		event.New("baz", ...),
 //	)
-func Debounce[E any](d time.Duration) ContinuousOption[E] {
-	return func(c *Continuous[E]) {
+func Debounce(d time.Duration) ContinuousOption {
+	return func(c *Continuous) {
 		c.debounce = d
 	}
 }
@@ -70,8 +70,8 @@ func Debounce[E any](d time.Duration) ContinuousOption[E] {
 //	var bus event.Bus
 //	var store event.Store
 //	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(time.Second))
-func Continuously[E any](bus event.Bus[E], store event.Store[E], eventNames []string, opts ...ContinuousOption[E]) *Continuous[E] {
-	c := Continuous[E]{
+func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ...ContinuousOption) *Continuous {
+	c := Continuous{
 		schedule: newSchedule(store, eventNames),
 		bus:      bus,
 	}
@@ -111,14 +111,14 @@ func Continuously[E any](bus event.Bus[E], store event.Store[E], eventNames []st
 //
 // When the schedule is triggered by calling schedule.Trigger, a projection Job
 // will be created and passed to apply.
-func (schedule *Continuous[E]) Subscribe(ctx context.Context, apply func(projection.Job[E]) error) (<-chan error, error) {
+func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection.Job) error) (<-chan error, error) {
 	events, errs, err := schedule.bus.Subscribe(ctx, schedule.eventNames...)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to events: %w (Events=%v)", err, schedule.eventNames)
 	}
 
 	out := make(chan error)
-	jobs := make(chan projection.Job[E])
+	jobs := make(chan projection.Job)
 	triggers := schedule.newTriggers()
 	done := make(chan struct{})
 
@@ -141,11 +141,11 @@ func (schedule *Continuous[E]) Subscribe(ctx context.Context, apply func(project
 	return out, nil
 }
 
-func (schedule *Continuous[E]) handleEvents(
+func (schedule *Continuous) handleEvents(
 	ctx context.Context,
-	events <-chan event.EventOf[E],
+	events <-chan event.Event,
 	errs <-chan error,
-	jobs chan<- projection.Job[E],
+	jobs chan<- projection.Job,
 	out chan<- error,
 	wg *sync.WaitGroup,
 ) {
@@ -159,7 +159,7 @@ func (schedule *Continuous[E]) handleEvents(
 	}
 
 	var mux sync.Mutex
-	var buf []event.EventOf[E]
+	var buf []event.Event
 	var debounce *time.Timer
 
 	defer func() {
@@ -174,14 +174,14 @@ func (schedule *Continuous[E]) handleEvents(
 		mux.Lock()
 		defer mux.Unlock()
 
-		events := make([]event.EventOf[E], len(buf))
+		events := make([]event.Event, len(buf))
 		copy(events, buf)
 
-		job := projection.NewJob[E](
+		job := projection.NewJob(
 			ctx,
 			eventstore.New(events...),
 			query.New(query.SortBy(event.SortTime, event.SortAsc)),
-			projection.WithHistoryStore[E](schedule.store),
+			projection.WithHistoryStore[any](schedule.store),
 		)
 
 		select {
@@ -193,7 +193,7 @@ func (schedule *Continuous[E]) handleEvents(
 		debounce = nil
 	}
 
-	addEvent := func(evt event.EventOf[E]) {
+	addEvent := func(evt event.Event) {
 		mux.Lock()
 
 		if debounce != nil {

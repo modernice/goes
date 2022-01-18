@@ -36,16 +36,16 @@ type CommandOf[P any] interface {
 }
 
 // A Bus dispatches Commands to appropriate handlers.
-type Bus[P any] interface {
+type Bus interface {
 	// Dispatch sends the Command to the appropriate subscriber. Dispatch must
 	// only return nil if the Command has been successfully received by a
 	// subscriber.
-	Dispatch(context.Context, CommandOf[P], ...DispatchOption) error
+	Dispatch(context.Context, Command, ...DispatchOption) error
 
 	// Subscribe subscribes to Commands with the given names and returns a
 	// channel of Contexts. Implementations of Bus must ensure that Commands
 	// aren't received by multiple subscribers.
-	Subscribe(ctx context.Context, names ...string) (<-chan Context[P], <-chan error, error)
+	Subscribe(ctx context.Context, names ...string) (<-chan ContextOf[any], <-chan error, error)
 }
 
 // Config is the configuration for dispatching a Command.
@@ -71,8 +71,10 @@ type Reporter interface {
 	Report(report.Report)
 }
 
+type Context = ContextOf[any]
+
 // Context is the context for handling Commands.
-type Context[P any] interface {
+type ContextOf[P any] interface {
 	context.Context
 	CommandOf[P]
 

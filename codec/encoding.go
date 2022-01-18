@@ -2,12 +2,12 @@ package codec
 
 import "io"
 
-type Encoding[T any] interface {
+type Encoding interface {
 	// Encode encodes the given data using the configured encoder for the given name.
-	Encode(w io.Writer, name string, data T) error
+	Encode(w io.Writer, name string, data any) error
 
 	// Decode decodes the data in r using the configured decoder for the given name.
-	Decode(r io.Reader, name string) (T, error)
+	Decode(r io.Reader, name string) (any, error)
 }
 
 // Encoder is an encoder for a specific event data or command payload.

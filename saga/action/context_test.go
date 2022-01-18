@@ -10,13 +10,13 @@ import (
 type mockPayload struct{}
 
 func TestContext(t *testing.T) {
-	var ctx action.Context[any, any]
+	var ctx action.Context
 	var _ context.Context = ctx
 }
 
 func TestContext_Current(t *testing.T) {
 	parent := context.Background()
-	act := action.New[any, any]("foo", func(c action.Context[any, any]) error { return nil })
+	act := action.New("foo", func(c action.Context) error { return nil })
 	ctx := action.NewContext(parent, act)
 
 	if ctx.Action() != act {
@@ -30,7 +30,7 @@ func TestContext_Current(t *testing.T) {
 
 // 	ctx := action.NewContext(
 // 		context.Background(),
-// 		action.New[any, any]("foo", func(c action.Context[E, C]) error { return nil }),
+// 		action.New("foo", func(c action.Context[E, C]) error { return nil }),
 // 	)
 
 // 	evt := event.New("foo", test.FooEventData{})
@@ -41,7 +41,7 @@ func TestContext_Current(t *testing.T) {
 // 	bus := mock_event.NewMockBus(ctrl)
 // 	ctx = action.NewContext(
 // 		context.Background(),
-// 		action.New[any, any]("foo", func(c action.Context[E, C]) error { return nil }),
+// 		action.New("foo", func(c action.Context[E, C]) error { return nil }),
 // 		action.WithEventBus(bus),
 // 	)
 
@@ -54,7 +54,7 @@ func TestContext_Current(t *testing.T) {
 // 	bus = mock_event.NewMockBus(ctrl)
 // 	ctx = action.NewContext(
 // 		context.Background(),
-// 		action.New[any, any]("foo", func(c action.Context[E, C]) error { return nil }),
+// 		action.New("foo", func(c action.Context[E, C]) error { return nil }),
 // 		action.WithEventBus(bus),
 // 	)
 
@@ -72,7 +72,7 @@ func TestContext_Current(t *testing.T) {
 
 // 	ctx := action.NewContext(
 // 		context.Background(),
-// 		action.New[any, any]("foo", func(c action.Context[E, C]) error { return nil }),
+// 		action.New("foo", func(c action.Context[E, C]) error { return nil }),
 // 	)
 
 // 	cmd := command.New("foo", mockPayload{})
@@ -83,7 +83,7 @@ func TestContext_Current(t *testing.T) {
 // 	bus := mock_command.NewMockBus(ctrl)
 // 	ctx = action.NewContext(
 // 		context.Background(),
-// 		action.New[any, any]("foo", func(c action.Context[E, C]) error { return nil }),
+// 		action.New("foo", func(c action.Context[E, C]) error { return nil }),
 // 		action.WithCommandBus(bus),
 // 	)
 
@@ -102,7 +102,7 @@ func TestContext_Current(t *testing.T) {
 // 	bus = mock_command.NewMockBus(ctrl)
 // 	ctx = action.NewContext(
 // 		context.Background(),
-// 		action.New[any, any]("foo", func(c action.Context[E, C]) error { return nil }),
+// 		action.New("foo", func(c action.Context[E, C]) error { return nil }),
 // 		action.WithCommandBus(bus),
 // 	)
 
@@ -121,7 +121,7 @@ func TestContext_Current(t *testing.T) {
 func TestContext_Run(t *testing.T) {
 	ctx := action.NewContext(
 		context.Background(),
-		action.New[any, any]("foo", func(c action.Context[any, any]) error { return nil }),
+		action.New("foo", func(c action.Context) error { return nil }),
 	)
 
 	if err := ctx.Run(context.Background(), "bar"); err != nil {
@@ -135,8 +135,8 @@ func TestContext_Run_customRunner(t *testing.T) {
 	var calledName string
 	ctx := action.NewContext(
 		context.Background(),
-		action.New[any, any]("foo", func(c action.Context[any, any]) error { return nil }),
-		action.WithRunner[any, any](func(_ context.Context, name string) error {
+		action.New("foo", func(c action.Context) error { return nil }),
+		action.WithRunner(func(_ context.Context, name string) error {
 			called = true
 			calledName = name
 			return nil
@@ -165,7 +165,7 @@ func TestContext_Run_customRunner(t *testing.T) {
 
 // 	ctx := action.NewContext(
 // 		context.Background(),
-// 		action.New[any, any]("foo", func(ctx action.Context[E, C]) error { return nil }),
+// 		action.New("foo", func(ctx action.Context[E, C]) error { return nil }),
 // 		action.WithRepository(repo),
 // 	)
 

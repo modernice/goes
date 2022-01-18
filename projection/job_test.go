@@ -302,7 +302,7 @@ func TestJob_Events_cache(t *testing.T) {
 	store, _ := newEventStore(t, storeEvents...)
 	delayedStore := newDelayedEventStore(store, 100*time.Millisecond)
 
-	job := projection.NewJob[any](ctx, delayedStore, query.New())
+	job := projection.NewJob(ctx, delayedStore, query.New())
 
 	start := time.Now()
 	str, errs, err := job.Events(job)
@@ -410,8 +410,8 @@ func TestWithReset(t *testing.T) {
 	}
 }
 
-func newEventStore(t *testing.T, events ...event.EventOf[any]) (event.Store[any], []event.EventOf[any]) {
-	store := eventstore.New[any]()
+func newEventStore(t *testing.T, events ...event.EventOf[any]) (event.Store, []event.EventOf[any]) {
+	store := eventstore.New()
 	now := time.Now()
 	if len(events) == 0 {
 		events = []event.EventOf[any]{
@@ -427,11 +427,11 @@ func newEventStore(t *testing.T, events ...event.EventOf[any]) (event.Store[any]
 }
 
 type delayedEventStore struct {
-	event.Store[any]
+	event.Store
 	delay time.Duration
 }
 
-func newDelayedEventStore(store event.Store[any], delay time.Duration) *delayedEventStore {
+func newDelayedEventStore(store event.Store, delay time.Duration) *delayedEventStore {
 	return &delayedEventStore{Store: store, delay: delay}
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/modernice/goes/codec"
 )
 
-var _ codec.Encoding[any] = (*codec.RegistryOf[any])(nil)
+var _ codec.Encoding = (*codec.Registry)(nil)
 
 func TestRegistry_Encode_ErrNotFound(t *testing.T) {
 	reg := codec.New()

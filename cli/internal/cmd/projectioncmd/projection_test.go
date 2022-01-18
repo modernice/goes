@@ -48,7 +48,7 @@ func TestCommand_Trigger(t *testing.T) {
 	_, bus, store := clitest.SetupEvents()
 	schedule := schedule.Continuously(bus, store, []string{"foo"})
 	received := make(chan struct{})
-	subscribeErrors, err := schedule.Subscribe(ctx, func(projection.Job[any]) error {
+	subscribeErrors, err := schedule.Subscribe(ctx, func(projection.Job) error {
 		received <- struct{}{}
 		return nil
 	})
@@ -118,7 +118,7 @@ func TestCommand_Trigger_reset(t *testing.T) {
 	schedule := schedule.Continuously(bus, store, []string{"foo"})
 	proj := projectiontest.NewMockResetProjection(8)
 	applied := make(chan struct{})
-	subscribeErrors, err := schedule.Subscribe(ctx, func(job projection.Job[any]) error {
+	subscribeErrors, err := schedule.Subscribe(ctx, func(job projection.Job) error {
 		defer close(applied)
 		return job.Apply(job, proj)
 	})

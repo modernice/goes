@@ -21,19 +21,19 @@ var (
 )
 
 // Context is the context for running actions.
-type Context[E, C any] interface {
+type Context interface {
 	context.Context
 
 	// Action returns the currently executed Action.
-	Action() Action[E, C]
+	Action() Action
 
 	// Publish publishes the given Events via the underlying Event Bus. If no
 	// Event Bus is available, Publish returns ErrMissingBus.
-	Publish(context.Context, ...event.EventOf[E]) error
+	Publish(context.Context, ...event.Event) error
 
 	// Dispatch synchronously dispatches the given Command via the underlying
 	// Command Bus. If no Command Bus is available, Dispatch returns ErrMissingBus.
-	Dispatch(context.Context, command.CommandOf[C], ...command.DispatchOption) error
+	Dispatch(context.Context, command.Command, ...command.DispatchOption) error
 
 	// Fetch fetches the provided Aggregate from the underlying Aggregate
 	// Repository. If no Aggregate Repository is available, Fetch returns
@@ -45,52 +45,52 @@ type Context[E, C any] interface {
 }
 
 // A ContextOption configures a Context.
-type ContextOption[E, C any] func(*actionContext[E, C])
+type ContextOption func(*actionContext)
 
-type actionContext[E, C any] struct {
+type actionContext struct {
 	context.Context
 
-	act        Action[E, C]
-	eventBus   event.Bus[E]
-	commandBus command.Bus[C]
+	act        Action
+	eventBus   event.Bus
+	commandBus command.Bus
 	repo       aggregate.Repository
 	run        func(context.Context, string) error
 }
 
 // WithEventBus returns a ContextOption that provides the Context with an
 // event.Bus.
-func WithEventBus[E, C any](bus event.Bus[E]) ContextOption[E, C] {
-	return func(cfg *actionContext[E, C]) {
+func WithEventBus(bus event.Bus) ContextOption {
+	return func(cfg *actionContext) {
 		cfg.eventBus = bus
 	}
 }
 
 // WithCommandBus returns a ContextOption that provides the Context with a
 // command.Bus.
-func WithCommandBus[E, C any](bus command.Bus[C]) ContextOption[E, C] {
-	return func(cfg *actionContext[E, C]) {
+func WithCommandBus(bus command.Bus) ContextOption {
+	return func(cfg *actionContext) {
 		cfg.commandBus = bus
 	}
 }
 
 // WithRunner returns a ContextOption that specifies the runner function that is
 // called when ctx.Run is called.
-func WithRunner[E, C any](run func(context.Context, string) error) ContextOption[E, C] {
-	return func(cfg *actionContext[E, C]) {
+func WithRunner(run func(context.Context, string) error) ContextOption {
+	return func(cfg *actionContext) {
 		cfg.run = run
 	}
 }
 
 // WithRepository returns a ContextOption that provides the Context with an .
-func WithRepository[E, C any](r aggregate.Repository) ContextOption[E, C] {
-	return func(cfg *actionContext[E, C]) {
+func WithRepository(r aggregate.Repository) ContextOption {
+	return func(cfg *actionContext) {
 		cfg.repo = r
 	}
 }
 
 // NewContext returns a new Context for the given Action.
-func NewContext[E, C any](parent context.Context, act Action[E, C], opts ...ContextOption[E, C]) Context[E, C] {
-	ctx := &actionContext[E, C]{
+func NewContext(parent context.Context, act Action, opts ...ContextOption) Context {
+	ctx := &actionContext{
 		Context: parent,
 		act:     act,
 	}
@@ -100,18 +100,18 @@ func NewContext[E, C any](parent context.Context, act Action[E, C], opts ...Cont
 	return ctx
 }
 
-func (ctx *actionContext[E, C]) Action() Action[E, C] {
+func (ctx *actionContext) Action() Action {
 	return ctx.act
 }
 
-func (ctx *actionContext[E, C]) Publish(c context.Context, events ...event.EventOf[E]) error {
+func (ctx *actionContext) Publish(c context.Context, events ...event.Event) error {
 	if ctx.eventBus == nil {
 		return ErrMissingBus
 	}
 	return ctx.eventBus.Publish(c, events...)
 }
 
-func (ctx *actionContext[E, C]) Dispatch(c context.Context, cmd command.CommandOf[C], opts ...command.DispatchOption) error {
+func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command, opts ...command.DispatchOption) error {
 	if ctx.commandBus == nil {
 		return ErrMissingBus
 	}
@@ -119,14 +119,14 @@ func (ctx *actionContext[E, C]) Dispatch(c context.Context, cmd command.CommandO
 	return ctx.commandBus.Dispatch(c, cmd, opts...)
 }
 
-func (ctx *actionContext[E, C]) Fetch(c context.Context, a aggregate.Aggregate) error {
+func (ctx *actionContext) Fetch(c context.Context, a aggregate.Aggregate) error {
 	if ctx.repo == nil {
 		return ErrMissingRepository
 	}
 	return ctx.repo.Fetch(c, a)
 }
 
-func (ctx *actionContext[E, C]) Run(c context.Context, name string) error {
+func (ctx *actionContext) Run(c context.Context, name string) error {
 	if ctx.run == nil {
 		return nil
 	}

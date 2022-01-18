@@ -39,14 +39,14 @@ func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 			stan.NatsURL(os.Getenv("STAN_URL")),
 		)),
 	)
-	subBus := cmdbus.New[any](enc, ereg, subEventBus)
-	pubBus := cmdbus.New[any](enc, ereg, pubEventBus)
+	subBus := cmdbus.New(enc, subEventBus)
+	pubBus := cmdbus.New(enc, pubEventBus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	h := command.NewHandler[any](subBus)
-	errs, err := h.Handle(ctx, "foo-cmd", func(command.Context[any]) error {
+	errs, err := h.Handle(ctx, "foo-cmd", func(command.Context) error {
 		return nil
 	})
 	if err != nil {

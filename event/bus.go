@@ -5,9 +5,9 @@ package event
 import "context"
 
 // Bus is the pub-sub client for events.
-type Bus[D any] interface {
+type Bus interface {
 	// Publish publishes the given events to subscribers of those events.
-	Publish(ctx context.Context, events ...EventOf[D]) error
+	Publish(ctx context.Context, events ...Event) error
 
 	// Subscribe returns a channel of Events and a channel of asynchronous errors.
 	// Only Events whose name is one of the provided names will be received from the
@@ -23,7 +23,7 @@ type Bus[D any] interface {
 	// Callers of Subscribe must ensure that errors are received from the
 	// returned error channel; otherwise the Bus may be blocked by the error
 	// channel.
-	Subscribe(ctx context.Context, names ...string) (<-chan EventOf[D], <-chan error, error)
+	Subscribe(ctx context.Context, names ...string) (<-chan Event, <-chan error, error)
 }
 
 // Must can be used to panic on failed event subscriptions:

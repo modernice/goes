@@ -33,7 +33,7 @@ func IgnoreProgress() ApplyOption {
 //
 // If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
 // is called for every applied Event evt.
-func Apply[D any](proj EventApplier[D], events []event.EventOf[D], opts ...ApplyOption) error {
+func Apply[D any, Events ~[]event.EventOf[D]](proj EventApplier[D], events Events, opts ...ApplyOption) error {
 	if len(events) == 0 {
 		return nil
 	}

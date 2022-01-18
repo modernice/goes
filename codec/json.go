@@ -10,33 +10,38 @@ import (
 // A JSONRegistry allows registering data into a Registry using factory
 // functions. Data that is registered via a JSONRegistry will be encoded and
 // decoded using the encoding/json package.
-type JSONRegistry[T any] struct{ *RegistryOf[T] }
+type JSONRegistry struct{ *Registry }
 
 // JSON wraps the given Registry in a JSONRegistry. The JSONRegistry provides a
 // JSONRegister function to register data using a factory function.
 //
 // If reg is nil, a new underlying Registry is created with New().
-func JSON[T any](reg *RegistryOf[T]) *JSONRegistry[T] {
+func JSON(reg *Registry) *JSONRegistry {
 	if reg == nil {
-		reg = NewOf[T]()
+		reg = New()
 	}
-	return &JSONRegistry[T]{RegistryOf: reg}
+	return &JSONRegistry{Registry: reg}
 }
 
-// JSONRegister registers data with the given name into the underlying registry.
-// makeFunc is used create instances of the data and encoding/json will be used
-// to encode and decode the data returned by makeFunc.
-func (reg *JSONRegistry[T]) JSONRegister(name string, makeFunc func() T) {
+func JSONRegister[T any](r *JSONRegistry, name string, makeFunc func() T) {
 	if makeFunc == nil {
 		panic("[goes/codec.JSONRegistry.JSONRegister] nil makeFunc")
 	}
 
-	reg.RegistryOf.Register(
+	Register[T](
+		r.Registry,
 		name,
 		jsonEncoder[T]{},
 		jsonDecoder[T]{name: name, makeFunc: makeFunc},
 		makeFunc,
 	)
+}
+
+// JSONRegister registers data with the given name into the underlying registry.
+// makeFunc is used create instances of the data and encoding/json will be used
+// to encode and decode the data returned by makeFunc.
+func (reg *JSONRegistry) JSONRegister(name string, makeFunc func() any) {
+	JSONRegister(reg, name, makeFunc)
 }
 
 type jsonEncoder[T any] struct{}

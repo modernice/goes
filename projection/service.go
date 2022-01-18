@@ -45,7 +45,7 @@ type TriggerAcceptedData struct {
 // Schedules that are registered in Services that communicate over the same
 // event bus.
 type Service[E any] struct {
-	bus            event.Bus[any]
+	bus            event.Bus
 	triggerTimeout time.Duration
 
 	schedulesMux sync.RWMutex
@@ -69,7 +69,7 @@ type Schedule[E any] interface {
 	//	for err := range errs {
 	//		log.Printf("projection failed: %v\n", err)
 	//	}
-	Subscribe(context.Context, func(Job[E]) error) (<-chan error, error)
+	Subscribe(context.Context, func(Job) error) (<-chan error, error)
 
 	// Trigger manually triggers the Schedule immediately. A Job is created and
 	// passed to every subscriber of the Schedule. Trigger does not wait for the
@@ -157,7 +157,7 @@ func TriggerTimeout[E any](d time.Duration) ServiceOption[E] {
 //	)
 //
 //	errs, err := svc.Run(context.TODO())
-func NewService[E any](bus event.Bus[any], opts ...ServiceOption[E]) *Service[E] {
+func NewService[E any](bus event.Bus, opts ...ServiceOption[E]) *Service[E] {
 	svc := Service[E]{
 		bus:            bus,
 		triggerTimeout: DefaultTriggerTimeout,

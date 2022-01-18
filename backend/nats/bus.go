@@ -39,7 +39,7 @@ var (
 //	var enc codec.Encoding
 //	bus := nats.NewEventBus(enc, nats.Use(nats.JetStream()))
 type EventBus struct {
-	enc codec.Encoding[any]
+	enc codec.Encoding
 
 	eatErrors   bool
 	url         string
@@ -89,7 +89,7 @@ type envelope struct {
 // If no other specified, the returned event bus will use the NATS Core Driver.
 // To use the NATS JetStream Driver instead, explicitly set the Driver:
 //	NewEventBus(enc, Use(JetStream()))
-func NewEventBus(enc codec.Encoding[any], opts ...EventBusOption) *EventBus {
+func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
 	if enc == nil {
 		enc = event.NewRegistry()
 	}

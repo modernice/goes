@@ -9,10 +9,10 @@ import (
 	"github.com/modernice/goes/event/eventstore"
 )
 
-var _ event.Store[any] = eventstore.New[any]()
+var _ event.Store = eventstore.New()
 
 func TestMemstore(t *testing.T) {
-	eventstoretest.Run(t, "memstore", func(codec.Encoding[any]) event.Store[any] {
-		return eventstore.New[any]()
+	eventstoretest.Run(t, "memstore", func(codec.Encoding) event.Store {
+		return eventstore.New()
 	})
 }

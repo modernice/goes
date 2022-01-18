@@ -2,11 +2,10 @@ package command
 
 import "github.com/modernice/goes/codec"
 
-// Encoding is a codec.Encoding with its type paramter constrained to `any`.
-type Encoding = codec.Encoding[any]
+type Encoding = codec.Encoding
 
 // NewRegistry returns a new command registry that can register commands with
 // any command payload.
-func NewRegistry() *codec.RegistryOf[any] {
+func NewRegistry() *codec.Registry {
 	return codec.New()
 }

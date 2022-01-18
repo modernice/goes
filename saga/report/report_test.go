@@ -15,7 +15,7 @@ func TestReport(t *testing.T) {
 	start := xtime.Now()
 	dur := 12345678 * time.Millisecond
 	end := start.Add(dur)
-	r := report.New[any, any](start, end)
+	r := report.New(start, end)
 
 	if !r.Start.Equal(start) {
 		t.Errorf("Start() should return %v; got %v", start, r.Start)
@@ -32,7 +32,7 @@ func TestReport(t *testing.T) {
 
 func TestError(t *testing.T) {
 	mockError := errors.New("mock error")
-	r := report.New[any, any](xtime.Now(), xtime.Now(), report.Error[any, any](mockError))
+	r := report.New(xtime.Now(), xtime.Now(), report.Error(mockError))
 
 	if r.Error != mockError {
 		t.Errorf("Error() should return %q; got %q", mockError, r.Error)
@@ -43,9 +43,9 @@ func TestAction(t *testing.T) {
 	start := xtime.Now()
 	dur := 12345678 * time.Millisecond
 	end := start.Add(dur)
-	act := action.New[any, any]("foo", nil)
+	act := action.New("foo", nil)
 	mockError := errors.New("mock error")
-	r := report.New[any, any](xtime.Now(), xtime.Now(), report.Action(act, start, end, action.Error[any, any](mockError)))
+	r := report.New(xtime.Now(), xtime.Now(), report.Action(act, start, end, action.Error(mockError)))
 
 	acts := r.Actions
 	if len(acts) != 1 {
@@ -76,17 +76,17 @@ func TestAction(t *testing.T) {
 
 func TestAction_grouping(t *testing.T) {
 	mockError := errors.New("mock error")
-	compRep := action.NewReport(action.New[any, any]("comp1", nil), xtime.Now(), xtime.Now())
-	compErrorRep := action.NewReport(action.New[any, any]("comp2", nil), xtime.Now(), xtime.Now(), action.Error[any, any](mockError))
-	opts := []report.Option[any, any]{
-		report.Action(action.New[any, any]("foo", nil), xtime.Now(), xtime.Now()),
-		report.Action(action.New[any, any]("bar", nil), xtime.Now(), xtime.Now()),
-		report.Action(action.New[any, any]("baz", nil), xtime.Now(), xtime.Now(), action.Error[any, any](mockError)),
-		report.Action(action.New[any, any]("foobar", nil), xtime.Now(), xtime.Now(), action.Error[any, any](mockError)),
-		report.Action(action.New[any, any]("barbaz", nil), xtime.Now(), xtime.Now(), action.Error[any, any](mockError), action.CompensatedBy(compRep)),
-		report.Action(action.New[any, any]("bazfoo", nil), xtime.Now(), xtime.Now(), action.Error[any, any](mockError), action.CompensatedBy(compErrorRep)),
+	compRep := action.NewReport(action.New("comp1", nil), xtime.Now(), xtime.Now())
+	compErrorRep := action.NewReport(action.New("comp2", nil), xtime.Now(), xtime.Now(), action.Error(mockError))
+	opts := []report.Option{
+		report.Action(action.New("foo", nil), xtime.Now(), xtime.Now()),
+		report.Action(action.New("bar", nil), xtime.Now(), xtime.Now()),
+		report.Action(action.New("baz", nil), xtime.Now(), xtime.Now(), action.Error(mockError)),
+		report.Action(action.New("foobar", nil), xtime.Now(), xtime.Now(), action.Error(mockError)),
+		report.Action(action.New("barbaz", nil), xtime.Now(), xtime.Now(), action.Error(mockError), action.CompensatedBy(compRep)),
+		report.Action(action.New("bazfoo", nil), xtime.Now(), xtime.Now(), action.Error(mockError), action.CompensatedBy(compErrorRep)),
 	}
-	r := report.New[any, any](xtime.Now(), xtime.Now(), opts...)
+	r := report.New(xtime.Now(), xtime.Now(), opts...)
 
 	wantSucceeded := []string{"foo", "bar"}
 	wantFailed := []string{"baz", "foobar", "barbaz", "bazfoo"}
@@ -121,11 +121,11 @@ func TestReport_Report(t *testing.T) {
 	mockError := errors.New("mock error")
 	rep := report.New(
 		xtime.Now(), xtime.Now(),
-		report.Action(action.New[any, any]("foo", nil), xtime.Now(), xtime.Now(), action.Error[any, any](mockError)),
-		report.Error[any, any](mockError),
+		report.Action(action.New("foo", nil), xtime.Now(), xtime.Now(), action.Error(mockError)),
+		report.Error(mockError),
 	)
 
-	var r report.Report[any, any]
+	var r report.Report
 	r.Report(rep)
 
 	if !reflect.DeepEqual(r, rep) {

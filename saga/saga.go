@@ -35,7 +35,7 @@ var (
 )
 
 // Setup is the setup for a SAGA.
-type Setup[E, C any] interface {
+type Setup interface {
 	// Sequence returns the names of the actions that should be run sequentially.
 	Sequence() []string
 
@@ -46,19 +46,19 @@ type Setup[E, C any] interface {
 
 	// Action returns the action with the given name. Action returns nil if no
 	// Action with that name was configured.
-	Action(string) action.Action[E, C]
+	Action(string) action.Action
 }
 
 // A Reporter reports the result of a SAGA.
-type Reporter[E, C any] interface {
-	Report(report.Report[E, C])
+type Reporter interface {
+	Report(report.Report)
 }
 
 // Option is a Setup option.
-type Option[E, C any] func(*setup[E, C])
+type Option func(*setup)
 
 // ExecutorOption is an option for the Execute function.
-type ExecutorOption[E, C any] func(*Executor[E, C])
+type ExecutorOption func(*Executor)
 
 // CompensateErr is returned when the compensation of a failed SAGA fails.
 type CompensateErr struct {
@@ -67,24 +67,24 @@ type CompensateErr struct {
 }
 
 // An Executor executes SAGAs. Use NewExector to create an Executor.
-type Executor[E, C any] struct {
-	Setup[E, C]
+type Executor struct {
+	Setup
 
-	reporter Reporter[E, C]
-	eventBus event.Bus[E]
-	cmdBus   command.Bus[C]
+	reporter Reporter
+	eventBus event.Bus
+	cmdBus   command.Bus
 	repo     aggregate.Repository
 
 	skipValidate      bool
 	compensateTimeout time.Duration
 
-	sequence []action.Action[E, C]
-	reports  []action.Report[E, C]
+	sequence []action.Action
+	reports  []action.Report
 }
 
-type setup[E, C any] struct {
-	actions      []action.Action[E, C]
-	actionMap    map[string]action.Action[E, C]
+type setup struct {
+	actions      []action.Action
+	actionMap    map[string]action.Action
 	sequence     []string
 	compensators map[string]string
 	startWith    string
@@ -93,13 +93,13 @@ type setup[E, C any] struct {
 // Action returns an Option that adds an Action to a SAGA. The first configured
 // Action of a SAGA is also its starting Action, unless the StartWith Option is
 // used.
-func Action[E, C any](name string, run func(action.Context[E, C]) error) Option[E, C] {
+func Action(name string, run func(action.Context) error) Option {
 	return Add(action.New(name, run))
 }
 
 // Add adds Actions to the SAGA.
-func Add[E, C any](acts ...action.Action[E, C]) Option[E, C] {
-	return func(s *setup[E, C]) {
+func Add(acts ...action.Action) Option {
+	return func(s *setup) {
 		for _, act := range acts {
 			if act == nil {
 				continue
@@ -110,8 +110,8 @@ func Add[E, C any](acts ...action.Action[E, C]) Option[E, C] {
 }
 
 // StartWith returns an Option that configures the starting Action if a SAGA.
-func StartWith[E, C any](action string) Option[E, C] {
-	return func(s *setup[E, C]) {
+func StartWith(action string) Option {
+	return func(s *setup) {
 		s.startWith = action
 	}
 }
@@ -132,32 +132,32 @@ func StartWith[E, C any](action string) Option[E, C] {
 //	)
 //	err := saga.Execute(context.TODO(), s)
 //	// would run "bar", "foo" & "baz" sequentially
-func Sequence[E, C any](actions ...string) Option[E, C] {
-	return func(s *setup[E, C]) {
+func Sequence(actions ...string) Option {
+	return func(s *setup) {
 		s.sequence = actions
 	}
 }
 
 // Compensate returns an Option that configures the compensating Action for a
 // failed Action.
-func Compensate[E, C any](failed, compensateWith string) Option[E, C] {
-	return func(s *setup[E, C]) {
+func Compensate(failed, compensateWith string) Option {
+	return func(s *setup) {
 		s.compensators[failed] = compensateWith
 	}
 }
 
 // Report returns an ExecutorOption that configures the Reporter r to be used by
 // the SAGA to report the execution result of the SAGA.
-func Report[E, C any](r Reporter[E, C]) ExecutorOption[E, C] {
-	return func(e *Executor[E, C]) {
+func Report(r Reporter) ExecutorOption {
+	return func(e *Executor) {
 		e.reporter = r
 	}
 }
 
 // SkipValidation returns an ExecutorOption that disables validation of a Setup
 // before it is executed.
-func SkipValidation[E, C any]() ExecutorOption[E, C] {
-	return func(e *Executor[E, C]) {
+func SkipValidation() ExecutorOption {
+	return func(e *Executor) {
 		e.skipValidate = true
 	}
 }
@@ -177,8 +177,8 @@ func SkipValidation[E, C any]() ExecutorOption[E, C] {
 //	var bus event.Bus
 //	err := saga.Execute(context.TODO(), s, saga.EventBus(bus))
 //	// handle err
-func EventBus[E, C any](bus event.Bus[E]) ExecutorOption[E, C] {
-	return func(e *Executor[E, C]) {
+func EventBus(bus event.Bus) ExecutorOption {
+	return func(e *Executor) {
 		e.eventBus = bus
 	}
 }
@@ -199,8 +199,8 @@ func EventBus[E, C any](bus event.Bus[E]) ExecutorOption[E, C] {
 //	var bus command.Bus
 //	err := saga.Execute(context.TODO(), s, saga.CommandBus(bus))
 //	// handle err
-func CommandBus[E, C any](bus command.Bus[C]) ExecutorOption[E, C] {
-	return func(e *Executor[E, C]) {
+func CommandBus(bus command.Bus) ExecutorOption {
+	return func(e *Executor) {
 		e.cmdBus = bus
 	}
 }
@@ -220,16 +220,16 @@ func CommandBus[E, C any](bus command.Bus[C]) ExecutorOption[E, C] {
 //	var repo aggregate.Repository
 //	err := saga.Execute(context.TODO(), s, saga.Repository(repo))
 //	// handle err
-func Repository[E, C any](r aggregate.Repository) ExecutorOption[E, C] {
-	return func(e *Executor[E, C]) {
+func Repository(r aggregate.Repository) ExecutorOption {
+	return func(e *Executor) {
 		e.repo = r
 	}
 }
 
 // CompensateTimeout returns an ExecutorOption that sets the timeout for
 // compensating a failed SAGA.
-func CompensateTimeout[E, C any](d time.Duration) ExecutorOption[E, C] {
-	return func(e *Executor[E, C]) {
+func CompensateTimeout(d time.Duration) ExecutorOption {
+	return func(e *Executor) {
 		e.compensateTimeout = d
 	}
 }
@@ -326,9 +326,9 @@ func CompensateTimeout[E, C any](d time.Duration) ExecutorOption[E, C] {
 //			return nil
 //		}),
 //	)
-func New[E, C any](opts ...Option[E, C]) Setup[E, C] {
-	s := setup[E, C]{
-		actionMap:    make(map[string]action.Action[E, C]),
+func New(opts ...Option) Setup {
+	s := setup{
+		actionMap:    make(map[string]action.Action),
 		compensators: make(map[string]string),
 	}
 	for _, opt := range opts {
@@ -348,7 +348,7 @@ func New[E, C any](opts ...Option[E, C]) Setup[E, C] {
 //	- `ErrEmptyName` if an Action has an empty name (or just whitespace)
 //	- `ErrActionNotFound` if the sequence contains an unconfigured Action
 //	- `ErrActionNotFound` if an unknown Action is configured as a compensating Action
-func Validate[E, C any](s Setup[E, C]) error {
+func Validate(s Setup) error {
 	for _, name := range s.Sequence() {
 		if strings.TrimSpace(name) == "" {
 			return fmt.Errorf("%q action: %w", name, ErrEmptyName)
@@ -409,28 +409,28 @@ func CompensateError(err error) (*CompensateErr, bool) {
 //	var r report.Report
 //	err := saga.Execute(context.TODO(), s, saga.Report(&r))
 //	// err == r.Error()
-func Execute[E, C any](ctx context.Context, s Setup[E, C], opts ...ExecutorOption[E, C]) error {
+func Execute(ctx context.Context, s Setup, opts ...ExecutorOption) error {
 	return NewExecutor(opts...).Execute(ctx, s)
 }
 
 // NewExecutor returns a SAGA executor.
-func NewExecutor[E, C any](opts ...ExecutorOption[E, C]) *Executor[E, C] {
-	e := Executor[E, C]{compensateTimeout: DefaultCompensateTimeout}
+func NewExecutor(opts ...ExecutorOption) *Executor {
+	e := Executor{compensateTimeout: DefaultCompensateTimeout}
 	for _, opt := range opts {
 		opt(&e)
 	}
 	return &e
 }
 
-func (s *setup[E, C]) Actions() []action.Action[E, C] {
-	acts := make([]action.Action[E, C], len(s.actions))
+func (s *setup) Actions() []action.Action {
+	acts := make([]action.Action, len(s.actions))
 	for i, act := range s.actions {
 		acts[i] = act
 	}
 	return acts
 }
 
-func (s *setup[E, C]) Compensators() map[string]string {
+func (s *setup) Compensators() map[string]string {
 	m := make(map[string]string, len(s.compensators))
 	for k, v := range s.compensators {
 		m[k] = v
@@ -438,11 +438,11 @@ func (s *setup[E, C]) Compensators() map[string]string {
 	return m
 }
 
-func (s *setup[E, C]) Compensator(name string) string {
+func (s *setup) Compensator(name string) string {
 	return s.compensators[name]
 }
 
-func (s *setup[E, C]) Sequence() []string {
+func (s *setup) Sequence() []string {
 	if len(s.actions) == 0 {
 		return nil
 	}
@@ -454,12 +454,12 @@ func (s *setup[E, C]) Sequence() []string {
 	return s.sequence
 }
 
-func (s *setup[E, C]) Action(name string) action.Action[E, C] {
+func (s *setup) Action(name string) action.Action {
 	return s.actionMap[name]
 }
 
 // Execute executes the given SAGA.
-func (e *Executor[E, C]) Execute(ctx context.Context, s Setup[E, C]) error {
+func (e *Executor) Execute(ctx context.Context, s Setup) error {
 	e = e.clone(s)
 
 	if !e.skipValidate {
@@ -495,7 +495,7 @@ func (e *Executor[E, C]) Execute(ctx context.Context, s Setup[E, C]) error {
 	return e.finish(start, nil)
 }
 
-func (e *Executor[E, C]) action(name string) (action.Action[E, C], error) {
+func (e *Executor) action(name string) (action.Action, error) {
 	act := e.Action(name)
 	if act == nil {
 		return act, ErrActionNotFound
@@ -503,7 +503,7 @@ func (e *Executor[E, C]) action(name string) (action.Action[E, C], error) {
 	return act, nil
 }
 
-func (e *Executor[E, C]) finish(start time.Time, err error) error {
+func (e *Executor) finish(start time.Time, err error) error {
 	if e.reporter == nil {
 		return err
 	}
@@ -511,29 +511,29 @@ func (e *Executor[E, C]) finish(start time.Time, err error) error {
 	end := xtime.Now()
 	e.reporter.Report(report.New(
 		start, end, report.Add(e.reports...),
-		report.Error[E, C](err),
+		report.Error(err),
 	))
 
 	return err
 }
 
-func (e *Executor[E, C]) run(ctx context.Context, act action.Action[E, C]) error {
+func (e *Executor) run(ctx context.Context, act action.Action) error {
 	actionCtx := e.newActionContext(ctx, act)
 	return e.runContext(actionCtx)
 }
 
-func (e *Executor[E, C]) newActionContext(ctx context.Context, act action.Action[E, C]) action.Context[E, C] {
+func (e *Executor) newActionContext(ctx context.Context, act action.Action) action.Context {
 	return action.NewContext(
 		ctx,
 		act,
-		action.WithRunner[E, C](e.runAction),
-		action.WithEventBus[E, C](e.eventBus),
-		action.WithCommandBus[E, C](e.cmdBus),
-		action.WithRepository[E, C](e.repo),
+		action.WithRunner(e.runAction),
+		action.WithEventBus(e.eventBus),
+		action.WithCommandBus(e.cmdBus),
+		action.WithRepository(e.repo),
 	)
 }
 
-func (e *Executor[E, C]) runContext(ctx action.Context[E, C]) error {
+func (e *Executor) runContext(ctx action.Context) error {
 	start := xtime.Now()
 	act := ctx.Action()
 	err := act.Run(ctx)
@@ -541,12 +541,12 @@ func (e *Executor[E, C]) runContext(ctx action.Context[E, C]) error {
 	e.reports = append(e.reports, action.NewReport(
 		act,
 		start, end,
-		action.Error[E, C](err),
+		action.Error(err),
 	))
 	return err
 }
 
-func (e *Executor[E, C]) runAction(ctx context.Context, name string) error {
+func (e *Executor) runAction(ctx context.Context, name string) error {
 	act, err := e.action(name)
 	if err != nil {
 		return fmt.Errorf("find %q action: %w", name, err)
@@ -557,7 +557,7 @@ func (e *Executor[E, C]) runAction(ctx context.Context, name string) error {
 	return nil
 }
 
-func (e *Executor[E, C]) shouldRollback() bool {
+func (e *Executor) shouldRollback() bool {
 	if len(e.reports) == 0 {
 		return false
 	}
@@ -569,7 +569,7 @@ func (e *Executor[E, C]) shouldRollback() bool {
 	return false
 }
 
-func (e *Executor[E, C]) rollback() error {
+func (e *Executor) rollback() error {
 	ctx, cancel := context.WithTimeout(context.Background(), e.compensateTimeout)
 	defer cancel()
 
@@ -593,7 +593,7 @@ func (e *Executor[E, C]) rollback() error {
 	return nil
 }
 
-func (e *Executor[E, C]) rollbackAction(ctx context.Context, rep action.Report[E, C]) <-chan error {
+func (e *Executor) rollbackAction(ctx context.Context, rep action.Report) <-chan error {
 	out := make(chan error)
 	ret := func(err error) {
 		select {
@@ -617,7 +617,7 @@ func (e *Executor[E, C]) rollbackAction(ctx context.Context, rep action.Report[E
 	return out
 }
 
-func (e Executor[E, C]) clone(s Setup[E, C]) *Executor[E, C] {
+func (e Executor) clone(s Setup) *Executor {
 	e.Setup = s
 	e.sequence = nil
 	e.reports = nil

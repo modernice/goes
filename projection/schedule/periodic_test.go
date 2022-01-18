@@ -18,7 +18,7 @@ func TestPeriodic_Subscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	store := eventstore.New[any]()
+	store := eventstore.New()
 
 	events := []event.EventOf[any]{
 		event.New[any]("foo", test.FooEventData{}),
@@ -38,9 +38,9 @@ func TestPeriodic_Subscribe(t *testing.T) {
 	subscribeCtx, cancelSubscribe := context.WithTimeout(ctx, 200*time.Millisecond)
 	defer cancelSubscribe()
 
-	appliedJobs := make(chan projection.Job[any])
+	appliedJobs := make(chan projection.Job)
 
-	errs, err := schedule.Subscribe(subscribeCtx, func(job projection.Job[any]) error {
+	errs, err := schedule.Subscribe(subscribeCtx, func(job projection.Job) error {
 		if err := job.Apply(context.Background(), proj); err != nil {
 			return fmt.Errorf("apply Job: %w", err)
 		}

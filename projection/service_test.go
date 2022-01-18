@@ -17,7 +17,7 @@ func TestService_Trigger_unregisteredName(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New[any]()
+	bus := eventbus.New()
 
 	svc := projection.NewService(bus, projection.TriggerTimeout[any](time.Second))
 
@@ -30,8 +30,8 @@ func TestService_Trigger_serviceNotRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New[any]()
-	store := eventstore.New[any]()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
@@ -47,14 +47,14 @@ func TestService_Trigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New[any]()
+	bus := eventbus.New()
 	store, storeEvents := newEventStore(t)
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	proj := projectiontest.NewMockProjection()
 	applied := make(chan struct{})
 
-	errs, err := s.Subscribe(ctx, func(job projection.Job[any]) error {
+	errs, err := s.Subscribe(ctx, func(job projection.Job) error {
 		defer close(applied)
 		return job.Apply(job, proj)
 	})
@@ -97,7 +97,7 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New[any]()
+	bus := eventbus.New()
 	store, storeEvents := newEventStore(t)
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
@@ -105,7 +105,7 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 	proj.SetProgress(time.Now())
 	applied := make(chan struct{})
 
-	errs, err := s.Subscribe(ctx, func(job projection.Job[any]) error {
+	errs, err := s.Subscribe(ctx, func(job projection.Job) error {
 		defer close(applied)
 		return job.Apply(job, proj)
 	})

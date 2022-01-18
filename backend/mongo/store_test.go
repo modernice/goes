@@ -21,13 +21,13 @@ import (
 
 func TestStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding[any]) event.Store[any] {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
 			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
 		})
 	})
 
 	t.Run("ReplicaSet", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding[any]) event.Store[any] {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
 			return mongotest.NewEventStore(
 				enc,
 				mongo.URL(os.Getenv("MONGOREPLSTORE_URL")),

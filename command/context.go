@@ -29,7 +29,7 @@ func WhenDone[P any](fn func(context.Context, finish.Config) error) ContextOptio
 }
 
 // NewContext returns a context for the given command.
-func NewContext[P any](base context.Context, cmd CommandOf[P], opts ...ContextOption[P]) Context[P] {
+func NewContext[P any](base context.Context, cmd CommandOf[P], opts ...ContextOption[P]) ContextOf[P] {
 	ctx := cmdctx[P]{
 		Context:   base,
 		CommandOf: cmd,
@@ -63,7 +63,7 @@ func (ctx *cmdctx[P]) Finish(c context.Context, opts ...finish.Option) error {
 	return nil
 }
 
-func TryCastContext[To, From any](ctx Context[From]) (Context[To], bool) {
+func TryCastContext[To, From any](ctx ContextOf[From]) (ContextOf[To], bool) {
 	cmd, ok := TryCast[To, From](ctx)
 	if !ok {
 		return nil, false
@@ -77,7 +77,7 @@ func TryCastContext[To, From any](ctx Context[From]) (Context[To], bool) {
 	return NewContext[To](ctx, cmd, opts...), true
 }
 
-func CastContext[To, From any](ctx Context[From]) Context[To] {
+func CastContext[To, From any](ctx ContextOf[From]) ContextOf[To] {
 	cmd := Cast[To, From](ctx)
 
 	var opts []ContextOption[To]

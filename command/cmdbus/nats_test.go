@@ -49,7 +49,7 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
-	bus := cmdbus.New[any](enc.RegistryOf, ereg, ebus)
+	bus := cmdbus.New(enc.Registry, ebus)
 
 	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
 	if err != nil {
@@ -57,7 +57,7 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 	}
 
 	handleErrors := make(chan error)
-	var handled []command.Context[any]
+	var handled []command.Context
 	go func() {
 		for {
 			select {

@@ -31,7 +31,7 @@ func (list *List) Add(task string) error {
 		}
 	}
 
-	aggregate.NextEvent[any](list, TaskAdded, TaskAddedEvent{task})
+	aggregate.NextEvent(list, TaskAdded, TaskAddedEvent{task})
 
 	return nil
 }
@@ -44,7 +44,7 @@ func (list *List) Remove(task string) error {
 	ltask := strings.ToLower(task)
 	for _, t := range list.tasks {
 		if strings.ToLower(t) == ltask {
-			aggregate.NextEvent[any](list, TaskRemoved, TaskRemovedEvent{task})
+			aggregate.NextEvent(list, TaskRemoved, TaskRemovedEvent{task})
 			return nil
 		}
 	}
@@ -82,7 +82,7 @@ func (list *List) done(evt event.EventOf[TaskDoneEvent]) {
 	}
 }
 
-func (list *List) ApplyEvent(evt event.EventOf[any]) {
+func (list *List) ApplyEvent(evt event.Event) {
 	switch evt.Name() {
 	case TaskAdded:
 		list.add(event.Cast[TaskAddedEvent](evt))

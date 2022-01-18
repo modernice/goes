@@ -10,5 +10,5 @@ import (
 )
 
 func TestChanbus(t *testing.T) {
-	eventbustest.Run(t, func(e codec.Encoding[any]) event.Bus[any] { return eventbus.New[any]() })
+	eventbustest.Run(t, func(e codec.Encoding) event.Bus { return eventbus.New() })
 }

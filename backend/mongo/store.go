@@ -22,7 +22,7 @@ import (
 
 // EventStore is the MongoDB event.Store.
 type EventStore struct {
-	enc              codec.Encoding[any]
+	enc              codec.Encoding
 	url              string
 	dbname           string
 	entriesCol       string
@@ -137,7 +137,7 @@ func ValidateVersions(v bool) EventStoreOption {
 }
 
 // NewEventStore returns a MongoDB event.Store.
-func NewEventStore(enc codec.Encoding[any], opts ...EventStoreOption) *EventStore {
+func NewEventStore(enc codec.Encoding, opts ...EventStoreOption) *EventStore {
 	s := EventStore{
 		enc:              enc,
 		validateVersions: true,
@@ -578,7 +578,7 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 	return nil
 }
 
-func (e entry) event(enc codec.Encoding[any]) (event.EventOf[any], error) {
+func (e entry) event(enc codec.Encoding) (event.EventOf[any], error) {
 	data, err := enc.Decode(bytes.NewReader(e.Data), e.Name)
 	if err != nil {
 		return nil, fmt.Errorf("decode %q event data: %w", e.Name, err)

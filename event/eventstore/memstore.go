@@ -16,21 +16,21 @@ var (
 	errDuplicateEvent = errors.New("duplicate event")
 )
 
-type memstore[D any] struct {
+type memstore struct {
 	mux    sync.RWMutex
-	events []event.EventOf[D]
-	idMap  map[uuid.UUID]event.EventOf[D]
+	events []event.Event
+	idMap  map[uuid.UUID]event.Event
 }
 
 // New returns a thread-safe in-memory event store.
-func New[D any](events ...event.EventOf[D]) event.Store[D] {
-	return &memstore[D]{
-		idMap:  make(map[uuid.UUID]event.EventOf[D]),
+func New(events ...event.Event) event.Store {
+	return &memstore{
+		idMap:  make(map[uuid.UUID]event.Event),
 		events: events,
 	}
 }
 
-func (s *memstore[D]) Insert(ctx context.Context, events ...event.EventOf[D]) error {
+func (s *memstore) Insert(ctx context.Context, events ...event.Event) error {
 	for _, evt := range events {
 		if err := s.insert(ctx, evt); err != nil {
 			return fmt.Errorf("%s:%s %w", evt.Name(), evt.ID(), err)
@@ -39,7 +39,7 @@ func (s *memstore[D]) Insert(ctx context.Context, events ...event.EventOf[D]) er
 	return nil
 }
 
-func (s *memstore[D]) insert(ctx context.Context, evt event.EventOf[D]) error {
+func (s *memstore) insert(ctx context.Context, evt event.Event) error {
 	if _, err := s.Find(ctx, evt.ID()); err == nil {
 		return errDuplicateEvent
 	}
@@ -50,7 +50,7 @@ func (s *memstore[D]) insert(ctx context.Context, evt event.EventOf[D]) error {
 	return nil
 }
 
-func (s *memstore[D]) Find(ctx context.Context, id uuid.UUID) (event.EventOf[D], error) {
+func (s *memstore) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	if evt := s.idMap[id]; evt != nil {
@@ -59,10 +59,10 @@ func (s *memstore[D]) Find(ctx context.Context, id uuid.UUID) (event.EventOf[D],
 	return nil, errEventNotFound
 }
 
-func (s *memstore[D]) Query(ctx context.Context, q event.Query) (<-chan event.EventOf[D], <-chan error, error) {
+func (s *memstore) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	var events []event.EventOf[D]
+	var events []event.Event
 	for _, evt := range s.events {
 		if query.Test(q, evt) {
 			events = append(events, evt)
@@ -70,7 +70,7 @@ func (s *memstore[D]) Query(ctx context.Context, q event.Query) (<-chan event.Ev
 	}
 	events = event.SortMulti(events, q.Sortings()...)
 
-	out := make(chan event.EventOf[D])
+	out := make(chan event.Event)
 	errs := make(chan error)
 
 	go func() {
@@ -88,7 +88,7 @@ func (s *memstore[D]) Query(ctx context.Context, q event.Query) (<-chan event.Ev
 	return out, errs, nil
 }
 
-func (s *memstore[D]) Delete(ctx context.Context, events ...event.EventOf[D]) error {
+func (s *memstore) Delete(ctx context.Context, events ...event.Event) error {
 	defer s.reslice()
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -98,7 +98,7 @@ func (s *memstore[D]) Delete(ctx context.Context, events ...event.EventOf[D]) er
 	return nil
 }
 
-func (s *memstore[D]) reslice() {
+func (s *memstore) reslice() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	s.events = s.events[:0]

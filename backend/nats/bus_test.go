@@ -17,17 +17,17 @@ import (
 
 func testEventBus(t *testing.T, newBus eventbustest.EventBusFactory) {
 	t.Run("SubscribeConnect", func(t *testing.T) {
-		testSubscribeConnect(t, func(e codec.Encoding[any]) event.Bus[any] {
+		testSubscribeConnect(t, func(e codec.Encoding) event.Bus {
 			return nats.NewEventBus(e, nats.EatErrors())
 		})
 	})
 	t.Run("PublishConnect", func(t *testing.T) {
-		testPublishConnect(t, func(e codec.Encoding[any]) event.Bus[any] {
+		testPublishConnect(t, func(e codec.Encoding) event.Bus {
 			return nats.NewEventBus(e, nats.EatErrors())
 		})
 	})
 	t.Run("PublishEncodeError", func(t *testing.T) {
-		testPublishEncodeError(t, func(e codec.Encoding[any]) event.Bus[any] {
+		testPublishEncodeError(t, func(e codec.Encoding) event.Bus {
 			return nats.NewEventBus(e, nats.EatErrors())
 		})
 	})

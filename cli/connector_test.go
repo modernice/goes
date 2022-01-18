@@ -21,7 +21,7 @@ func TestConnector_Serve(t *testing.T) {
 
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	received := make(chan struct{})
-	subscribeErrors, err := schedule.Subscribe(ctx, func(projection.Job[any]) error {
+	subscribeErrors, err := schedule.Subscribe(ctx, func(projection.Job) error {
 		close(received)
 		return nil
 	})

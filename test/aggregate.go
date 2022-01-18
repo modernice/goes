@@ -31,7 +31,7 @@ var (
 //			return NewFoo(id)
 //		})
 //	}
-func NewAggregate(t TestingT, newFunc func(uuid.UUID) aggregate.Aggregate, expectedName string) {
+func NewAggregate[A aggregate.Aggregate](t TestingT, newFunc func(uuid.UUID) A, expectedName string) {
 	a := newFunc(ExampleID)
 
 	id, name, _ := a.Aggregate()
@@ -101,9 +101,13 @@ type ChangeOption[E any] func(*changeConfig[E])
 
 type changeConfig[E any] struct {
 	eventData E
-	atLeast   int
-	atMost    int
-	exactly   int
+	changeConfigValues
+}
+
+type changeConfigValues struct {
+	atLeast int
+	atMost  int
+	exactly int
 }
 
 // EventData returns a ChangeOption that also tests the event data of
@@ -168,7 +172,11 @@ func Change[E comparable](t TestingT, a aggregate.Aggregate, eventName string, o
 
 		casted, ok := event.TryCast[E](change)
 		if !ok {
-			t.Fatal("%T event cannot be casted to %T", change, casted)
+			t.Fatal(fmt.Errorf(
+				"cannot cast %T to %T. either provide %T to the test.EventData option or provide the correct event name for %T.",
+				change.Data(), casted.Data(), casted.Data(), casted.Data(),
+			))
+			continue
 		}
 
 		if cfg.eventData != zero && !reflect.DeepEqual(cfg.eventData, change.Data()) {

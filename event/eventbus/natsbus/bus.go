@@ -33,7 +33,7 @@ var (
 // Bus is the NATS event.Bus implementation.
 type Bus struct {
 	driver Driver
-	enc    codec.Encoding[any]
+	enc    codec.Encoding
 
 	eatErrors bool
 
@@ -279,7 +279,7 @@ func Streaming(clusterID, clientID string, opts ...stan.Option) Driver {
 // environment variable.
 //
 // Deprecated: Use github.com/modernice/goes/backend/nats instead.
-func New(enc codec.Encoding[any], opts ...Option) *Bus {
+func New(enc codec.Encoding, opts ...Option) *Bus {
 	if enc == nil {
 		panic("nil Encoder")
 	}

@@ -45,7 +45,7 @@ func TestBus_Dispatch(t *testing.T) {
 		}
 	}()
 
-	var cmdCtx command.Context[any]
+	var cmdCtx command.Context
 	var ok bool
 L:
 	for {
@@ -83,13 +83,13 @@ func TestBus_Dispatch_Report(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	cmd := command.New[any]("foo-cmd", mockPayload{A: "foo"})
+	cmd := command.New("foo-cmd", mockPayload{A: "foo"})
 	var rep report.Report
 
 	dispatchErr := make(chan error)
-	go func() { dispatchErr <- bus.Dispatch(ctx, cmd, dispatch.Report(&rep)) }()
+	go func() { dispatchErr <- bus.Dispatch(ctx, cmd.Any(), dispatch.Report(&rep)) }()
 
-	var cmdCtx command.Context[any]
+	var cmdCtx command.Context
 	var ok bool
 	select {
 	case err := <-dispatchErr:
@@ -143,12 +143,12 @@ func TestBus_Dispatch_Report(t *testing.T) {
 func TestBus_Dispatch_cancel(t *testing.T) {
 	bus, _, _ := newBus()
 
-	cmd := command.New[any]("foo-cmd", mockPayload{})
+	cmd := command.New("foo-cmd", mockPayload{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := bus.Dispatch(ctx, cmd)
+	err := bus.Dispatch(ctx, cmd.Any())
 
 	if !errors.Is(err, cmdbus.ErrDispatchCanceled) {
 		t.Fatalf("Dispatch should fail with %q; got %q", cmdbus.ErrDispatchCanceled, err)
@@ -163,16 +163,16 @@ func TestSynchronous(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	cmd := command.New[any]("foo-cmd", mockPayload{A: "foo"})
+	cmd := command.New("foo-cmd", mockPayload{A: "foo"})
 
 	dispatchErr := make(chan error)
 	dispatchTime := make(chan time.Time)
 	go func() {
-		dispatchErr <- bus.Dispatch(context.Background(), cmd, dispatch.Sync())
+		dispatchErr <- bus.Dispatch(context.Background(), cmd.Any(), dispatch.Sync())
 		dispatchTime <- xtime.Now()
 	}()
 
-	var ctx command.Context[any]
+	var ctx command.Context
 	var ok bool
 L:
 	for {
@@ -350,13 +350,13 @@ L:
 	}
 }
 
-func newBus(opts ...cmdbus.Option[any]) (command.Bus[any], event.Bus[any], *codec.RegistryOf[any]) {
+func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() any {
 		return mockPayload{}
 	})
-	ebus := eventbus.New[any]()
-	return cmdbus.New[any](enc, codec.New(), ebus, opts...), ebus, enc.RegistryOf
+	ebus := eventbus.New()
+	return cmdbus.New(enc, ebus, opts...), ebus, enc.Registry
 }
 
 func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {

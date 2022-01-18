@@ -10,17 +10,17 @@ import (
 
 // Await is a shortcut for NewAwaiter(bus).Once(ctx, names...). See Awaiter.Once
 // for documentation.
-func Await[D any](ctx context.Context, bus event.Bus[D], names ...string) (<-chan event.EventOf[D], <-chan error, error) {
+func Await[D any](ctx context.Context, bus event.Bus, names ...string) (<-chan event.EventOf[D], <-chan error, error) {
 	return NewAwaiter[D](bus).Once(ctx, names...)
 }
 
 // Awaiter can be used to await events in more complex scenarios.
 type Awaiter[D any] struct {
-	bus event.Bus[D]
+	bus event.Bus
 }
 
 // NewAwaiter returns an Awaiter for the given Bus.
-func NewAwaiter[D any](bus event.Bus[D]) Awaiter[D] {
+func NewAwaiter[D any](bus event.Bus) Awaiter[D] {
 	return Awaiter[D]{bus}
 }
 

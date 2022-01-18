@@ -35,13 +35,13 @@ func main() {
 		cancel()
 	}()
 
-	bus := eventbus.New[any]()
-	store := eventstore.New[any]()
+	bus := eventbus.New()
+	store := eventstore.New()
 
 	foo := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	bar := schedule.Periodically(store, 30*time.Second, []string{"foo", "bar", "baz"})
 
-	fooErrors, err := foo.Subscribe(ctx, func(projection.Job[any]) error {
+	fooErrors, err := foo.Subscribe(ctx, func(projection.Job) error {
 		log.Printf("%q schedule received job", "foo")
 		<-time.After(time.Second)
 		return nil
@@ -51,7 +51,7 @@ func main() {
 	}
 	log.Printf("Subscribed to %q schedule.\n", "foo")
 
-	barErrors, err := bar.Subscribe(ctx, func(projection.Job[any]) error {
+	barErrors, err := bar.Subscribe(ctx, func(projection.Job) error {
 		log.Printf("%q schedule received job", "bar")
 		<-time.After(time.Second)
 		return nil

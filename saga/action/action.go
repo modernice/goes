@@ -1,28 +1,28 @@
 package action
 
 // Action is a SAGA action.
-type Action[E, C any] interface {
+type Action interface {
 	// Name returns the name of the Action.
 	Name() string
 
 	// Run runs the Action.
-	Run(Context[E, C]) error
+	Run(Context) error
 }
 
-type action[E, C any] struct {
+type action struct {
 	name string
-	run  func(Context[E, C]) error
+	run  func(Context) error
 }
 
 // New returns a new Action with the given name and runner.
-func New[E, C any](name string, run func(Context[E, C]) error) Action[E, C] {
-	return &action[E, C]{name, run}
+func New(name string, run func(Context) error) Action {
+	return &action{name, run}
 }
 
-func (a *action[E, C]) Name() string {
+func (a *action) Name() string {
 	return a.name
 }
 
-func (a *action[E, C]) Run(ctx Context[E, C]) error {
+func (a *action) Run(ctx Context) error {
 	return a.run(ctx)
 }

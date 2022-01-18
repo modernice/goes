@@ -67,6 +67,22 @@ type Repository interface {
 	Delete(ctx context.Context, a Aggregate) error
 }
 
+// User provides convenient usage of aggregates.
+//
+//	func example(repo User) {
+//		var a Aggregate // Initialize
+//		err := repo.Use(ctx, a, func() error {
+//			// Work with a
+//			return nil
+//		})
+//	}
+type User interface {
+	// Use first fetches the Aggregate a from the event store, then calls fn(a)
+	// and finally saves the aggregate changes. If fn returns a non-nil error,
+	// the aggregate is not saved and the error is returned.
+	Use(ctx context.Context, a Aggregate, fn func() error) error
+}
+
 // Query is used by Repositories to filter aggregates.
 type Query interface {
 	// Names returns the aggregate names to query for.

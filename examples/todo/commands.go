@@ -45,13 +45,7 @@ func RegisterCommands(r *codec.GobRegistry) {
 	r.GobRegister(DoneTaskCmd, func() any { return doneTaskPayload{} })
 }
 
-func HandleCommands[P any](ctx context.Context, bus command.Bus[P], repo aggregate.Repository) <-chan error {
-	return nil
-	// addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(c command.Context[addTaskPayload]) error {})
-
-	// h := command.NewHandlerOf[addTaskPayload](bus)
-
-	// h.MustHandle(ctx, AddTaskCmd, func(c command.Context[any]) error {
-
-	// })
+func HandleCommands[P any](ctx context.Context, bus command.Bus, repo aggregate.Repository) <-chan error {
+	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.Context[addTaskPayload]) error {
+	})
 }

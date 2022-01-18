@@ -10,7 +10,7 @@ import (
 )
 
 // HandleOption is an option for Handle & MustHandle.
-type HandleOption[D any] func(*handleConfig[D])
+type HandleOption func(*handleConfig)
 
 // PublishEvents returns a HandleOption that configures the command handler to
 // publish events over the provided Bus when appropriate. If the optional store
@@ -18,16 +18,16 @@ type HandleOption[D any] func(*handleConfig[D])
 //
 // The following events are published by the handler:
 //	- AggregateDeleted ("goes.command.aggregate.deleted")
-func PublishEvents[D any](bus event.Bus[D], store event.Store[D]) HandleOption[D] {
-	return func(cfg *handleConfig[D]) {
+func PublishEvents(bus event.Bus, store event.Store) HandleOption {
+	return func(cfg *handleConfig) {
 		cfg.bus = bus
 		cfg.store = store
 	}
 }
 
 // MustHandle does the same as Handle, but panic if command registration fails.
-func MustHandle[P, D any](ctx context.Context, bus command.Bus[P], repo aggregate.Repository, opts ...HandleOption[D]) <-chan error {
-	errs, err := Handle[P, D](ctx, bus, repo, opts...)
+func MustHandle[P any](ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) <-chan error {
+	errs, err := Handle[P](ctx, bus, repo, opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -41,15 +41,15 @@ func MustHandle[P, D any](ctx context.Context, bus command.Bus[P], repo aggregat
 //
 // The following commands are handled:
 //	- DeleteAggregateCmd ("goes.command.aggregate.delete")
-func Handle[P, D any](ctx context.Context, bus command.Bus[P], repo aggregate.Repository, opts ...HandleOption[D]) (<-chan error, error) {
-	var cfg handleConfig[D]
+func Handle[P any](ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) (<-chan error, error) {
+	var cfg handleConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
-	h := command.NewHandler(bus)
+	h := command.NewHandler[any](bus)
 
-	deleteErrors, err := h.Handle(ctx, DeleteAggregateCmd, func(ctx command.Context[P]) error {
+	deleteErrors, err := h.Handle(ctx, DeleteAggregateCmd, func(ctx command.Context) error {
 		cmd := ctx
 		id, name := cmd.Aggregate()
 		a := aggregate.New(name, id)
@@ -59,24 +59,19 @@ func Handle[P, D any](ctx context.Context, bus command.Bus[P], repo aggregate.Re
 		}
 
 		data := AggregateDeletedData{Version: a.AggregateVersion()}
-		tdata, ok := any(data).(D)
-		if !ok {
-			return fmt.Errorf("publish event: event bus doesn't accept events of type %T", data)
-		}
-
-		deletedEvent := event.New(AggregateDeleted, tdata, event.Aggregate[D](id, name, 0))
+		deletedEvent := event.New(AggregateDeleted, data, event.Aggregate[AggregateDeletedData](id, name, 0))
 
 		if err := repo.Delete(ctx, a); err != nil {
 			return fmt.Errorf("delete from repository: %w", err)
 		}
 
 		if cfg.bus != nil {
-			if err := cfg.bus.Publish(ctx, deletedEvent); err != nil {
+			if err := cfg.bus.Publish(ctx, deletedEvent.Any()); err != nil {
 				return fmt.Errorf("publish %q event: %w", deletedEvent.Name(), err)
 			}
 
 			if cfg.store != nil {
-				if err := cfg.store.Insert(ctx, deletedEvent); err != nil {
+				if err := cfg.store.Insert(ctx, deletedEvent.Any()); err != nil {
 					return fmt.Errorf("insert %q event into event store: %w", deletedEvent.Name(), err)
 				}
 			}
@@ -91,7 +86,7 @@ func Handle[P, D any](ctx context.Context, bus command.Bus[P], repo aggregate.Re
 	return deleteErrors, nil
 }
 
-type handleConfig[D any] struct {
-	bus   event.Bus[D]
-	store event.Store[D]
+type handleConfig struct {
+	bus   event.Bus
+	store event.Store
 }

@@ -19,7 +19,7 @@ import (
 )
 
 func TestTrigger_unregisteredSchedule(t *testing.T) {
-	bus := eventbus.New[any]()
+	bus := eventbus.New()
 	svc := projection.NewService(bus, projection.TriggerTimeout[any](20*time.Millisecond))
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
@@ -55,7 +55,7 @@ func TestTrigger(t *testing.T) {
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	received := make(chan struct{})
-	scheduleErrors, err := schedule.Subscribe(ctx, func(projection.Job[any]) error {
+	scheduleErrors, err := schedule.Subscribe(ctx, func(projection.Job) error {
 		close(received)
 		return nil
 	})
@@ -109,7 +109,7 @@ func TestTrigger_reset(t *testing.T) {
 
 	proj := projectiontest.NewMockResetProjection(5)
 	applied := make(chan struct{})
-	scheduleErrors, err := schedule.Subscribe(ctx, func(job projection.Job[any]) error {
+	scheduleErrors, err := schedule.Subscribe(ctx, func(job projection.Job) error {
 		defer close(applied)
 		return job.Apply(job, proj)
 	})

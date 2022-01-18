@@ -24,17 +24,17 @@ func TestCoreEventBus(t *testing.T) {
 
 func testEventBus(t *testing.T, newBus eventbustest.EventBusFactory) {
 	t.Run("SubscribeConnect", func(t *testing.T) {
-		testSubscribeConnect(t, func(e codec.Encoding[any]) event.Bus[any] {
+		testSubscribeConnect(t, func(e codec.Encoding) event.Bus {
 			return natsbus.New(e, natsbus.EatErrors())
 		})
 	})
 	t.Run("PublishConnect", func(t *testing.T) {
-		testPublishConnect(t, func(e codec.Encoding[any]) event.Bus[any] {
+		testPublishConnect(t, func(e codec.Encoding) event.Bus {
 			return natsbus.New(e, natsbus.EatErrors())
 		})
 	})
 	t.Run("PublishEncodeError", func(t *testing.T) {
-		testPublishEncodeError(t, func(e codec.Encoding[any]) event.Bus[any] {
+		testPublishEncodeError(t, func(e codec.Encoding) event.Bus {
 			return natsbus.New(e, natsbus.EatErrors())
 		})
 	})
@@ -93,6 +93,6 @@ func testPublishEncodeError(t *testing.T, newBus eventbustest.EventBusFactory) {
 	}
 }
 
-func newBus(enc codec.Encoding[any]) event.Bus[any] {
+func newBus(enc codec.Encoding) event.Bus {
 	return natsbus.New(enc, natsbus.EatErrors())
 }

@@ -23,7 +23,7 @@ func TestStreamingEventBus(t *testing.T) {
 	// testEventBus(t, newSTANBus)
 }
 
-func newSTANBus(enc codec.Encoding[any]) event.Bus[any] {
+func newSTANBus(enc codec.Encoding) event.Bus {
 	n := atomic.AddInt64(&id, 1)
 	return natsbus.New(
 		enc,
