@@ -67,7 +67,7 @@ type Repository interface {
 	Delete(ctx context.Context, a Aggregate) error
 }
 
-// User provides convenient usage of aggregates.
+// User is a repository that provides a convenient Use() function.
 //
 //	func example(repo User) {
 //		var a Aggregate // Initialize
