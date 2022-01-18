@@ -10,7 +10,7 @@ import (
 
 // Await is a shortcut for NewAwaiter(bus).Once(ctx, names...). See Awaiter.Once
 // for documentation.
-func Await[D any](ctx context.Context, bus event.Bus[D], names ...string) (<-chan event.Event[D], <-chan error, error) {
+func Await[D any](ctx context.Context, bus event.Bus[D], names ...string) (<-chan event.EventOf[D], <-chan error, error) {
 	return NewAwaiter[D](bus).Once(ctx, names...)
 }
 
@@ -30,7 +30,7 @@ func NewAwaiter[D any](bus event.Bus[D]) Awaiter[D] {
 // an Event or an error is received, both channels are immediately closed.
 //
 // If len(names) == 0, Once returns nil channels.
-func (a Awaiter[D]) Once(ctx context.Context, names ...string) (<-chan event.Event[D], <-chan error, error) {
+func (a Awaiter[D]) Once(ctx context.Context, names ...string) (<-chan event.EventOf[D], <-chan error, error) {
 	if len(names) == 0 {
 		return nil, nil, nil
 	}
@@ -43,7 +43,7 @@ func (a Awaiter[D]) Once(ctx context.Context, names ...string) (<-chan event.Eve
 		return nil, nil, fmt.Errorf("subscribe to %q events: %w", names, err)
 	}
 
-	out := make(chan event.Event[D])
+	out := make(chan event.EventOf[D])
 	outErrs, fail := concurrent.Errors(ctx)
 
 	go func() {

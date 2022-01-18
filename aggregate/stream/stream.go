@@ -16,21 +16,21 @@ type stream[D any] struct {
 	isSorted            bool
 	isGrouped           bool
 	validateConsistency bool
-	filters             []func(event.Event[D]) bool
+	filters             []func(event.EventOf[D]) bool
 
-	stream       <-chan event.Event[D]
+	stream       <-chan event.EventOf[D]
 	streamErrors []<-chan error
 	inErrors     <-chan error
 	stopErrors   func()
 
 	acceptDone chan struct{}
 
-	events   chan event.Event[D]
+	events   chan event.EventOf[D]
 	complete chan job
 
 	groupReqs chan groupRequest[D]
 
-	out       chan aggregate.History[D]
+	out       chan aggregate.History
 	outErrors chan error
 }
 
@@ -41,13 +41,13 @@ type job struct {
 
 type groupRequest[D any] struct {
 	job
-	out chan []event.Event[D]
+	out chan []event.EventOf[D]
 }
 
-type applier[D any] struct {
+type applier struct {
 	job
 
-	apply func(aggregate.Aggregate[D])
+	apply func(aggregate.Aggregate)
 }
 
 // Errors returns an Option that provides a Stream with error channels. A Stream
@@ -130,14 +130,10 @@ func ValidateConsistency[D any](v bool) Option[D] {
 // Filter returns an Option that filters incoming Events before they're handled
 // by the Stream. Events are passed to every fn in fns until a fn returns false.
 // If any of fns returns false, the Event is discarded by the Stream.
-func Filter[D any](fns ...func(event.Event[D]) bool) Option[D] {
+func Filter[D any](fns ...func(event.EventOf[D]) bool) Option[D] {
 	return func(s *stream[D]) {
 		s.filters = append(s.filters, fns...)
 	}
-}
-
-func New(events <-chan event.Event[any], opts ...Option[any]) (<-chan aggregate.History[any], <-chan error) {
-	return NewOf(events, opts...)
 }
 
 // New takes a channel of Events and returns both a channel of Aggregate
@@ -146,7 +142,7 @@ func New(events <-chan event.Event[any], opts ...Option[any]) (<-chan aggregate.
 //
 // Use the Drain function to get the Histories as a slice and a single error:
 //
-//	var events <-chan event.Event[any]
+//	var events <-chan event.EventOf[D]
 //	str, errs := stream.New(events)
 //	histories, err := aggregate.Drain(context.TODO(), str, errs)
 //	// handle err
@@ -154,9 +150,9 @@ func New(events <-chan event.Event[any], opts ...Option[any]) (<-chan aggregate.
 //		foo := newFoo(h.AggregateID())
 //		h.Apply(foo)
 //	}
-func NewOf[D any](events <-chan event.Event[D], opts ...Option[D]) (<-chan aggregate.History[D], <-chan error) {
+func New[D any](events <-chan event.EventOf[D], opts ...Option[D]) (<-chan aggregate.History, <-chan error) {
 	if events == nil {
-		evts := make(chan event.Event[D])
+		evts := make(chan event.EventOf[D])
 		close(evts)
 		events = evts
 	}
@@ -165,10 +161,10 @@ func NewOf[D any](events <-chan event.Event[D], opts ...Option[D]) (<-chan aggre
 		validateConsistency: true,
 		stream:              events,
 		acceptDone:          make(chan struct{}),
-		events:              make(chan event.Event[D]),
+		events:              make(chan event.EventOf[D]),
 		complete:            make(chan job),
 		groupReqs:           make(chan groupRequest[D]),
-		out:                 make(chan aggregate.History[D]),
+		out:                 make(chan aggregate.History),
 		outErrors:           make(chan error),
 	}
 	for _, opt := range opts {
@@ -237,7 +233,7 @@ L:
 	}
 }
 
-func (s *stream[D]) shouldDiscard(evt event.Event[D]) bool {
+func (s *stream[D]) shouldDiscard(evt event.EventOf[D]) bool {
 	for _, fn := range s.filters {
 		if !fn(evt) {
 			return true
@@ -247,7 +243,7 @@ func (s *stream[D]) shouldDiscard(evt event.Event[D]) bool {
 }
 
 func (s *stream[D]) groupEvents() {
-	groups := make(map[job][]event.Event[D])
+	groups := make(map[job][]event.EventOf[D])
 	events := s.events
 	groupReqs := s.groupReqs
 	for {
@@ -283,7 +279,7 @@ func (s *stream[D]) sortEvents() {
 	for j := range s.complete {
 		req := groupRequest[D]{
 			job: j,
-			out: make(chan []event.Event[D]),
+			out: make(chan []event.EventOf[D]),
 		}
 		s.groupReqs <- req
 		events := <-req.out
@@ -293,30 +289,30 @@ func (s *stream[D]) sortEvents() {
 		}
 
 		if s.validateConsistency {
-			a := aggregate.New[D](j.name, j.id)
-			if err := aggregate.ValidateConsistency[D](a, events...); err != nil {
+			a := aggregate.New(j.name, j.id)
+			if err := aggregate.ValidateConsistency[D](a, events); err != nil {
 				s.outErrors <- err
 				continue
 			}
 		}
 
-		s.out <- applier[D]{
+		s.out <- applier{
 			job: j,
-			apply: func(a aggregate.Aggregate[D]) {
-				aggregate.ApplyHistory(a, events...)
+			apply: func(a aggregate.Aggregate) {
+				aggregate.ApplyHistory[D](a, events)
 			},
 		}
 	}
 }
 
-func (a applier[D]) AggregateName() string {
+func (a applier) AggregateName() string {
 	return a.name
 }
 
-func (a applier[D]) AggregateID() uuid.UUID {
+func (a applier) AggregateID() uuid.UUID {
 	return a.id
 }
 
-func (a applier[D]) Apply(ag aggregate.Aggregate[D]) {
+func (a applier) Apply(ag aggregate.Aggregate) {
 	a.apply(ag)
 }

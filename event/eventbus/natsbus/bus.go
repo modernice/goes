@@ -100,7 +100,7 @@ type subscription struct {
 }
 
 type recipient struct {
-	events chan event.Event[any]
+	events chan event.EventOf[any]
 	errs   chan error
 }
 
@@ -348,7 +348,7 @@ func (bus *Bus) init(opts ...Option) {
 }
 
 // Publish implements event.Bus.
-func (bus *Bus) Publish(ctx context.Context, events ...event.Event[any]) error {
+func (bus *Bus) Publish(ctx context.Context, events ...event.EventOf[any]) error {
 	if err := bus.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
@@ -368,7 +368,7 @@ func (bus *Bus) Publish(ctx context.Context, events ...event.Event[any]) error {
 	return nil
 }
 
-func (bus *Bus) publish(evt event.Event[any]) error {
+func (bus *Bus) publish(evt event.EventOf[any]) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w", err)
@@ -406,7 +406,7 @@ func (bus *Bus) publish(evt event.Event[any]) error {
 // Callers must ensure to range over the error channel if the EatErrors Option
 // is not used; otherwise the subscription will block forever and no further
 // Events will be received when the first async error happens.
-func (bus *Bus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event[any], <-chan error, error) {
+func (bus *Bus) Subscribe(ctx context.Context, names ...string) (<-chan event.EventOf[any], <-chan error, error) {
 	parentCtx := ctx
 	ctx, cancel := context.WithCancel(parentCtx)
 	go func() {
@@ -552,12 +552,12 @@ func (bus *Bus) natsURL() string {
 	return url
 }
 
-func (bus *Bus) fanIn(rcpts []recipient) (<-chan event.Event[any], <-chan error) {
+func (bus *Bus) fanIn(rcpts []recipient) (<-chan event.EventOf[any], <-chan error) {
 	return bus.fanInEvents(rcpts), fanInErrors(rcpts)
 }
 
-func (bus *Bus) fanInEvents(rcpts []recipient) <-chan event.Event[any] {
-	out := make(chan event.Event[any])
+func (bus *Bus) fanInEvents(rcpts []recipient) <-chan event.EventOf[any] {
+	out := make(chan event.EventOf[any])
 
 	var wg sync.WaitGroup
 	wg.Add(len(rcpts))
@@ -749,7 +749,7 @@ func (bus *Bus) workSubscriber(sub *subscription) {
 	}
 }
 
-func (sub *subscription) publish(evt event.Event[any]) error {
+func (sub *subscription) publish(evt event.EventOf[any]) error {
 	for _, rcpt := range sub.rcpts {
 		rcpt.events <- evt
 	}
@@ -813,7 +813,7 @@ var errUnsubscribed = errors.New("unsubscribed")
 
 func (sub *subscription) newRecipient(ctx context.Context) (recipient, error) {
 	rcpt := recipient{
-		events: make(chan event.Event[any]),
+		events: make(chan event.EventOf[any]),
 		errs:   make(chan error),
 	}
 	if err := sub.add(rcpt); err != nil {

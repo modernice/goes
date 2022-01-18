@@ -21,19 +21,19 @@ var (
 )
 
 // Option is a repository option.
-type Option[D any] interface {
-	Apply(*Repository[D])
+type Option[E any] interface {
+	Apply(*Repository[E])
 }
 
-type Repository[D any] struct {
-	store          event.Store[D]
+type Repository[E any] struct {
+	store          event.Store[E]
 	snapshots      snapshot.Store
-	snapSchedule   snapshot.Schedule[D]
+	snapSchedule   snapshot.Schedule
 	queryModifiers []func(context.Context, aggregate.Query, event.Query) (event.Query, error)
-	beforeInsert   []func(context.Context, aggregate.Aggregate[D]) error
-	afterInsert    []func(context.Context, aggregate.Aggregate[D]) error
-	onFailedInsert []func(context.Context, aggregate.Aggregate[D], error) error
-	onDelete       []func(context.Context, aggregate.Aggregate[D]) error
+	beforeInsert   []func(context.Context, aggregate.Aggregate) error
+	afterInsert    []func(context.Context, aggregate.Aggregate) error
+	onFailedInsert []func(context.Context, aggregate.Aggregate, error) error
+	onDelete       []func(context.Context, aggregate.Aggregate) error
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
@@ -53,19 +53,19 @@ type Repository[D any] struct {
 //
 // Aggregates must implement snapshot.Marshaler & snapshot.Unmarshaler in order
 // for Snapshots to work.
-func WithSnapshots[D any](store snapshot.Store, s snapshot.Schedule[D]) Option[D] {
+func WithSnapshots[E any](store snapshot.Store, s snapshot.Schedule) Option[E] {
 	if store == nil {
 		panic("nil Store")
 	}
-	return withSnapshots[D]{store, s}
+	return withSnapshots[E]{store, s}
 }
 
-type withSnapshots[D any] struct {
+type withSnapshots[E any] struct {
 	store    snapshot.Store
-	schedule snapshot.Schedule[D]
+	schedule snapshot.Schedule
 }
 
-func (opt withSnapshots[D]) Apply(r *Repository[D]) {
+func (opt withSnapshots[E]) Apply(r *Repository[E]) {
 	r.snapshots = opt.store
 	r.snapSchedule = opt.schedule
 }
@@ -73,73 +73,73 @@ func (opt withSnapshots[D]) Apply(r *Repository[D]) {
 // ModifyQueries returns an Option that adds mods as Query modifiers to a
 // Repository. When the Repository builds a Query, it is passed to every
 // modifier before the event store is queried.
-func ModifyQueries[D any](mods ...func(ctx context.Context, q aggregate.Query, prev event.Query) (event.Query, error)) Option[D] {
-	return modifyQueries[D](mods)
+func ModifyQueries[E any](mods ...func(ctx context.Context, q aggregate.Query, prev event.Query) (event.Query, error)) Option[E] {
+	return modifyQueries[E](mods)
 }
 
-type modifyQueries[D any] []func(context.Context, aggregate.Query, event.Query) (event.Query, error)
+type modifyQueries[E any] []func(context.Context, aggregate.Query, event.Query) (event.Query, error)
 
-func (opt modifyQueries[D]) Apply(r *Repository[D]) {
+func (opt modifyQueries[E]) Apply(r *Repository[E]) {
 	r.queryModifiers = append(r.queryModifiers, opt...)
 }
 
 // BeforeInsert returns an Option that adds fn as a hook to a Repository. fn is
 // called before the changes to an aggregate are inserted into the event store.
-func BeforeInsert[D any](fn func(context.Context, aggregate.Aggregate[D]) error) Option[D] {
-	return beforeInsert[D](fn)
+func BeforeInsert[E any](fn func(context.Context, aggregate.Aggregate) error) Option[E] {
+	return beforeInsert[E](fn)
 }
 
-type beforeInsert[D any] func(context.Context, aggregate.Aggregate[D]) error
+type beforeInsert[E any] func(context.Context, aggregate.Aggregate) error
 
-func (opt beforeInsert[D]) Apply(r *Repository[D]) {
+func (opt beforeInsert[E]) Apply(r *Repository[E]) {
 	r.beforeInsert = append(r.beforeInsert, opt)
 }
 
 // AfterInsert returns an Option that adds fn as a hook to a Repository. fn is
 // called after the changes to an aggregate are inserted into the event store.
-func AfterInsert[D any](fn func(context.Context, aggregate.Aggregate[D]) error) Option[D] {
-	return afterInsert[D](fn)
+func AfterInsert[E any](fn func(context.Context, aggregate.Aggregate) error) Option[E] {
+	return afterInsert[E](fn)
 }
 
-type afterInsert[D any] func(context.Context, aggregate.Aggregate[D]) error
+type afterInsert[E any] func(context.Context, aggregate.Aggregate) error
 
-func (opt afterInsert[D]) Apply(r *Repository[D]) {
+func (opt afterInsert[E]) Apply(r *Repository[E]) {
 	r.afterInsert = append(r.afterInsert, opt)
 }
 
 // OnFailedInsert returns an Option that adds fn as a hook to a Repository. fn
 // is called when the Repository fails to insert the changes to an aggregate
 // into the event store.
-func OnFailedInsert[D any](fn func(context.Context, aggregate.Aggregate[D], error) error) Option[D] {
-	return onFailedInsert[D](fn)
+func OnFailedInsert[E any](fn func(context.Context, aggregate.Aggregate, error) error) Option[E] {
+	return onFailedInsert[E](fn)
 }
 
-type onFailedInsert[D any] func(context.Context, aggregate.Aggregate[D], error) error
+type onFailedInsert[E any] func(context.Context, aggregate.Aggregate, error) error
 
-func (opt onFailedInsert[D]) Apply(r *Repository[D]) {
+func (opt onFailedInsert[E]) Apply(r *Repository[E]) {
 	r.onFailedInsert = append(r.onFailedInsert, opt)
 }
 
 // OnDelete returns an Option that adds fn as a hook to a Repository. fn is
 // called after an aggregate has been deleted.
-func OnDelete[D any](fn func(context.Context, aggregate.Aggregate[D]) error) Option[D] {
-	return onDelete[D](fn)
+func OnDelete[E any](fn func(context.Context, aggregate.Aggregate) error) Option[E] {
+	return onDelete[E](fn)
 }
 
-type onDelete[D any] func(context.Context, aggregate.Aggregate[D]) error
+type onDelete[E any] func(context.Context, aggregate.Aggregate) error
 
-func (opt onDelete[D]) Apply(r *Repository[D]) {
+func (opt onDelete[E]) Apply(r *Repository[E]) {
 	r.onDelete = append(r.onDelete, opt)
 }
 
 // New returns an event-sourced Aggregate Repository. It uses the provided Event
 // Store to persist and query Aggregates.
-func New[D any](store event.Store[D], opts ...Option[D]) *Repository[D] {
+func New[E any](store event.Store[E], opts ...Option[E]) *Repository[E] {
 	return newRepository(store, opts...)
 }
 
-func newRepository[D any](store event.Store[D], opts ...Option[D]) *Repository[D] {
-	r := Repository[D]{store: store}
+func newRepository[E any](store event.Store[E], opts ...Option[E]) *Repository[E] {
+	r := Repository[E]{store: store}
 	for _, opt := range opts {
 		opt.Apply(&r)
 	}
@@ -148,7 +148,7 @@ func newRepository[D any](store event.Store[D], opts ...Option[D]) *Repository[D
 
 // Save saves the changes to an Aggregate into the underlying event store and
 // flushes its changes afterwards (by calling a.FlushChanges).
-func (r *Repository[D]) Save(ctx context.Context, a aggregate.Aggregate[D]) error {
+func (r *Repository[E]) Save(ctx context.Context, a aggregate.Aggregate) error {
 	var snap bool
 	if r.snapSchedule != nil && r.snapSchedule.Test(a) {
 		snap = true
@@ -160,7 +160,9 @@ func (r *Repository[D]) Save(ctx context.Context, a aggregate.Aggregate[D]) erro
 		}
 	}
 
-	if err := r.store.Insert(ctx, a.AggregateChanges()...); err != nil {
+	changes := event.CastMany[E](a.AggregateChanges()...)
+
+	if err := r.store.Insert(ctx, changes...); err != nil {
 		for _, fn := range r.onFailedInsert {
 			if hookError := fn(ctx, a, err); hookError != nil {
 				return fmt.Errorf("OnFailedInsert (%s): %w", err, hookError)
@@ -176,7 +178,7 @@ func (r *Repository[D]) Save(ctx context.Context, a aggregate.Aggregate[D]) erro
 		}
 	}
 
-	if c, ok := a.(aggregate.Committer[D]); ok {
+	if c, ok := a.(aggregate.Committer); ok {
 		c.Commit()
 	}
 
@@ -189,8 +191,8 @@ func (r *Repository[D]) Save(ctx context.Context, a aggregate.Aggregate[D]) erro
 	return nil
 }
 
-func (r *Repository[D]) makeSnapshot(ctx context.Context, a aggregate.Aggregate[D]) error {
-	snap, err := snapshot.NewOf(a)
+func (r *Repository[E]) makeSnapshot(ctx context.Context, a aggregate.Aggregate) error {
+	snap, err := snapshot.New(a)
 	if err != nil {
 		return err
 	}
@@ -209,7 +211,7 @@ func (r *Repository[D]) makeSnapshot(ctx context.Context, a aggregate.Aggregate[
 // It is also allowed to pass an Aggregate that has already events applied onto
 // it. Only events with a version higher than the current version of the passed
 // Aggregate are fetched from the event store.
-func (r *Repository[D]) Fetch(ctx context.Context, a aggregate.Aggregate[D]) error {
+func (r *Repository[E]) Fetch(ctx context.Context, a aggregate.Aggregate) error {
 	if _, ok := a.(snapshot.Target); ok && r.snapshots != nil {
 		return r.fetchLatestWithSnapshot(ctx, a)
 	}
@@ -219,7 +221,7 @@ func (r *Repository[D]) Fetch(ctx context.Context, a aggregate.Aggregate[D]) err
 	))
 }
 
-func (r *Repository[D]) fetchLatestWithSnapshot(ctx context.Context, a aggregate.Aggregate[D]) error {
+func (r *Repository[E]) fetchLatestWithSnapshot(ctx context.Context, a aggregate.Aggregate) error {
 	id, name, _ := a.Aggregate()
 
 	snap, err := r.snapshots.Latest(ctx, name, id)
@@ -242,7 +244,7 @@ func (r *Repository[D]) fetchLatestWithSnapshot(ctx context.Context, a aggregate
 	))
 }
 
-func (r *Repository[D]) fetch(ctx context.Context, a aggregate.Aggregate[D], opts ...equery.Option) error {
+func (r *Repository[E]) fetch(ctx context.Context, a aggregate.Aggregate, opts ...equery.Option) error {
 	id, name, _ := a.Aggregate()
 
 	opts = append([]equery.Option{
@@ -256,14 +258,14 @@ func (r *Repository[D]) fetch(ctx context.Context, a aggregate.Aggregate[D], opt
 		return fmt.Errorf("query events: %w", err)
 	}
 
-	if err = aggregate.ApplyHistory(a, events...); err != nil {
+	if err = aggregate.ApplyHistory[E](a, events); err != nil {
 		return fmt.Errorf("apply history: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Repository[D]) queryEvents(ctx context.Context, q equery.Query) ([]event.Event[D], error) {
+func (r *Repository[E]) queryEvents(ctx context.Context, q equery.Query) ([]event.EventOf[E], error) {
 	str, errs, err := r.store.Query(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)
@@ -280,7 +282,7 @@ func (r *Repository[D]) queryEvents(ctx context.Context, q equery.Query) ([]even
 // FetchVersion does the same as r.Fetch, but only fetches events up until the
 // given version v. If the event store has no event for the provided Aggregate
 // with the requested version, ErrVersionNotFound is returned.
-func (r *Repository[D]) FetchVersion(ctx context.Context, a aggregate.Aggregate[D], v int) error {
+func (r *Repository[E]) FetchVersion(ctx context.Context, a aggregate.Aggregate, v int) error {
 	if v < 0 {
 		v = 0
 	}
@@ -292,7 +294,7 @@ func (r *Repository[D]) FetchVersion(ctx context.Context, a aggregate.Aggregate[
 	return r.fetchVersion(ctx, a, v)
 }
 
-func (r *Repository[D]) fetchVersionWithSnapshot(ctx context.Context, a aggregate.Aggregate[D], v int) error {
+func (r *Repository[E]) fetchVersionWithSnapshot(ctx context.Context, a aggregate.Aggregate, v int) error {
 	id, name, _ := a.Aggregate()
 
 	snap, err := r.snapshots.Limit(ctx, name, id, v)
@@ -311,7 +313,7 @@ func (r *Repository[D]) fetchVersionWithSnapshot(ctx context.Context, a aggregat
 	return r.fetchVersion(ctx, a, v)
 }
 
-func (r *Repository[D]) fetchVersion(ctx context.Context, a aggregate.Aggregate[D], v int) error {
+func (r *Repository[E]) fetchVersion(ctx context.Context, a aggregate.Aggregate, v int) error {
 	if err := r.fetch(ctx, a, equery.AggregateVersion(
 		version.Min(aggregate.UncommittedVersion(a)+1),
 		version.Max(v),
@@ -328,7 +330,7 @@ func (r *Repository[D]) fetchVersion(ctx context.Context, a aggregate.Aggregate[
 }
 
 // Delete deletes an aggregate by deleting its events from the event store.
-func (r *Repository[D]) Delete(ctx context.Context, a aggregate.Aggregate[D]) error {
+func (r *Repository[E]) Delete(ctx context.Context, a aggregate.Aggregate) error {
 	id, name, _ := a.Aggregate()
 
 	str, errs, err := r.store.Query(ctx, equery.New(
@@ -392,7 +394,7 @@ func (r *Repository[D]) Delete(ctx context.Context, a aggregate.Aggregate[D]) er
 //		// Then apply its History
 //		his.Apply(foo)
 //	}
-func (r *Repository[D]) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.History[D], <-chan error, error) {
+func (r *Repository[E]) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.History, <-chan error, error) {
 	eq, err := r.makeQuery(ctx, q)
 	if err != nil {
 		return nil, nil, fmt.Errorf("make query options: %w", err)
@@ -403,17 +405,17 @@ func (r *Repository[D]) Query(ctx context.Context, q aggregate.Query) (<-chan ag
 		return nil, nil, fmt.Errorf("query events: %w", err)
 	}
 
-	out, outErrors := stream.NewOf(
+	out, outErrors := stream.New(
 		events,
-		stream.Errors[D](errs),
-		stream.Grouped[D](true),
-		stream.Sorted[D](true),
+		stream.Errors[E](errs),
+		stream.Grouped[E](true),
+		stream.Sorted[E](true),
 	)
 
 	return out, outErrors, nil
 }
 
-func (r *Repository[D]) makeQuery(ctx context.Context, aq aggregate.Query) (event.Query, error) {
+func (r *Repository[E]) makeQuery(ctx context.Context, aq aggregate.Query) (event.Query, error) {
 	opts := append(
 		query.EventQueryOpts(aq),
 		equery.SortByAggregate(),
@@ -431,7 +433,7 @@ func (r *Repository[D]) makeQuery(ctx context.Context, aq aggregate.Query) (even
 }
 
 // Use is first fetches the aggregate, then calls fn and finally saves the aggregate.
-func (r *Repository[D]) Use(ctx context.Context, a aggregate.Aggregate[D], fn func() error) error {
+func (r *Repository[E]) Use(ctx context.Context, a aggregate.Aggregate, fn func() error) error {
 	if err := r.Fetch(ctx, a); err != nil {
 		return fmt.Errorf("fetch aggregate: %w", err)
 	}

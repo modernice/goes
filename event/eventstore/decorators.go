@@ -22,7 +22,7 @@ func WithBus[D any](s event.Store[D], b event.Bus[D]) event.Store[D] {
 	}
 }
 
-func (s *storeWithBus[D]) Insert(ctx context.Context, events ...event.Event[D]) error {
+func (s *storeWithBus[D]) Insert(ctx context.Context, events ...event.EventOf[D]) error {
 	if err := s.Store.Insert(ctx, events...); err != nil {
 		return err
 	}

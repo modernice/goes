@@ -18,7 +18,7 @@ var names = [...]string{
 }
 
 type mockAggregate struct {
-	*aggregate.Base[any]
+	*aggregate.Base
 
 	a float64
 	b string
@@ -140,7 +140,7 @@ func run(b *testing.B, naggregates, nevents int, grouped, sorted bool) {
 L:
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
-		var as []aggregate.Aggregate[any]
+		var as []aggregate.Aggregate
 		estr := event.Stream(events...)
 		b.StartTimer()
 
@@ -156,7 +156,7 @@ L:
 				if !ok {
 					continue L
 				}
-				a := &mockAggregate{Base: aggregate.New[any](res.AggregateName(), res.AggregateID())}
+				a := &mockAggregate{Base: aggregate.New(res.AggregateName(), res.AggregateID())}
 				as = append(as, a)
 			}
 		}
@@ -164,7 +164,7 @@ L:
 	_ = gerr
 }
 
-func (a *mockAggregate) ApplyEvent(evt event.Event[any]) {
+func (a *mockAggregate) ApplyEvent(evt event.EventOf[any]) {
 	for i, name := range names {
 		if name != evt.Name() {
 			continue
@@ -178,20 +178,20 @@ func (a *mockAggregate) ApplyEvent(evt event.Event[any]) {
 	}
 }
 
-func makeAggregates(n int) []aggregate.Aggregate[any] {
-	as := make([]aggregate.Aggregate[any], n)
+func makeAggregates(n int) []aggregate.Aggregate {
+	as := make([]aggregate.Aggregate, n)
 	for i := range as {
 		name := randomName()
-		as[i] = aggregate.New[any](name, uuid.New())
+		as[i] = aggregate.New(name, uuid.New())
 	}
 	return as
 }
 
-func makeEvents(n int, as []aggregate.Aggregate[any], grouped, sorted bool) []event.Event[any] {
+func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.EventOf[any] {
 	rand.Seed(xtime.Now().UnixNano())
-	eventm := make(map[aggregate.Aggregate[any]][]event.Event[any])
+	eventm := make(map[aggregate.Aggregate][]event.EventOf[any])
 	for _, a := range as {
-		events := make([]event.Event[any], n)
+		events := make([]event.EventOf[any], n)
 		for i := range events {
 			id, name, v := a.Aggregate()
 			v += i + 1
@@ -209,7 +209,7 @@ func makeEvents(n int, as []aggregate.Aggregate[any], grouped, sorted bool) []ev
 		}
 		eventm[a] = events
 	}
-	out := make([]event.Event[any], 0, len(as)*n)
+	out := make([]event.EventOf[any], 0, len(as)*n)
 	for _, events := range eventm {
 		out = append(out, events...)
 	}

@@ -19,13 +19,13 @@ import (
 func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New[any]()
-	bus := cmdbus.New[any](enc, codec.New(), ebus)
+	bus := cmdbus.New(enc, codec.New(), ebus)
 	h := command.NewHandler[any](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	handled := make(chan command.Command[any])
+	handled := make(chan command.Command)
 
 	errs, err := h.Handle(ctx, "foo-cmd", func(ctx command.Context[any]) error {
 		select {

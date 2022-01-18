@@ -11,13 +11,13 @@ import (
 type MakeOption func(*makeConfig)
 
 type makeConfig struct {
-	as   []aggregate.Aggregate[any]
+	as   []aggregate.Aggregate
 	skip []int
 }
 
 // ForAggregate returns a MakeOption that sets the aggregate for events returne
 // by Make.
-func ForAggregate(as ...aggregate.Aggregate[any]) MakeOption {
+func ForAggregate(as ...aggregate.Aggregate) MakeOption {
 	return func(cfg *makeConfig) {
 		cfg.as = append(cfg.as, as...)
 	}
@@ -33,7 +33,7 @@ func SkipVersion(v ...int) MakeOption {
 }
 
 // Make returns n Events with the specified name and data.
-func Make(name string, data any, n int, opts ...MakeOption) []event.Event[any] {
+func Make(name string, data any, n int, opts ...MakeOption) []event.Event {
 	var cfg makeConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -57,19 +57,19 @@ func (cfg makeConfig) aggregateVersion(b, i int, skipped *int) int {
 	return v
 }
 
-func makeEvents(name string, data any, n int) []event.Event[any] {
-	events := make([]event.Event[any], n)
+func makeEvents(name string, data any, n int) []event.Event {
+	events := make([]event.Event, n)
 	for i := range events {
 		events[i] = event.New(name, data)
 	}
 	return events
 }
 
-func makeAggregateEvents(name string, data any, n int, cfg makeConfig) []event.Event[any] {
-	events := make([]event.Event[any], 0, n*len(cfg.as))
+func makeAggregateEvents(name string, data any, n int, cfg makeConfig) []event.Event {
+	events := make([]event.Event, 0, n*len(cfg.as))
 	for _, a := range cfg.as {
 		var skipped int
-		aevents := make([]event.Event[any], n)
+		aevents := make([]event.Event, n)
 		t := time.Now()
 
 		aid, aname, av := a.Aggregate()

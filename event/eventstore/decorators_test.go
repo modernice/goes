@@ -29,9 +29,9 @@ func TestWithBus(t *testing.T) {
 		t.Fatalf("failed to insert Event: %v", err)
 	}
 
-	var walkedEvent event.Event[any]
+	var walkedEvent event.EventOf[any]
 
-	if err = event.Walk(context.Background(), func(e event.Event[any]) error {
+	if err = event.Walk(context.Background(), func(e event.EventOf[any]) error {
 		walkedEvent = e
 		cancel()
 		return nil

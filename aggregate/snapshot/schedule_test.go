@@ -105,8 +105,8 @@ func TestEvery(t *testing.T) {
 			tt.oldVersion,
 			tt.newVersion,
 		), func(t *testing.T) {
-			s := snapshot.Every[any](tt.every)
-			a := aggregate.New("foo", uuid.New(), aggregate.Version[any](tt.oldVersion))
+			s := snapshot.Every(tt.every)
+			a := aggregate.New("foo", uuid.New(), aggregate.Version(tt.oldVersion))
 			events := xevent.Make("foo", test.FooEventData{}, tt.newVersion-tt.oldVersion, xevent.ForAggregate(a))
 			for _, evt := range events {
 				a.TrackChange(evt)

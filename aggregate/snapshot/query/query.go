@@ -82,7 +82,7 @@ func Test(q snapshot.Query, s snapshot.Snapshot) bool {
 	if !query.Test[any](q, aggregate.New(
 		s.AggregateName(),
 		s.AggregateID(),
-		aggregate.Version[any](s.AggregateVersion()),
+		aggregate.Version(s.AggregateVersion()),
 	)) {
 		return false
 	}

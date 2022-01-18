@@ -31,10 +31,10 @@ const (
 // A Store persists and queries events.
 type Store[D any] interface {
 	// Insert inserts Events into the store.
-	Insert(context.Context, ...Event[D]) error
+	Insert(context.Context, ...EventOf[D]) error
 
 	// Find fetches the Event with the specified UUID from the store.
-	Find(context.Context, uuid.UUID) (Event[D], error)
+	Find(context.Context, uuid.UUID) (EventOf[D], error)
 
 	// Query queries the Store for Events that fit the given Query and returns a
 	// channel of Events and a channel of errors.
@@ -48,10 +48,10 @@ type Store[D any] interface {
 	//		log.Println(fmt.Sprintf("Queried Event: %v", evt))
 	//	}, events, errs)
 	//	// handle err
-	Query(context.Context, Query) (<-chan Event[D], <-chan error, error)
+	Query(context.Context, Query) (<-chan EventOf[D], <-chan error, error)
 
 	// Delete deletes Events from the Store.
-	Delete(context.Context, ...Event[D]) error
+	Delete(context.Context, ...EventOf[D]) error
 }
 
 // A Query is used by Stores to query Events.
@@ -115,7 +115,7 @@ type SortDirection int
 //	-1 if a < b
 //	0 is a == b
 //	1 if a > b
-func CompareSorting[A, B any](s Sorting, a Event[A], b Event[B]) (cmp int8) {
+func CompareSorting[A, B any](s Sorting, a EventOf[A], b EventOf[B]) (cmp int8) {
 	aid, aname, av := a.Aggregate()
 	bid, bname, bv := b.Aggregate()
 
@@ -145,7 +145,7 @@ func CompareSorting[A, B any](s Sorting, a Event[A], b Event[B]) (cmp int8) {
 //	-1 if a < b
 //	0 is a == b
 //	1 if a > b
-func (s Sorting) Compare(a, b Event[any]) (cmp int8) {
+func (s Sorting) Compare(a, b EventOf[any]) (cmp int8) {
 	return CompareSorting(s, a, b)
 }
 

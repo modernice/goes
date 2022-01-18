@@ -61,7 +61,7 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Foo should be %d; is %d", 14, foo.Foo)
 	}
 
-	if aggregate.UncommittedVersion[any](foo) != 3 {
+	if aggregate.UncommittedVersion(foo) != 3 {
 		t.Fatalf("AggregateVersion() should return %d; got %d", 3, foo.AggregateVersion())
 	}
 
@@ -147,22 +147,22 @@ func panicOn(errs <-chan error) {
 }
 
 type mockAggregate struct {
-	*aggregate.Base[any]
+	*aggregate.Base
 
 	Foo int
 }
 
 func newMockAggregate(id uuid.UUID) *mockAggregate {
 	return &mockAggregate{
-		Base: aggregate.New[any]("foo", id),
+		Base: aggregate.New("foo", id),
 	}
 }
 
-func (ma *mockAggregate) ApplyEvent(evt event.Event[any]) {
+func (ma *mockAggregate) ApplyEvent(evt event.EventOf[any]) {
 	data := evt.Data().(test.FoobarEventData)
 	ma.Foo += data.A
 }
 
-func newMockEvent(a aggregate.Aggregate[any], foo int) event.Event[any] {
+func newMockEvent(a aggregate.Aggregate, foo int) event.EventOf[any] {
 	return aggregate.NextEvent[any](a, "foobar", test.FoobarEventData{A: foo})
 }

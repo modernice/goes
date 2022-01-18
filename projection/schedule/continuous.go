@@ -143,7 +143,7 @@ func (schedule *Continuous[E]) Subscribe(ctx context.Context, apply func(project
 
 func (schedule *Continuous[E]) handleEvents(
 	ctx context.Context,
-	events <-chan event.Event[E],
+	events <-chan event.EventOf[E],
 	errs <-chan error,
 	jobs chan<- projection.Job[E],
 	out chan<- error,
@@ -159,7 +159,7 @@ func (schedule *Continuous[E]) handleEvents(
 	}
 
 	var mux sync.Mutex
-	var buf []event.Event[E]
+	var buf []event.EventOf[E]
 	var debounce *time.Timer
 
 	defer func() {
@@ -174,7 +174,7 @@ func (schedule *Continuous[E]) handleEvents(
 		mux.Lock()
 		defer mux.Unlock()
 
-		events := make([]event.Event[E], len(buf))
+		events := make([]event.EventOf[E], len(buf))
 		copy(events, buf)
 
 		job := projection.NewJob[E](
@@ -193,7 +193,7 @@ func (schedule *Continuous[E]) handleEvents(
 		debounce = nil
 	}
 
-	addEvent := func(evt event.Event[E]) {
+	addEvent := func(evt event.EventOf[E]) {
 		mux.Lock()
 
 		if debounce != nil {

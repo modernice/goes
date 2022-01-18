@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/event"
 )
 
 var (
@@ -26,11 +27,11 @@ var (
 //	}
 //
 //	func TestNewFoo() {
-//		test[E any].NewAggregate(func(id uuid.UUID) aggregate.Aggregate[E] {
+//		test[E any].NewAggregate(func(id uuid.UUID) aggregate.Aggregate {
 //			return NewFoo(id)
 //		})
 //	}
-func NewAggregate[E any](t TestingT, newFunc func(uuid.UUID) aggregate.Aggregate[E], expectedName string) {
+func NewAggregate(t TestingT, newFunc func(uuid.UUID) aggregate.Aggregate, expectedName string) {
 	a := newFunc(ExampleID)
 
 	id, name, _ := a.Aggregate()
@@ -150,7 +151,7 @@ func Exactly[E any](times int) ChangeOption[E] {
 
 // Change tests an Aggregate for a change. The Aggregate must have an
 // uncommitted change with the specified event name.
-func Change[E comparable](t TestingT, a aggregate.Aggregate[E], eventName string, opts ...ChangeOption[E]) {
+func Change[E comparable](t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeOption[E]) {
 	var cfg changeConfig[E]
 	for _, opt := range opts {
 		opt(&cfg)
@@ -165,8 +166,13 @@ func Change[E comparable](t TestingT, a aggregate.Aggregate[E], eventName string
 			continue
 		}
 
+		casted, ok := event.TryCast[E](change)
+		if !ok {
+			t.Fatal("%T event cannot be casted to %T", change, casted)
+		}
+
 		if cfg.eventData != zero && !reflect.DeepEqual(cfg.eventData, change.Data()) {
-			mismatchData = append(mismatchData, change.Data())
+			mismatchData = append(mismatchData, casted.Data())
 			continue
 		}
 
@@ -203,7 +209,7 @@ func Change[E comparable](t TestingT, a aggregate.Aggregate[E], eventName string
 
 // Change tests an Aggregate for a change. The Aggregate must not have an
 // uncommitted change with the specified event name.
-func NoChange[E comparable](t TestingT, a aggregate.Aggregate[E], eventName string, opts ...ChangeOption[E]) {
+func NoChange[E comparable](t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeOption[E]) {
 	var cfg changeConfig[E]
 	for _, opt := range opts {
 		opt(&cfg)

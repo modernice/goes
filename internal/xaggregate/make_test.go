@@ -35,7 +35,7 @@ func TestMake(t *testing.T) {
 		evt := event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](id, name, v+1))
 		a.ApplyEvent(evt)
 
-		test.AssertEqualEvents(t, getAppliedEvents(id), []event.Event[any]{evt})
+		test.AssertEqualEvents(t, getAppliedEvents(id), []event.EventOf[any]{evt})
 	}
 }
 

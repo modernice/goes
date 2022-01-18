@@ -24,13 +24,13 @@ const (
 )
 
 // Error is a consistency error.
-type ConsistencyError[D any] struct {
+type ConsistencyError[D any, E event.EventOf[D], Events ~[]E] struct {
 	// Kind is the kind of incosistency.
 	Kind ConsistencyKind
 	// Aggregate is the handled aggregate.
-	Aggregate Aggregate[D]
+	Aggregate Aggregate
 	// Events are the tested events.
-	Events []event.Event[D]
+	Events Events
 	// EventIndex is the index of the Event that caused the Error.
 	EventIndex int
 }
@@ -52,15 +52,22 @@ type ConsistencyKind int
 // The first Event e in events that is invalid causes Validate to return an
 // *Error containing the Kind of inconsistency and the Event that caused the
 // inconsistency.
-func ValidateConsistency[D any](a Aggregate[D], events ...event.Event[D]) error {
+func ValidateConsistency[D any, E event.EventOf[D], Events ~[]E](a Aggregate, events Events) error {
 	id, name, _ := a.Aggregate()
 	version := currentVersion(a)
 	cv := version
-	var prev event.Event[D]
+	var prev E
+	var hasPrev bool
+
+	aevents := make([]event.Event, len(events))
+	for i, evt := range events {
+		aevents[i] = event.Any[D](evt)
+	}
+
 	for i, evt := range events {
 		eid, ename, ev := evt.Aggregate()
 		if eid != id {
-			return &ConsistencyError[D]{
+			return &ConsistencyError[D, E, Events]{
 				Kind:       InconsistentID,
 				Aggregate:  a,
 				Events:     events,
@@ -68,7 +75,7 @@ func ValidateConsistency[D any](a Aggregate[D], events ...event.Event[D]) error 
 			}
 		}
 		if ename != name {
-			return &ConsistencyError[D]{
+			return &ConsistencyError[D, E, Events]{
 				Kind:       InconsistentName,
 				Aggregate:  a,
 				Events:     events,
@@ -76,18 +83,18 @@ func ValidateConsistency[D any](a Aggregate[D], events ...event.Event[D]) error 
 			}
 		}
 		if ev != cv+1 {
-			return &ConsistencyError[D]{
+			return &ConsistencyError[D, E, Events]{
 				Kind:       InconsistentVersion,
 				Aggregate:  a,
 				Events:     events,
 				EventIndex: i,
 			}
 		}
-		if prev != nil {
+		if hasPrev {
 			nano := evt.Time().UnixNano()
 			prevNano := prev.Time().UnixNano()
 			if nano <= prevNano {
-				return &ConsistencyError[D]{
+				return &ConsistencyError[D, E, Events]{
 					Kind:       InconsistentTime,
 					Aggregate:  a,
 					Events:     events,
@@ -96,20 +103,22 @@ func ValidateConsistency[D any](a Aggregate[D], events ...event.Event[D]) error 
 			}
 		}
 		prev = evt
+		hasPrev = true
 		cv++
 	}
 	return nil
 }
 
 // Event return the first Event that caused an inconsistency.
-func (err *ConsistencyError[D]) Event() event.Event[D] {
+func (err *ConsistencyError[D, E, Events]) Event() event.EventOf[D] {
 	if err.EventIndex < 0 || err.EventIndex >= len(err.Events) {
-		return nil
+		var zero E
+		return zero
 	}
 	return err.Events[err.EventIndex]
 }
 
-func (err *ConsistencyError[D]) Error() string {
+func (err *ConsistencyError[D, E, Events]) Error() string {
 	evt := err.Event()
 	var (
 		id   uuid.UUID
@@ -170,7 +179,7 @@ func (k ConsistencyKind) String() string {
 	}
 }
 
-func currentVersion[D any](a Aggregate[D]) int {
+func currentVersion(a Aggregate) int {
 	_, _, v := a.Aggregate()
 	return v + len(a.AggregateChanges())
 }

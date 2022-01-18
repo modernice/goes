@@ -9,7 +9,7 @@ import (
 
 // An EventApplier applies events onto itself to build the projection state.
 type EventApplier[D any] interface {
-	ApplyEvent(event.Event[D])
+	ApplyEvent(event.EventOf[D])
 }
 
 // Progressing makes projections track their projection progress.
@@ -65,7 +65,7 @@ type Resetter interface {
 // returns false.
 type Guard[D any] interface {
 	// GuardProjection determines whether an Event is allowed to be applied onto a projection.
-	GuardProjection(event.Event[D]) bool
+	GuardProjection(event.EventOf[D]) bool
 }
 
 // type Filter any
@@ -78,7 +78,7 @@ type Guard[D any] interface {
 type QueryGuard[D any] query.Query
 
 // GuardFunc allows functions to be used as Guards.
-type GuardFunc[D any] func(event.Event[D]) bool
+type GuardFunc[D any] func(event.EventOf[D]) bool
 
 // HistoryDependent can be implemented by continuous projections that need the
 // full event history (of the events that are configured in the Schedule) instead
@@ -101,7 +101,7 @@ type GuardFunc[D any] func(event.Event[D]) bool
 //		initialized bool
 //	}
 //
-//	func (idx SearchIndex) ApplyEvent(event.Event[D]) { ... }
+//	func (idx SearchIndex) ApplyEvent(event.EventOf[D]) { ... }
 //
 //	// RequiresFullHistory implements projection.HistoryDependent. If the
 // 	// projection hasn't been run yet, the full history of the events is
@@ -147,12 +147,12 @@ type HistoryDependent interface {
 }
 
 // GuardProjection returns guard(evt).
-func (guard GuardFunc[D]) GuardProjection(evt event.Event[D]) bool {
+func (guard GuardFunc[D]) GuardProjection(evt event.EventOf[D]) bool {
 	return guard(evt)
 }
 
 // GuardProjection tests the Guard's Query against a given Event and returns
 // whether the Event is allowed to be applied onto the projection.
-func (g QueryGuard[D]) GuardProjection(evt event.Event[D]) bool {
+func (g QueryGuard[D]) GuardProjection(evt event.EventOf[D]) bool {
 	return query.Test(query.Query(g), evt)
 }

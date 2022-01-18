@@ -12,6 +12,8 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
+type Event = EventOf[any]
+
 // An Event describes something that has happened in the application or
 // specifically something that has happened to an Aggregate in the application.
 //
@@ -34,7 +36,7 @@ import (
 // 	    log.Println(fmt.Sprintf("Received %q event: %v", e.Name(), e))
 //	}, res, errs)
 //	// handle err
-type Event[D any] interface {
+type EventOf[D any] interface {
 	// ID returns the unique id of the Event.
 	ID() uuid.UUID
 	// Name returns the name of the Event.
@@ -118,7 +120,7 @@ func Aggregate[D any](id uuid.UUID, name string, version int) Option[D] {
 // Previous returns an Option that adds Aggregate data to an Event. If prev
 // provides non-nil aggregate data (id, name & version), the returned Option
 // adds those to the new event with its version increased by 1.
-func Previous[D, P any](prev Event[P]) Option[D] {
+func Previous[D, P any](prev EventOf[P]) Option[D] {
 	id, name, v := prev.Aggregate()
 	if id != uuid.Nil {
 		v++
@@ -130,7 +132,7 @@ func Previous[D, P any](prev Event[P]) Option[D] {
 // a normal "==" comparison except for the Time field which is being compared by
 // calling a.Time().Equal(b.Time()) for the two Events a and b that are being
 // compared.
-func Equal[D comparable](events ...Event[D]) bool {
+func Equal[D comparable](events ...EventOf[D]) bool {
 	if len(events) < 2 {
 		return true
 	}
@@ -157,12 +159,12 @@ func Equal[D comparable](events ...Event[D]) bool {
 }
 
 // Sort sorts events and returns the sorted events.
-func Sort[D any, Events ~[]Event[D]](events Events, sort Sorting, dir SortDirection) Events {
+func Sort[D any, Events ~[]EventOf[D]](events Events, sort Sorting, dir SortDirection) Events {
 	return SortMulti[D, Events](events, SortOptions{Sort: sort, Dir: dir})
 }
 
 // SortMulti sorts events by multiple fields and returns the sorted events.
-func SortMulti[D any, Events ~[]Event[D]](events Events, sorts ...SortOptions) Events {
+func SortMulti[D any, Events ~[]EventOf[D]](events Events, sorts ...SortOptions) Events {
 	sorted := make(Events, len(events))
 	copy(sorted, events)
 
@@ -205,21 +207,29 @@ func (evt E[D]) Any() E[any] {
 }
 
 // Event returns the event as an interface.
-func (evt E[D]) Event() Event[D] {
+func (evt E[D]) Event() EventOf[D] {
 	return evt
 }
 
 // Any casts the type parameter of the given event to `any` and returns the
 // re-typed event.
-func Any[D any](evt Event[D]) E[any] {
+func Any[D any](evt EventOf[D]) E[any] {
 	return Cast[any](evt)
+}
+
+func Many[D any](events ...EventOf[D]) []E[any] {
+	out := make([]E[any], len(events))
+	for i, evt := range events {
+		out[i] = Any(evt)
+	}
+	return out
 }
 
 // Cast casts the type paramater of given event to the type `To` and returns
 // the re-typed event. Cast panic if the event data cannot be casted to `To`.
 //
 // Use TryCast to test if the event data can be casted to `To`.
-func Cast[To, From any](evt Event[From]) E[To] {
+func Cast[To, From any](evt EventOf[From]) E[To] {
 	return New(
 		evt.Name(),
 		any(evt.Data()).(To),
@@ -232,7 +242,7 @@ func Cast[To, From any](evt Event[From]) E[To] {
 // TryCast casts the type paramater of given event to the type `To` and returns
 // the re-typed event. Cast returns false if the event data cannot be casted to
 // `To`.
-func TryCast[To, From any](evt Event[From]) (E[To], bool) {
+func TryCast[To, From any](evt EventOf[From]) (E[To], bool) {
 	data, ok := any(evt.Data()).(To)
 	if !ok {
 		return E[To]{}, false
@@ -246,15 +256,34 @@ func TryCast[To, From any](evt Event[From]) (E[To], bool) {
 	), true
 }
 
+func CastMany[To, From any](events ...EventOf[From]) []EventOf[To] {
+	out := make([]EventOf[To], len(events))
+	for i, evt := range events {
+		out[i] = Cast[To](evt)
+	}
+	return out
+}
+
+func TryCastMany[To, From any](events ...EventOf[From]) ([]EventOf[To], bool) {
+	out := make([]EventOf[To], len(events))
+	for i, evt := range events {
+		var ok bool
+		if out[i], ok = TryCast[To](evt); !ok {
+			return out, ok
+		}
+	}
+	return out, true
+}
+
 // Expand expands an interfaced event to a struct.
-func Expand[D any](evt Event[D]) E[D] {
+func Expand[D any](evt EventOf[D]) E[D] {
 	return New(evt.Name(), evt.Data(), ID[D](evt.ID()), Time[D](evt.Time()), Aggregate[D](evt.Aggregate()))
 }
 
 // Test tests the Event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
-func Test[D any](q Query, evt Event[D]) bool {
+func Test[D any](q Query, evt EventOf[D]) bool {
 	if q == nil {
 		return true
 	}

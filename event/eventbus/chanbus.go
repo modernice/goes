@@ -12,7 +12,7 @@ type chanbus[D any] struct {
 	sync.RWMutex
 
 	events map[string]*eventSubscription[D]
-	queue  chan event.Event[D]
+	queue  chan event.EventOf[D]
 	done   chan struct{}
 }
 
@@ -22,13 +22,13 @@ type eventSubscription[D any] struct {
 
 	subscribeQueue   chan subscribeJob[D]
 	unsubscribeQueue chan subscribeJob[D]
-	events           chan event.Event[D]
+	events           chan event.EventOf[D]
 
 	done chan struct{}
 }
 
 type recipient[D any] struct {
-	events   chan event.Event[D]
+	events   chan event.EventOf[D]
 	errs     chan error
 	unsubbed chan struct{}
 }
@@ -41,13 +41,13 @@ type subscribeJob[D any] struct {
 func New[D any]() event.Bus[D] {
 	bus := &chanbus[D]{
 		events: make(map[string]*eventSubscription[D]),
-		queue:  make(chan event.Event[D]),
+		queue:  make(chan event.EventOf[D]),
 	}
 	go bus.work()
 	return bus
 }
 
-func (bus *chanbus[D]) Subscribe(ctx context.Context, events ...string) (<-chan event.Event[D], <-chan error, error) {
+func (bus *chanbus[D]) Subscribe(ctx context.Context, events ...string) (<-chan event.EventOf[D], <-chan error, error) {
 	ctx, unsubscribeAll := context.WithCancel(ctx)
 	go func() {
 		// Will never happen, but makes the linter happy.
@@ -69,7 +69,7 @@ func (bus *chanbus[D]) Subscribe(ctx context.Context, events ...string) (<-chan 
 	return fanInEvents(ctx, rcpts), fanInErrors(ctx, rcpts), nil
 }
 
-func (bus *chanbus[D]) Publish(ctx context.Context, events ...event.Event[D]) error {
+func (bus *chanbus[D]) Publish(ctx context.Context, events ...event.EventOf[D]) error {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -105,7 +105,7 @@ func (bus *chanbus[D]) subscribe(ctx context.Context, name string) (recipient[D]
 		bus:              bus,
 		subscribeQueue:   make(chan subscribeJob[D]),
 		unsubscribeQueue: make(chan subscribeJob[D]),
-		events:           make(chan event.Event[D]),
+		events:           make(chan event.EventOf[D]),
 		done:             make(chan struct{}),
 	}
 	bus.events[name] = sub
@@ -134,7 +134,7 @@ func (bus *chanbus[D]) work() {
 
 func (sub *eventSubscription[D]) subscribe(ctx context.Context) (recipient[D], error) {
 	rcpt := recipient[D]{
-		events:   make(chan event.Event[D]),
+		events:   make(chan event.EventOf[D]),
 		errs:     make(chan error),
 		unsubbed: make(chan struct{}),
 	}
@@ -196,8 +196,8 @@ func (sub *eventSubscription[D]) work() {
 	}
 }
 
-func fanInEvents[D any](ctx context.Context, rcpts []recipient[D]) <-chan event.Event[D] {
-	out := make(chan event.Event[D])
+func fanInEvents[D any](ctx context.Context, rcpts []recipient[D]) <-chan event.EventOf[D] {
+	out := make(chan event.EventOf[D])
 	var wg sync.WaitGroup
 	wg.Add(len(rcpts))
 	go func() {

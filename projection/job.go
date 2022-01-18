@@ -45,7 +45,7 @@ type Job[D any] interface {
 	//	events, err := event.Drain(job, str, errs)
 	//
 	// If you need the Events for a specific Projection, use EventsFor instead.
-	Events(_ context.Context, filters ...event.Query) (<-chan event.Event[D], <-chan error, error)
+	Events(_ context.Context, filters ...event.Query) (<-chan event.EventOf[D], <-chan error, error)
 
 	// EventsOf fetches all Events that belong to aggregates that have one of
 	// aggregateNames and returns an Event channel and a channel of asynchronous
@@ -55,7 +55,7 @@ type Job[D any] interface {
 	//	str, errs, err := job.EventsOf(job, "foo", "bar", "baz")
 	//	// handle err
 	//	events, err := event.Drain(job, str, errs)
-	EventsOf(_ context.Context, aggregateNames ...string) (<-chan event.Event[D], <-chan error, error)
+	EventsOf(_ context.Context, aggregateNames ...string) (<-chan event.EventOf[D], <-chan error, error)
 
 	// EventsFor fetches all Events that are appropriate for the given
 	// Projection and returns an Event channel and a channel of asynchronous
@@ -70,7 +70,7 @@ type Job[D any] interface {
 	//	str, errs, err := job.EventsFor(job, proj)
 	//	// handle err
 	//	events, err := event.Drain(job, str, errs)
-	EventsFor(context.Context, EventApplier[D]) (<-chan event.Event[D], <-chan error, error)
+	EventsFor(context.Context, EventApplier[D]) (<-chan event.EventOf[D], <-chan error, error)
 
 	// Aggregates returns a channel of aggregate Tuples and a channel of
 	// asynchronous query errors. It fetches Events, extracts the Tuples from
@@ -145,7 +145,7 @@ func NewJob[D any](ctx context.Context, store event.Store[D], q event.Query, opt
 	return &j
 }
 
-func (j *job[D]) Events(ctx context.Context, filter ...event.Query) (<-chan event.Event[D], <-chan error, error) {
+func (j *job[D]) Events(ctx context.Context, filter ...event.Query) (<-chan event.EventOf[D], <-chan error, error) {
 	str, errs, err := j.runQuery(ctx, j.query)
 	if err != nil {
 		return nil, nil, fmt.Errorf("query Events: %w", err)
@@ -158,11 +158,11 @@ func (j *job[D]) Events(ctx context.Context, filter ...event.Query) (<-chan even
 	return str, errs, nil
 }
 
-func (j *job[D]) EventsOf(ctx context.Context, aggregateName ...string) (<-chan event.Event[D], <-chan error, error) {
+func (j *job[D]) EventsOf(ctx context.Context, aggregateName ...string) (<-chan event.EventOf[D], <-chan error, error) {
 	return j.Events(ctx, query.New(query.AggregateName(aggregateName...)))
 }
 
-func (j *job[D]) EventsFor(ctx context.Context, target EventApplier[D]) (<-chan event.Event[D], <-chan error, error) {
+func (j *job[D]) EventsFor(ctx context.Context, target EventApplier[D]) (<-chan event.EventOf[D], <-chan error, error) {
 	var filter []event.Query
 
 	if progressor, isProgressor := target.(Progressing); isProgressor {
@@ -194,7 +194,7 @@ func (j *job[D]) queryOnce(ctx context.Context, q event.Query) (<-chan event.Eve
 
 func (j *job[D]) Aggregates(ctx context.Context, names ...string) (<-chan aggregate.Ref, <-chan error, error) {
 	var (
-		events <-chan event.Event[D]
+		events <-chan event.EventOf[D]
 		errs   <-chan error
 		err    error
 	)
@@ -293,7 +293,7 @@ func (j *job[D]) Apply(ctx context.Context, proj EventApplier[D], opts ...ApplyO
 	return nil
 }
 
-func (j *job[D]) runQuery(ctx context.Context, q event.Query) (<-chan event.Event[D], <-chan error, error) {
+func (j *job[D]) runQuery(ctx context.Context, q event.Query) (<-chan event.EventOf[D], <-chan error, error) {
 	return j.cache.ensure(ctx, q)
 }
 
@@ -314,30 +314,30 @@ type queryCache[D any] struct {
 	sync.Mutex
 
 	store event.Store[D]
-	cache map[[32]byte][]event.Event[D]
+	cache map[[32]byte][]event.EventOf[D]
 }
 
 func newQueryCache[D any](store event.Store[D]) *queryCache[D] {
 	return &queryCache[D]{
 		store: store,
-		cache: make(map[[32]byte][]event.Event[D]),
+		cache: make(map[[32]byte][]event.EventOf[D]),
 	}
 }
 
-func (c *queryCache[D]) ensure(ctx context.Context, q event.Query) (<-chan event.Event[D], <-chan error, error) {
+func (c *queryCache[D]) ensure(ctx context.Context, q event.Query) (<-chan event.EventOf[D], <-chan error, error) {
 	h := hashQuery(q)
 
-	var events []event.Event[D]
+	var events []event.EventOf[D]
 
 	c.Lock()
 	if cached, ok := c.cache[h]; ok {
-		events = make([]event.Event[D], len(cached))
+		events = make([]event.EventOf[D], len(cached))
 		copy(events, cached)
 	}
 	c.Unlock()
 
 	if len(events) > 0 {
-		out := make(chan event.Event[D])
+		out := make(chan event.EventOf[D])
 		errs := make(chan error)
 		go func() {
 			defer close(out)
@@ -361,10 +361,10 @@ func (c *queryCache[D]) ensure(ctx context.Context, q event.Query) (<-chan event
 	return c.intercept(ctx, str, h), errs, nil
 }
 
-func (c *queryCache[D]) intercept(ctx context.Context, in <-chan event.Event[D], hash [32]byte) <-chan event.Event[D] {
-	out := make(chan event.Event[D])
+func (c *queryCache[D]) intercept(ctx context.Context, in <-chan event.EventOf[D], hash [32]byte) <-chan event.EventOf[D] {
+	out := make(chan event.EventOf[D])
 
-	var events []event.Event[D]
+	var events []event.EventOf[D]
 	go func() {
 		defer close(out)
 		for {
@@ -390,7 +390,7 @@ func (c *queryCache[D]) intercept(ctx context.Context, in <-chan event.Event[D],
 	return out
 }
 
-func (c *queryCache[D]) update(hash [32]byte, events []event.Event[D]) {
+func (c *queryCache[D]) update(hash [32]byte, events []event.EventOf[D]) {
 	c.Lock()
 	c.cache[hash] = events
 	c.Unlock()

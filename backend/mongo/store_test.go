@@ -45,7 +45,7 @@ func TestStore_Insert_versionError(t *testing.T) {
 		t.Fatalf("failed to connect to mongodb: %v", err)
 	}
 
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 
 	states := s.StateCollection()
 	if _, err := states.InsertOne(context.Background(), bson.M{
@@ -56,7 +56,7 @@ func TestStore_Insert_versionError(t *testing.T) {
 		t.Fatalf("failed to insert state: %v", err)
 	}
 
-	events := []event.Event[any]{
+	events := []event.EventOf[any]{
 		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+5)),
 		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+6)),
 		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+7)),

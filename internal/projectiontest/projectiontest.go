@@ -10,7 +10,7 @@ import (
 
 // MockProjection is a projection mock that's used for testing.
 type MockProjection struct {
-	AppliedEvents []event.Event[any]
+	AppliedEvents []event.EventOf[any]
 }
 
 // NewMockProjection returns a MockProjection.
@@ -19,13 +19,13 @@ func NewMockProjection() *MockProjection {
 }
 
 // ApplyEvent adds evt as an applied Event to the MockProjection.
-func (proj *MockProjection) ApplyEvent(evt event.Event[any]) {
+func (proj *MockProjection) ApplyEvent(evt event.EventOf[any]) {
 	proj.AppliedEvents = append(proj.AppliedEvents, evt)
 }
 
 // HasApplied determines whether the passed Events have been applied onto the
 // MockProjection.
-func (proj *MockProjection) HasApplied(events ...event.Event[any]) bool {
+func (proj *MockProjection) HasApplied(events ...event.EventOf[any]) bool {
 	for _, evt := range events {
 		var applied bool
 		for _, pevt := range proj.AppliedEvents {
@@ -43,7 +43,7 @@ func (proj *MockProjection) HasApplied(events ...event.Event[any]) bool {
 
 // ExpectApplied determines whether events were applied onto the MockProjection
 // and if not, makes the test fail.
-func (proj *MockProjection) ExpectApplied(t *testing.T, events ...event.Event[any]) {
+func (proj *MockProjection) ExpectApplied(t *testing.T, events ...event.EventOf[any]) {
 	if !proj.HasApplied(events...) {
 		t.Fatalf("mockProjection should have applied %v; has applied %v", events, proj.AppliedEvents)
 	}

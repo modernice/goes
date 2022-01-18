@@ -26,7 +26,7 @@ import (
 //      2 ───┘
 // 1 ───┴─── 3
 func TestTree_rotateLeft(t *testing.T) {
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, 7, xevent.ForAggregate(a))
 
 	nodes := make([]*node, 7)
@@ -69,7 +69,7 @@ func TestTree_rotateLeft(t *testing.T) {
 //      1 ───┴─── 4
 //           3 ───┴─── 5
 func TestTree_rotateRight(t *testing.T) {
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, 7, xevent.ForAggregate(a))
 
 	nodes := make([]*node, 7)
@@ -99,7 +99,7 @@ func TestTree_rotateRight(t *testing.T) {
 
 func TestTree_Insert(t *testing.T) {
 	var tr Tree
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, 100, xevent.ForAggregate(a))
 	events = xevent.Shuffle(events)
 
@@ -107,8 +107,8 @@ func TestTree_Insert(t *testing.T) {
 		tr.Insert(evt)
 	}
 
-	var walked []event.Event[any]
-	tr.Walk(func(evt event.Event[any]) {
+	var walked []event.EventOf[any]
+	tr.Walk(func(evt event.EventOf[any]) {
 		walked = append(walked, evt)
 	})
 
@@ -121,7 +121,7 @@ func TestTree_Insert(t *testing.T) {
 
 func TestTree_Insert_root_color(t *testing.T) {
 	var tr Tree
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, 1, xevent.ForAggregate(a))
 
 	tr.Insert(events[0])
@@ -141,7 +141,7 @@ func TestTree_Insert_root_color(t *testing.T) {
 
 func TestTree_Insert_finalize(t *testing.T) {
 	var tr Tree
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, 32, xevent.ForAggregate(a))
 	events = xevent.Shuffle(events)
 	// sorted := event.Sort(events, event.SortAggregateVersion, event.SortAsc)
@@ -175,7 +175,7 @@ func TestTree_Insert_finalize(t *testing.T) {
 // 1R ───────┴─────── 3R      6B ───────┴─────── 8B
 //              5R ───┘
 func TestTree_Matrix(t *testing.T) {
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{A: "foo"}, 8, xevent.ForAggregate(a))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 
@@ -204,7 +204,7 @@ func TestTree_Matrix(t *testing.T) {
 
 	mx := tr.Matrix()
 
-	assertMatrix(t, [][]event.Event[any]{
+	assertMatrix(t, [][]event.EventOf[any]{
 		{root.evt},
 		{n2.evt, n7.evt},
 		{n1.evt, n3.evt, n6.evt, n8.evt},
@@ -213,7 +213,7 @@ func TestTree_Matrix(t *testing.T) {
 }
 
 func TestTree_validate(t *testing.T) {
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(a))
 
 	tests := []struct {
@@ -352,7 +352,7 @@ func TestTree_validate(t *testing.T) {
 }
 
 func TestTree_Size(t *testing.T) {
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, 100, xevent.ForAggregate(a))
 
 	var tr Tree
@@ -364,7 +364,7 @@ func TestTree_Size(t *testing.T) {
 	}
 }
 
-func toIntMatrix(mx [][]event.Event[any]) [][]int {
+func toIntMatrix(mx [][]event.EventOf[any]) [][]int {
 	ix := make([][]int, len(mx))
 	for i, events := range mx {
 		ix[i] = make([]int, len(events))
@@ -375,7 +375,7 @@ func toIntMatrix(mx [][]event.Event[any]) [][]int {
 	return ix
 }
 
-func assertMatrix(t *testing.T, want, got [][]event.Event[any]) {
+func assertMatrix(t *testing.T, want, got [][]event.EventOf[any]) {
 	if len(want) != len(got) {
 		t.Errorf("returned matrix has wrong len. want %d; got %d", len(want), len(got))
 	}

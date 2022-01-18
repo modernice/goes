@@ -1,8 +1,6 @@
 package todo
 
 import (
-	"time"
-
 	"github.com/modernice/goes/codec"
 )
 
@@ -11,14 +9,6 @@ const (
 	TaskRemoved = "todo.list.task_removed"
 	TaskDone    = "todo.list.task_done"
 )
-
-type Event[D interface {
-	TaskAddedEvent | TaskRemovedEvent | TaskDoneEvent
-}] struct {
-	Name string
-	Time time.Time
-	Data D
-}
 
 type TaskAddedEvent struct{ Task string }
 

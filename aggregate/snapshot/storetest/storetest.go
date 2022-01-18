@@ -44,7 +44,7 @@ func run(t *testing.T, name string, runner func(*testing.T, StoreFactory), newSt
 func testSave(t *testing.T, newStore StoreFactory) {
 	s := newStore()
 	a := &snapshotter{
-		Base:  aggregate.New[any]("foo", uuid.New()),
+		Base:  aggregate.New("foo", uuid.New()),
 		state: state{Foo: 3},
 	}
 
@@ -61,7 +61,7 @@ func testSave(t *testing.T, newStore StoreFactory) {
 func testLatest(t *testing.T, newStore StoreFactory) {
 	s := newStore()
 	a := &snapshotter{
-		Base:  aggregate.New[any]("foo", uuid.New()),
+		Base:  aggregate.New("foo", uuid.New()),
 		state: state{Foo: 3},
 	}
 
@@ -104,8 +104,8 @@ func testLatest(t *testing.T, newStore StoreFactory) {
 func testLatestMultipleAvailable(t *testing.T, newStore StoreFactory) {
 	s := newStore()
 	id := uuid.New()
-	a10 := &snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](10))}
-	a20 := &snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](20))}
+	a10 := &snapshotter{Base: aggregate.New("foo", id, aggregate.Version(10))}
+	a20 := &snapshotter{Base: aggregate.New("foo", id, aggregate.Version(20))}
 	snap10, _ := snapshot.New(a10)
 	snap20, _ := snapshot.New(a20)
 
@@ -159,8 +159,8 @@ func testLatestNotFound(t *testing.T, newStore StoreFactory) {
 func testVersion(t *testing.T, newStore StoreFactory) {
 	s := newStore()
 	id := uuid.New()
-	a10 := &snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](10))}
-	a20 := &snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](20))}
+	a10 := &snapshotter{Base: aggregate.New("foo", id, aggregate.Version(10))}
+	a20 := &snapshotter{Base: aggregate.New("foo", id, aggregate.Version(20))}
 	snap10, _ := snapshot.New(a10)
 	snap20, _ := snapshot.New(a20)
 
@@ -208,11 +208,11 @@ func testLimitBasic(t *testing.T, newStore StoreFactory) {
 	s := newStore()
 
 	id := uuid.New()
-	as := []aggregate.Aggregate[any]{
-		&snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](1))},
-		&snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](5))},
-		&snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](10))},
-		&snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](20))},
+	as := []aggregate.Aggregate{
+		&snapshotter{Base: aggregate.New("foo", id, aggregate.Version(1))},
+		&snapshotter{Base: aggregate.New("foo", id, aggregate.Version(5))},
+		&snapshotter{Base: aggregate.New("foo", id, aggregate.Version(10))},
+		&snapshotter{Base: aggregate.New("foo", id, aggregate.Version(20))},
 	}
 	snaps := makeSnaps(as)
 
@@ -236,9 +236,9 @@ func testLimitNotFound(t *testing.T, newStore StoreFactory) {
 	s := newStore()
 
 	id := uuid.New()
-	as := []aggregate.Aggregate[any]{
-		&snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](10))},
-		&snapshotter{Base: aggregate.New[any]("foo", id, aggregate.Version[any](20))},
+	as := []aggregate.Aggregate{
+		&snapshotter{Base: aggregate.New("foo", id, aggregate.Version(10))},
+		&snapshotter{Base: aggregate.New("foo", id, aggregate.Version(20))},
 	}
 	snaps := makeSnaps(as)
 
@@ -273,12 +273,12 @@ func testQueryName(t *testing.T, newStore StoreFactory) {
 
 	for i, foo := range foos {
 		id, name, _ := foo.Aggregate()
-		foos[i] = &snapshotter{Base: aggregate.New[any](name, id)}
+		foos[i] = &snapshotter{Base: aggregate.New(name, id)}
 	}
 
 	for i, bar := range bars {
 		id, name, _ := bar.Aggregate()
-		bars[i] = &snapshotter{Base: aggregate.New[any](name, id)}
+		bars[i] = &snapshotter{Base: aggregate.New(name, id)}
 	}
 
 	fooSnaps := makeSnaps(foos)
@@ -305,7 +305,7 @@ func testQueryID(t *testing.T, newStore StoreFactory) {
 
 	for i, a := range as {
 		id, name, _ := a.Aggregate()
-		as[i] = &snapshotter{Base: aggregate.New[any](name, id)}
+		as[i] = &snapshotter{Base: aggregate.New(name, id)}
 	}
 
 	snaps := makeSnaps(as)
@@ -332,10 +332,10 @@ func testQueryID(t *testing.T, newStore StoreFactory) {
 
 func testQueryVersion(t *testing.T, newStore StoreFactory) {
 	s := newStore()
-	as := []aggregate.Aggregate[any]{
-		&snapshotter{Base: aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](1))},
-		&snapshotter{Base: aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](5))},
-		&snapshotter{Base: aggregate.New[any]("foo", uuid.New(), aggregate.Version[any](10))},
+	as := []aggregate.Aggregate{
+		&snapshotter{Base: aggregate.New("foo", uuid.New(), aggregate.Version(1))},
+		&snapshotter{Base: aggregate.New("foo", uuid.New(), aggregate.Version(5))},
+		&snapshotter{Base: aggregate.New("foo", uuid.New(), aggregate.Version(10))},
 	}
 	snaps := makeSnaps(as)
 
@@ -360,10 +360,10 @@ func testQueryVersion(t *testing.T, newStore StoreFactory) {
 
 func testQueryTime(t *testing.T, newStore StoreFactory) {
 	s := newStore()
-	as := []aggregate.Aggregate[any]{
-		&snapshotter{Base: aggregate.New[any]("foo", uuid.New())},
-		&snapshotter{Base: aggregate.New[any]("foo", uuid.New())},
-		&snapshotter{Base: aggregate.New[any]("foo", uuid.New())},
+	as := []aggregate.Aggregate{
+		&snapshotter{Base: aggregate.New("foo", uuid.New())},
+		&snapshotter{Base: aggregate.New("foo", uuid.New())},
+		&snapshotter{Base: aggregate.New("foo", uuid.New())},
 	}
 	snaps := make([]snapshot.Snapshot, len(as))
 	for i := range as {
@@ -401,16 +401,16 @@ func testQuerySorting(t *testing.T, newStore StoreFactory) {
 	sort.Slice(ids, func(a, b int) bool {
 		return ids[a].String() < ids[b].String()
 	})
-	as := []aggregate.Aggregate[any]{
-		&snapshotter{Base: aggregate.New[any]("bar1", ids[0], aggregate.Version[any](1))},
-		&snapshotter{Base: aggregate.New[any]("bar2", ids[1], aggregate.Version[any](2))},
-		&snapshotter{Base: aggregate.New[any]("bar3", ids[2], aggregate.Version[any](3))},
-		&snapshotter{Base: aggregate.New[any]("baz1", ids[3], aggregate.Version[any](4))},
-		&snapshotter{Base: aggregate.New[any]("baz2", ids[4], aggregate.Version[any](5))},
-		&snapshotter{Base: aggregate.New[any]("baz3", ids[5], aggregate.Version[any](6))},
-		&snapshotter{Base: aggregate.New[any]("foo1", ids[6], aggregate.Version[any](7))},
-		&snapshotter{Base: aggregate.New[any]("foo2", ids[7], aggregate.Version[any](8))},
-		&snapshotter{Base: aggregate.New[any]("foo3", ids[8], aggregate.Version[any](9))},
+	as := []aggregate.Aggregate{
+		&snapshotter{Base: aggregate.New("bar1", ids[0], aggregate.Version(1))},
+		&snapshotter{Base: aggregate.New("bar2", ids[1], aggregate.Version(2))},
+		&snapshotter{Base: aggregate.New("bar3", ids[2], aggregate.Version(3))},
+		&snapshotter{Base: aggregate.New("baz1", ids[3], aggregate.Version(4))},
+		&snapshotter{Base: aggregate.New("baz2", ids[4], aggregate.Version(5))},
+		&snapshotter{Base: aggregate.New("baz3", ids[5], aggregate.Version(6))},
+		&snapshotter{Base: aggregate.New("foo1", ids[6], aggregate.Version(7))},
+		&snapshotter{Base: aggregate.New("foo2", ids[7], aggregate.Version(8))},
+		&snapshotter{Base: aggregate.New("foo3", ids[8], aggregate.Version(9))},
 	}
 	snaps := makeSnaps(as)
 
@@ -484,7 +484,7 @@ func testQuerySorting(t *testing.T, newStore StoreFactory) {
 
 func testDelete(t *testing.T, newStore StoreFactory) {
 	s := newStore()
-	a := &snapshotter{Base: aggregate.New[any]("foo", uuid.New())}
+	a := &snapshotter{Base: aggregate.New("foo", uuid.New())}
 	snap, _ := snapshot.New(a)
 
 	if err := s.Save(context.Background(), snap); err != nil {
@@ -512,7 +512,7 @@ func runQuery(s snapshot.Store, q snapshot.Query) ([]snapshot.Snapshot, error) {
 	return snapshot.Drain(context.Background(), str, errs)
 }
 
-func makeSnaps(as []aggregate.Aggregate[any]) []snapshot.Snapshot {
+func makeSnaps(as []aggregate.Aggregate) []snapshot.Snapshot {
 	snaps := make([]snapshot.Snapshot, len(as))
 	for i, a := range as {
 		snap, err := snapshot.New(a)
@@ -572,7 +572,7 @@ func assertSame(t *testing.T, want, got []snapshot.Snapshot) {
 }
 
 type snapshotter struct {
-	*aggregate.Base[any]
+	*aggregate.Base
 	state state
 }
 

@@ -25,22 +25,22 @@ const (
 
 // Repository is the aggregate repository. It saves and fetches aggregates to
 // and from the underlying event store.
-type Repository[D any] interface {
+type Repository interface {
 	// Save inserts the changes of Aggregate a into the event store.
-	Save(ctx context.Context, a Aggregate[D]) error
+	Save(ctx context.Context, a Aggregate) error
 
 	// Fetch fetches the events for the given Aggregate from the event store,
 	// beginning from version a.AggregateVersion()+1 up to the latest version
 	// for that Aggregate and applies them to a, so that a is in the latest
 	// state. If the event store does not return any events, a stays untouched.
-	Fetch(ctx context.Context, a Aggregate[D]) error
+	Fetch(ctx context.Context, a Aggregate) error
 
 	// FetchVersion fetches the events for the given Aggregate from the event
 	// store, beginning from version a.AggregateVersion()+1 up to v and applies
 	// them to a, so that a is in the state of the time of the event with
 	// version v. If the event store does not return any events, a stays
 	// untouched.
-	FetchVersion(ctx context.Context, a Aggregate[D], v int) error
+	FetchVersion(ctx context.Context, a Aggregate, v int) error
 
 	// Query queries the Event Store for Aggregates and returns a channel of
 	// Histories and an error channel. If the query fails, Query returns nil
@@ -61,10 +61,10 @@ type Repository[D any] interface {
 	//		var a Aggregate = newAggregate(app.AggregateName(), app.AggregateID())
 	//		a.Apply(a)
 	//	}
-	Query(ctx context.Context, q Query) (<-chan History[D], <-chan error, error)
+	Query(ctx context.Context, q Query) (<-chan History, <-chan error, error)
 
 	// Delete deletes an Aggregate by deleting its Events from the Event Store.
-	Delete(ctx context.Context, a Aggregate[D]) error
+	Delete(ctx context.Context, a Aggregate) error
 }
 
 // Query is used by Repositories to filter aggregates.
@@ -96,7 +96,7 @@ type SortDirection int
 
 // A History provides the event history of an aggregate. A History can be
 // applied onto an aggregate to rebuild its current state.
-type History[D any] interface {
+type History interface {
 	// AggregateName returns the name of the aggregate.
 	AggregateName() string
 
@@ -107,11 +107,11 @@ type History[D any] interface {
 	// providing an Aggregate that can make use of the Events in the History.
 
 	// Apply applies the history onto the aggregate to rebuild its current state.
-	Apply(Aggregate[D])
+	Apply(Aggregate)
 }
 
 // Compare compares a and b and returns -1 if a < b, 0 if a == b or 1 if a > b.
-func (s Sorting) Compare(a, b Aggregate[any]) (cmp int8) {
+func (s Sorting) Compare(a, b Aggregate) (cmp int8) {
 	aid, aname, av := a.Aggregate()
 	bid, bname, bv := b.Aggregate()
 

@@ -8,8 +8,8 @@ import (
 )
 
 // Shuffle shuffles aggregates and returns the shuffled aggregates.
-func Shuffle(as []aggregate.Aggregate[any]) []aggregate.Aggregate[any] {
-	shuffled := make([]aggregate.Aggregate[any], len(as))
+func Shuffle(as []aggregate.Aggregate) []aggregate.Aggregate {
+	shuffled := make([]aggregate.Aggregate, len(as))
 	copy(shuffled, as)
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(shuffled), func(i, j int) {

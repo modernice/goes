@@ -23,7 +23,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 	enc := test.NewEncoder()
 
 	// given 5 "foo" subscribers
-	subs := make([]<-chan event.Event[any], 5)
+	subs := make([]<-chan event.EventOf[any], 5)
 	for i := range subs {
 		bus := New(enc, QueueGroupByFunc(func(eventName string) string {
 			return fmt.Sprintf("bar.%s", eventName)
@@ -48,7 +48,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 	}
 
 	// only 1 subscriber should received the event
-	receivedChan := make(chan event.Event[any], len(subs))
+	receivedChan := make(chan event.EventOf[any], len(subs))
 	var wg sync.WaitGroup
 	wg.Add(len(subs))
 	go func() {
@@ -56,7 +56,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 		wg.Wait()
 	}()
 	for _, events := range subs {
-		go func(events <-chan event.Event[any]) {
+		go func(events <-chan event.EventOf[any]) {
 			defer wg.Done()
 			select {
 			case evt := <-events:
@@ -67,7 +67,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 	}
 	wg.Wait()
 
-	var received []event.Event[any]
+	var received []event.EventOf[any]
 	for evt := range receivedChan {
 		received = append(received, evt)
 	}

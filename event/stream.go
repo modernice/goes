@@ -8,8 +8,8 @@ import (
 
 // Stream returns an Event channel that is filled and closed with the provided
 // Events in a separate goroutine.
-func Stream[D any](events ...Event[D]) <-chan Event[D] {
-	out := make(chan Event[D])
+func Stream[D any](events ...EventOf[D]) <-chan EventOf[D] {
+	out := make(chan EventOf[D])
 	go func() {
 		defer close(out)
 		for _, evt := range events {
@@ -29,9 +29,9 @@ func Stream[D any](events ...Event[D]) <-chan Event[D] {
 // Drain returns when the provided Event channel is closed or it encounters an
 // error from an error channel and does not wait for the error channels to be
 // closed.
-func Drain[D any](ctx context.Context, events <-chan Event[D], errs ...<-chan error) ([]Event[D], error) {
-	out := make([]Event[D], 0, len(events))
-	err := Walk(ctx, func(e Event[D]) error { out = append(out, e); return nil }, events, errs...)
+func Drain[D any](ctx context.Context, events <-chan EventOf[D], errs ...<-chan error) ([]EventOf[D], error) {
+	out := make([]EventOf[D], 0, len(events))
+	err := Walk(ctx, func(e EventOf[D]) error { out = append(out, e); return nil }, events, errs...)
 	return out, err
 }
 
@@ -53,8 +53,8 @@ func Drain[D any](ctx context.Context, events <-chan Event[D], errs ...<-chan er
 //	// handle err
 func Walk[D any](
 	ctx context.Context,
-	walkFn func(Event[D]) error,
-	events <-chan Event[D],
+	walkFn func(EventOf[D]) error,
+	events <-chan EventOf[D],
 	errs ...<-chan error,
 ) error {
 	errChan, stop := fanin.Errors(errs...)
@@ -95,9 +95,9 @@ var ForEvery = ForEach[any]
 // channels are closed or ctx is canceled.
 func ForEach[D any](
 	ctx context.Context,
-	evtFn func(evt Event[D]),
+	evtFn func(evt EventOf[D]),
 	errFn func(error),
-	events <-chan Event[D],
+	events <-chan EventOf[D],
 	errs ...<-chan error,
 ) {
 	errChan, stop := fanin.Errors(errs...)
@@ -131,8 +131,8 @@ func ForEach[D any](
 // Only Events that test against all provided Queries are pushed into the
 // returned channel. The returned channel is closed when the provided channel is
 // closed.
-func Filter[D any](events <-chan Event[D], queries ...Query) <-chan Event[D] {
-	out := make(chan Event[D])
+func Filter[D any](events <-chan EventOf[D], queries ...Query) <-chan EventOf[D] {
+	out := make(chan EventOf[D])
 	go func() {
 		defer close(out)
 	L:
@@ -151,7 +151,7 @@ func Filter[D any](events <-chan Event[D], queries ...Query) <-chan Event[D] {
 // Await returns the first Event OR error that is received from events or errs.
 // If ctx is canceled before an Event or error is received, ctx.Err() is
 // returned.
-func Await[D any](ctx context.Context, events <-chan Event[D], errs <-chan error) (Event[D], error) {
+func Await[D any](ctx context.Context, events <-chan EventOf[D], errs <-chan error) (EventOf[D], error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()

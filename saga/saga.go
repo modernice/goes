@@ -73,7 +73,7 @@ type Executor[E, C any] struct {
 	reporter Reporter[E, C]
 	eventBus event.Bus[E]
 	cmdBus   command.Bus[C]
-	repo     aggregate.Repository[E]
+	repo     aggregate.Repository
 
 	skipValidate      bool
 	compensateTimeout time.Duration
@@ -220,7 +220,7 @@ func CommandBus[E, C any](bus command.Bus[C]) ExecutorOption[E, C] {
 //	var repo aggregate.Repository
 //	err := saga.Execute(context.TODO(), s, saga.Repository(repo))
 //	// handle err
-func Repository[E, C any](r aggregate.Repository[E]) ExecutorOption[E, C] {
+func Repository[E, C any](r aggregate.Repository) ExecutorOption[E, C] {
 	return func(e *Executor[E, C]) {
 		e.repo = r
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/modernice/goes/internal/xevent/etree"
 )
 
-var tmpStack []event.Event[any]
+var tmpStack []event.EventOf[any]
 
 func BenchmarkTree_Insert10(b *testing.B) { benchmarkTree_Insert(b, 10) }
 
@@ -29,7 +29,7 @@ func BenchmarkTree_Insert1000000(b *testing.B) { benchmarkTree_Insert(b, 1000000
 func BenchmarkTree_Insert5000000(b *testing.B) { benchmarkTree_Insert(b, 5000000) }
 
 func benchmarkTree_Insert(b *testing.B, n int) {
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, n, xevent.ForAggregate(a))
 
 	b.ReportAllocs()
@@ -43,8 +43,8 @@ func benchmarkTree_Insert(b *testing.B, n int) {
 			tr.Insert(evt)
 		}
 
-		walked := make([]event.Event[any], 0, tr.Size())
-		tr.Walk(func(evt event.Event[any]) {
+		walked := make([]event.EventOf[any], 0, tr.Size())
+		tr.Walk(func(evt event.EventOf[any]) {
 			walked = append(walked, evt)
 		})
 		tmpStack = walked
@@ -66,7 +66,7 @@ func BenchmarkSlice_Insert1000000(b *testing.B) { benchmarkSlice_Insert(b, 10000
 func BenchmarkSlice_Insert5000000(b *testing.B) { benchmarkSlice_Insert(b, 5000000) }
 
 func benchmarkSlice_Insert(b *testing.B, n int) {
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, n, xevent.ForAggregate(a))
 
 	b.ReportAllocs()
@@ -74,7 +74,7 @@ func benchmarkSlice_Insert(b *testing.B, n int) {
 
 	for i := 0; i < b.N; i++ {
 		events = xevent.Shuffle(events)
-		var stack []event.Event[any]
+		var stack []event.EventOf[any]
 		for _, evt := range events {
 			stack = stackInsert(stack, evt, false)
 		}
@@ -83,7 +83,7 @@ func benchmarkSlice_Insert(b *testing.B, n int) {
 	}
 }
 
-func stackInsert(stack []event.Event[any], evt event.Event[any], s bool) []event.Event[any] {
+func stackInsert(stack []event.EventOf[any], evt event.EventOf[any], s bool) []event.EventOf[any] {
 	stack = append(stack, evt)
 	if s {
 		sortStack(stack)
@@ -91,7 +91,7 @@ func stackInsert(stack []event.Event[any], evt event.Event[any], s bool) []event
 	return stack
 }
 
-func sortStack(stack []event.Event[any]) {
+func sortStack(stack []event.EventOf[any]) {
 	sort.Slice(stack, func(i, j int) bool {
 		return event.PickAggregateVersion(stack[i]) <= event.PickAggregateVersion(stack[j])
 	})

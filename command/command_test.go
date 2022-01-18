@@ -45,7 +45,7 @@ func TestID(t *testing.T) {
 }
 
 func TestAggregateName(t *testing.T) {
-	a := aggregate.New[any]("foo", uuid.New())
+	a := aggregate.New("foo", uuid.New())
 	cmd := command.New[any](
 		"foo",
 		mockPayload{},

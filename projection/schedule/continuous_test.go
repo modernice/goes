@@ -39,7 +39,7 @@ func TestContinuous_Subscribe(t *testing.T) {
 		t.Fatalf("Subscribe failed with %q", err)
 	}
 
-	events := []event.Event[any]{
+	events := []event.EventOf[any]{
 		event.New[any]("foo", test.FooEventData{}),
 		event.New[any]("bar", test.FooEventData{}),
 		event.New[any]("baz", test.FooEventData{}),
@@ -103,7 +103,7 @@ func TestContinuous_Subscribe_Debounce(t *testing.T) {
 		t.Fatalf("Subscribe failed with %q", err)
 	}
 
-	events := []event.Event[any]{
+	events := []event.EventOf[any]{
 		event.New[any]("foo", test.FooEventData{}),
 		event.New[any]("bar", test.FooEventData{}),
 		event.New[any]("baz", test.FooEventData{}),
@@ -166,7 +166,7 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 		t.Fatalf("Subscribe failed with %q", err)
 	}
 
-	events := []event.Event[any]{
+	events := []event.EventOf[any]{
 		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Minute))),
 		event.New[any]("bar", test.FooEventData{}, event.Time[any](now)),
 		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
@@ -209,7 +209,7 @@ func TestContinuous_Trigger(t *testing.T) {
 	bus := eventbus.New[any]()
 	store := eventstore.New[any]()
 
-	storeEvents := []event.Event[any]{
+	storeEvents := []event.EventOf[any]{
 		event.New[any]("foo", test.FooEventData{}),
 		event.New[any]("bar", test.FooEventData{}),
 		event.New[any]("baz", test.FooEventData{}),
@@ -266,7 +266,7 @@ func TestContinuous_Trigger_Filter(t *testing.T) {
 	bus := eventbus.New[any]()
 	store := eventstore.New[any]()
 
-	storeEvents := []event.Event[any]{
+	storeEvents := []event.EventOf[any]{
 		event.New[any]("foo", test.FooEventData{}),
 		event.New[any]("bar", test.FooEventData{}),
 		event.New[any]("baz", test.FooEventData{}),
@@ -330,7 +330,7 @@ func TestContinuous_Trigger_Query(t *testing.T) {
 	bus := eventbus.New[any]()
 	store := eventstore.New[any]()
 
-	storeEvents := []event.Event[any]{
+	storeEvents := []event.EventOf[any]{
 		event.New[any]("foo", test.FooEventData{}),
 		event.New[any]("bar", test.FooEventData{}),
 		event.New[any]("baz", test.FooEventData{}),
@@ -394,7 +394,7 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 	store := eventstore.New[any]()
 
 	now := time.Now()
-	storeEvents := []event.Event[any]{
+	storeEvents := []event.EventOf[any]{
 		event.New[any]("foo", test.FooEventData{}, event.Time[any](now)),
 		event.New[any]("bar", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
 		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),

@@ -27,7 +27,7 @@ type Tree struct {
 }
 
 type node struct {
-	evt    event.Event[any]
+	evt    event.EventOf[any]
 	color  color
 	parent *node
 	left   *node
@@ -37,7 +37,7 @@ type node struct {
 type color bool
 
 // Insert inserts an Event into the Tree.
-func (t *Tree) Insert(evt event.Event[any]) {
+func (t *Tree) Insert(evt event.EventOf[any]) {
 	var n *node
 	if t.root != nil {
 		n = t.root.insert(evt)
@@ -55,9 +55,9 @@ func (t *Tree) Size() int {
 }
 
 // Matrix returns the Tree as a slice of levels.
-func (t *Tree) Matrix() [][]event.Event[any] {
+func (t *Tree) Matrix() [][]event.EventOf[any] {
 	nrows := t.height()
-	rows := make([][]event.Event[any], nrows)
+	rows := make([][]event.EventOf[any], nrows)
 	for i := range rows {
 		rows[i] = t.rowMatrix(i)
 	}
@@ -71,9 +71,9 @@ func (t *Tree) height() int {
 	return t.root.maxDepth() + 1
 }
 
-func (t *Tree) rowMatrix(i int) []event.Event[any] {
+func (t *Tree) rowMatrix(i int) []event.EventOf[any] {
 	nodes := t.root.level(i)
-	events := make([]event.Event[any], len(nodes))
+	events := make([]event.EventOf[any], len(nodes))
 	for i, n := range nodes {
 		events[i] = n.evt
 	}
@@ -89,7 +89,7 @@ func (t *Tree) level(l int) []*node {
 }
 
 // Walk walks the Tree in-order and calls fn on every event.
-func (t *Tree) Walk(fn func(event.Event[any])) {
+func (t *Tree) Walk(fn func(event.EventOf[any])) {
 	t.walk(func(n *node) { fn(n.evt) })
 }
 
@@ -243,7 +243,7 @@ func (n *node) level(l int) []*node {
 	return append(n.left.level(l-1), n.right.level(l-1)...)
 }
 
-func (n *node) insert(evt event.Event[any]) *node {
+func (n *node) insert(evt event.EventOf[any]) *node {
 	v := event.PickAggregateVersion(evt)
 	if v <= event.PickAggregateVersion(n.evt) {
 		return n.insertLeft(evt)
@@ -251,7 +251,7 @@ func (n *node) insert(evt event.Event[any]) *node {
 	return n.insertRight(evt)
 }
 
-func (n *node) insertLeft(evt event.Event[any]) *node {
+func (n *node) insertLeft(evt event.EventOf[any]) *node {
 	if n.left == nil {
 		n.left = &node{evt: evt, parent: n}
 		return n.left
@@ -259,7 +259,7 @@ func (n *node) insertLeft(evt event.Event[any]) *node {
 	return n.left.insert(evt)
 }
 
-func (n *node) insertRight(evt event.Event[any]) *node {
+func (n *node) insertRight(evt event.EventOf[any]) *node {
 	if n.right == nil {
 		n.right = &node{evt: evt, parent: n}
 		return n.right

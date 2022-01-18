@@ -107,8 +107,8 @@ func TestEqual(t *testing.T) {
 	id := uuid.New()
 	now := xtime.Now()
 	tests := []struct {
-		a    event.Event[mockData]
-		b    event.Event[mockData]
+		a    event.EventOf[mockData]
+		b    event.EventOf[mockData]
 		want bool
 	}{
 		{
@@ -169,7 +169,7 @@ func TestEqual(t *testing.T) {
 func TestEqual_variadic(t *testing.T) {
 	id := uuid.New()
 	now := xtime.Now()
-	events := []event.Event[mockData]{
+	events := []event.EventOf[mockData]{
 		event.New("foo", newMockData(), event.ID[mockData](id), event.Time[mockData](now)),
 		event.New("foo", newMockData(), event.ID[mockData](id), event.Time[mockData](now)),
 		event.New("foo", newMockData(), event.ID[mockData](id), event.Time[mockData](now)),

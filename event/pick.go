@@ -12,19 +12,19 @@ var ExtractAggregateName = PickAggregateName[any]
 var ExtractAggregatecVersion = PickAggregateName[any]
 
 // PickAggregateID returns the AggregateID of the given event.
-func PickAggregateID[D any](evt Event[D]) uuid.UUID {
+func PickAggregateID[D any](evt EventOf[D]) uuid.UUID {
 	id, _, _ := evt.Aggregate()
 	return id
 }
 
 // PickAggregateName returns the AggregateName of the given event.
-func PickAggregateName[D any](evt Event[D]) string {
+func PickAggregateName[D any](evt EventOf[D]) string {
 	_, name, _ := evt.Aggregate()
 	return name
 }
 
 // PickAggregateVersion returns the AggregateVersion of the given event.
-func PickAggregateVersion[D any](evt Event[D]) int {
+func PickAggregateVersion[D any](evt EventOf[D]) int {
 	_, _, v := evt.Aggregate()
 	return v
 }

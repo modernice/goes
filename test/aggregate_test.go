@@ -25,23 +25,23 @@ func TestNewAggregate(t *testing.T) {
 	id2 := uuid.New()
 
 	tests := []struct {
-		new       func(uuid.UUID) aggregate.Aggregate[any]
+		new       func(uuid.UUID) aggregate.Aggregate
 		wantError string
 	}{
 		{
-			new: func(id uuid.UUID) aggregate.Aggregate[any] {
-				return aggregate.New[any](name, id)
+			new: func(id uuid.UUID) aggregate.Aggregate {
+				return aggregate.New(name, id)
 			},
 		},
 		{
-			new: func(id uuid.UUID) aggregate.Aggregate[any] {
-				return aggregate.New[any]("bar", id)
+			new: func(id uuid.UUID) aggregate.Aggregate {
+				return aggregate.New("bar", id)
 			},
 			wantError: fmt.Sprintf("AggregateName() should return %q; got %q", name, "bar"),
 		},
 		{
-			new: func(id uuid.UUID) aggregate.Aggregate[any] {
-				return aggregate.New[any](name, id2)
+			new: func(id uuid.UUID) aggregate.Aggregate {
+				return aggregate.New(name, id2)
 			},
 			wantError: fmt.Sprintf("AggregateID() should return %q; got %q", test.ExampleID, id2),
 		},
@@ -62,7 +62,7 @@ func TestChange_expectedChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 
 	var err error
 	var changeError *test.ExpectedChangeError[any]
@@ -87,7 +87,7 @@ func TestChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt := mock_test.NewMockTestingT(ctrl)
@@ -99,7 +99,7 @@ func TestChange_WithEventData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt := mock_test.NewMockTestingT(ctrl)
@@ -118,7 +118,7 @@ func TestChange_AtLeast(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 	foo.TrackChange(
 		event.New("evt", mockEventData{}).Any(),
 		event.New("evt", mockEventData{}).Any(),
@@ -144,7 +144,7 @@ func TestChange_AtMost(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 	foo.TrackChange(
 		event.New("evt", mockEventData{}).Any(),
 		event.New("evt", mockEventData{}).Any(),
@@ -181,7 +181,7 @@ func TestChange_Exactly(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 	foo.TrackChange(
 		event.New("evt", mockEventData{}).Any(),
 		event.New("evt", mockEventData{}).Any(),
@@ -210,7 +210,7 @@ func TestNoChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 
 	tt := mock_test.NewMockTestingT(ctrl)
 
@@ -221,7 +221,7 @@ func TestNoChange_unexpectedChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	var err error
@@ -247,7 +247,7 @@ func TestNoChange_WithEventData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	foo := aggregate.New[any]("foo", uuid.New())
+	foo := aggregate.New("foo", uuid.New())
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt := mock_test.NewMockTestingT(ctrl)

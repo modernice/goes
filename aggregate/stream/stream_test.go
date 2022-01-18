@@ -140,7 +140,7 @@ func TestStream_inconsistent(t *testing.T) {
 		t.Fatalf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *aggregate.ConsistencyError[any]
+	var cerr *aggregate.ConsistencyError[any, event.Event]
 	if !errors.As(err, &cerr) {
 		t.Fatalf("stream should return an error of type %T; got %T", cerr, err)
 	}
@@ -172,7 +172,7 @@ func TestSorted(t *testing.T) {
 		t.Errorf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *aggregate.ConsistencyError[any]
+	var cerr *aggregate.ConsistencyError[any, event.Event]
 	if !errors.As(err, &cerr) {
 		t.Errorf("stream should return an error of type %T; got %T", cerr, err)
 	}
@@ -277,10 +277,10 @@ func TestFilter(t *testing.T) {
 	str, errs := stream.New(
 		es,
 		stream.Filter(
-			func(evt event.Event[any]) bool {
+			func(evt event.EventOf[any]) bool {
 				return strings.HasPrefix(event.PickAggregateName(evt), "foo")
 			},
-			func(evt event.Event[any]) bool {
+			func(evt event.EventOf[any]) bool {
 				return strings.HasSuffix(event.PickAggregateName(evt), "bar")
 			},
 		),
@@ -299,12 +299,12 @@ func TestFilter(t *testing.T) {
 	}
 }
 
-func drain[D any](
-	s <-chan aggregate.History[D],
+func drain(
+	s <-chan aggregate.History,
 	errs <-chan error,
 	timeout time.Duration,
-	factory func(string, uuid.UUID) aggregate.Aggregate[D],
-) ([]aggregate.Aggregate[D], error) {
+	factory func(string, uuid.UUID) aggregate.Aggregate,
+) ([]aggregate.Aggregate, error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -321,7 +321,7 @@ func drain[D any](
 		return nil, err
 	}
 
-	as := make([]aggregate.Aggregate[D], len(results))
+	as := make([]aggregate.Aggregate, len(results))
 	for i, res := range results {
 		as[i] = factory(res.AggregateName(), res.AggregateID())
 		res.Apply(as[i])
@@ -330,8 +330,8 @@ func drain[D any](
 	return as, nil
 }
 
-func makeFactory[D any](am map[uuid.UUID]aggregate.Aggregate[D]) func(string, uuid.UUID) aggregate.Aggregate[D] {
-	return func(_ string, id uuid.UUID) aggregate.Aggregate[D] {
+func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) aggregate.Aggregate {
+	return func(_ string, id uuid.UUID) aggregate.Aggregate {
 		return am[id]
 	}
 }

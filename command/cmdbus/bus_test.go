@@ -258,7 +258,7 @@ func TestDrainTimeout(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	newCmd := func() command.Command[any] {
+	newCmd := func() command.Command {
 		return command.New[any]("foo-cmd", mockPayload{})
 	}
 	dispatchErrc := make(chan error)
@@ -309,7 +309,7 @@ func TestDrainTimeout_0(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	newCmd := func() command.Command[any] {
+	newCmd := func() command.Command {
 		return command.New[any]("foo-cmd", mockPayload{})
 	}
 	dispatchErrc := make(chan error)
@@ -359,7 +359,7 @@ func newBus(opts ...cmdbus.Option[any]) (command.Bus[any], event.Bus[any], *code
 	return cmdbus.New[any](enc, codec.New(), ebus, opts...), ebus, enc.RegistryOf
 }
 
-func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command[any]) {
+func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {
 	if cmd1.Name() != cmd2.Name() {
 		t.Errorf("Command Name mismatch: %q != %q", cmd1.Name(), cmd2.Name())
 	}

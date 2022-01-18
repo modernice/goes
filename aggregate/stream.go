@@ -16,9 +16,9 @@ import (
 // Drain returns when the provided History channel is closed or it encounters an
 // error from an error channel and does not wait for the error channels to be
 // closed.
-func Drain[D any](ctx context.Context, str <-chan History[D], errs ...<-chan error) ([]History[D], error) {
-	out := make([]History[D], 0, len(str))
-	err := Walk(ctx, func(h History[D]) error { out = append(out, h); return nil }, str, errs...)
+func Drain(ctx context.Context, str <-chan History, errs ...<-chan error) ([]History, error) {
+	out := make([]History, 0, len(str))
+	err := Walk(ctx, func(h History) error { out = append(out, h); return nil }, str, errs...)
 	return out, err
 }
 
@@ -38,10 +38,10 @@ func Drain[D any](ctx context.Context, str <-chan History[D], errs ...<-chan err
 //		log.Println(fmt.Sprintf("Received History: %v", h))
 //	}, str, errs)
 //	// handle err
-func Walk[D any](
+func Walk(
 	ctx context.Context,
-	walkFn func(History[D]) error,
-	str <-chan History[D],
+	walkFn func(History) error,
+	str <-chan History,
 	errs ...<-chan error,
 ) error {
 	errChan, stop := fanin.Errors(errs...)
@@ -72,18 +72,13 @@ func Walk[D any](
 	}
 }
 
-// ForEvery is an alias for ForEach.
-//
-// Deprecated: Use ForEach instead.
-var ForEvery = ForEach[any]
-
 // ForEach iterates over the provided History and error channels and for every
 // History h calls applyFn(h) and for every error e calls errFn(e) until all
 // channels are closed or ctx is canceled.
-func ForEach[D any](
-	applyFn func(h History[D]),
+func ForEach(
+	applyFn func(h History),
 	errFn func(error),
-	histories <-chan History[D],
+	histories <-chan History,
 	errs ...<-chan error,
 ) {
 	errChan, stop := fanin.Errors(errs...)

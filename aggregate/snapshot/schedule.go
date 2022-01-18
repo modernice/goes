@@ -5,17 +5,17 @@ import (
 )
 
 // A Schedule determines if an Aggregate is scheduled to be snapshotted.
-type Schedule[D any] interface {
+type Schedule interface {
 	// Test returns true if the given Aggregate should be snapshotted.
-	Test(aggregate.Aggregate[D]) bool
+	Test(aggregate.Aggregate) bool
 }
 
-type scheduleFunc[D any] func(aggregate.Aggregate[D]) bool
+type scheduleFunc func(aggregate.Aggregate) bool
 
 // Every returns a Schedule that instructs to make Snapshots of an Aggregate
 // every nth Event of that Aggregate.
-func Every[D any](n int) Schedule[D] {
-	return scheduleFunc[D](func(a aggregate.Aggregate[D]) bool {
+func Every(n int) Schedule {
+	return scheduleFunc(func(a aggregate.Aggregate) bool {
 		_, _, old := a.Aggregate()
 		current := aggregate.UncommittedVersion(a)
 
@@ -29,6 +29,6 @@ func Every[D any](n int) Schedule[D] {
 	})
 }
 
-func (fn scheduleFunc[D]) Test(a aggregate.Aggregate[D]) bool {
+func (fn scheduleFunc) Test(a aggregate.Aggregate) bool {
 	return fn(a)
 }
