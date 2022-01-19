@@ -176,7 +176,7 @@ func (f *Foo) ApplyEvent(evt event.Event) { ... }
 
 func example(store event.Store) {
   eventNames := []string{"example.foo", "example.bar", "example.foobar"}
-  s := schedule.Continuously(store, eventNames)
+  s := schedule.Periodically(store, eventNames)
 
   var foo Foo
 
@@ -200,7 +200,7 @@ func example(store event.Store) {
 A projection job provides additional query helpers to extract event and
 aggregate information from the events in the job. All query functions of the
 `projection.Job` use caching to avoid querying the underlying event stream
-unnecessarily. Job are thread-safe, which means that they can be applied
+unnecessarily. Jobs are thread-safe, which means that they can be applied
 concurrently onto multiple projections if needed.
 
 ```go
