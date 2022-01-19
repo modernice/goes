@@ -2,8 +2,6 @@ package todo
 
 import (
 	"context"
-	"encoding/gob"
-	"io"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/codec"
@@ -38,23 +36,9 @@ func DoneTasks(listID uuid.UUID, tasks ...string) command.Cmd[donePayload] {
 
 // RegisterCommands registers commands into a registry.
 func RegisterCommands(r *codec.GobRegistry) {
-	registerStringCommand(r.Registry, AddTaskCmd)
-	registerStringCommand(r.Registry, RemoveTaskCmd)
-	r.GobRegister(DoneTaskCmd, func() any { return donePayload{} })
-}
-
-func registerStringCommand[Payload ~string](r *codec.Registry, name string) {
-	codec.Register[Payload](
-		r, name,
-		codec.EncoderFunc[Payload](func(w io.Writer, data Payload) error {
-			return gob.NewEncoder(w).Encode(data)
-		}),
-		codec.DecoderFunc[Payload](func(r io.Reader) (evt Payload, _ error) {
-			err := gob.NewDecoder(r).Decode(&evt)
-			return evt, err
-		}),
-		func() Payload { return "" },
-	)
+	codec.GobRegister[string](r, AddTaskCmd)
+	codec.GobRegister[string](r, RemoveTaskCmd)
+	codec.GobRegister[donePayload](r, DoneTaskCmd)
 }
 
 // HandleCommands handles commands until ctx is canceled. Any asynchronous
