@@ -50,21 +50,35 @@ type Registry struct {
 	factories map[string]func() any
 }
 
-// NewOf returns a new Registry that can register types of type T.
-func New() *Registry {
-	return &Registry{
-		encoders:  make(map[string]Encoder[any]),
-		decoders:  make(map[string]Decoder[any]),
-		factories: make(map[string]func() any),
+// Make creates and returns a new instance of the data that is registered under
+// the given name. If no factory function was provided for this data,
+// ErrMissingFactory is returned. If the data cannot be casted to D, an error
+// is returned.
+func Make[D any](r *Registry, name string) (D, error) {
+	var zero D
+
+	r.RLock()
+	defer r.RUnlock()
+
+	if makeFunc, ok := r.factories[name]; ok && makeFunc != nil {
+		d := makeFunc()
+		if v, ok := d.(D); ok {
+			return v, nil
+		} else {
+			return zero, fmt.Errorf("cannot cast %T to %T", d, v)
+		}
 	}
+
+	return zero, ErrMissingFactory
 }
 
-func Register[T any](r *Registry, name string, enc Encoder[T], dec Decoder[T], makeFunc func() T) {
+// Register registers the encoding for events with the given name.
+func Register[D any](r *Registry, name string, enc Encoder[D], dec Decoder[D], makeFunc func() D) {
 	r.Lock()
 	defer r.Unlock()
 
 	r.encoders[name] = EncoderFunc[any](func(w io.Writer, data any) error {
-		return enc.Encode(w, data.(T))
+		return enc.Encode(w, data.(D))
 	})
 
 	r.decoders[name] = DecoderFunc[any](func(r io.Reader) (any, error) {
@@ -74,14 +88,9 @@ func Register[T any](r *Registry, name string, enc Encoder[T], dec Decoder[T], m
 	r.factories[name] = func() any { return makeFunc() }
 }
 
-// Register registers the given Encoder and Decoder under the given name.
-// When reg.Encode is called, the provided Encoder is be used to encode the
-// given data. When reg.Decode is called, the provided Decoder is used. The
-// makeFunc is required for custom data unmarshalers to work.
-func (reg *Registry) Register(name string, enc Encoder[any], dec Decoder[any], makeFunc func() any) {
-	Register(reg, name, enc, dec, makeFunc)
-}
-
+// Encode encodes the data that is registered under the given name using the
+// registered Encoder. If no Encoder is registered for the given name, an error
+// that unwraps to ErrNotFound is returned.
 func Encode[D any](r *Registry, w io.Writer, name string, data D) error {
 	r.RLock()
 	defer r.RUnlock()
@@ -97,13 +106,9 @@ func Encode[D any](r *Registry, w io.Writer, name string, data D) error {
 	return fmt.Errorf("get encoder: %w [name=%v]", ErrNotFound, name)
 }
 
-// Encode encodes the data that is registered under the given name using the
-// registered Encoder. If no Encoder is registered for the given name, an error
+// Decode decodes the data that is registered under the given name using the
+// registered Decoder. If no Decoder is registered for the give name, an error
 // that unwraps to ErrNotFound is returned.
-func (reg *Registry) Encode(w io.Writer, name string, data any) error {
-	return Encode(reg, w, name, data)
-}
-
 func Decode[D any](r *Registry, in io.Reader, name string) (D, error) {
 	var zero D
 
@@ -140,24 +145,35 @@ func Decode[D any](r *Registry, in io.Reader, name string) (D, error) {
 	return zero, fmt.Errorf("get decoder: %w [name=%v]", ErrNotFound, name)
 }
 
+// New returns a new Registry.
+func New() *Registry {
+	return &Registry{
+		encoders:  make(map[string]Encoder[any]),
+		decoders:  make(map[string]Decoder[any]),
+		factories: make(map[string]func() any),
+	}
+}
+
+// Register registers the given Encoder and Decoder under the given name.
+// When reg.Encode is called, the provided Encoder is be used to encode the
+// given data. When reg.Decode is called, the provided Decoder is used. The
+// makeFunc is required for custom data unmarshalers to work.
+func (reg *Registry) Register(name string, enc Encoder[any], dec Decoder[any], makeFunc func() any) {
+	Register(reg, name, enc, dec, makeFunc)
+}
+
+// Encode encodes the data that is registered under the given name using the
+// registered Encoder. If no Encoder is registered for the given name, an error
+// that unwraps to ErrNotFound is returned.
+func (reg *Registry) Encode(w io.Writer, name string, data any) error {
+	return Encode(reg, w, name, data)
+}
+
 // Decode decodes the data that is registered under the given name using the
 // registered Decoder. If no Decoder is registered for the give name, an error
 // that unwraps to ErrNotFound is returned.
 func (reg *Registry) Decode(r io.Reader, name string) (any, error) {
 	return Decode[any](reg, r, name)
-}
-
-func Make[D any](r *Registry, name string) (D, error) {
-	var zero D
-
-	r.RLock()
-	defer r.RUnlock()
-
-	if makeFunc, ok := r.factories[name]; ok && makeFunc != nil {
-		return makeFunc().(D), nil
-	}
-
-	return zero, ErrMissingFactory
 }
 
 // New creates and returns a new instance of the data that is registered under
