@@ -26,7 +26,7 @@ const (
 // Repository is the aggregate repository. It saves and fetches aggregates to
 // and from the underlying event store.
 type Repository interface {
-	// Save inserts the changes of Aggregate a into the event store.
+	// Save inserts the changes of the aggregate into the event store.
 	Save(ctx context.Context, a Aggregate) error
 
 	// Fetch fetches the events for the given Aggregate from the event store,
@@ -72,22 +72,59 @@ type Repository interface {
 	Delete(ctx context.Context, a Aggregate) error
 }
 
+// TypedRepository is a repository for a specific aggregate type.
+// Use the github.com/modernnice/aggregate/repository.Typed function to create
+// a TypedRepository.
+//
+//	func NewFoo(id uuid.UUID) *Foo { ... }
+//
+//	var repo aggregate.Repository
+//	typed := repository.Typed(repo, NewFoo)
 type TypedRepository[A Aggregate] interface {
+	// Save inserts the changes of the aggregate into the event store.
 	Save(ctx context.Context, a A) error
 
+	// Fetch fetches the given aggregate from the event store.
 	Fetch(ctx context.Context, id uuid.UUID) (A, error)
 
-	FetchVersion(ctx context.Context, id uuid.UUID, v int) (A, error)
+	// FetchVersion fetches all events for the given aggregate up to the given
+	// version from the event store and applies them onto the aggregate.
+	// FetchVersion fetches the given aggregate in the given version from the
+	// event store.
+	FetchVersion(ctx context.Context, id uuid.UUID, version int) (A, error)
 
+	// Query queries the event store for aggregates and returns a channel of
+	// aggregates and an error channel. If the query fails, Query returns nil
+	// channels and an error.
+	//
+	// A query made by this repository will only ever return aggregates of this
+	// repository's generic type, even if the query would normally return other
+	// aggregates. Aggregates that cannot be casted to the generic type will be
+	// simply discarded from the stream.
+	//
+	// The streams.Drain returns the query result as slice and a single error:
+	//
+	//	str, errs, err := r.Query(context.TODO(), query.New())
+	//	// handle err
+	//	res, err := streams.Drain(context.TODO(), str, errs)
+	//	// handle err
+	//	for _, a := range res {
+	//		// a is your aggregate
+	//	}
 	Query(ctx context.Context, q Query) (<-chan A, <-chan error, error)
 
+	// Use first fetches the given aggregate from the event store, then calls
+	// the provided function with the aggregate as the argument and finally
+	// save aggregate back to the event store. If fn returns a non-nil error,
+	// the aggregate is not saved and the error is returned.
 	Use(ctx context.Context, id uuid.UUID, fn func(A) error) error
 
-	// Delete deletes an Aggregate by deleting its Events from the Event Store.
+	// Delete deletes the given aggregate by deleting all of its events from the
+	// event store.
 	Delete(ctx context.Context, a A) error
 }
 
-// Query is used by Repositories to filter aggregates.
+// Query is used by repositories to filter aggregates from the event store.
 type Query interface {
 	// Names returns the aggregate names to query for.
 	Names() []string
