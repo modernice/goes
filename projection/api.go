@@ -117,7 +117,7 @@ type GuardFunc[D any] func(event.EventOf[D]) bool
 //
 //		done := make(map[uuid.UUID]bool) // SearchIndexes that have been projected
 //
-//		return aggregate.WalkRefs(ctx, func(r aggregate.Ref) error {
+//		return streams.Walk(ctx, func(r aggregate.Ref) error {
 //			p := &Product{Base: aggregate.New("product", r.ID)}
 //			err := repo.Fetch(ctx, p)
 //			shopID := p.ShopID

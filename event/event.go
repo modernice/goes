@@ -32,7 +32,7 @@ type Event = EventOf[any]
 // 	var b event.Bus
 // 	res, errs, err := b.Subscribe(context.TODO(), "foo")
 // 	// handle err
-//	err := event.Walk(context.TODO(), func(e event.Event) {
+//	err := streams.Walk(context.TODO(), func(e event.Event) {
 // 	    log.Println(fmt.Sprintf("Received %q event: %v", e.Name(), e))
 //	}, res, errs)
 //	// handle err
@@ -217,7 +217,7 @@ func Any[D any](evt EventOf[D]) E[any] {
 	return Cast[any](evt)
 }
 
-func Many[D any](events ...EventOf[D]) []E[any] {
+func Many[D any, Events ~[]EventOf[D]](events Events) []E[any] {
 	out := make([]E[any], len(events))
 	for i, evt := range events {
 		out[i] = Any(evt)
@@ -226,7 +226,7 @@ func Many[D any](events ...EventOf[D]) []E[any] {
 }
 
 // Cast casts the type paramater of given event to the type `To` and returns
-// the re-typed event. Cast panic if the event data cannot be casted to `To`.
+// the re-typed event. Cast panics if the event data cannot be casted to `To`.
 //
 // Use TryCast to test if the event data can be casted to `To`.
 func Cast[To, From any](evt EventOf[From]) E[To] {
@@ -256,15 +256,15 @@ func TryCast[To, From any](evt EventOf[From]) (E[To], bool) {
 	), true
 }
 
-func CastMany[To, From any](events ...EventOf[From]) []EventOf[To] {
-	out := make([]EventOf[To], len(events))
+func CastMany[To, From any, FromEvents ~[]EventOf[From]](events FromEvents) []E[To] {
+	out := make([]E[To], len(events))
 	for i, evt := range events {
 		out[i] = Cast[To](evt)
 	}
 	return out
 }
 
-func TryCastMany[To, From any](events ...EventOf[From]) ([]EventOf[To], bool) {
+func TryCastMany[To, From any, FromEvents ~[]EventOf[From]](events FromEvents) ([]EventOf[To], bool) {
 	out := make([]EventOf[To], len(events))
 	for i, evt := range events {
 		var ok bool

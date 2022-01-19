@@ -60,13 +60,13 @@ func Errors[D any](errs ...<-chan error) Option[D] {
 }
 
 // Sorted returns an Option that optimizes Aggregate builds by giving the
-// Stream information about the order of incoming Events from the event.Stream.
+// Stream information about the order of incoming Events from the streams.New.
 //
 // When Sorted is disabled (which it is by default), the Stream sorts the
 // collected Events for a specific Aggregate by the AggregateVersion of the
 // Events before applying them to the Aggregate.
 //
-// Enable this option only if the underlying event.Stream guarantees that
+// Enable this option only if the underlying streams.New guarantees that
 // incoming Events are sorted by AggregateVersion.
 func Sorted[D any](v bool) Option[D] {
 	return func(s *stream[D]) {
@@ -75,16 +75,16 @@ func Sorted[D any](v bool) Option[D] {
 }
 
 // Grouped returns an Option that optimizes Aggregate builds by giving the
-// Stream information about the order of incoming Events from the event.Stream.
+// Stream information about the order of incoming Events from the streams.New.
 //
-// When Grouped is disabled, the Stream has to wait for the event.Stream to be
+// When Grouped is disabled, the Stream has to wait for the streams.New to be
 // drained before it can be sure no more Events will arrive for a specific
 // Aggregate. When Grouped is enabled, the Stream knows when all Events for an
 // Aggregate have been received and can therefore return the Aggregate as soon
 // as its last Event has been received and applied.
 //
 // Grouped is disabled by default and should only be enabled if the correct
-// order of events is guaranteed by the underlying event.Stream. Events are
+// order of events is guaranteed by the underlying streams.New. Events are
 // correctly ordered only if they're sequentially grouped by aggregate. Sorting
 // within a group of Events does not matter if IsSorted is disabled (which it is
 // by default). When IsSorted is enabled, Events within a group must be ordered
@@ -119,7 +119,7 @@ func Grouped[D any](v bool) Option[D] {
 // Aggregate from those Events.
 //
 // This option is enabled by default and should only be disabled if the
-// consistency of Events is guaranteed by the underlying event.Stream or if it's
+// consistency of Events is guaranteed by the underlying streams.New or if it's
 // explicitly desired to put an Aggregate into an invalid state.
 func ValidateConsistency[D any](v bool) Option[D] {
 	return func(s *stream[D]) {
@@ -144,7 +144,7 @@ func Filter[D any](fns ...func(event.EventOf[D]) bool) Option[D] {
 //
 //	var events <-chan event.EventOf[D]
 //	str, errs := stream.New(events)
-//	histories, err := aggregate.Drain(context.TODO(), str, errs)
+//	histories, err := streams.Drain(context.TODO(), str, errs)
 //	// handle err
 //	for _, h := range histories {
 //		foo := newFoo(h.AggregateID())

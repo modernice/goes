@@ -418,7 +418,7 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.EventOf[any]) e
 }
 
 // Query queries the database for events filtered by Query q and returns an
-// event.Stream for those events.
+// streams.New for those events.
 func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.EventOf[any], <-chan error, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
@@ -609,7 +609,7 @@ func makeFilter(q event.Query) bson.D {
 	filter = withAggregateNameFilter(filter, q.AggregateNames()...)
 	filter = withAggregateIDFilter(filter, q.AggregateIDs()...)
 	filter = withAggregateVersionFilter(filter, q.AggregateVersions())
-	filter = withAggregateTupleFilter(filter, q.Aggregates())
+	filter = withAggregateRefFilter(filter, q.Aggregates())
 	return filter
 }
 
@@ -740,7 +740,7 @@ func withAggregateVersionFilter(filter bson.D, versions version.Constraints) bso
 	return filter
 }
 
-func withAggregateTupleFilter(filter bson.D, tuples []event.AggregateTuple) bson.D {
+func withAggregateRefFilter(filter bson.D, tuples []event.AggregateRef) bson.D {
 	if len(tuples) == 0 {
 		return filter
 	}

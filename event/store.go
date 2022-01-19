@@ -44,7 +44,7 @@ type Store interface {
 	//	var store event.Store
 	//	events, errs, err := store.Query(context.TODO(), query.New())
 	//	// handle err
-	//	err := event.Walk(context.TODO(), func(evt event.Event) {
+	//	err := streams.Walk(context.TODO(), func(evt event.Event) {
 	//		log.Println(fmt.Sprintf("Queried Event: %v", evt))
 	//	}, events, errs)
 	//	// handle err
@@ -75,7 +75,7 @@ type Query interface {
 	AggregateVersions() version.Constraints
 
 	// Aggregates returns a list of specific Aggregates (name & ID pairs) to
-	// query for. If an AggregateTuple has a nil-UUID, every Aggregate with the
+	// query for. If an AggregateRef has a nil-UUID, every Aggregate with the
 	// name of the tuple is queried.
 	//
 	// Example:
@@ -83,14 +83,11 @@ type Query interface {
 	//	q := query.New(query.Aggregate("foo", id), query.Aggregate("bar", uuid.Nil))
 	//
 	// The above Query q allows "foo" Aggregates with the UUID id and every "bar" Aggregate.
-	Aggregates() []AggregateTuple
+	Aggregates() []AggregateRef
 
 	// Sorting returns the SortConfigs for the query.
 	Sortings() []SortOptions
 }
-
-// Deprecated: Use AggregateRef instead.
-type AggregateTuple = AggregateRef
 
 // AggregateRef is a reference to a specific aggregate, identified by its name
 // and id.

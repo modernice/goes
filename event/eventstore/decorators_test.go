@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/streams"
 )
 
 func TestWithBus(t *testing.T) {
@@ -31,7 +32,7 @@ func TestWithBus(t *testing.T) {
 
 	var walkedEvent event.EventOf[any]
 
-	if err = event.Walk(context.Background(), func(e event.EventOf[any]) error {
+	if err = streams.Walk(context.Background(), func(e event.EventOf[any]) error {
 		walkedEvent = e
 		cancel()
 		return nil

@@ -206,9 +206,9 @@ func encodeDecodeEventData(enc codec.Encoding, evt event.Event) {
 
 ## Stream Helpers
 
-- `event.Walk` : Walks a channel of events and calls a function for each event.
+- `streams.Walk` : Walks a channel of events and calls a function for each event.
 	Accepts optional error channels that cause the walk to stop on error.
-- `event.Drain` : Drains a channel of events and returns a slice of all events.
+- `streams.Drain` : Drains a channel of events and returns a slice of all events.
 	Accepts optional error channels that cause the drain to stop on error.
-- `event.ForEach` : Walks a channel of events and optional channels of errors
+- `streams.ForEach` : Walks a channel of events and optional channels of errors
 	and calls a function on each event and each error until all channels are closed.

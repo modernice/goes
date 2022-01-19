@@ -33,8 +33,5 @@ type Committer interface {
 	Commit()
 }
 
-// Deprecated: Use Ref instead.
-type Tuple = Ref
-
 // Ref is a reference to a specific aggregate, identified by its name and id.
 type Ref = event.AggregateRef

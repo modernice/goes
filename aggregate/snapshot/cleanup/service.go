@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/query"
 	"github.com/modernice/goes/event/query/time"
+	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -118,7 +119,7 @@ func (c *Service) cleanup(store snapshot.Store, out chan<- error) error {
 	if err != nil {
 		return fmt.Errorf("query Snapshots: %w", err)
 	}
-	return snapshot.Walk(c.ctx, func(s snapshot.Snapshot) error {
+	return streams.Walk(c.ctx, func(s snapshot.Snapshot) error {
 		if err := store.Delete(c.ctx, s); err != nil {
 			select {
 			case <-c.ctx.Done():

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/helper/streams"
 )
 
 const (
@@ -205,7 +206,7 @@ func (svc *Service[E]) Trigger(ctx context.Context, name string, opts ...Trigger
 	}
 
 	done := errors.New("done")
-	if err := event.Walk(ctx, func(evt event.EventOf[any]) error {
+	if err := streams.Walk(ctx, func(evt event.EventOf[any]) error {
 		data := evt.Data().(TriggerAcceptedData)
 		if data.TriggerID != id {
 			return nil
@@ -248,7 +249,7 @@ func (svc *Service[E]) handleEvents(ctx context.Context, events <-chan event.Eve
 		}
 	}
 
-	event.ForEach(ctx, func(evt event.EventOf[any]) {
+	streams.ForEach(ctx, func(evt event.EventOf[any]) {
 		data := evt.Data().(TriggeredData)
 
 		s, ok := svc.schedule(data.Schedule)

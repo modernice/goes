@@ -10,12 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
-	"github.com/modernice/goes/event/eventbus/natsbus"
-	"github.com/nats-io/stan.go"
 )
 
 func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
@@ -23,22 +22,8 @@ func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
-	subEventBus := natsbus.New(
-		ereg,
-		natsbus.Use(natsbus.Streaming(
-			"test-cluster",
-			randomClientID(),
-			stan.NatsURL(os.Getenv("STAN_URL")),
-		)),
-	)
-	pubEventBus := natsbus.New(
-		ereg,
-		natsbus.Use(natsbus.Streaming(
-			"test-cluster",
-			randomClientID(),
-			stan.NatsURL(os.Getenv("STAN_URL")),
-		)),
-	)
+	subEventBus := nats.NewEventBus(ereg, nats.Use(nats.JetStream()), nats.URL(os.Getenv("JETSTREAM_URL")))
+	pubEventBus := nats.NewEventBus(ereg, nats.Use(nats.JetStream()), nats.URL(os.Getenv("JETSTREAM_URL")))
 	subBus := cmdbus.New(enc, subEventBus)
 	pubBus := cmdbus.New(enc, pubEventBus)
 

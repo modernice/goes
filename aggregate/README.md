@@ -182,7 +182,7 @@ func queryAggregates(repo aggregate.Repository) {
   ))
   // handle err
 
-  histories, err := aggregate.Drain(context.TODO(), str, errs) // Drain the stream
+  histories, err := streams.Drain(context.TODO(), str, errs) // Drain the stream
   // handle err
 
   for _, h := range histories {
@@ -217,10 +217,10 @@ func deleteAggregate(repo aggregate.Repository) {
 
 goes provides helper functions to work with channels of aggregates and aggregate tuples:
 
-- `aggregate.Walk`
-- `aggregate.Drain`
-- `aggregate.ForEach`
-- `aggregate.WalkRefs`
-- `aggregate.DrainRefs`
-- `aggregate.ForEachRef`
+- `streams.Walk`
+- `streams.Drain`
+- `streams.ForEach`
+- `streams.Walk`
+- `streams.Drain`
+- `streams.ForEach`
 

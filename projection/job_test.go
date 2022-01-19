@@ -14,6 +14,7 @@ import (
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
 )
@@ -31,7 +32,7 @@ func TestJob_Events(t *testing.T) {
 		t.Fatalf("Events failed with %q", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}
@@ -56,7 +57,7 @@ func TestJob_Events_additionalFilter(t *testing.T) {
 		t.Fatalf("Events failed with %q", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestJob_EventsOf(t *testing.T) {
 		t.Fatalf("EventsOf failed with %q", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}
@@ -117,7 +118,7 @@ func TestJob_EventsFor(t *testing.T) {
 		t.Fatalf("EventsFor failed with %q", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("drain events: %v", err)
 	}
@@ -138,7 +139,7 @@ func TestJob_EventsFor_Guard(t *testing.T) {
 		t.Fatalf("EventsFor failed with %q", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}
@@ -167,7 +168,7 @@ func TestJob_EventsFor_Progressor(t *testing.T) {
 		t.Fatalf("EventsFor failed with %q", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}
@@ -193,7 +194,7 @@ func TestJob_Aggregates(t *testing.T) {
 		t.Fatalf("Aggregates failed with %q", err)
 	}
 
-	aggregates, err := aggregate.DrainRefs(ctx, str, errs)
+	aggregates, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("DrainTuples failed with %q", err)
 	}
@@ -227,7 +228,7 @@ func TestJob_Aggregates_specific(t *testing.T) {
 		t.Fatalf("Aggregates failed with %q", err)
 	}
 
-	aggregates, err := aggregate.DrainRefs(ctx, str, errs)
+	aggregates, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("DrainTuples failed with %q", err)
 	}
@@ -311,7 +312,7 @@ func TestJob_Events_cache(t *testing.T) {
 		t.Fatalf("Events failed with %q", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}
@@ -328,7 +329,7 @@ func TestJob_Events_cache(t *testing.T) {
 		t.Fatalf("Events failed with %q", err)
 	}
 
-	if events, err = event.Drain(ctx, str, errs); err != nil {
+	if events, err = streams.Drain(ctx, str, errs); err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}
 
@@ -363,7 +364,7 @@ func TestWithFilter(t *testing.T) {
 		t.Fatalf("Events failed with %q", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}

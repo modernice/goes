@@ -23,6 +23,7 @@ import (
 	"github.com/modernice/goes/event/query/version"
 	etest "github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/xaggregate"
 	"github.com/modernice/goes/internal/xevent"
 )
@@ -93,7 +94,7 @@ func TestRepository_Save_Snapshot(t *testing.T) {
 		t.Fatalf("Query shouldn't fail; failed with %q", err)
 	}
 
-	snaps, err := snapshot.Drain(context.Background(), res, errs)
+	snaps, err := streams.Drain(context.Background(), res, errs)
 	if err != nil {
 		t.Fatalf("Drain shouldn't fail; failed with %q", err)
 	}

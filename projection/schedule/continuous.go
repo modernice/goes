@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/query"
+	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/projection"
 )
 
@@ -216,5 +217,5 @@ func (schedule *Continuous) handleEvents(
 		}
 	}
 
-	event.ForEach(ctx, addEvent, fail, events, errs)
+	streams.ForEach(ctx, addEvent, fail, events, errs)
 }

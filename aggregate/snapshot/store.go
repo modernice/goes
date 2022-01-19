@@ -37,7 +37,7 @@ type Store interface {
 	//	var store snapshot.Store
 	//	snaps, errs, err := store.Query(context.TODO(), query.New())
 	//	// handle err
-	//	err := snapshot.Walk(context.TODO(), func(snap snapshot.Snapshot) {
+	//	err := streams.Walk(context.TODO(), func(snap snapshot.Snapshot) {
 	//		log.Println(fmt.Sprintf("Queried Snapshot: %v", snap))
 	//		foo := newFoo(snap.AggregateID())
 	//		err := snapshot.Unmarshal(snap, foo)

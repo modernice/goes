@@ -14,7 +14,7 @@ type Query struct {
 	ids            []uuid.UUID
 	aggregateNames []string
 	aggregateIDs   []uuid.UUID
-	aggregates     []event.AggregateTuple
+	aggregates     []event.AggregateRef
 	sortings       []event.SortOptions
 
 	times             time.Constraints
@@ -122,12 +122,12 @@ func Aggregate(name string, id uuid.UUID) Option {
 				return
 			}
 		}
-		b.aggregates = append(b.aggregates, event.AggregateTuple{Name: name, ID: id})
+		b.aggregates = append(b.aggregates, event.AggregateRef{Name: name, ID: id})
 	}
 }
 
 // Aggregates returns an Option that filters Events by specific Aggregates.
-func Aggregates(aggregates ...event.AggregateTuple) Option {
+func Aggregates(aggregates ...event.AggregateRef) Option {
 	return func(b *builder) {
 	L:
 		for _, at := range aggregates {
@@ -265,7 +265,7 @@ func (q Query) AggregateVersions() version.Constraints {
 }
 
 // Aggregates returns a slice of specific Aggregates to query for.
-func (q Query) Aggregates() []event.AggregateTuple {
+func (q Query) Aggregates() []event.AggregateRef {
 	return q.aggregates
 }
 

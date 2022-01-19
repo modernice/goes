@@ -14,17 +14,6 @@ func Configure(opts ...command.DispatchOption) command.DispatchConfig {
 	return cfg
 }
 
-// Synchronous returns a DispatchOption that makes the dispatch of the command
-// synchronous.
-//
-// A synchronous dispatch returns a potential error that occured during the
-// execution of a command back to the dispatcher of the command.
-//
-// Deprecated: Use Sync instead.
-func Synchronous() command.DispatchOption {
-	return Sync()
-}
-
 // Sync returns a DispatchOption that makes the dispatch of the command
 // synchronous.
 //

@@ -116,7 +116,7 @@ func TestNew(t *testing.T) {
 			want: Query{
 				times:             time.Filter(),
 				aggregateVersions: version.Filter(),
-				aggregates: []event.AggregateTuple{
+				aggregates: []event.AggregateRef{
 					{
 						Name: "foo",
 						ID:   aggregateID,
@@ -329,7 +329,7 @@ func TestMerge(t *testing.T) {
 			sortings:          []event.SortOptions{{Sort: event.SortAggregateName, Dir: event.SortDesc}},
 			times:             time.Filter(time.After(now)),
 			aggregateVersions: version.Filter(version.Exact(1)),
-			aggregates:        []event.AggregateTuple{{Name: "foo", ID: uuid.New()}},
+			aggregates:        []event.AggregateRef{{Name: "foo", ID: uuid.New()}},
 		},
 		Query{
 			names:             []string{"bar"},
@@ -339,7 +339,7 @@ func TestMerge(t *testing.T) {
 			sortings:          []event.SortOptions{{Sort: event.SortAggregateID, Dir: event.SortAsc}},
 			times:             time.Filter(time.Before(now)),
 			aggregateVersions: version.Filter(version.Exact(2, 3)),
-			aggregates:        []event.AggregateTuple{{Name: "bar", ID: uuid.New()}},
+			aggregates:        []event.AggregateRef{{Name: "bar", ID: uuid.New()}},
 		},
 		Query{
 			names:             []string{"baz"},
@@ -349,7 +349,7 @@ func TestMerge(t *testing.T) {
 			sortings:          []event.SortOptions{{Sort: event.SortAggregateVersion, Dir: event.SortAsc}},
 			times:             time.Filter(time.Exact(now)),
 			aggregateVersions: version.Filter(version.Exact(4, 5)),
-			aggregates:        []event.AggregateTuple{{Name: "baz", ID: uuid.New()}},
+			aggregates:        []event.AggregateRef{{Name: "baz", ID: uuid.New()}},
 		},
 	}
 

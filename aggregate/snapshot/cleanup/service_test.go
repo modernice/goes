@@ -15,6 +15,7 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot/cleanup"
 	"github.com/modernice/goes/aggregate/snapshot/memsnap"
 	"github.com/modernice/goes/aggregate/snapshot/query"
+	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -77,7 +78,7 @@ func TestService(t *testing.T) {
 		t.Fatalf("Query shouldn't fail; failed with %q", err)
 	}
 
-	snaps, err := snapshot.Drain(context.Background(), res, errs)
+	snaps, err := streams.Drain(context.Background(), res, errs)
 	if err != nil {
 		t.Fatalf("Drain shouldn't fail; failed with %q", err)
 	}

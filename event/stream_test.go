@@ -10,13 +10,14 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/streams"
 )
 
 func TestStream(t *testing.T) {
 	events := makeEvents()
-	str := event.Stream(events...)
+	str := streams.New(events...)
 
-	result, err := event.Drain(context.Background(), str)
+	result, err := streams.Drain(context.Background(), str)
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected cur.Err to return %#v; got %#v", error(nil), err))
 	}
@@ -34,9 +35,9 @@ func TestStream(t *testing.T) {
 
 func TestDrain(t *testing.T) {
 	events := makeEvents()
-	str := event.Stream(events...)
+	str := streams.New(events...)
 
-	result, err := event.Drain(context.Background(), str)
+	result, err := streams.Drain(context.Background(), str)
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected cursor.Drain not to return an error; got %#v", err))
 	}
@@ -54,11 +55,11 @@ func TestDrain(t *testing.T) {
 
 func TestDrain_partial(t *testing.T) {
 	events := makeEvents()
-	str := event.Stream(events...)
+	str := streams.New(events...)
 
 	<-str
 
-	result, err := event.Drain(context.Background(), str)
+	result, err := streams.Drain(context.Background(), str)
 	if err != nil {
 		t.Fatal(fmt.Errorf("expected cursor.Drain not to return an error; got %v", err))
 	}
@@ -76,10 +77,10 @@ func TestDrain_partial(t *testing.T) {
 
 func TestWalk(t *testing.T) {
 	events := makeEvents()
-	str := event.Stream(events...)
+	str := streams.New(events...)
 
 	var walked []event.Event
-	err := event.Walk(context.Background(), func(evt event.Event) error {
+	err := streams.Walk(context.Background(), func(evt event.Event) error {
 		walked = append(walked, evt)
 		return nil
 	}, str)
@@ -95,12 +96,12 @@ func TestWalk_chanError(t *testing.T) {
 	events := makeEvents()
 	errs := make(chan error, 1)
 	mockError := errors.New("mock error")
-	str := event.Stream(events...)
+	str := streams.New(events...)
 
 	errs <- mockError
 	close(errs)
 
-	err := event.Walk(context.Background(), func(evt event.Event) error { return nil }, str, errs)
+	err := streams.Walk(context.Background(), func(evt event.Event) error { return nil }, str, errs)
 
 	if !errors.Is(err, mockError) {
 		t.Errorf("Walk should fail with %q; got %q", mockError, err)
@@ -110,9 +111,9 @@ func TestWalk_chanError(t *testing.T) {
 func TestWalk_error(t *testing.T) {
 	events := makeEvents()
 	mockError := errors.New("mock error")
-	str := event.Stream(events...)
+	str := streams.New(events...)
 
-	err := event.Walk(context.Background(), func(evt event.Event) error { return mockError }, str)
+	err := streams.Walk(context.Background(), func(evt event.Event) error { return mockError }, str)
 
 	if !errors.Is(err, mockError) {
 		t.Errorf("Walk should fail with %q; got %q", mockError, err)
@@ -129,14 +130,14 @@ func TestFilter(t *testing.T) {
 		event.New[any]("foobaz", test.FooEventData{}),
 	}
 
-	str := event.Stream(events...)
+	str := streams.New(events...)
 	str = event.Filter(str, query.New(query.Name("bar", "baz", "barbaz", "foobaz")))
 	str = event.Filter(str, query.New(query.Name("baz", "foobaz")))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	filtered, err := event.Drain(ctx, str)
+	filtered, err := streams.Drain(ctx, str)
 	if err != nil {
 		t.Fatalf("drain Events: %v", err)
 	}

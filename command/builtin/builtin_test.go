@@ -17,6 +17,7 @@ import (
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/helper/streams"
 )
 
 func TestDeleteAggregate(t *testing.T) {
@@ -94,7 +95,7 @@ func TestDeleteAggregate(t *testing.T) {
 	}
 
 	// A "goes.command.aggregate.deleted" event should be published
-	evt, err := event.Await(ctx, str, errs)
+	evt, err := streams.Await(ctx, str, errs)
 	if err != nil {
 		t.Fatalf("await event: %v", err)
 	}

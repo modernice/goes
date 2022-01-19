@@ -12,6 +12,7 @@ import (
 	"github.com/modernice/goes/event"
 	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/helper/streams"
 )
 
 var (
@@ -269,7 +270,7 @@ func (r *Repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 		return nil, fmt.Errorf("query events: %w", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		return events, fmt.Errorf("stream: %w", err)
 	}
@@ -380,7 +381,7 @@ func (r *Repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
 //	var r *Repository
 //	str, errs, err := r.Query(context.TODO(), query.New(...))
 //	// handle err
-//	histories, err := aggregate.Drain(context.TODO(), str, errs)
+//	histories, err := streams.Drain(context.TODO(), str, errs)
 //	// handle err
 //	for _, his := range histories {
 //		aggregateName := his.AggregateName()

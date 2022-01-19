@@ -119,11 +119,6 @@ func EventData[E any](d E) ChangeOption[E] {
 	}
 }
 
-// Deprecated: Use EventData instead.
-func WithEventData[E any](d E) ChangeOption[E] {
-	return EventData(d)
-}
-
 // AtLeast returns a ChangeOption that requires an Aggregate to have a change at
 // least as many times as provided.
 //

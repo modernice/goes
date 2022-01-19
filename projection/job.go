@@ -13,6 +13,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/time"
+	"github.com/modernice/goes/helper/streams"
 )
 
 var (
@@ -33,7 +34,7 @@ type Job interface {
 	//	var job Job
 	//	str, errs, err := job.Events(job)
 	//	// handle err
-	//	events, err := event.Drain(job, str, errs)
+	//	events, err := streams.Drain(job, str, errs)
 	//
 	// Optional Queries may be provided as filters for the fetched Events. If
 	// filters are provided, the returned Event channel will only receive Events
@@ -42,7 +43,7 @@ type Job interface {
 	//	var job Job
 	//	str, errs, err := job.Events(job, query.New(query.Name("foo")), query.New(...))
 	//	// handle err
-	//	events, err := event.Drain(job, str, errs)
+	//	events, err := streams.Drain(job, str, errs)
 	//
 	// If you need the Events for a specific Projection, use EventsFor instead.
 	Events(_ context.Context, filters ...event.Query) (<-chan event.Event, <-chan error, error)
@@ -54,7 +55,7 @@ type Job interface {
 	//	var job Job
 	//	str, errs, err := job.EventsOf(job, "foo", "bar", "baz")
 	//	// handle err
-	//	events, err := event.Drain(job, str, errs)
+	//	events, err := streams.Drain(job, str, errs)
 	EventsOf(_ context.Context, aggregateNames ...string) (<-chan event.Event, <-chan error, error)
 
 	// EventsFor fetches all Events that are appropriate for the given
@@ -69,7 +70,7 @@ type Job interface {
 	//	var proj projection.Projection
 	//	str, errs, err := job.EventsFor(job, proj)
 	//	// handle err
-	//	events, err := event.Drain(job, str, errs)
+	//	events, err := streams.Drain(job, str, errs)
 	EventsFor(context.Context, EventApplier[any]) (<-chan event.Event, <-chan error, error)
 
 	// Aggregates returns a channel of aggregate Tuples and a channel of
@@ -84,7 +85,7 @@ type Job interface {
 	//	var job Job
 	//	str, errs, err := job.Aggregates(job, "foo", "bar", "baz")
 	//	// handle err
-	//	events, err := event.Drain(job, str, errs)
+	//	events, err := streams.Drain(job, str, errs)
 	Aggregates(_ context.Context, aggregateNames ...string) (<-chan aggregate.Ref, <-chan error, error)
 
 	// Aggregate returns the UUID of the first aggregate with the given
@@ -246,7 +247,7 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	var id uuid.UUID
 
 	done := errors.New("done")
-	if err := aggregate.WalkRefs(ctx, func(t aggregate.Ref) error {
+	if err := streams.Walk(ctx, func(t aggregate.Ref) error {
 		if t.Name == name {
 			id = t.ID
 			return done
@@ -281,7 +282,7 @@ func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOp
 		return fmt.Errorf("fetch Events: %w", err)
 	}
 
-	events, err := event.Drain(ctx, str, errs)
+	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
 		return fmt.Errorf("drain Events: %w", err)
 	}
