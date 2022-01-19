@@ -21,9 +21,13 @@ type List struct {
 
 // New returns the "todo" list with the given id.
 func New(id uuid.UUID) *List {
-	return &List{
-		Base: aggregate.New(ListAggregate, id),
-	}
+	list := &List{Base: aggregate.New(ListAggregate, id)}
+
+	aggregate.Register(list, TaskAdded, list.add)
+	aggregate.Register(list, TaskRemoved, list.remove)
+	aggregate.Register(list, TaskDone, list.done)
+
+	return list
 }
 
 // Tasks returns the active tasks.
@@ -117,17 +121,5 @@ func (list *List) done(evt event.EventOf[TaskDoneEvent]) {
 				break
 			}
 		}
-	}
-}
-
-// ApplyEvent implements aggregate.Aggregate.
-func (list *List) ApplyEvent(evt event.Event) {
-	switch evt.Name() {
-	case TaskAdded:
-		list.add(event.Cast[TaskAddedEvent](evt))
-	case TaskRemoved:
-		list.remove(event.Cast[TaskRemovedEvent](evt))
-	case TaskDone:
-		list.done(event.Cast[TaskDoneEvent](evt))
 	}
 }
