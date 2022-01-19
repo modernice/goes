@@ -1,5 +1,7 @@
 # goes - Event-Sourcing Toolkit
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/modernice/goes.svg)](https://pkg.go.dev/github.com/modernice/goes)
+
 > This documentation is a work in progress. If you need help understanding the
 components of this library, feel free [open an issue](
 http://github.com/modernice/goes/issues) or [start a discussion](
