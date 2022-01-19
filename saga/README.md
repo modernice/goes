@@ -5,7 +5,7 @@ complex multi-step transactions. This package integrates with the event,
 aggregate and command system to provide convenient access to the different
 components within the defined SAGA actions.
 
-This SAGA implementation is very likely subject to a rewrite. This is due to the
+> This SAGA implementation is very likely subject to a rewrite. This is due to the
 implementation not working distributed like the [command bus](../command) or
 [projection service](../projection). Instead, a SAGA is executed and coordinates
 from within a single process, which provides no recover strategy for when the
