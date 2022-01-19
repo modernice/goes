@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ../../
+      dockerfile: examples/todo/server.Dockerfile
+    environment:
+      NATS_URL: nats://eventbus:4222
+      MONGO_URL: mongodb://eventstore:27017
+    depends_on:
+      - eventbus
+      - eventstore
+      - eventstore_init
+    
+  client:
+    build:
+      context: ../../
+      dockerfile: examples/todo/client.Dockerfile
+    environment:
+      NATS_URL: nats://eventbus:4222
+      MONGO_URL: mongodb://eventstore:27017
+    depends_on:
+      - server
+      - eventbus
+      - eventstore
+      - eventstore_init
+
+  eventbus:
+    image: nats
+  
+  eventstore:
+    image: mongo
+    command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs0", "--bind_ip_all"]
+  
+  eventstore_init:
+    image: mongo
+    entrypoint: /entrypoint.sh
+    environment:
+      REPLICA_HOST: eventstore
+    depends_on:
+      - eventstore
+    volumes:
+      - "${PWD}/.docker/init-mongo.sh:/entrypoint.sh"
+

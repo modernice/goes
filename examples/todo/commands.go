@@ -2,9 +2,10 @@ package todo
 
 import (
 	"context"
+	"encoding/gob"
+	"io"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/helper/streams"
@@ -18,12 +19,12 @@ const (
 
 // AddTask returns the command to add the given task to the given todo list.
 func AddTask(listID uuid.UUID, task string) command.Cmd[string] {
-	return command.New(AddTaskCmd, task, command.Aggregate[string](listID, ListAggregate))
+	return command.New(AddTaskCmd, task, command.Aggregate[string](ListAggregate, listID))
 }
 
 // RemoveTask removes the command to remove the given task from the given todo list.
 func RemoveTask(listID uuid.UUID, task string) command.Cmd[string] {
-	return command.New(RemoveTaskCmd, task, command.Aggregate[string](listID, ListAggregate))
+	return command.New(RemoveTaskCmd, task, command.Aggregate[string](ListAggregate, listID))
 }
 
 type donePayload struct {
@@ -32,37 +33,51 @@ type donePayload struct {
 
 // DoneTasks returns the command to mark the given tasks within the given list a done.
 func DoneTasks(listID uuid.UUID, tasks ...string) command.Cmd[donePayload] {
-	return command.New(DoneTaskCmd, donePayload{tasks}, command.Aggregate[donePayload](listID, ListAggregate))
+	return command.New(DoneTaskCmd, donePayload{tasks}, command.Aggregate[donePayload](ListAggregate, listID))
 }
 
 // RegisterCommands registers commands into a registry.
 func RegisterCommands(r *codec.GobRegistry) {
-	r.GobRegister(AddTaskCmd, func() any { return "" })
-	r.GobRegister(RemoveTaskCmd, func() any { return "" })
+	registerStringCommand(r.Registry, AddTaskCmd)
+	registerStringCommand(r.Registry, RemoveTaskCmd)
 	r.GobRegister(DoneTaskCmd, func() any { return donePayload{} })
+}
+
+func registerStringCommand[Payload ~string](r *codec.Registry, name string) {
+	codec.Register[Payload](
+		r, name,
+		codec.EncoderFunc[Payload](func(w io.Writer, data Payload) error {
+			return gob.NewEncoder(w).Encode(data)
+		}),
+		codec.DecoderFunc[Payload](func(r io.Reader) (evt Payload, _ error) {
+			err := gob.NewDecoder(r).Decode(&evt)
+			return evt, err
+		}),
+		func() Payload { return "" },
+	)
 }
 
 // HandleCommands handles commands until ctx is canceled. Any asynchronous
 // errors that happen during the command handling are reported to the returned
 // error channel.
-func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.Repository) <-chan error {
+func HandleCommands(ctx context.Context, bus command.Bus, lists ListRepository) <-chan error {
 	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.ContextOf[string]) error {
-		list := New(ctx.AggregateID())
-		return repo.Use(ctx, list, func() error {
+		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
+			defer list.print()
 			return list.Add(ctx.Payload())
 		})
 	})
 
 	removeErrors := command.MustHandle(ctx, bus, RemoveTaskCmd, func(ctx command.ContextOf[string]) error {
-		list := New(ctx.AggregateID())
-		return repo.Use(ctx, list, func() error {
+		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
+			defer list.print()
 			return list.Remove(ctx.Payload())
 		})
 	})
 
 	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.ContextOf[donePayload]) error {
-		list := New(ctx.AggregateID())
-		return repo.Use(ctx, list, func() error {
+		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
+			defer list.print()
 			return list.Done(ctx.Payload().Tasks...)
 		})
 	})

@@ -566,7 +566,7 @@ func (b *Bus) workSubscription(
 
 				select {
 				case <-ctx.Done():
-					outErrs <- fmt.Errorf("drop %q Command: %w", req.cmd.Name(), ErrDrainTimeout)
+					outErrs <- fmt.Errorf("drop %q command: %w", req.cmd.Name(), ErrDrainTimeout)
 				case out <- cmdctx.New(
 					context.Background(),
 					req.cmd,

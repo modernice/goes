@@ -1,6 +1,7 @@
 package todo
 
 import (
+	"log"
 	"strings"
 
 	"github.com/google/uuid"
@@ -112,14 +113,19 @@ func (list *List) Done(tasks ...string) error {
 
 func (list *List) done(evt event.EventOf[TaskDoneEvent]) {
 	for _, task := range evt.Data().Tasks {
-		task = strings.ToLower(task)
+		ltask := strings.ToLower(task)
 
 		for i, t := range list.tasks {
-			if strings.ToLower(t) == task {
+			if strings.ToLower(t) == ltask {
 				list.tasks = append(list.tasks[:i], list.tasks[i+1:]...)
 				list.archive = append(list.archive, task)
 				break
 			}
 		}
 	}
+}
+
+func (list *List) print() {
+	log.Printf("Tasks: %v", list.Tasks())
+	log.Printf("Archive: %v", list.Archive())
 }
