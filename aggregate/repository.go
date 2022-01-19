@@ -73,7 +73,7 @@ type Repository interface {
 }
 
 type TypedRepository[A Aggregate] interface {
-	Save(ctx context.Context, a Aggregate) error
+	Save(ctx context.Context, a A) error
 
 	Fetch(ctx context.Context, id uuid.UUID) (A, error)
 
