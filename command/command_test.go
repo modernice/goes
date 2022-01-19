@@ -49,7 +49,7 @@ func TestAggregateName(t *testing.T) {
 	cmd := command.New[any](
 		"foo",
 		mockPayload{},
-		command.Aggregate[any](a.AggregateID(), a.AggregateName()),
+		command.Aggregate[any](a.AggregateName(), a.AggregateID()),
 	)
 
 	id, name := cmd.Aggregate()

@@ -17,7 +17,7 @@ type DeleteAggregatePayload struct{}
 // their events from the event store. Additionally, a "goes.command.aggregate.deleted"
 // is published after deletion.
 func DeleteAggregate(name string, id uuid.UUID) command.Cmd[DeleteAggregatePayload] {
-	return command.New(DeleteAggregateCmd, DeleteAggregatePayload{}, command.Aggregate[DeleteAggregatePayload](id, name))
+	return command.New(DeleteAggregateCmd, DeleteAggregatePayload{}, command.Aggregate[DeleteAggregatePayload](name, id))
 }
 
 // RegisterCommands registers the built-in commands into a command registry.

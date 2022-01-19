@@ -532,7 +532,7 @@ func (b *Bus) workSubscription(
 					data.Name,
 					load,
 					command.ID[any](data.ID),
-					command.Aggregate[any](data.AggregateID, data.AggregateName),
+					command.Aggregate[any](data.AggregateName, data.AggregateID),
 				)
 
 				if err := b.requestCommand(ctx, cmd); err != nil {
