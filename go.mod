@@ -11,7 +11,6 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/nats-io/nats.go v1.13.1-0.20211122170419-d7c1d78a50fc
-	github.com/nats-io/stan.go v0.8.1
 	github.com/spf13/cobra v0.0.3
 	go.mongodb.org/mongo-driver v1.5.1
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
@@ -22,16 +21,13 @@ require (
 require (
 	github.com/aws/aws-sdk-go v1.34.28 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
-	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
-	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/nats-io/nats-server/v2 v2.6.6 // indirect
-	github.com/nats-io/nats-streaming-server v0.20.0 // indirect
 	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
