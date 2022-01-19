@@ -23,25 +23,26 @@ func JSON(reg *Registry) *JSONRegistry {
 	return &JSONRegistry{Registry: reg}
 }
 
-func JSONRegister[T any](r *JSONRegistry, name string, makeFunc func() T) {
-	if makeFunc == nil {
-		panic("[goes/codec.JSONRegistry.JSONRegister] nil makeFunc")
-	}
-
+func JSONRegister[T any](r *JSONRegistry, name string) {
 	Register[T](
 		r.Registry,
 		name,
 		jsonEncoder[T]{},
-		jsonDecoder[T]{name: name, makeFunc: makeFunc},
-		makeFunc,
+		jsonDecoder[T]{name: name, makeFunc: func() (v T) { return v }},
 	)
 }
 
 // JSONRegister registers data with the given name into the underlying registry.
 // makeFunc is used create instances of the data and encoding/json will be used
 // to encode and decode the data returned by makeFunc.
-func (reg *JSONRegistry) JSONRegister(name string, makeFunc func() any) {
-	JSONRegister(reg, name, makeFunc)
+func (r *JSONRegistry) JSONRegister(name string, makeFunc func() any) {
+	registerWithFactoryFunc[any](
+		r.Registry,
+		name,
+		jsonEncoder[any]{},
+		jsonDecoder[any]{name: name, makeFunc: makeFunc},
+		makeFunc,
+	)
 }
 
 type jsonEncoder[T any] struct{}

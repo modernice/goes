@@ -54,32 +54,52 @@ func Gob(reg *Registry, opts ...GobOption) *GobRegistry {
 	return r
 }
 
-func GobRegister[T any](r *GobRegistry, name string, makeFunc func() T) {
-	if makeFunc == nil {
-		panic("[goes/codec.GobRegister] nil makeFunc")
-	}
-
+func GobRegister[T any](r *GobRegistry, name string) {
 	Register[T](
 		r.Registry,
 		name,
 		gobEncoder[T]{name},
-		gobDecoder[T]{name: name, makeFunc: makeFunc},
-		makeFunc,
+		gobDecoder[T]{name: name, makeFunc: func() (v T) { return }},
 	)
 
-	if gobName := r.gobNameFunc(name); gobName != "" {
-		gob.RegisterName(gobName, makeFunc())
-		return
-	}
-
-	gob.Register(makeFunc())
+	var val T
+	r.gobRegister(name, val)
 }
 
 // GobRegister registers data with the given name into the underlying registry.
 // makeFunc is used create instances of the data and encoding/gob will be used
 // to encode and decode the data returned by makeFunc.
 func (reg *GobRegistry) GobRegister(name string, makeFunc func() any) {
-	GobRegister(reg, name, makeFunc)
+	gobRegisterAny(reg, name, makeFunc)
+}
+
+func gobRegisterAny(r *GobRegistry, name string, makeFunc func() any) {
+	registerWithFactoryFunc[any](
+		r.Registry,
+		name,
+		gobEncoder[any]{name},
+		gobDecoder[any]{name: name, makeFunc: makeFunc},
+		makeFunc,
+	)
+
+	r.gobRegister(name, makeFunc())
+}
+
+func (r *GobRegistry) gobRegister(name string, val any) {
+	rv := reflect.ValueOf(val)
+	for rv.Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	if rv.Kind() != reflect.Struct {
+		return
+	}
+
+	if gobName := r.gobNameFunc(name); gobName != "" {
+		gob.RegisterName(gobName, val)
+		return
+	}
+
+	gob.Register(val)
 }
 
 // gobEncoder is the gob encoder for the given named data.

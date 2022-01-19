@@ -73,7 +73,14 @@ func Make[D any](r *Registry, name string) (D, error) {
 }
 
 // Register registers the encoding for events with the given name.
-func Register[D any](r *Registry, name string, enc Encoder[D], dec Decoder[D], makeFunc func() D) {
+func Register[D any, Enc Encoder[D], Dec Decoder[D]](r *Registry, name string, enc Enc, dec Dec) {
+	registerWithFactoryFunc[D, Enc, Dec](r, name, enc, dec, func() any {
+		var v D
+		return v
+	})
+}
+
+func registerWithFactoryFunc[D any, Enc Encoder[D], Dec Decoder[D]](r *Registry, name string, enc Enc, dec Dec, fn func() any) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -85,7 +92,7 @@ func Register[D any](r *Registry, name string, enc Encoder[D], dec Decoder[D], m
 		return dec.Decode(r)
 	})
 
-	r.factories[name] = func() any { return makeFunc() }
+	r.factories[name] = fn
 }
 
 // Encode encodes the data that is registered under the given name using the
@@ -154,13 +161,13 @@ func New() *Registry {
 	}
 }
 
-// Register registers the given Encoder and Decoder under the given name.
-// When reg.Encode is called, the provided Encoder is be used to encode the
-// given data. When reg.Decode is called, the provided Decoder is used. The
-// makeFunc is required for custom data unmarshalers to work.
-func (reg *Registry) Register(name string, enc Encoder[any], dec Decoder[any], makeFunc func() any) {
-	Register(reg, name, enc, dec, makeFunc)
-}
+// // Register registers the given Encoder and Decoder under the given name.
+// // When reg.Encode is called, the provided Encoder is be used to encode the
+// // given data. When reg.Decode is called, the provided Decoder is used. The
+// // makeFunc is required for custom data unmarshalers to work.
+// func (reg *Registry) Register(name string, enc Encoder[any], dec Decoder[any], val any) {
+// 	Register(reg, name, val, enc, dec)
+// }
 
 // Encode encodes the data that is registered under the given name using the
 // registered Encoder. If no Encoder is registered for the given name, an error

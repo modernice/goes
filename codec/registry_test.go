@@ -24,25 +24,23 @@ func TestRegistry_Encode_ErrNotFound(t *testing.T) {
 func TestRegistry_Encode_Decode(t *testing.T) {
 	reg := codec.New()
 
-	reg.Register(
+	codec.Register[mockDataA](
+		reg,
 		"foo",
 		// Register an Encoder that purely uses the mockDataA.A field to encode
 		// the data.
-		codec.EncoderFunc[any](func(w io.Writer, data any) error {
-			_, err := w.Write([]byte(data.(mockDataA).A))
+		codec.EncoderFunc[mockDataA](func(w io.Writer, data mockDataA) error {
+			_, err := w.Write([]byte(data.A))
 			return err
 		}),
 		// Register a Decoder that uses the single string to re-create the data.
-		codec.DecoderFunc[any](func(r io.Reader) (any, error) {
+		codec.DecoderFunc[mockDataA](func(r io.Reader) (mockDataA, error) {
 			b, err := io.ReadAll(r)
 			if err != nil {
-				return nil, err
+				return mockDataA{}, err
 			}
 			return mockDataA{A: string(b)}, nil
 		}),
-		func() any {
-			return mockDataA{}
-		},
 	)
 
 	var buf bytes.Buffer
@@ -81,7 +79,7 @@ func TestRegistry_New(t *testing.T) {
 	reg := codec.Gob(codec.New())
 
 	var want mockDataA
-	reg.GobRegister("foo", func() any { return want })
+	codec.GobRegister[mockDataA](reg, "foo")
 
 	data, err := reg.New("foo")
 	if err != nil {
