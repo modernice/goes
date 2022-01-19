@@ -116,6 +116,24 @@ func QueueGroup(queue string) EventBusOption {
 //
 // Can also be set with the `NATS_LOAD_BALANCER=foo` environment variable.
 //
+// Caution
+//
+// Providing a load-balanced event bus as the underlying bus to a command bus
+// should be avoided and providing it to a projection schedule should be done
+// with thought and caution. Create another instance of an event bus without
+// this option and pass that to cmdbus.New() when creating the command bus. When
+// you create a projection schedule, you have to think about what makes sense in
+// the context of your projection, because a load-balanced event bus will cause
+// only a single instance of a replicated service to trigger a projection. Also,
+// each event may be received by a different instance which can make the
+// projection jobs fragmented and less efficient. A common example is some kind
+// of lookup table that is projected from events and that your instances keep
+// "live" in-memory. Each instance needs the lookup table to work, so it
+// wouldn't make sense to load-balance the projection. In most cases where
+// projections are not kept in memory but instead fetched from a database,
+// updated and then saved back to the database, a load-balanced projection
+// schedule is exactly what you want, but then again, context matters.
+//
 // Read more about queue groups: https://docs.nats.io/nats-concepts/core-nats/queue
 func WithLoadBalancer(serviceName string) EventBusOption {
 	return QueueGroupByFunc(func(string) string {
