@@ -7,18 +7,19 @@ import (
 const (
 	TaskAdded   = "todo.list.task_added"
 	TaskRemoved = "todo.list.task_removed"
-	TaskDone    = "todo.list.task_done"
+	TasksDone   = "todo.list.tasks_done"
 )
 
-type (
-	TaskAddedEvent   struct{ Task string }
-	TaskRemovedEvent struct{ Task string }
-	TaskDoneEvent    struct{ Tasks []string }
-)
+// TaskRemovedEvent is the event data for TaskRemoved.
+//
+// You can use any type as event data. In this example the event data is a
+// struct. If you look below you can see that the TaskAdded and TasksDone events
+// use other types for their event data.
+type TaskRemovedEvent struct{ Task string }
 
 // RegisterEvents registers events into a registry.
 func RegisterEvents(r *codec.GobRegistry) {
-	r.GobRegister(TaskAdded, func() any { return TaskAddedEvent{} })
-	r.GobRegister(TaskRemoved, func() any { return TaskRemovedEvent{} })
-	r.GobRegister(TaskDone, func() any { return TaskDoneEvent{} })
+	codec.GobRegister[string](r, TaskAdded)
+	codec.GobRegister[TaskRemovedEvent](r, TaskRemoved)
+	codec.GobRegister[[]string](r, TasksDone)
 }

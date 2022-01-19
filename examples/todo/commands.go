@@ -25,20 +25,16 @@ func RemoveTask(listID uuid.UUID, task string) command.Cmd[string] {
 	return command.New(RemoveTaskCmd, task, command.Aggregate[string](ListAggregate, listID))
 }
 
-type donePayload struct {
-	Tasks []string
-}
-
 // DoneTasks returns the command to mark the given tasks within the given list a done.
-func DoneTasks(listID uuid.UUID, tasks ...string) command.Cmd[donePayload] {
-	return command.New(DoneTaskCmd, donePayload{tasks}, command.Aggregate[donePayload](ListAggregate, listID))
+func DoneTasks(listID uuid.UUID, tasks ...string) command.Cmd[[]string] {
+	return command.New(DoneTaskCmd, tasks, command.Aggregate[[]string](ListAggregate, listID))
 }
 
 // RegisterCommands registers commands into a registry.
 func RegisterCommands(r *codec.GobRegistry) {
 	codec.GobRegister[string](r, AddTaskCmd)
 	codec.GobRegister[string](r, RemoveTaskCmd)
-	codec.GobRegister[donePayload](r, DoneTaskCmd)
+	codec.GobRegister[[]string](r, DoneTaskCmd)
 }
 
 // HandleCommands handles commands until ctx is canceled. Any asynchronous
@@ -59,10 +55,10 @@ func HandleCommands(ctx context.Context, bus command.Bus, lists ListRepository) 
 		})
 	})
 
-	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.ContextOf[donePayload]) error {
+	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.ContextOf[[]string]) error {
 		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
 			defer list.print()
-			return list.Done(ctx.Payload().Tasks...)
+			return list.Done(ctx.Payload()...)
 		})
 	})
 

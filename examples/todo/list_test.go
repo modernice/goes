@@ -23,9 +23,7 @@ func TestList_Add(t *testing.T) {
 		t.Fatalf("List should contain the task %q after adding", "foo")
 	}
 
-	test.Change(t, list, todo.TaskAdded, test.EventData(todo.TaskAddedEvent{
-		Task: "foo",
-	}))
+	test.Change(t, list, todo.TaskAdded, test.EventData("foo"))
 }
 
 func TestList_Add_alreadyExists(t *testing.T) {
@@ -51,9 +49,7 @@ func TestList_Add_alreadyExists(t *testing.T) {
 		t.Fatalf("Tasks should be unique")
 	}
 
-	test.Change(t, list, todo.TaskAdded, test.EventData(todo.TaskAddedEvent{
-		Task: "foo",
-	}), test.Exactly[todo.TaskAddedEvent](1))
+	test.Change(t, list, todo.TaskAdded, test.EventData("foo"), test.Exactly[string](1))
 }
 
 func TestList_Remove(t *testing.T) {
@@ -92,7 +88,5 @@ func TestList_Done(t *testing.T) {
 		t.Fatalf("List shouldn't contain the task %q after marking as done", "bar")
 	}
 
-	test.Change(t, list, todo.TaskDone, test.EventData(todo.TaskDoneEvent{
-		Tasks: []string{"foo", "bar"},
-	}))
+	test.Change(t, list, todo.TasksDone, test.EventData([]string{"foo", "bar"}))
 }

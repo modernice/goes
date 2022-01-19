@@ -1,11 +1,11 @@
 .PHONY: build
 build:
-	docker compose build
+	docker compose -f .docker/compose.yml build 
 
 .PHONY: up
 up:
-	docker compose up --abort-on-container-exit --remove-orphans
+	docker compose -f .docker/compose.yml up --abort-on-container-exit --remove-orphans 
 
 .PHONY: down
 down:
-	docker compose down
+	docker compose -f .docker/compose.yml down

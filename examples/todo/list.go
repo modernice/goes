@@ -24,9 +24,10 @@ type List struct {
 func New(id uuid.UUID) *List {
 	list := &List{Base: aggregate.New(ListAggregate, id)}
 
+	// Register the event handlers/appliers for each of the aggregate events.
 	aggregate.Register(list, TaskAdded, list.add)
 	aggregate.Register(list, TaskRemoved, list.remove)
-	aggregate.Register(list, TaskDone, list.done)
+	aggregate.Register(list, TasksDone, list.done)
 
 	return list
 }
@@ -60,13 +61,13 @@ func (list *List) Add(task string) error {
 		}
 	}
 
-	aggregate.NextEvent(list, TaskAdded, TaskAddedEvent{task})
+	aggregate.NextEvent(list, TaskAdded, task)
 
 	return nil
 }
 
-func (list *List) add(evt event.EventOf[TaskAddedEvent]) {
-	list.tasks = append(list.tasks, evt.Data().Task)
+func (list *List) add(evt event.EventOf[string]) {
+	list.tasks = append(list.tasks, evt.Data())
 }
 
 // Remove removes the given task from the list.
@@ -105,14 +106,14 @@ func (list *List) Done(tasks ...string) error {
 	}
 
 	if len(done) > 0 {
-		aggregate.NextEvent(list, TaskDone, TaskDoneEvent{done})
+		aggregate.NextEvent(list, TasksDone, done)
 	}
 
 	return nil
 }
 
-func (list *List) done(evt event.EventOf[TaskDoneEvent]) {
-	for _, task := range evt.Data().Tasks {
+func (list *List) done(evt event.EventOf[[]string]) {
+	for _, task := range evt.Data() {
 		ltask := strings.ToLower(task)
 
 		for i, t := range list.tasks {

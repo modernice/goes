@@ -47,6 +47,6 @@ func main() {
 	// Then mark "Task 6" and "Task 10" as done.
 	cmd := todo.DoneTasks(listID, "Task 6", "Task 10")
 	if err := cbus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
-		log.Panicf("Failed to dispatch command: %v [cmd=%v, tasks=%v]", err, cmd.Name(), cmd.Payload().Tasks)
+		log.Panicf("Failed to dispatch command: %v [cmd=%v, tasks=%v]", err, cmd.Name(), cmd.Payload())
 	}
 }

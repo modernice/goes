@@ -3,8 +3,8 @@ version: '3.8'
 services:
   server:
     build:
-      context: ../../
-      dockerfile: examples/todo/server.Dockerfile
+      context: ../../../
+      dockerfile: examples/todo/.docker/server.Dockerfile
     environment:
       NATS_URL: nats://eventbus:4222
       MONGO_URL: mongodb://eventstore:27017
@@ -15,8 +15,8 @@ services:
     
   client:
     build:
-      context: ../../
-      dockerfile: examples/todo/client.Dockerfile
+      context: ../../../
+      dockerfile: examples/todo/.docker/client.Dockerfile
     environment:
       NATS_URL: nats://eventbus:4222
       MONGO_URL: mongodb://eventstore:27017
