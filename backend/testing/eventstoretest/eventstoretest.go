@@ -14,6 +14,7 @@ import (
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xtime"
 	"golang.org/x/sync/errgroup"
 )
@@ -368,8 +369,8 @@ func testQueryAggregateID(t *testing.T, newStore EventStoreFactory) {
 	}
 
 	result, err := runQuery(store, query.New(query.AggregateID(
-		event.PickAggregateID(events[0]),
-		event.PickAggregateID(events[2]),
+		pick.AggregateID(events[0]),
+		pick.AggregateID(events[2]),
 	)))
 	if err != nil {
 		t.Fatal(err)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -181,7 +182,7 @@ func (b *Base) Commit() {
 	}
 	// b.TrackChange guarantees a correct event order, so we can safely assume
 	// the last element has the highest version.
-	b.Version = event.PickAggregateVersion(b.Changes[len(b.Changes)-1])
+	b.Version = pick.AggregateVersion(b.Changes[len(b.Changes)-1])
 	b.Changes = b.Changes[:0]
 }
 

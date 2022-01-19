@@ -15,6 +15,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/helper/pick"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -282,7 +283,7 @@ func (s *EventStore) updateState(ctx mongo.SessionContext, st state, events []ev
 	if len(events) == 0 || st.AggregateName == "" || st.AggregageID == uuid.Nil {
 		return nil
 	}
-	st.Version = event.PickAggregateVersion(events[len(events)-1])
+	st.Version = pick.AggregateVersion(events[len(events)-1])
 	if _, err := s.states.ReplaceOne(
 		ctx,
 		bson.D{
@@ -385,9 +386,9 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.EventOf[any]) e
 			return abort(err)
 		}
 
-		aggregateName := event.PickAggregateName(events[0])
-		aggregateID := event.PickAggregateID(events[0])
-		aggregateVersion := event.PickAggregateVersion(events[0])
+		aggregateName := pick.AggregateName(events[0])
+		aggregateID := pick.AggregateID(events[0])
+		aggregateVersion := pick.AggregateVersion(events[0])
 
 		if aggregateName == "" || aggregateID == uuid.Nil || aggregateVersion != 1 {
 			return commit()
@@ -596,7 +597,7 @@ func (err *VersionError) Error() string {
 	return fmt.Sprintf(
 		"event should have version %d, but has version %d",
 		err.CurrentVersion+1,
-		event.PickAggregateVersion(err.Event),
+		pick.AggregateVersion(err.Event),
 	)
 }
 

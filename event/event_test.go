@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -36,16 +37,16 @@ func TestNew(t *testing.T) {
 		t.Errorf("evt.Time() should almost equal %s; got %s", xtime.Now(), evt.Time())
 	}
 
-	if event.PickAggregateName[mockData](evt) != "" {
-		t.Errorf("evt.AggregateName() should return %q; got %q", "", event.PickAggregateName[mockData](evt))
+	if pick.AggregateName(evt) != "" {
+		t.Errorf("evt.AggregateName() should return %q; got %q", "", pick.AggregateName(evt))
 	}
 
-	if event.PickAggregateID[mockData](evt) != uuid.Nil {
+	if pick.AggregateID(evt) != uuid.Nil {
 		t.Errorf("evt.AggregateID() should return %q; git %q", uuid.Nil, evt.ID())
 	}
 
-	if event.PickAggregateVersion[mockData](evt) != 0 {
-		t.Errorf("evt.AggrgateVersion() should return %v; got %v", 0, event.PickAggregateVersion[mockData](evt))
+	if pick.AggregateVersion(evt) != 0 {
+		t.Errorf("evt.AggrgateVersion() should return %v; got %v", 0, pick.AggregateVersion(evt))
 	}
 }
 
@@ -63,16 +64,16 @@ func TestNew_aggregate(t *testing.T) {
 	v := 3
 
 	evt := event.New("foo", newMockData(), event.Aggregate[mockData](aid, aname, v))
-	if event.PickAggregateName[mockData](evt) != "bar" {
-		t.Errorf("expected event.AggregateName(evt) to return %q; got %q", "bar", event.PickAggregateName[mockData](evt))
+	if pick.AggregateName(evt) != "bar" {
+		t.Errorf("expected event.AggregateName(evt) to return %q; got %q", "bar", pick.AggregateName(evt))
 	}
 
-	if event.PickAggregateID[mockData](evt) != aid {
-		t.Errorf("expected event.AggregateID(evt) to return %q; got %q", aid, event.PickAggregateID[mockData](evt))
+	if pick.AggregateID(evt) != aid {
+		t.Errorf("expected event.AggregateID(evt) to return %q; got %q", aid, pick.AggregateID(evt))
 	}
 
-	if event.PickAggregateVersion[mockData](evt) != v {
-		t.Errorf("expected event.AggregateVersion(evt) to return %v; got %v", v, event.PickAggregateVersion[mockData](evt))
+	if pick.AggregateVersion(evt) != v {
+		t.Errorf("expected event.AggregateVersion(evt) to return %v; got %v", v, pick.AggregateVersion(evt))
 	}
 }
 
@@ -90,16 +91,16 @@ func TestNew_previous(t *testing.T) {
 		t.Errorf("expected evt.Data to return %#v; got %#v", wantData, evt.Data())
 	}
 
-	if event.PickAggregateName[test.BarEventData](evt) != "foobar" {
-		t.Errorf("expected evt.AggregateName to return %q; got %q", "foobar", event.PickAggregateName[test.BarEventData](evt))
+	if pick.AggregateName(evt) != "foobar" {
+		t.Errorf("expected evt.AggregateName to return %q; got %q", "foobar", pick.AggregateName(evt))
 	}
 
-	if event.PickAggregateID[test.BarEventData](evt) != aggregateID {
-		t.Errorf("expected evt.AggregateID to return %q; got %q", aggregateID, event.PickAggregateID[test.BarEventData](evt))
+	if pick.AggregateID(evt) != aggregateID {
+		t.Errorf("expected evt.AggregateID to return %q; got %q", aggregateID, pick.AggregateID(evt))
 	}
 
-	if event.PickAggregateVersion[test.BarEventData](evt) != 4 {
-		t.Errorf("expected evt.AggregateVersion to return %d; got %d", 4, event.PickAggregateVersion[test.BarEventData](evt))
+	if pick.AggregateVersion(evt) != 4 {
+		t.Errorf("expected evt.AggregateVersion to return %d; got %d", 4, pick.AggregateVersion(evt))
 	}
 }
 

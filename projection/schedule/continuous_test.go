@@ -274,7 +274,7 @@ func TestContinuous_Trigger_Filter(t *testing.T) {
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {
-		t.Fatalf("insert Events: %v", err)
+		t.Fatalf("insert events: %v", err)
 	}
 
 	sch := schedule.Continuously(bus, store, []string{"foo", "bar", "baz", "foobar"})
@@ -317,7 +317,7 @@ func TestContinuous_Trigger_Filter(t *testing.T) {
 	}
 
 	if len(proj.AppliedEvents) != 2 {
-		t.Fatalf("%d Events should be applied; got %d", 2, len(proj.AppliedEvents))
+		t.Fatalf("%d events should be applied; got %d", 2, len(proj.AppliedEvents))
 	}
 
 	proj.ExpectApplied(t, storeEvents[1], storeEvents[3])

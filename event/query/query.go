@@ -189,8 +189,8 @@ func Test[D any](q event.Query, evt event.EventOf[D]) bool {
 	return event.Test(q, evt)
 }
 
-// Apply tests Events against the provided Query and returns only those Events
-// that match the Query. Order of Events is preserved.
+// Apply tests events against the provided Query and returns only those events
+// that match the Query.
 func Apply[D any](q event.Query, events ...event.EventOf[D]) []event.EventOf[D] {
 	if events == nil {
 		return nil

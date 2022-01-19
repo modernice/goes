@@ -7,6 +7,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xevent"
 )
 
@@ -103,7 +104,7 @@ func TestMake_skipVersion(t *testing.T) {
 func eventsFor(id uuid.UUID, events ...event.EventOf[any]) []event.EventOf[any] {
 	result := make([]event.EventOf[any], 0, len(events))
 	for _, evt := range events {
-		if event.PickAggregateID(evt) == id {
+		if pick.AggregateID(evt) == id {
 			result = append(result, evt)
 		}
 	}

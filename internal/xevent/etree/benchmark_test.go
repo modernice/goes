@@ -8,6 +8,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xevent"
 	"github.com/modernice/goes/internal/xevent/etree"
 )
@@ -93,6 +94,6 @@ func stackInsert(stack []event.EventOf[any], evt event.EventOf[any], s bool) []e
 
 func sortStack(stack []event.EventOf[any]) {
 	sort.Slice(stack, func(i, j int) bool {
-		return event.PickAggregateVersion(stack[i]) <= event.PickAggregateVersion(stack[j])
+		return pick.AggregateVersion(stack[i]) <= pick.AggregateVersion(stack[j])
 	})
 }

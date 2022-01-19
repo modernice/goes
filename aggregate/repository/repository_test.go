@@ -22,6 +22,7 @@ import (
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/query/version"
 	etest "github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xaggregate"
 	"github.com/modernice/goes/internal/xevent"
 )
@@ -341,9 +342,9 @@ func TestRepository_Query_name(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := event.PickAggregateVersion(aevents[len(aevents)-1])
-		if aggregate.PickVersion(a) != want {
-			t.Errorf("aggregate has wrong version. want=%d got=%d", want, aggregate.PickVersion(a))
+		want := pick.AggregateVersion(aevents[len(aevents)-1])
+		if pick.AggregateVersion(a) != want {
+			t.Errorf("aggregate has wrong version. want=%d got=%d", want, pick.AggregateVersion(a))
 		}
 	}
 }
@@ -374,8 +375,8 @@ func TestRepository_Query_name_multiple(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := event.PickAggregateVersion(aevents[len(aevents)-1])
-		v := aggregate.PickVersion(a)
+		want := pick.AggregateVersion(aevents[len(aevents)-1])
+		v := pick.AggregateVersion(a)
 		if v != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, v)
 		}
@@ -394,7 +395,7 @@ func TestRepository_Query_id(t *testing.T) {
 	r := repository.New(s)
 
 	result, err := runQuery(r, query.New(
-		query.ID(aggregate.PickID(foos[0]), aggregate.PickID(bazs[2])),
+		query.ID(pick.AggregateID(foos[0]), pick.AggregateID(bazs[2])),
 	), makeFactory(am))
 	if err != nil {
 		t.Fatal(err)
@@ -410,8 +411,8 @@ func TestRepository_Query_id(t *testing.T) {
 
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
-		want := event.PickAggregateVersion(aevents[len(aevents)-1])
-		v := aggregate.PickVersion(a)
+		want := pick.AggregateVersion(aevents[len(aevents)-1])
+		v := pick.AggregateVersion(a)
 		if v != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, v)
 		}
@@ -447,11 +448,11 @@ func TestRepository_Query_version(t *testing.T) {
 	for _, a := range result {
 		aevents := xevent.FilterAggregate(events, a)
 		aevents = event.Sort(aevents, event.SortAggregateVersion, event.SortAsc)
-		want := event.PickAggregateVersion(aevents[len(aevents)-1])
+		want := pick.AggregateVersion(aevents[len(aevents)-1])
 		if want > 20 {
 			want = 20
 		}
-		v := aggregate.PickVersion(a)
+		v := pick.AggregateVersion(a)
 		if v != want {
 			t.Errorf("aggregate has wrong version. want=%d got=%d", want, v)
 		}

@@ -15,6 +15,7 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot/query"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xaggregate"
 	"github.com/modernice/goes/internal/xtime"
 )
@@ -317,8 +318,8 @@ func testQueryID(t *testing.T, newStore StoreFactory) {
 	}
 
 	result, err := runQuery(s, query.New(query.ID(
-		aggregate.PickID(as[0]),
-		aggregate.PickID(as[4]),
+		pick.AggregateID(as[0]),
+		pick.AggregateID(as[4]),
 	)))
 	if err != nil {
 		t.Fatal(err)

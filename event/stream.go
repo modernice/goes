@@ -48,7 +48,7 @@ func Filter[D any](events <-chan EventOf[D], queries ...Query) <-chan EventOf[D]
 			return Test(q, evt)
 		}
 	}
-	return streams.Filter(events)
+	return streams.Filter(events, filters...)
 }
 
 // Deprecated: Use streams.Await instead.

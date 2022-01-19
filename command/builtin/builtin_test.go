@@ -16,6 +16,7 @@ import (
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/pick"
 )
 
 func TestDeleteAggregate(t *testing.T) {
@@ -107,16 +108,16 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Data() should return type %T; got %T", data, evt.Data())
 	}
 
-	if event.PickAggregateName(evt) != aggregateName {
-		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, event.PickAggregateName(evt))
+	if pick.AggregateName(evt) != aggregateName {
+		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, pick.AggregateName(evt))
 	}
 
-	if event.PickAggregateID(evt) != aggregateID {
-		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, event.PickAggregateID(evt))
+	if pick.AggregateID(evt) != aggregateID {
+		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, pick.AggregateID(evt))
 	}
 
-	if event.PickAggregateVersion(evt) != 0 {
-		t.Fatalf("evt.AggregateVersion() should return 0; got %v", event.PickAggregateVersion(evt))
+	if pick.AggregateVersion(evt) != 0 {
+		t.Fatalf("evt.AggregateVersion() should return 0; got %v", pick.AggregateVersion(evt))
 	}
 
 	if data.Version != 3 {

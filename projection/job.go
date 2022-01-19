@@ -103,7 +103,7 @@ type JobOption func(*job)
 // WithFilter returns a JobOption that adds queries as filters to the Job.
 // Fetched Events are matched against every Query and only returned in the
 // result if they match all Queries.
-func WithFilter[D any](queries ...event.Query) JobOption {
+func WithFilter(queries ...event.Query) JobOption {
 	return func(j *job) {
 		j.filter = append(j.filter, queries...)
 	}
@@ -113,7 +113,7 @@ func WithFilter[D any](queries ...event.Query) JobOption {
 // onto them. Resetting a Projection is done by first resetting the progress of
 // the Projection (if it implements progressor). Then, if the Projection has a
 // Reset method, that method is called to allow for custom reset logic.
-func WithReset[D any]() JobOption {
+func WithReset() JobOption {
 	return func(j *job) {
 		j.reset = true
 	}
@@ -122,7 +122,7 @@ func WithReset[D any]() JobOption {
 // WithHistoryStore returns a JobOption that provides the projection job with an
 // event store that is used to query events for projections that require the
 // full event history to build the projection state.
-func WithHistoryStore[D any](store event.Store) JobOption {
+func WithHistoryStore(store event.Store) JobOption {
 	return func(j *job) {
 		j.historyStore = store
 	}
@@ -148,7 +148,7 @@ func NewJob(ctx context.Context, store event.Store, q event.Query, opts ...JobOp
 func (j *job) Events(ctx context.Context, filter ...event.Query) (<-chan event.Event, <-chan error, error) {
 	str, errs, err := j.runQuery(ctx, j.query)
 	if err != nil {
-		return nil, nil, fmt.Errorf("query Events: %w", err)
+		return nil, nil, fmt.Errorf("query events: %w", err)
 	}
 
 	if filter = append(j.filter, filter...); len(filter) > 0 {
@@ -287,7 +287,7 @@ func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOp
 	}
 
 	if err := Apply(proj, events, opts...); err != nil {
-		return fmt.Errorf("apply Events onto Projection: %w", err)
+		return fmt.Errorf("apply events onto Projection: %w", err)
 	}
 
 	return nil

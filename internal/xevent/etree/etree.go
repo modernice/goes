@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/helper/pick"
 )
 
 const (
@@ -204,12 +205,12 @@ func (n *node) validate() error {
 		}
 
 		if isLeftOf(n.parent, n) &&
-			event.PickAggregateVersion(n.parent.evt) < event.PickAggregateVersion(n.evt) {
+			pick.AggregateVersion(n.parent.evt) < pick.AggregateVersion(n.evt) {
 			return errInvalidOrder
 		}
 
 		if isRightOf(n.parent, n) &&
-			event.PickAggregateVersion(n.parent.evt) >= event.PickAggregateVersion(n.evt) {
+			pick.AggregateVersion(n.parent.evt) >= pick.AggregateVersion(n.evt) {
 			return errInvalidOrder
 		}
 	}
@@ -244,8 +245,8 @@ func (n *node) level(l int) []*node {
 }
 
 func (n *node) insert(evt event.EventOf[any]) *node {
-	v := event.PickAggregateVersion(evt)
-	if v <= event.PickAggregateVersion(n.evt) {
+	v := pick.AggregateVersion(evt)
+	if v <= pick.AggregateVersion(n.evt) {
 		return n.insertLeft(evt)
 	}
 	return n.insertRight(evt)

@@ -138,12 +138,12 @@ func (schedule *schedule) handleTriggers(
 			return
 		case trigger := <-triggers:
 			opts := []projection.JobOption{
-				projection.WithHistoryStore[any](schedule.store),
-				projection.WithFilter[any](trigger.Filter...),
+				projection.WithHistoryStore(schedule.store),
+				projection.WithFilter(trigger.Filter...),
 			}
 
 			if trigger.Reset {
-				opts = append(opts, projection.WithReset[any]())
+				opts = append(opts, projection.WithReset())
 			}
 
 			job := projection.NewJob(ctx, schedule.store, trigger.Query, opts...)

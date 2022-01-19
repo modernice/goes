@@ -8,6 +8,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xevent"
 )
 
@@ -17,7 +18,7 @@ func TestShuffle(t *testing.T) {
 	sorted := make([]event.EventOf[any], len(events))
 	copy(sorted, events)
 	sort.Slice(sorted, func(i, j int) bool {
-		return event.PickAggregateVersion(sorted[i]) < event.PickAggregateVersion(sorted[j])
+		return pick.AggregateVersion(sorted[i]) < pick.AggregateVersion(sorted[j])
 	})
 	test.AssertEqualEvents(t, sorted, events)
 

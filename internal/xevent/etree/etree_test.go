@@ -8,6 +8,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xevent"
 )
 
@@ -369,7 +370,7 @@ func toIntMatrix(mx [][]event.EventOf[any]) [][]int {
 	for i, events := range mx {
 		ix[i] = make([]int, len(events))
 		for j := range events {
-			ix[i][j] = event.PickAggregateVersion(events[j])
+			ix[i][j] = pick.AggregateVersion(events[j])
 		}
 	}
 	return ix
