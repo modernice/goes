@@ -33,6 +33,24 @@ type Progressor struct {
 	LatestEventTime int64
 }
 
+// Progress returns the projection progress in terms of the time of the latest
+// applied event. If p.LatestEventTime is 0, the zero Time is returned.
+func (p *Progressor) Progress() time.Time {
+	if p.LatestEventTime == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, p.LatestEventTime)
+}
+
+// SetProgress sets the projection progress as the time of the latest applied event.
+func (p *Progressor) SetProgress(t time.Time) {
+	if t.IsZero() {
+		p.LatestEventTime = 0
+		return
+	}
+	p.LatestEventTime = t.UnixNano()
+}
+
 // A Resetter is a projection that can reset its state.
 type Resetter interface {
 	// Reset should implement any custom logic to reset the state of a

@@ -3,7 +3,6 @@ package projection
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/modernice/goes/event"
 )
@@ -63,24 +62,6 @@ func Apply(proj EventApplier, events []event.Event, opts ...ApplyOption) error {
 	}
 
 	return nil
-}
-
-// Progress returns the projection progress in terms of the time of the latest
-// applied event. If p.LatestEventTime is 0, the zero Time is returned.
-func (p *Progressor) Progress() time.Time {
-	if p.LatestEventTime == 0 {
-		return time.Time{}
-	}
-	return time.Unix(0, p.LatestEventTime)
-}
-
-// SetProgress sets the projection progress as the time of the latest applied event.
-func (p *Progressor) SetProgress(t time.Time) {
-	if t.IsZero() {
-		p.LatestEventTime = 0
-		return
-	}
-	p.LatestEventTime = t.UnixNano()
 }
 
 type applyConfig struct {
