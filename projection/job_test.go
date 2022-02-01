@@ -124,27 +124,6 @@ func TestJob_EventsFor(t *testing.T) {
 	test.AssertEqualEventsUnsorted(t, events, storeEvents)
 }
 
-func TestJob_EventsFor_Guard(t *testing.T) {
-	ctx := context.Background()
-	guard := projection.QueryGuard(query.New(query.Name("bar", "baz")))
-	target := projectiontest.NewMockGuardedProjection(guard)
-	store, storeEvents := newEventStore(t)
-
-	job := projection.NewJob(ctx, store, query.New(query.Name("foo", "bar", "baz")))
-
-	str, errs, err := job.EventsFor(job, target)
-	if err != nil {
-		t.Fatalf("EventsFor failed with %q", err)
-	}
-
-	events, err := event.Drain(ctx, str, errs)
-	if err != nil {
-		t.Fatalf("drain Events: %v", err)
-	}
-
-	test.AssertEqualEventsUnsorted(t, events, storeEvents[1:])
-}
-
 func TestJob_EventsFor_Progressor(t *testing.T) {
 	ctx := context.Background()
 	target := projectiontest.NewMockProgressor()

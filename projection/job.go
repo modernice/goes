@@ -165,24 +165,6 @@ func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan eve
 func (j *job) EventsFor(ctx context.Context, target EventApplier) (<-chan event.Event, <-chan error, error) {
 	var filter []event.Query
 
-	hp, isHistoryDependent := target.(HistoryDependent)
-
-	// Only apply the ProjectionFilter filter if the projection is either NOT
-	// history dependent OR if it is history dependent but doesn't require the
-	// full history.
-	//
-	// TODO: ProjectionFilter is an undocumented API that is implemented by
-	// QueryGuard. Filters are applied in-memory, so this should have no
-	// benefits over just letting the QueryGuard check with its GuardProjection
-	// method. Remove this after making sure that it isn't needed.
-	if !isHistoryDependent || !hp.RequiresFullHistory() {
-		if target, hasFilter := target.(interface {
-			ProjectionFilter() []event.Query
-		}); hasFilter {
-			filter = append(filter, target.ProjectionFilter()...)
-		}
-	}
-
 	if progressor, isProgressor := target.(Progressing); isProgressor {
 		if progress := progressor.Progress(); !progress.IsZero() {
 			filter = append(filter, query.New(query.Time(time.After(progress))))
@@ -199,7 +181,7 @@ func (j *job) EventsFor(ctx context.Context, target EventApplier) (<-chan event.
 			return str, errs, fmt.Errorf("query history: %w", err)
 		}
 
-		return str, errs, nil
+		return event.Filter(str, filter...), errs, nil
 	}
 
 	return j.Events(ctx, filter...)

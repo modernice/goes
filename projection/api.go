@@ -156,8 +156,3 @@ func (guard GuardFunc) GuardProjection(evt event.Event) bool {
 func (g QueryGuard) GuardProjection(evt event.Event) bool {
 	return query.Test(query.Query(g), evt)
 }
-
-// ProjectionFilter returns the Query in a 1-element slice.
-func (g QueryGuard) ProjectionFilter() []event.Query {
-	return []event.Query{query.Query(g)}
-}
