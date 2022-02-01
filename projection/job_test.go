@@ -2,7 +2,6 @@ package projection_test
 
 import (
 	"context"
-	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -149,7 +148,7 @@ func TestJob_EventsFor_Progressor(t *testing.T) {
 	ctx := context.Background()
 	target := projectiontest.NewMockProgressor()
 	now := time.Now()
-	target.SetProgress(now)
+	target.TrackProgress(now, 0)
 
 	storeEvents := []event.Event{
 		event.New("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
@@ -398,11 +397,10 @@ func TestWithReset(t *testing.T) {
 
 	test.AssertEqualEvents(t, proj.AppliedEvents, storeEvents)
 
-	got := proj.Progress()
+	gotProgress, _ := proj.Progress()
 	want := storeEvents[6].Time()
-	if !got.Equal(want) {
-		log.Printf("\n%#v\n\n%#v", want, got)
-		t.Fatalf("Progress should be %v; is %v", want, got)
+	if !gotProgress.Equal(want) {
+		t.Fatalf("Progress should be %v; is %v", want, gotProgress)
 	}
 
 	if proj.Foo != 0 {
