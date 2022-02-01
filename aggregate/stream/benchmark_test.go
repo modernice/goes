@@ -165,7 +165,7 @@ L:
 	_ = gerr
 }
 
-func (a *mockAggregate) ApplyEvent(evt event.EventOf[any]) {
+func (a *mockAggregate) ApplyEvent(evt event.Of[any]) {
 	for i, name := range names {
 		if name != evt.Name() {
 			continue
@@ -188,11 +188,11 @@ func makeAggregates(n int) []aggregate.Aggregate {
 	return as
 }
 
-func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.EventOf[any] {
+func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.Of[any] {
 	rand.Seed(xtime.Now().UnixNano())
-	eventm := make(map[aggregate.Aggregate][]event.EventOf[any])
+	eventm := make(map[aggregate.Aggregate][]event.Of[any])
 	for _, a := range as {
-		events := make([]event.EventOf[any], n)
+		events := make([]event.Of[any], n)
 		for i := range events {
 			id, name, v := a.Aggregate()
 			v += i + 1
@@ -210,7 +210,7 @@ func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.E
 		}
 		eventm[a] = events
 	}
-	out := make([]event.EventOf[any], 0, len(as)*n)
+	out := make([]event.Of[any], 0, len(as)*n)
 	for _, events := range eventm {
 		out = append(out, events...)
 	}

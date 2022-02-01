@@ -31,15 +31,16 @@ services:
   
   eventstore:
     image: mongo
-    command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs0", "--bind_ip_all"]
+    command: ["--quiet", "--logpath", "/dev/null"]
+    # command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs0", "--bind_ip_all"]
   
-  eventstore_init:
-    image: mongo
-    entrypoint: /entrypoint.sh
-    environment:
-      REPLICA_HOST: eventstore
-    depends_on:
-      - eventstore
-    volumes:
-      - "${PWD}/.docker/init-mongo.sh:/entrypoint.sh"
+  # eventstore_init:
+  #   image: mongo
+  #   entrypoint: /entrypoint.sh
+  #   environment:
+  #     REPLICA_HOST: eventstore
+  #   depends_on:
+  #     - eventstore
+  #   volumes:
+  #     - "${PWD}/.docker/init-mongo.sh:/entrypoint.sh"
 

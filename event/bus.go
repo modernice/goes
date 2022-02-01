@@ -30,7 +30,7 @@ type Bus interface {
 //
 //	var bus Bus
 //	events, errs := Must(bus.Subscribe(context.TODO(), "foo", "bar", "baz"))
-func Must[D any](events <-chan EventOf[D], errs <-chan error, err error) (<-chan EventOf[D], <-chan error) {
+func Must[D any](events <-chan Of[D], errs <-chan error, err error) (<-chan Of[D], <-chan error) {
 	if err != nil {
 		panic(err)
 	}

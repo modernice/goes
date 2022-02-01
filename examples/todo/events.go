@@ -10,6 +10,12 @@ const (
 	TasksDone   = "todo.list.tasks_done"
 )
 
+var TaskEvents = [...]string{
+	TaskAdded,
+	TaskRemoved,
+	TasksDone,
+}
+
 // TaskRemovedEvent is the event data for TaskRemoved.
 //
 // You can use any type as event data. In this example the event data is a

@@ -26,35 +26,35 @@ func Name(name string) MakeOption {
 // for those aggregates.
 func Make(n int, opts ...MakeOption) (
 	_ []aggregate.Aggregate,
-	getAppliedEvents func(uuid.UUID) []event.EventOf[any],
+	getAppliedEvents func(uuid.UUID) []event.Of[any],
 ) {
 	var cfg makeConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 	as := make([]aggregate.Aggregate, n)
-	gaes := make(map[uuid.UUID]func() []event.EventOf[any])
+	gaes := make(map[uuid.UUID]func() []event.Of[any])
 	for i := range as {
 		id := uuid.New()
 		a, gae := makeAggregate(cfg.name, id)
 		as[i] = a
 		gaes[id] = gae
 	}
-	return as, func(id uuid.UUID) []event.EventOf[any] {
+	return as, func(id uuid.UUID) []event.Of[any] {
 		return gaes[id]()
 	}
 }
 
-func makeAggregate(name string, id uuid.UUID) (_ aggregate.Aggregate, getAppliedEvents func() []event.EventOf[any]) {
+func makeAggregate(name string, id uuid.UUID) (_ aggregate.Aggregate, getAppliedEvents func() []event.Of[any]) {
 	if name == "" {
 		name = "foo"
 	}
-	var applied []event.EventOf[any]
-	a := test.NewAggregate(name, id, test.ApplyEventFunc("", func(e event.EventOf[any]) {
+	var applied []event.Of[any]
+	a := test.NewAggregate(name, id, test.ApplyEventFunc("", func(e event.Of[any]) {
 		applied = append(applied, e)
 	}))
-	return a, func() []event.EventOf[any] {
-		events := make([]event.EventOf[any], len(applied))
+	return a, func() []event.Of[any] {
+		events := make([]event.Of[any], len(applied))
 		copy(events, applied)
 		return events
 	}

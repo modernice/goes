@@ -206,7 +206,7 @@ func (svc *Service[E]) Trigger(ctx context.Context, name string, opts ...Trigger
 	}
 
 	done := errors.New("done")
-	if err := streams.Walk(ctx, func(evt event.EventOf[any]) error {
+	if err := streams.Walk(ctx, func(evt event.Of[any]) error {
 		data := evt.Data().(TriggerAcceptedData)
 		if data.TriggerID != id {
 			return nil
@@ -239,7 +239,7 @@ func (svc *Service[E]) Run(ctx context.Context) (<-chan error, error) {
 	return out, nil
 }
 
-func (svc *Service[E]) handleEvents(ctx context.Context, events <-chan event.EventOf[any], errs <-chan error, out chan<- error) {
+func (svc *Service[E]) handleEvents(ctx context.Context, events <-chan event.Of[any], errs <-chan error, out chan<- error) {
 	defer close(out)
 
 	fail := func(err error) {
@@ -249,7 +249,7 @@ func (svc *Service[E]) handleEvents(ctx context.Context, events <-chan event.Eve
 		}
 	}
 
-	streams.ForEach(ctx, func(evt event.EventOf[any]) {
+	streams.ForEach(ctx, func(evt event.Of[any]) {
 		data := evt.Data().(TriggeredData)
 
 		s, ok := svc.schedule(data.Schedule)

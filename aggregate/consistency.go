@@ -24,7 +24,7 @@ const (
 )
 
 // Error is a consistency error.
-type ConsistencyError[D any, E event.EventOf[D], Events ~[]E] struct {
+type ConsistencyError[D any, E event.Of[D], Events ~[]E] struct {
 	// Kind is the kind of incosistency.
 	Kind ConsistencyKind
 	// Aggregate is the handled aggregate.
@@ -52,7 +52,7 @@ type ConsistencyKind int
 // The first Event e in events that is invalid causes Validate to return an
 // *Error containing the Kind of inconsistency and the Event that caused the
 // inconsistency.
-func ValidateConsistency[D any, E event.EventOf[D], Events ~[]E](a Aggregate, events Events) error {
+func ValidateConsistency[D any, E event.Of[D], Events ~[]E](a Aggregate, events Events) error {
 	id, name, _ := a.Aggregate()
 	version := currentVersion(a)
 	cv := version
@@ -110,7 +110,7 @@ func ValidateConsistency[D any, E event.EventOf[D], Events ~[]E](a Aggregate, ev
 }
 
 // Event return the first Event that caused an inconsistency.
-func (err *ConsistencyError[D, E, Events]) Event() event.EventOf[D] {
+func (err *ConsistencyError[D, E, Events]) Event() event.Of[D] {
 	if err.EventIndex < 0 || err.EventIndex >= len(err.Events) {
 		var zero E
 		return zero

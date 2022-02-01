@@ -3,15 +3,15 @@
 host=$REPLICA_HOST
 
 echo "Starting replica set initialize"
-until mongo --host $host --eval "print(\"Waiting for connection...\")"
+until mongosh --quiet --host $host --eval "print(\"Waiting for connection...\")"
 do
-  sleep 2
+  sleep 0.5
 done
 
 echo "Connected."
 echo "Creating replica set..."
 
-mongo --host $host <<EOF
+mongosh --quiet --host $host <<EOF
 rs.initiate(
   {
     _id : 'rs0',

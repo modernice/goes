@@ -28,7 +28,7 @@ type subscription struct {
 
 type recipient struct {
 	sub      *subscription
-	events   chan event.EventOf[any]
+	events   chan event.Of[any]
 	errs     chan error
 	unsubbed chan struct{}
 }
@@ -156,7 +156,7 @@ func (sub *subscription) subscribe(ctx context.Context) (recipient, error) {
 
 	rcpt := recipient{
 		sub:      sub,
-		events:   make(chan event.EventOf[any]),
+		events:   make(chan event.Of[any]),
 		errs:     make(chan error),
 		unsubbed: make(chan struct{}),
 	}

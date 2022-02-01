@@ -150,7 +150,7 @@ func (js *jetStream) ensureStream(ctx context.Context, streamName, subject strin
 	return nil
 }
 
-func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.EventOf[any]) error {
+func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Of[any]) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w [event=%v, type(data)=%T]", err, evt.Name(), evt.Data())

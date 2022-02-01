@@ -1,9 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"log"
+	"time"
+
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/examples/todo"
 	"github.com/modernice/goes/examples/todo/cmd"
+	"github.com/modernice/goes/projection/schedule"
 )
 
 func main() {
@@ -20,7 +25,13 @@ func main() {
 	repo := setup.Aggregates(estore)
 	lists := repository.Typed(repo, todo.New)
 
-	errs := todo.HandleCommands(ctx, cbus, lists)
+	counter := todo.NewCounter()
+	counterErrors, err := counter.Project(ctx, ebus, estore, schedule.Debounce(time.Second))
+	if err != nil {
+		log.Panic(fmt.Errorf("project counter: %w", err))
+	}
 
-	cmd.LogErrors(ctx, errs)
+	commandErrors := todo.HandleCommands(ctx, cbus, lists)
+
+	cmd.LogErrors(ctx, counterErrors, commandErrors)
 }

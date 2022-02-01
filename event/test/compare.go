@@ -10,10 +10,10 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-type eventSlice[D any] []event.EventOf[D]
+type eventSlice[D any] []event.Of[D]
 
 // EqualEvents compares slices of Events.
-func EqualEvents[Events ~[]event.EventOf[D], D any](events ...Events) bool {
+func EqualEvents[Events ~[]event.Of[D], D any](events ...Events) bool {
 	if len(events) < 2 {
 		return true
 	}
@@ -37,7 +37,7 @@ func EqualEvents[Events ~[]event.EventOf[D], D any](events ...Events) bool {
 
 // AssertEqualEvents compares slices of events and reports an error to
 // testing.T if they don't match.
-func AssertEqualEvents[Events ~[]event.EventOf[D], D any](t *testing.T, events ...Events) {
+func AssertEqualEvents[Events ~[]event.Of[D], D any](t *testing.T, events ...Events) {
 	if len(events) < 2 {
 		return
 	}
@@ -72,7 +72,7 @@ func AssertEqualEvents[Events ~[]event.EventOf[D], D any](t *testing.T, events .
 
 // AssertEqualEventsUnsorted does the same as AssertEqualEvents but ignores
 // the order of the events.
-func AssertEqualEventsUnsorted[Events ~[]event.EventOf[D], D any](t *testing.T, events ...Events) {
+func AssertEqualEventsUnsorted[Events ~[]event.Of[D], D any](t *testing.T, events ...Events) {
 	for i, evts := range events {
 		es := eventSlice[D](evts)
 		es.sortByTime()

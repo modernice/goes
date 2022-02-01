@@ -16,12 +16,12 @@ var (
 	ErrAlreadyFinished = errors.New("command already finished")
 )
 
-type Command = CommandOf[any]
+type Command = Of[any]
 
 // A Command represents a command in the business model of an application or
 // service. Commands can be dispatched through a Bus to handlers of such
 // Commands.
-type CommandOf[P any] interface {
+type Of[Payload any] interface {
 	// ID returns the Command ID.
 	ID() uuid.UUID
 
@@ -29,7 +29,7 @@ type CommandOf[P any] interface {
 	Name() string
 
 	// Payload returns the Command Payload.
-	Payload() P
+	Payload() Payload
 
 	// Aggregate returns the attached aggregate data.
 	Aggregate() (id uuid.UUID, name string)
@@ -76,7 +76,7 @@ type Context = ContextOf[any]
 // Context is the context for handling Commands.
 type ContextOf[P any] interface {
 	context.Context
-	CommandOf[P]
+	Of[P]
 
 	// AggregateID returns the UUID of the attached aggregate, or uuid.Nil.
 	AggregateID() uuid.UUID
@@ -94,15 +94,15 @@ type ContextOf[P any] interface {
 type Option[P any] func(*Cmd[P])
 
 // Cmd is the implementation of Command.
-type Cmd[P any] struct {
-	Data Data[P]
+type Cmd[Payload any] struct {
+	Data Data[Payload]
 }
 
 // Data contains the actual fields of Cmd.
-type Data[P any] struct {
+type Data[Payload any] struct {
 	ID            uuid.UUID
 	Name          string
-	Payload       P
+	Payload       Payload
 	AggregateName string
 	AggregateID   uuid.UUID
 }
@@ -163,17 +163,17 @@ func (cmd Cmd[P]) Any() Cmd[any] {
 }
 
 // Command returns the command as an interface.
-func (cmd Cmd[P]) Command() CommandOf[P] {
+func (cmd Cmd[P]) Command() Of[P] {
 	return cmd
 }
 
 // Any returns the command with its type paramter set to `any`.
-func Any[P any](cmd CommandOf[P]) Cmd[any] {
+func Any[P any](cmd Of[P]) Cmd[any] {
 	id, name := cmd.Aggregate()
 	return New[any](cmd.Name(), cmd.Payload(), ID[any](cmd.ID()), Aggregate[any](name, id))
 }
 
-func TryCast[To, From any](cmd CommandOf[From]) (Cmd[To], bool) {
+func TryCast[To, From any](cmd Of[From]) (Cmd[To], bool) {
 	load, ok := any(cmd.Payload()).(To)
 	if !ok {
 		return Cmd[To]{}, false
@@ -182,7 +182,7 @@ func TryCast[To, From any](cmd CommandOf[From]) (Cmd[To], bool) {
 	return New(cmd.Name(), load, ID[To](cmd.ID()), Aggregate[To](name, id)), true
 }
 
-func Cast[To, From any](cmd CommandOf[From]) Cmd[To] {
+func Cast[To, From any](cmd Of[From]) Cmd[To] {
 	id, name := cmd.Aggregate()
 	return New(cmd.Name(), any(cmd.Payload()).(To), ID[To](cmd.ID()), Aggregate[To](name, id))
 }

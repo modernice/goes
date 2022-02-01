@@ -49,4 +49,7 @@ func main() {
 	if err := cbus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 		log.Panicf("Failed to dispatch command: %v [cmd=%v, tasks=%v]", err, cmd.Name(), cmd.Payload())
 	}
+
+	// Give the "server" service time to run projections before Docker stops all services.
+	<-time.After(3 * time.Second)
 }

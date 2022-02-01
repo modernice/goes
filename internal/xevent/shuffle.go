@@ -8,8 +8,8 @@ import (
 )
 
 // Shuffle shuffles events and returns the shuffled slice.
-func Shuffle[D any](events []event.EventOf[D]) []event.EventOf[D] {
-	shuffled := make([]event.EventOf[D], len(events))
+func Shuffle[D any](events []event.Of[D]) []event.Of[D] {
+	shuffled := make([]event.Of[D], len(events))
 	copy(shuffled, events)
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(shuffled), func(i, j int) {

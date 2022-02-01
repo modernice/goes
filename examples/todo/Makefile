@@ -4,7 +4,7 @@ build:
 
 .PHONY: up
 up:
-	docker compose -f .docker/compose.yml up --abort-on-container-exit --remove-orphans 
+	docker compose -f .docker/compose.yml up --remove-orphans 
 
 .PHONY: down
 down:

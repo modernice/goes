@@ -16,16 +16,16 @@ type stream[D any] struct {
 	isSorted            bool
 	isGrouped           bool
 	validateConsistency bool
-	filters             []func(event.EventOf[D]) bool
+	filters             []func(event.Of[D]) bool
 
-	stream       <-chan event.EventOf[D]
+	stream       <-chan event.Of[D]
 	streamErrors []<-chan error
 	inErrors     <-chan error
 	stopErrors   func()
 
 	acceptDone chan struct{}
 
-	events   chan event.EventOf[D]
+	events   chan event.Of[D]
 	complete chan job
 
 	groupReqs chan groupRequest[D]
@@ -41,7 +41,7 @@ type job struct {
 
 type groupRequest[D any] struct {
 	job
-	out chan []event.EventOf[D]
+	out chan []event.Of[D]
 }
 
 type applier struct {
@@ -130,7 +130,7 @@ func ValidateConsistency[D any](v bool) Option[D] {
 // Filter returns an Option that filters incoming Events before they're handled
 // by the Stream. Events are passed to every fn in fns until a fn returns false.
 // If any of fns returns false, the Event is discarded by the Stream.
-func Filter[D any](fns ...func(event.EventOf[D]) bool) Option[D] {
+func Filter[D any](fns ...func(event.Of[D]) bool) Option[D] {
 	return func(s *stream[D]) {
 		s.filters = append(s.filters, fns...)
 	}
@@ -150,9 +150,9 @@ func Filter[D any](fns ...func(event.EventOf[D]) bool) Option[D] {
 //		foo := newFoo(h.AggregateID())
 //		h.Apply(foo)
 //	}
-func New[D any, Events ~<-chan event.EventOf[D]](events Events, opts ...Option[D]) (<-chan aggregate.History, <-chan error) {
+func New[D any, Events ~<-chan event.Of[D]](events Events, opts ...Option[D]) (<-chan aggregate.History, <-chan error) {
 	if events == nil {
-		evts := make(chan event.EventOf[D])
+		evts := make(chan event.Of[D])
 		close(evts)
 		events = evts
 	}
@@ -161,7 +161,7 @@ func New[D any, Events ~<-chan event.EventOf[D]](events Events, opts ...Option[D
 		validateConsistency: true,
 		stream:              events,
 		acceptDone:          make(chan struct{}),
-		events:              make(chan event.EventOf[D]),
+		events:              make(chan event.Of[D]),
 		complete:            make(chan job),
 		groupReqs:           make(chan groupRequest[D]),
 		out:                 make(chan aggregate.History),
@@ -233,7 +233,7 @@ L:
 	}
 }
 
-func (s *stream[D]) shouldDiscard(evt event.EventOf[D]) bool {
+func (s *stream[D]) shouldDiscard(evt event.Of[D]) bool {
 	for _, fn := range s.filters {
 		if !fn(evt) {
 			return true
@@ -243,7 +243,7 @@ func (s *stream[D]) shouldDiscard(evt event.EventOf[D]) bool {
 }
 
 func (s *stream[D]) groupEvents() {
-	groups := make(map[job][]event.EventOf[D])
+	groups := make(map[job][]event.Of[D])
 	events := s.events
 	groupReqs := s.groupReqs
 	for {
@@ -279,7 +279,7 @@ func (s *stream[D]) sortEvents() {
 	for j := range s.complete {
 		req := groupRequest[D]{
 			job: j,
-			out: make(chan []event.EventOf[D]),
+			out: make(chan []event.Of[D]),
 		}
 		s.groupReqs <- req
 		events := <-req.out

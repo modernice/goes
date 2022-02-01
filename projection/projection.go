@@ -3,6 +3,7 @@ package projection
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/modernice/goes/event"
 )
@@ -15,6 +16,10 @@ var (
 
 // ApplyOption is an option for Apply.
 type ApplyOption func(*applyConfig)
+
+type applyConfig struct {
+	ignoreProgress bool
+}
 
 // IgnoreProgress returns an ApplyOption that makes Apply ignore the current
 // progress of a projection so that it applies Events onto a projection even if
@@ -33,7 +38,7 @@ func IgnoreProgress() ApplyOption {
 //
 // If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
 // is called for every applied Event evt.
-func Apply[D any, Events ~[]event.EventOf[D]](proj EventApplier[D], events Events, opts ...ApplyOption) error {
+func Apply[D any, Events ~[]event.Of[D]](proj EventApplier[D], events Events, opts ...ApplyOption) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -64,8 +69,22 @@ func Apply[D any, Events ~[]event.EventOf[D]](proj EventApplier[D], events Event
 	return nil
 }
 
-type applyConfig struct {
-	ignoreProgress bool
+// Progress returns the projection progress in terms of the time of the latest
+// applied event. If p.LatestEventTime is 0, the zero Time is returned.
+func (p *Progressor) Progress() time.Time {
+	if p.LatestEventTime == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, p.LatestEventTime)
+}
+
+// SetProgress sets the projection progress as the time of the latest applied event.
+func (p *Progressor) SetProgress(t time.Time) {
+	if t.IsZero() {
+		p.LatestEventTime = 0
+		return
+	}
+	p.LatestEventTime = t.UnixNano()
 }
 
 func newApplyConfig(opts ...ApplyOption) applyConfig {

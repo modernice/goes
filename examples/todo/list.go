@@ -25,9 +25,9 @@ func New(id uuid.UUID) *List {
 	list := &List{Base: aggregate.New(ListAggregate, id)}
 
 	// Register the event handlers/appliers for each of the aggregate events.
-	aggregate.Register(list, TaskAdded, list.add)
-	aggregate.Register(list, TaskRemoved, list.remove)
-	aggregate.Register(list, TasksDone, list.done)
+	event.RegisterHandler(list, TaskAdded, list.add)
+	event.RegisterHandler(list, TaskRemoved, list.remove)
+	event.RegisterHandler(list, TasksDone, list.done)
 
 	return list
 }
@@ -66,7 +66,7 @@ func (list *List) Add(task string) error {
 	return nil
 }
 
-func (list *List) add(evt event.EventOf[string]) {
+func (list *List) add(evt event.Of[string]) {
 	list.tasks = append(list.tasks, evt.Data())
 }
 
@@ -79,7 +79,7 @@ func (list *List) Remove(task string) error {
 	return nil
 }
 
-func (list *List) remove(evt event.EventOf[TaskRemovedEvent]) {
+func (list *List) remove(evt event.Of[TaskRemovedEvent]) {
 	for i, task := range list.tasks {
 		if strings.ToLower(task) == strings.ToLower(evt.Data().Task) {
 			list.tasks = append(list.tasks[:i], list.tasks[i+1:]...)
@@ -112,7 +112,7 @@ func (list *List) Done(tasks ...string) error {
 	return nil
 }
 
-func (list *List) done(evt event.EventOf[[]string]) {
+func (list *List) done(evt event.Of[[]string]) {
 	for _, task := range evt.Data() {
 		ltask := strings.ToLower(task)
 
@@ -127,6 +127,6 @@ func (list *List) done(evt event.EventOf[[]string]) {
 }
 
 func (list *List) print() {
-	log.Printf("Tasks: %v", list.Tasks())
-	log.Printf("Archive: %v", list.Archive())
+	log.Printf("[List:%s] Tasks: %v", list.ID, list.Tasks())
+	log.Printf("[List:%s] Archive: %v", list.ID, list.Archive())
 }

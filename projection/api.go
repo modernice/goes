@@ -9,7 +9,28 @@ import (
 
 // An EventApplier applies events onto itself to build the projection state.
 type EventApplier[D any] interface {
-	ApplyEvent(event.EventOf[D])
+	ApplyEvent(event.Of[D])
+}
+
+// Applier can be embedded into projections to implement event.Handler.
+type Applier struct {
+	handlers map[string]func(event.Event)
+}
+
+func NewApplier() *Applier {
+	return &Applier{
+		handlers: make(map[string]func(event.Of[any])),
+	}
+}
+
+func (a *Applier) RegisterHandler(eventName string, handler func(event.Event)) {
+	a.handlers[eventName] = handler
+}
+
+func (a *Applier) ApplyEvent(evt event.Of[any]) {
+	if handler, ok := a.handlers[evt.Name()]; ok {
+		handler(evt)
+	}
 }
 
 // Progressing makes projections track their projection progress.
@@ -33,22 +54,8 @@ type Progressor struct {
 	LatestEventTime int64
 }
 
-// Progress returns the projection progress in terms of the time of the latest
-// applied event. If p.LatestEventTime is 0, the zero Time is returned.
-func (p *Progressor) Progress() time.Time {
-	if p.LatestEventTime == 0 {
-		return time.Time{}
-	}
-	return time.Unix(0, p.LatestEventTime)
-}
-
-// SetProgress sets the projection progress as the time of the latest applied event.
-func (p *Progressor) SetProgress(t time.Time) {
-	if t.IsZero() {
-		p.LatestEventTime = 0
-		return
-	}
-	p.LatestEventTime = t.UnixNano()
+func NewProgressor() *Progressor {
+	return &Progressor{}
 }
 
 // A Resetter is a projection that can reset its state.
@@ -65,7 +72,7 @@ type Resetter interface {
 // returns false.
 type Guard[D any] interface {
 	// GuardProjection determines whether an Event is allowed to be applied onto a projection.
-	GuardProjection(event.EventOf[D]) bool
+	GuardProjection(event.Of[D]) bool
 }
 
 // type Filter any
@@ -78,7 +85,7 @@ type Guard[D any] interface {
 type QueryGuard[D any] query.Query
 
 // GuardFunc allows functions to be used as Guards.
-type GuardFunc[D any] func(event.EventOf[D]) bool
+type GuardFunc[D any] func(event.Of[D]) bool
 
 // HistoryDependent can be implemented by continuous projections that need the
 // full event history (of the events that are configured in the Schedule) instead
@@ -147,12 +154,12 @@ type HistoryDependent interface {
 }
 
 // GuardProjection returns guard(evt).
-func (guard GuardFunc[D]) GuardProjection(evt event.EventOf[D]) bool {
+func (guard GuardFunc[D]) GuardProjection(evt event.Of[D]) bool {
 	return guard(evt)
 }
 
 // GuardProjection tests the Guard's Query against a given Event and returns
 // whether the Event is allowed to be applied onto the projection.
-func (g QueryGuard[D]) GuardProjection(evt event.EventOf[D]) bool {
+func (g QueryGuard[D]) GuardProjection(evt event.Of[D]) bool {
 	return query.Test(query.Query(g), evt)
 }

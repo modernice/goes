@@ -30,9 +30,9 @@ func TestWithBus(t *testing.T) {
 		t.Fatalf("failed to insert Event: %v", err)
 	}
 
-	var walkedEvent event.EventOf[any]
+	var walkedEvent event.Of[any]
 
-	if err = streams.Walk(context.Background(), func(e event.EventOf[any]) error {
+	if err = streams.Walk(context.Background(), func(e event.Of[any]) error {
 		walkedEvent = e
 		cancel()
 		return nil

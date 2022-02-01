@@ -112,7 +112,7 @@ type SortDirection int
 //	-1 if a < b
 //	0 is a == b
 //	1 if a > b
-func CompareSorting[A, B any](s Sorting, a EventOf[A], b EventOf[B]) (cmp int8) {
+func CompareSorting[A, B any](s Sorting, a Of[A], b Of[B]) (cmp int8) {
 	aid, aname, av := a.Aggregate()
 	bid, bname, bv := b.Aggregate()
 
@@ -142,7 +142,7 @@ func CompareSorting[A, B any](s Sorting, a EventOf[A], b EventOf[B]) (cmp int8) 
 //	-1 if a < b
 //	0 is a == b
 //	1 if a > b
-func (s Sorting) Compare(a, b EventOf[any]) (cmp int8) {
+func (s Sorting) Compare(a, b Of[any]) (cmp int8) {
 	return CompareSorting(s, a, b)
 }
 

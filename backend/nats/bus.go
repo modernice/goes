@@ -68,7 +68,7 @@ type EventBusOption func(*EventBus)
 type Driver interface {
 	name() string
 	subscribe(ctx context.Context, bus *EventBus, subject string) (recipient, error)
-	publish(ctx context.Context, bus *EventBus, evt event.EventOf[any]) error
+	publish(ctx context.Context, bus *EventBus, evt event.Of[any]) error
 }
 
 type envelope struct {
@@ -167,7 +167,7 @@ func (bus *EventBus) Disconnect(ctx context.Context) error {
 }
 
 // Publish publishes events.
-func (bus *EventBus) Publish(ctx context.Context, events ...event.EventOf[any]) error {
+func (bus *EventBus) Publish(ctx context.Context, events ...event.Of[any]) error {
 	if err := bus.Connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
@@ -182,7 +182,7 @@ func (bus *EventBus) Publish(ctx context.Context, events ...event.EventOf[any]) 
 }
 
 // Subscribe subscribes to events.
-func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.EventOf[any], <-chan error, error) {
+func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Of[any], <-chan error, error) {
 	if err := bus.Connect(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
@@ -277,8 +277,8 @@ func (bus *EventBus) natsURL() string {
 	return nats.DefaultURL
 }
 
-func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.EventOf[any] {
-	out := make(chan event.EventOf[any])
+func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Of[any] {
+	out := make(chan event.Of[any])
 
 	var wg sync.WaitGroup
 	wg.Add(len(rcpts))
@@ -287,7 +287,7 @@ func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.EventOf[any] {
 		close(out)
 	}()
 
-	drop := func(rcpt recipient, evt event.EventOf[any]) {
+	drop := func(rcpt recipient, evt event.Of[any]) {
 		rcpt.log(fmt.Errorf(
 			"[goes/backend/nats.EventBus] event dropped: %w [event=%v, timeout=%v]",
 			ErrPullTimeout,

@@ -23,12 +23,12 @@ type Expectations struct {
 
 // A Subscription wraps the event and and error channels from an event subscription
 type Subscription struct {
-	events <-chan event.EventOf[any]
+	events <-chan event.Of[any]
 	errs   <-chan error
 }
 
 // Sub wraps the given event and error channels in a Subscription.
-func Sub(events <-chan event.EventOf[any], errs <-chan error) Subscription {
+func Sub(events <-chan event.Of[any], errs <-chan error) Subscription {
 	return Subscription{events, errs}
 }
 
@@ -39,7 +39,7 @@ func Sub(events <-chan event.EventOf[any], errs <-chan error) Subscription {
 //	sub := MustSub(bus.Subscribe(context.TODO(), "foo"))
 //
 // MustSub panics if error is not nil.
-func MustSub(events <-chan event.EventOf[any], errs <-chan error, err error) Subscription {
+func MustSub(events <-chan event.Of[any], errs <-chan error, err error) Subscription {
 	if err != nil {
 		panic(err)
 	}

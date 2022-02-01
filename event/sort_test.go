@@ -20,7 +20,7 @@ func TestSort(t *testing.T) {
 		uuid.MustParse("D0000000-0000-0000-0000-000000000000"),
 		uuid.MustParse("E0000000-0000-0000-0000-000000000000"),
 	}
-	events := []event.EventOf[test.FooEventData]{
+	events := []event.Of[test.FooEventData]{
 		event.New("foo3", test.FooEventData{}, event.Time[test.FooEventData](now), event.Aggregate[test.FooEventData](aggregateIDs[0], "foo3", 3)),
 		event.New("foo1", test.FooEventData{}, event.Time[test.FooEventData](now.Add(24*time.Hour)), event.Aggregate[test.FooEventData](aggregateIDs[1], "foo1", 1)),
 		event.New("foo5", test.FooEventData{}, event.Time[test.FooEventData](now.Add(12*time.Hour)), event.Aggregate[test.FooEventData](aggregateIDs[2], "foo5", 2)),
@@ -32,55 +32,55 @@ func TestSort(t *testing.T) {
 		name string
 		sort event.Sorting
 		dir  event.SortDirection
-		want []event.EventOf[test.FooEventData]
+		want []event.Of[test.FooEventData]
 	}{
 		{
 			name: "SortTime(asc)",
 			sort: event.SortTime,
 			dir:  event.SortAsc,
-			want: []event.EventOf[test.FooEventData]{events[0], events[3], events[2], events[1], events[4]},
+			want: []event.Of[test.FooEventData]{events[0], events[3], events[2], events[1], events[4]},
 		},
 		{
 			name: "SortTime(desc)",
 			sort: event.SortTime,
 			dir:  event.SortDesc,
-			want: []event.EventOf[test.FooEventData]{events[4], events[1], events[2], events[3], events[0]},
+			want: []event.Of[test.FooEventData]{events[4], events[1], events[2], events[3], events[0]},
 		},
 		{
 			name: "SortAggregateName(asc)",
 			sort: event.SortAggregateName,
 			dir:  event.SortAsc,
-			want: []event.EventOf[test.FooEventData]{events[1], events[4], events[0], events[3], events[2]},
+			want: []event.Of[test.FooEventData]{events[1], events[4], events[0], events[3], events[2]},
 		},
 		{
 			name: "SortAggregateName(desc)",
 			sort: event.SortAggregateName,
 			dir:  event.SortDesc,
-			want: []event.EventOf[test.FooEventData]{events[2], events[3], events[0], events[4], events[1]},
+			want: []event.Of[test.FooEventData]{events[2], events[3], events[0], events[4], events[1]},
 		},
 		{
 			name: "SortAggregateID(asc)",
 			sort: event.SortAggregateID,
 			dir:  event.SortAsc,
-			want: []event.EventOf[test.FooEventData]{events[0], events[1], events[2], events[3], events[4]},
+			want: []event.Of[test.FooEventData]{events[0], events[1], events[2], events[3], events[4]},
 		},
 		{
 			name: "SortAggregateID(desc)",
 			sort: event.SortAggregateID,
 			dir:  event.SortDesc,
-			want: []event.EventOf[test.FooEventData]{events[4], events[3], events[2], events[1], events[0]},
+			want: []event.Of[test.FooEventData]{events[4], events[3], events[2], events[1], events[0]},
 		},
 		{
 			name: "SortAggregateVersion(asc)",
 			sort: event.SortAggregateVersion,
 			dir:  event.SortAsc,
-			want: []event.EventOf[test.FooEventData]{events[1], events[2], events[0], events[4], events[3]},
+			want: []event.Of[test.FooEventData]{events[1], events[2], events[0], events[4], events[3]},
 		},
 		{
 			name: "SortAggregateVersion(desc)",
 			sort: event.SortAggregateVersion,
 			dir:  event.SortDesc,
-			want: []event.EventOf[test.FooEventData]{events[3], events[4], events[0], events[2], events[1]},
+			want: []event.Of[test.FooEventData]{events[3], events[4], events[0], events[2], events[1]},
 		},
 	}
 
@@ -95,7 +95,7 @@ func TestSort(t *testing.T) {
 func TestSortMulti(t *testing.T) {
 	now := xtime.Now()
 	aggregateID := uuid.New()
-	events := []event.EventOf[test.FooEventData]{
+	events := []event.Of[test.FooEventData]{
 		event.New("foo", test.FooEventData{}, event.Time[test.FooEventData](now), event.Aggregate[test.FooEventData](aggregateID, "foo", 1)),
 		event.New("foo", test.FooEventData{}, event.Time[test.FooEventData](now), event.Aggregate[test.FooEventData](aggregateID, "foo", 2)),
 		event.New("foo", test.FooEventData{}, event.Time[test.FooEventData](now), event.Aggregate[test.FooEventData](aggregateID, "foo", 3)),
@@ -111,7 +111,7 @@ func TestSortMulti(t *testing.T) {
 		event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
 	)
 
-	test.AssertEqualEvents(t, []event.EventOf[test.FooEventData]{
+	test.AssertEqualEvents(t, []event.Of[test.FooEventData]{
 		events[3], events[4], events[5],
 		events[0], events[1], events[2],
 	}, sorted)
@@ -122,7 +122,7 @@ func TestSortMulti(t *testing.T) {
 		event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortDesc},
 	)
 
-	test.AssertEqualEvents(t, []event.EventOf[test.FooEventData]{
+	test.AssertEqualEvents(t, []event.Of[test.FooEventData]{
 		events[5], events[4], events[3],
 		events[2], events[1], events[0],
 	}, sorted)
@@ -133,7 +133,7 @@ func TestSortMulti(t *testing.T) {
 		event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortAsc},
 	)
 
-	test.AssertEqualEvents(t, []event.EventOf[test.FooEventData]{
+	test.AssertEqualEvents(t, []event.Of[test.FooEventData]{
 		events[0], events[1], events[2],
 		events[3], events[4], events[5],
 	}, sorted)

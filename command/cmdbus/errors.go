@@ -10,7 +10,7 @@ import (
 // ExecutionError is the error returned by a Bus when doing a synchronous
 // dispatch and the execution of the Command fails.
 type ExecutionError[P any] struct {
-	Cmd command.CommandOf[P]
+	Cmd command.Of[P]
 	Err error
 }
 

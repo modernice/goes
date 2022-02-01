@@ -33,70 +33,11 @@ func Version(v int) Option {
 	}
 }
 
-type eventHandler interface {
-	RegisterHandler(eventName string, handler func(event.Event))
-}
-
-// RegisterHandler registers an event handler for the given event name.
-// The provided eventHandler should usually be an aggregate that uses the
-// registered handler to apply the events onto itself. The *Base aggregate
-// implements eventHandler.
-//
-//	type Foo struct {
-//		*aggregate.Base
-//
-//		Foo string
-//		Bar string
-//		Baz string
-//	}
-//
-//	type FooEvent { Foo string }
-//	type BarEvent { Bar string }
-//	type BazEvent { Bar string }
-//
-//	func NewFoo(id uuid.UUID) *Foo  {
-//		foo := &Foo{Base: aggregate.New("foo", id)}
-//		aggregate.Register(foo, "foo", foo.foo)
-//		aggregate.Register(foo, "bar", foo.bar)
-//		aggregate.Register(foo, "baz", foo.baz)
-//		return foo
-//	}
-//
-//	func (f *Foo) foo(e event.EventOf[FooEvent]) {
-//		f.Foo = e.Data().Foo
-//	}
-//
-//	func (f *Foo) foo(e event.EventOf[BarEvent]) {
-//		f.Bar = e.Data().Bar
-//	}
-//
-//	func (f *Foo) foo(e event.EventOf[BazEvent]) {
-//		f.Baz = e.Data().Baz
-//	}
-func Register[D any](eh eventHandler, eventName string, handler func(event.EventOf[D])) {
-	eh.RegisterHandler(eventName, func(evt event.Event) {
-		if casted, ok := event.TryCast[D](evt); ok {
-			handler(casted)
-		} else {
-			aggregateName := "<unknown>"
-			if a, ok := eh.(Aggregate); ok {
-				aggregateName = pick.AggregateName(a)
-			}
-			panic(fmt.Errorf(
-				"[goes/aggregate.Register] Cannot cast %T to %T. "+
-					"You probably provided the wrong event name for this handler. "+
-					"[event=%v, aggregate=%v]",
-				evt, casted, eventName, aggregateName,
-			))
-		}
-	})
-}
-
 // RegisterHandler registers an event handler for the given event name.
 // When b.ApplyEvent is called and a handler is registered for the given event,
 // the provided handler is called.
 //
-// This method implements eventHandler.
+// This method implements event.Handler.
 func (b *Base) RegisterHandler(eventName string, handle func(event.Event)) {
 	b.handlers[eventName] = handle
 }
@@ -106,7 +47,7 @@ func New(name string, id uuid.UUID, opts ...Option) *Base {
 	b := &Base{
 		ID:       id,
 		Name:     name,
-		handlers: make(map[string]func(event.EventOf[any])),
+		handlers: make(map[string]func(event.Of[any])),
 	}
 	for _, opt := range opts {
 		opt(b)
@@ -170,7 +111,7 @@ func (b *Base) SetVersion(v int) {
 // ApplyHistory applies the given events to the aggregate a to reconstruct the
 // state of a at the time of the latest event. If the aggregate implements
 // Committer, a.TrackChange(events) and a.Commit() are called before returning.
-func ApplyHistory[D any, E event.EventOf[D], Events ~[]E](a Aggregate, events Events) error {
+func ApplyHistory[D any, E event.Of[D], Events ~[]E](a Aggregate, events Events) error {
 	if err := ValidateConsistency[D, E, Events](a, events); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}

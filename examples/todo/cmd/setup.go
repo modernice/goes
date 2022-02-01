@@ -30,7 +30,7 @@ func (s *Setup) Events(ctx context.Context) (_ event.Bus, _ event.Store, _ *code
 	todo.RegisterEvents(r)
 
 	bus := nats.NewEventBus(r)
-	store := mongo.NewEventStore(r, mongo.Transactions(true))
+	store := mongo.NewEventStore(r)
 
 	return bus, store, r, func() {
 		log.Printf("Disconnecting from NATS ...")

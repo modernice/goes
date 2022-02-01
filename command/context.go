@@ -10,7 +10,7 @@ import (
 
 type cmdctx[P any] struct {
 	context.Context
-	CommandOf[P]
+	Of[P]
 
 	whenDone func(context.Context, finish.Config) error
 	mux      sync.Mutex
@@ -29,10 +29,10 @@ func WhenDone[P any](fn func(context.Context, finish.Config) error) ContextOptio
 }
 
 // NewContext returns a context for the given command.
-func NewContext[P any](base context.Context, cmd CommandOf[P], opts ...ContextOption[P]) ContextOf[P] {
+func NewContext[P any](base context.Context, cmd Of[P], opts ...ContextOption[P]) ContextOf[P] {
 	ctx := cmdctx[P]{
-		Context:   base,
-		CommandOf: cmd,
+		Context: base,
+		Of:      cmd,
 	}
 	for _, opt := range opts {
 		opt(&ctx)
