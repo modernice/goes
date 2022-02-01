@@ -33,9 +33,9 @@ func NewTrigger(opts ...TriggerOption) Trigger {
 // onto them. Resetting a projection is done by first resetting the progress of
 // the projection (if it implements progressor). Then, if the projection has a
 // `Reset()` method, that method is called to allow for custom reset logic.
-func Reset() TriggerOption {
+func Reset(reset bool) TriggerOption {
 	return func(t *Trigger) {
-		t.Reset = true
+		t.Reset = reset
 	}
 }
 
