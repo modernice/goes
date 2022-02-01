@@ -150,7 +150,7 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 
 	proj := projectiontest.NewMockProgressor()
 	now := time.Now()
-	proj.TrackProgress(now, 0)
+	proj.SetProgress(now)
 
 	applyErrors := make(chan error)
 	appliedJobs := make(chan projection.Job)

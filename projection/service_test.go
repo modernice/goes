@@ -102,7 +102,7 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	proj := projectiontest.NewMockResetProjection(8)
-	proj.TrackProgress(time.Now(), 0)
+	proj.SetProgress(time.Now())
 	applied := make(chan struct{})
 
 	errs, err := s.Subscribe(ctx, func(job projection.Job) error {

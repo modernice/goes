@@ -3,6 +3,7 @@ package projection
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/modernice/goes/event"
 )
@@ -49,26 +50,37 @@ func Apply(proj EventApplier, events []event.Event, opts ...ApplyOption) error {
 		}
 
 		if isProgressor && !cfg.ignoreProgress {
-			progress, version := progressor.Progress()
-			if !progress.IsZero() && !progress.Before(evt.Time()) {
+			if progress := progressor.Progress(); !progress.IsZero() && !progress.Before(evt.Time()) {
 				return fmt.Errorf("apply event with time %v: %w", evt.Time(), ErrProgressed)
-			}
-
-			if evtVersion := event.PickAggregateVersion(evt); version > 0 && evtVersion <= version {
-				return fmt.Errorf("apply event with version %v: %w", evtVersion, ErrProgressed)
 			}
 		}
 
 		proj.ApplyEvent(evt)
 	}
 
-	if progress := events[len(events)-1].Time(); isProgressor {
-		if currentProgress, _ := progressor.Progress(); currentProgress.Before(progress) {
-			progressor.TrackProgress(progress, event.PickAggregateVersion(events[len(events)-1]))
-		}
+	if progress := events[len(events)-1].Time(); isProgressor && progressor.Progress().Before(progress) {
+		progressor.SetProgress(progress)
 	}
 
 	return nil
+}
+
+// Progress returns the projection progress in terms of the time of the latest
+// applied event. If p.LatestEventTime is 0, the zero Time is returned.
+func (p *Progressor) Progress() time.Time {
+	if p.LatestEventTime == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, p.LatestEventTime)
+}
+
+// SetProgress sets the projection progress as the time of the latest applied event.
+func (p *Progressor) SetProgress(t time.Time) {
+	if t.IsZero() {
+		p.LatestEventTime = 0
+		return
+	}
+	p.LatestEventTime = t.UnixNano()
 }
 
 type applyConfig struct {

@@ -184,7 +184,7 @@ func (j *job) EventsFor(ctx context.Context, target EventApplier) (<-chan event.
 	}
 
 	if progressor, isProgressor := target.(Progressing); isProgressor {
-		if progress, _ := progressor.Progress(); !progress.IsZero() {
+		if progress := progressor.Progress(); !progress.IsZero() {
 			filter = append(filter, query.New(query.Time(time.After(progress))))
 		}
 	}
@@ -281,7 +281,7 @@ func (j *job) Apply(ctx context.Context, proj EventApplier, opts ...ApplyOption)
 
 	if j.reset {
 		if progressor, isProgressor := proj.(Progressing); isProgressor {
-			progressor.TrackProgress(stdtime.Time{}, 0)
+			progressor.SetProgress(stdtime.Time{})
 		}
 
 		if resetter, isResetter := proj.(Resetter); isResetter {

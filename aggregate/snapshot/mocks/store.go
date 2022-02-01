@@ -10,10 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
-	aggregate "github.com/modernice/goes/aggregate"
 	snapshot "github.com/modernice/goes/aggregate/snapshot"
 	time "github.com/modernice/goes/event/query/time"
-	version "github.com/modernice/goes/event/query/version"
 )
 
 // MockStore is a mock of Store interface.
@@ -151,48 +149,6 @@ func (m *MockQuery) EXPECT() *MockQueryMockRecorder {
 	return m.recorder
 }
 
-// IDs mocks base method.
-func (m *MockQuery) IDs() []uuid.UUID {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IDs")
-	ret0, _ := ret[0].([]uuid.UUID)
-	return ret0
-}
-
-// IDs indicates an expected call of IDs.
-func (mr *MockQueryMockRecorder) IDs() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IDs", reflect.TypeOf((*MockQuery)(nil).IDs))
-}
-
-// Names mocks base method.
-func (m *MockQuery) Names() []string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Names")
-	ret0, _ := ret[0].([]string)
-	return ret0
-}
-
-// Names indicates an expected call of Names.
-func (mr *MockQueryMockRecorder) Names() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Names", reflect.TypeOf((*MockQuery)(nil).Names))
-}
-
-// Sortings mocks base method.
-func (m *MockQuery) Sortings() []aggregate.SortOptions {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Sortings")
-	ret0, _ := ret[0].([]aggregate.SortOptions)
-	return ret0
-}
-
-// Sortings indicates an expected call of Sortings.
-func (mr *MockQueryMockRecorder) Sortings() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sortings", reflect.TypeOf((*MockQuery)(nil).Sortings))
-}
-
 // Times mocks base method.
 func (m *MockQuery) Times() time.Constraints {
 	m.ctrl.T.Helper()
@@ -205,18 +161,4 @@ func (m *MockQuery) Times() time.Constraints {
 func (mr *MockQueryMockRecorder) Times() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Times", reflect.TypeOf((*MockQuery)(nil).Times))
-}
-
-// Versions mocks base method.
-func (m *MockQuery) Versions() version.Constraints {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Versions")
-	ret0, _ := ret[0].(version.Constraints)
-	return ret0
-}
-
-// Versions indicates an expected call of Versions.
-func (mr *MockQueryMockRecorder) Versions() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Versions", reflect.TypeOf((*MockQuery)(nil).Versions))
 }

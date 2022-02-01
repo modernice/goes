@@ -12,63 +12,25 @@ type EventApplier interface {
 	ApplyEvent(event.Event)
 }
 
-// // Progressing makes projections track their projection progress.
-// //
-// // Embed *Progressor into a projection type to implement this interface.
-// //
-// // The current progress of a projection is the Time of the last applied event.
-// // A projection that provides its projection progress only receives events with
-// // a Time that is after the current progress Time.
-// type Progressing interface {
-// 	// Progress returns the projection's progress as the Time of the last
-// 	// applied event.
-// 	Progress() time.Time
-
-// 	// SetProgress sets the progress of the projection to the provided Time.
-// 	SetProgress(time.Time)
-// }
-
 // Progressing makes projections track their projection progress.
 //
 // Embed *Progressor into a projection type to implement this interface.
+//
+// The current progress of a projection is the Time of the last applied event.
+// A projection that provides its projection progress only receives events with
+// a Time that is after the current progress Time.
 type Progressing interface {
-	// Progress returns the progress of the projection in terms of the time and
-	// version of the latest applied event. If the returned event version is 0
-	// but the time is non-zero, only the time is used to compare the projection
-	// progress. Otherwise both the time and version are used to compare. The
-	// event version is additionally used to fetch missing events from the event
-	// store when a projection job is applied onto the projection type.
-	Progress() (time.Time, int)
+	// Progress returns the projection's progress as the Time of the last
+	// applied event.
+	Progress() time.Time
 
-	// TrackProgress sets the progress of the projection to the provided time
-	// and version.
-	TrackProgress(time.Time, int)
+	// SetProgress sets the progress of the projection to the provided Time.
+	SetProgress(time.Time)
 }
 
 // Progressor can be embedded into a projection to implement the Progressing interface.
 type Progressor struct {
-	LatestEventTime    int64
-	LatestEventVersion int
-}
-
-// Progress returns the projection progress in terms of the time and version of
-// the latest applied event.
-func (p *Progressor) Progress() (time.Time, int) {
-	var t time.Time
-	if p.LatestEventTime != 0 {
-		t = time.Unix(0, p.LatestEventTime)
-	}
-	return t, p.LatestEventVersion
-}
-
-// TrackProgress sets the projection progress as the time and version of the latest applied event.
-func (p *Progressor) TrackProgress(t time.Time, v int) {
-	p.LatestEventVersion = v
-	if t.IsZero() {
-		p.LatestEventTime = 0
-	} else {
-		p.LatestEventTime = t.UnixNano()
-	}
+	LatestEventTime int64
 }
 
 // A Resetter is a projection that can reset its state.
