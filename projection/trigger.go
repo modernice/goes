@@ -77,7 +77,7 @@ func Filter(queries ...event.Query) TriggerOption {
 func (t Trigger) Options() []TriggerOption {
 	var opts []TriggerOption
 	if t.Reset {
-		opts = append(opts, Reset())
+		opts = append(opts, Reset(true))
 	}
 	if t.Query != nil {
 		opts = append(opts, Query(t.Query))

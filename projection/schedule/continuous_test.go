@@ -428,7 +428,7 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 
 	triggerError := make(chan error)
 	go func() {
-		if err := sch.Trigger(ctx, projection.Reset()); err != nil {
+		if err := sch.Trigger(ctx, projection.Reset(true)); err != nil {
 			triggerError <- err
 		}
 	}()

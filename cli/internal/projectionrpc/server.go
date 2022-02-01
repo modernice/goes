@@ -26,7 +26,7 @@ func NewServer(svc *projection.Service) proto.ProjectionServiceServer {
 func (s *server) Trigger(ctx context.Context, req *proto.TriggerRequest) (*proto.TriggerResponse, error) {
 	var opts []projection.TriggerOption
 	if req.GetReset_() {
-		opts = append(opts, projection.Reset())
+		opts = append(opts, projection.Reset(true))
 	}
 
 	err := s.svc.Trigger(ctx, req.GetSchedule(), opts...)

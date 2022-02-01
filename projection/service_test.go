@@ -121,7 +121,7 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 
 	svc := projection.NewService(bus)
 
-	if err := svc.Trigger(ctx, "example", projection.Reset()); err != nil {
+	if err := svc.Trigger(ctx, "example", projection.Reset(true)); err != nil {
 		t.Fatalf("Trigger failed with %q", err)
 	}
 
