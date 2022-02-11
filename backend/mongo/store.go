@@ -557,6 +557,20 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 			Keys:    bson.D{{Key: "aggregateVersion", Value: 1}},
 			Options: options.Index().SetName("goes_aggregate_version"),
 		},
+		{
+			Keys: bson.D{
+				{Key: "aggregateName", Value: 1},
+				{Key: "aggregateId", Value: 1},
+				{Key: "aggregateVersion", Value: 1},
+			},
+			Options: options.Index().SetUnique(true).SetPartialFilterExpression(
+				bson.D{
+					{Key: "aggregateName", Value: bson.D{{Key: "$gt", Value: ""}}},
+					{Key: "aggregateId", Value: bson.D{{Key: "$gt", Value: uuid.UUID{}}}},
+					{Key: "aggregateVersion", Value: bson.D{{Key: "$gt", Value: 0}}},
+				},
+			),
+		},
 	}); err != nil {
 		return fmt.Errorf("create indexes (%s): %w", s.entries.Name(), err)
 	}
