@@ -13,9 +13,8 @@ be unique across all users.
 ```go
 package auth
 
-const UserAggregate = "auth.user"
 const UserRegistered = "auth.user.registered"
-const EmailLookup = "auth.lookup.email"
+const EmailLookup = "email"
 
 type UserRegisteredData struct {
 	Email string
@@ -26,10 +25,12 @@ func (data UserRegisteredData) ProvideLookup(p lookup.Provider) {
 }
 ```
 
-### User Aggregate
+### User
 
 ```go
 package auth
+
+const UserAggregate = "auth.user"
 
 type User struct {
 	*aggregate.Base
