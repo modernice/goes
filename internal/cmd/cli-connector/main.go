@@ -63,8 +63,8 @@ func main() {
 
 	svc := projection.NewService(
 		bus,
-		projection.RegisterSchedule[any]("foo", foo),
-		projection.RegisterSchedule[any]("bar", bar),
+		projection.RegisterSchedule("foo", foo),
+		projection.RegisterSchedule("bar", bar),
 	)
 
 	serviceErrors, err := svc.Run(ctx)

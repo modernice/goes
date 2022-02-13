@@ -45,16 +45,16 @@ type TriggerAcceptedData struct {
 // Service is an event-driven projection service. A Service allows to trigger
 // Schedules that are registered in Services that communicate over the same
 // event bus.
-type Service[E any] struct {
+type Service struct {
 	bus            event.Bus
 	triggerTimeout time.Duration
 
 	schedulesMux sync.RWMutex
-	schedules    map[string]Schedule[E]
+	schedules    map[string]Schedule
 }
 
 // Schedule is a projection schedule.
-type Schedule[E any] interface {
+type Schedule interface {
 	// Subscribe subscribes the provided function to the Schedule and returns a
 	// channel of asynchronous projection errors. When the Schedule is
 	// triggered, a Job is created and passed to subscribers of the Schedule.
@@ -128,20 +128,20 @@ func RegisterService(r *codec.Registry) {
 }
 
 // ServiceOption is an option for creating a Service.
-type ServiceOption[E any] func(*Service[E])
+type ServiceOption func(*Service)
 
 // RegisterSchedule returns a ServiceOption that registers the Schedule s with
 // the given name into a Service
-func RegisterSchedule[E any](name string, s Schedule[E]) ServiceOption[E] {
-	return func(svc *Service[E]) {
+func RegisterSchedule(name string, s Schedule) ServiceOption {
+	return func(svc *Service) {
 		svc.schedules[name] = s
 	}
 }
 
 // TriggerTimeout returns a ServiceOption that overrides the default timeout for
 // triggering a Schedule. Default is 5s. Zero Duration means no timeout.
-func TriggerTimeout[E any](d time.Duration) ServiceOption[E] {
-	return func(svc *Service[E]) {
+func TriggerTimeout(d time.Duration) ServiceOption {
+	return func(svc *Service) {
 		svc.triggerTimeout = d
 	}
 }
@@ -158,11 +158,11 @@ func TriggerTimeout[E any](d time.Duration) ServiceOption[E] {
 //	)
 //
 //	errs, err := svc.Run(context.TODO())
-func NewService[E any](bus event.Bus, opts ...ServiceOption[E]) *Service[E] {
-	svc := Service[E]{
+func NewService(bus event.Bus, opts ...ServiceOption) *Service {
+	svc := Service{
 		bus:            bus,
 		triggerTimeout: DefaultTriggerTimeout,
-		schedules:      make(map[string]Schedule[E]),
+		schedules:      make(map[string]Schedule),
 	}
 	for _, opt := range opts {
 		opt(&svc)
@@ -171,7 +171,7 @@ func NewService[E any](bus event.Bus, opts ...ServiceOption[E]) *Service[E] {
 }
 
 // Register registers a Schedule with the given name into the Service.
-func (svc *Service[E]) Register(name string, s Schedule[E]) {
+func (svc *Service) Register(name string, s Schedule) {
 	svc.schedulesMux.Lock()
 	svc.schedules[name] = s
 	svc.schedulesMux.Unlock()
@@ -183,7 +183,7 @@ func (svc *Service[E]) Register(name string, s Schedule[E]) {
 // TriggerAccepted event to be published by another Service. Should the
 // TriggerAccepted event not be published within the trigger timeout,
 // ErrUnhandledTrigger is returned. When ctx is canceled, ctx.Err() is returned.
-func (svc *Service[E]) Trigger(ctx context.Context, name string, opts ...TriggerOption) error {
+func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOption) error {
 	events, errs, err := svc.bus.Subscribe(ctx, TriggerAccepted)
 	if err != nil {
 		return fmt.Errorf("subscribe to %q Event: %w", TriggerAccepted, err)
@@ -227,7 +227,7 @@ func (svc *Service[E]) Trigger(ctx context.Context, name string, opts ...Trigger
 // When another Service triggers a Schedule with a name that is registered in
 // svc, svc accepts that trigger by publishing a TriggerAccepted event and then
 // actually triggers the Schedule.
-func (svc *Service[E]) Run(ctx context.Context) (<-chan error, error) {
+func (svc *Service) Run(ctx context.Context) (<-chan error, error) {
 	events, errs, err := svc.bus.Subscribe(ctx, Triggered)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to %q Event: %w", Triggered, err)
@@ -239,7 +239,7 @@ func (svc *Service[E]) Run(ctx context.Context) (<-chan error, error) {
 	return out, nil
 }
 
-func (svc *Service[E]) handleEvents(ctx context.Context, events <-chan event.Event, errs <-chan error, out chan<- error) {
+func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event, errs <-chan error, out chan<- error) {
 	defer close(out)
 
 	fail := func(err error) {
@@ -269,7 +269,7 @@ func (svc *Service[E]) handleEvents(ctx context.Context, events <-chan event.Eve
 	}, fail, events, errs)
 }
 
-func (svc *Service[D]) schedule(name string) (Schedule[D], bool) {
+func (svc *Service) schedule(name string) (Schedule, bool) {
 	svc.schedulesMux.RLock()
 	s, ok := svc.schedules[name]
 	svc.schedulesMux.RUnlock()

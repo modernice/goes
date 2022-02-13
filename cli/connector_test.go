@@ -29,7 +29,7 @@ func TestConnector_Serve(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(bus, projection.RegisterSchedule[any]("example", schedule))
+	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
 	serviceErrors, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
@@ -69,7 +69,7 @@ L:
 	<-closed
 }
 
-func serve(t *testing.T, ctx context.Context, c *cli.Connector[any]) (*grpc.Server, *bufconn.Listener, <-chan error, <-chan struct{}) {
+func serve(t *testing.T, ctx context.Context, c *cli.Connector) (*grpc.Server, *bufconn.Listener, <-chan error, <-chan struct{}) {
 	srv, _, lis := clitest.NewServer(t, nil)
 	serveError := make(chan error)
 	closed := make(chan struct{})

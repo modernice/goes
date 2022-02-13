@@ -20,7 +20,7 @@ import (
 
 func TestTrigger_unregisteredSchedule(t *testing.T) {
 	bus := eventbus.New()
-	svc := projection.NewService(bus, projection.TriggerTimeout[any](20*time.Millisecond))
+	svc := projection.NewService(bus, projection.TriggerTimeout(20*time.Millisecond))
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
 		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
@@ -63,14 +63,14 @@ func TestTrigger(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(bus, projection.RegisterSchedule[any]("example", schedule))
+	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
 	errs, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
 	}
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService[any](bus)))
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
 	})
 	defer conn.Close()
 
@@ -117,14 +117,14 @@ func TestTrigger_reset(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(bus, projection.RegisterSchedule[any]("example", schedule))
+	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
 	errs, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
 	}
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService[any](bus)))
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
 	})
 	defer conn.Close()
 

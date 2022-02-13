@@ -25,7 +25,7 @@ func TestCommand_Trigger_unhandledTrigger(t *testing.T) {
 	defer cancel()
 
 	_, bus, _ := clitest.SetupEvents()
-	svc := projection.NewService(bus, projection.TriggerTimeout[any](20*time.Millisecond))
+	svc := projection.NewService(bus, projection.TriggerTimeout(20*time.Millisecond))
 	_, conn, lis := clitest.NewServer(t, func(s *grpc.Server) {
 		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
 	})
@@ -57,9 +57,9 @@ func TestCommand_Trigger(t *testing.T) {
 	}
 	svc := projection.NewService(
 		bus,
-		projection.RegisterSchedule[any]("foo", schedule),
-		projection.RegisterSchedule[any]("bar", schedule),
-		projection.RegisterSchedule[any]("baz", schedule),
+		projection.RegisterSchedule("foo", schedule),
+		projection.RegisterSchedule("bar", schedule),
+		projection.RegisterSchedule("baz", schedule),
 	)
 	serviceErrors, err := svc.Run(ctx)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestCommand_Trigger_reset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
-	svc := projection.NewService(bus, projection.RegisterSchedule[any]("foo", schedule))
+	svc := projection.NewService(bus, projection.RegisterSchedule("foo", schedule))
 	serviceErrors, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)

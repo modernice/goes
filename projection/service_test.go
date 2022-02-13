@@ -19,7 +19,7 @@ func TestService_Trigger_unregisteredName(t *testing.T) {
 
 	bus := eventbus.New()
 
-	svc := projection.NewService(bus, projection.TriggerTimeout[any](time.Second))
+	svc := projection.NewService(bus, projection.TriggerTimeout(time.Second))
 
 	if err := svc.Trigger(ctx, "example"); !errors.Is(err, projection.ErrUnhandledTrigger) {
 		t.Fatalf("Trigger should fail with %q when passing an unregistered name; got %q", projection.ErrUnhandledTrigger, err)
@@ -35,8 +35,8 @@ func TestService_Trigger_serviceNotRunning(t *testing.T) {
 
 	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
-	projection.NewService(bus, projection.RegisterSchedule[any]("example", s))
-	svc := projection.NewService(bus, projection.TriggerTimeout[any](time.Second))
+	projection.NewService(bus, projection.RegisterSchedule("example", s))
+	svc := projection.NewService(bus, projection.TriggerTimeout(time.Second))
 
 	if err := svc.Trigger(ctx, "example"); !errors.Is(err, projection.ErrUnhandledTrigger) {
 		t.Fatalf("Trigger should fail with %q when the handler Service is not running; got %q", projection.ErrUnhandledTrigger, err)
@@ -62,13 +62,13 @@ func TestService_Trigger(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	handler := projection.NewService(bus, projection.RegisterSchedule[any]("example", s))
+	handler := projection.NewService(bus, projection.RegisterSchedule("example", s))
 	handlerErrors, err := handler.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run failed with %q", err)
 	}
 
-	svc := projection.NewService[any](bus)
+	svc := projection.NewService(bus)
 
 	if err := svc.Trigger(ctx, "example"); err != nil {
 		t.Fatalf("Trigger failed with %q", err)
@@ -113,13 +113,13 @@ func TestService_Trigger_TriggerOption(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	handler := projection.NewService(bus, projection.RegisterSchedule[any]("example", s))
+	handler := projection.NewService(bus, projection.RegisterSchedule("example", s))
 	handlerErrors, err := handler.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run failed with %q", err)
 	}
 
-	svc := projection.NewService[any](bus)
+	svc := projection.NewService(bus)
 
 	if err := svc.Trigger(ctx, "example", projection.Reset(true)); err != nil {
 		t.Fatalf("Trigger failed with %q", err)
