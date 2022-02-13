@@ -7,30 +7,10 @@ import (
 	"github.com/modernice/goes/event/query"
 )
 
-// An EventApplier applies events onto itself to build the projection state.
+// EventApplier should be implemented by projections. It is the main projection
+// interface and is used to apply events onto the projection.
 type EventApplier[D any] interface {
 	ApplyEvent(event.Of[D])
-}
-
-// Applier can be embedded into projections to implement event.Handler.
-type Applier struct {
-	handlers map[string]func(event.Event)
-}
-
-func NewApplier() *Applier {
-	return &Applier{
-		handlers: make(map[string]func(event.Of[any])),
-	}
-}
-
-func (a *Applier) RegisterHandler(eventName string, handler func(event.Event)) {
-	a.handlers[eventName] = handler
-}
-
-func (a *Applier) ApplyEvent(evt event.Of[any]) {
-	if handler, ok := a.handlers[evt.Name()]; ok {
-		handler(evt)
-	}
 }
 
 // Progressing makes projections track their projection progress.
@@ -108,7 +88,7 @@ type GuardFunc[D any] func(event.Of[D]) bool
 //		initialized bool
 //	}
 //
-//	func (idx SearchIndex) ApplyEvent(event.EventOf[D]) { ... }
+//	func (idx SearchIndex) ApplyEvent(event.Of[D]) { ... }
 //
 //	// RequiresFullHistory implements projection.HistoryDependent. If the
 // 	// projection hasn't been run yet, the full history of the events is

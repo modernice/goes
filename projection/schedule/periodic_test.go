@@ -20,7 +20,7 @@ func TestPeriodic_Subscribe(t *testing.T) {
 
 	store := eventstore.New()
 
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", test.FooEventData{}),
 		event.New[any]("bar", test.FooEventData{}),
 		event.New[any]("baz", test.FooEventData{}),

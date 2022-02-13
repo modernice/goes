@@ -15,7 +15,7 @@ import (
 func TestApply(t *testing.T) {
 	proj := projectiontest.NewMockProjection()
 
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", test.FooEventData{}),
 		event.New[any]("bar", test.FooEventData{}),
 		event.New[any]("baz", test.FooEventData{}),
@@ -32,7 +32,7 @@ func TestApply_Progressor(t *testing.T) {
 	proj := projectiontest.NewMockProgressor()
 
 	now := time.Now()
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
 		event.New[any]("bar", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
 		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Hour))),
@@ -52,7 +52,7 @@ func TestApply_Progressor_ErrProgressed(t *testing.T) {
 	proj := projectiontest.NewMockProgressor()
 	proj.SetProgress(now)
 
-	events := []event.Of[any]{event.New[any]("foo", test.FooEventData{}, event.Time[any](now))}
+	events := []event.Event{event.New[any]("foo", test.FooEventData{}, event.Time[any](now))}
 
 	if err := projection.Apply[any](proj, events); !errors.Is(err, projection.ErrProgressed) {
 		t.Fatalf("Apply should fail with %q if Event time is before progress time; got %q", projection.ErrProgressed, err)
@@ -68,7 +68,7 @@ func TestApply_Progressor_IgnoreProgress(t *testing.T) {
 	proj := projectiontest.NewMockProgressor()
 	proj.SetProgress(now)
 
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Hour))),
 		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Minute))),
 	}
@@ -86,7 +86,7 @@ func TestApply_Guard(t *testing.T) {
 	guard := projection.QueryGuard[any](query.New(query.Name("foo", "bar")))
 	proj := projectiontest.NewMockGuardedProjection(guard)
 
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", test.FooEventData{}),
 		event.New[any]("bar", test.FooEventData{}),
 		event.New[any]("baz", test.FooEventData{}),
