@@ -83,7 +83,7 @@ func TestApply_Progressor_IgnoreProgress(t *testing.T) {
 }
 
 func TestApply_Guard(t *testing.T) {
-	guard := projection.QueryGuard[any](query.New(query.Name("foo", "bar")))
+	guard := projection.QueryGuard(query.New(query.Name("foo", "bar")))
 	proj := projectiontest.NewMockGuardedProjection(guard)
 
 	events := []event.Event{

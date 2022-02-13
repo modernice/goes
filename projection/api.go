@@ -61,17 +61,19 @@ type GuardOf[D any] interface {
 	GuardProjection(event.Of[D]) bool
 }
 
-// type Filter any
-
-// A QueryGuard is an event query that determines which Events are allows to be
-// applied onto a projection.
-
 // QueryGuard is a Guard that used an event query to determine the events that
 // are allowed to be applied onto a projection.
-type QueryGuard[D any] query.Query
+type QueryGuard = QueryGuardOf[any]
+
+// QueryGuardOf is a Guard that used an event query to determine the events that
+// are allowed to be applied onto a projection.
+type QueryGuardOf[D any] query.Query
 
 // GuardFunc allows functions to be used as Guards.
-type GuardFunc[D any] func(event.Of[D]) bool
+type GuardFunc = GuardFuncOf[any]
+
+// GuardFuncOf allows functions to be used as Guards.
+type GuardFuncOf[D any] func(event.Of[D]) bool
 
 // HistoryDependent can be implemented by continuous projections that need the
 // full event history (of the events that are configured in the Schedule) instead
@@ -140,12 +142,12 @@ type HistoryDependent interface {
 }
 
 // GuardProjection returns guard(evt).
-func (guard GuardFunc[D]) GuardProjection(evt event.Of[D]) bool {
+func (guard GuardFuncOf[D]) GuardProjection(evt event.Of[D]) bool {
 	return guard(evt)
 }
 
 // GuardProjection tests the Guard's Query against a given Event and returns
 // whether the Event is allowed to be applied onto the projection.
-func (g QueryGuard[D]) GuardProjection(evt event.Of[D]) bool {
+func (g QueryGuardOf[D]) GuardProjection(evt event.Of[D]) bool {
 	return query.Test(query.Query(g), evt)
 }
