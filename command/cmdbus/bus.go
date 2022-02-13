@@ -190,7 +190,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 		defer cancel()
 
 		var (
-			events <-chan event.Of[any]
+			events <-chan event.Event
 			errs   <-chan error
 		)
 
@@ -237,7 +237,7 @@ func (b *Bus) dispatchError(err error) error {
 	return err
 }
 
-func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Of[any], <-chan error, error) {
+func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Event, <-chan error, error) {
 	// ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	// defer cancel()
 
@@ -292,7 +292,7 @@ func (b *Bus) workDispatch(
 	ctx context.Context,
 	cfg command.DispatchConfig,
 	cmd command.Command,
-	events <-chan event.Of[any],
+	events <-chan event.Event,
 	errs <-chan error,
 	assignTimeout <-chan time.Time,
 ) error {
@@ -341,7 +341,7 @@ func (b *Bus) handleDispatchEvent(
 	ctx context.Context,
 	cfg command.DispatchConfig,
 	cmd command.Command,
-	evt event.Of[any],
+	evt event.Event,
 	status dispatchStatus,
 ) (dispatchStatus, error) {
 	b.debugLog("[dispatch] Handling %q event (%s)...", evt.Name(), evt.ID())
@@ -460,7 +460,7 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Co
 	return out, outErrs, nil
 }
 
-func (b *Bus) subscribeSubscribe(ctx context.Context) (events <-chan event.Of[any], errs <-chan error, err error) {
+func (b *Bus) subscribeSubscribe(ctx context.Context) (events <-chan event.Event, errs <-chan error, err error) {
 	names := []string{CommandDispatched, CommandAssigned}
 	b.debugMeasure(fmt.Sprintf("[subscribe] Subscribing to %q events", names), func() {
 		events, errs, err = b.bus.Subscribe(ctx, names...)
@@ -478,7 +478,7 @@ type commandRequest struct {
 
 func (b *Bus) workSubscription(
 	parentCtx context.Context,
-	events <-chan event.Of[any],
+	events <-chan event.Event,
 	errs <-chan error,
 	out chan<- command.ContextOf[any],
 	outErrs chan<- error,

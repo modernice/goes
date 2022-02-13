@@ -279,10 +279,10 @@ func TestFilter(t *testing.T) {
 	str, errs := stream.New(
 		es,
 		stream.Filter(
-			func(evt event.Of[any]) bool {
+			func(evt event.Event) bool {
 				return strings.HasPrefix(pick.AggregateName(evt), "foo")
 			},
-			func(evt event.Of[any]) bool {
+			func(evt event.Event) bool {
 				return strings.HasSuffix(pick.AggregateName(evt), "bar")
 			},
 		),

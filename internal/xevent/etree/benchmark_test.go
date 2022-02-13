@@ -13,7 +13,7 @@ import (
 	"github.com/modernice/goes/internal/xevent/etree"
 )
 
-var tmpStack []event.Of[any]
+var tmpStack []event.Event
 
 func BenchmarkTree_Insert10(b *testing.B) { benchmarkTree_Insert(b, 10) }
 
@@ -44,8 +44,8 @@ func benchmarkTree_Insert(b *testing.B, n int) {
 			tr.Insert(evt)
 		}
 
-		walked := make([]event.Of[any], 0, tr.Size())
-		tr.Walk(func(evt event.Of[any]) {
+		walked := make([]event.Event, 0, tr.Size())
+		tr.Walk(func(evt event.Event) {
 			walked = append(walked, evt)
 		})
 		tmpStack = walked
@@ -75,7 +75,7 @@ func benchmarkSlice_Insert(b *testing.B, n int) {
 
 	for i := 0; i < b.N; i++ {
 		events = xevent.Shuffle(events)
-		var stack []event.Of[any]
+		var stack []event.Event
 		for _, evt := range events {
 			stack = stackInsert(stack, evt, false)
 		}
@@ -84,7 +84,7 @@ func benchmarkSlice_Insert(b *testing.B, n int) {
 	}
 }
 
-func stackInsert(stack []event.Of[any], evt event.Of[any], s bool) []event.Of[any] {
+func stackInsert(stack []event.Event, evt event.Event, s bool) []event.Event {
 	stack = append(stack, evt)
 	if s {
 		sortStack(stack)
@@ -92,7 +92,7 @@ func stackInsert(stack []event.Of[any], evt event.Of[any], s bool) []event.Of[an
 	return stack
 }
 
-func sortStack(stack []event.Of[any]) {
+func sortStack(stack []event.Event) {
 	sort.Slice(stack, func(i, j int) bool {
 		return pick.AggregateVersion(stack[i]) <= pick.AggregateVersion(stack[j])
 	})

@@ -56,7 +56,7 @@ func TestStore_Insert_versionError(t *testing.T) {
 		t.Fatalf("failed to insert state: %v", err)
 	}
 
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+5)),
 		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+6)),
 		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+7)),

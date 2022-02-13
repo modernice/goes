@@ -11,8 +11,8 @@ import (
 )
 
 func TestApplyEventFunc(t *testing.T) {
-	handled := make(chan event.Of[any], 1)
-	foo := test.NewFoo(uuid.New(), test.ApplyEventFunc("foo", func(evt event.Of[any]) {
+	handled := make(chan event.Event, 1)
+	foo := test.NewFoo(uuid.New(), test.ApplyEventFunc("foo", func(evt event.Event) {
 		handled <- evt
 	}))
 
@@ -39,7 +39,7 @@ func TestApplyEventFunc(t *testing.T) {
 
 func TestTrackChangeFunc(t *testing.T) {
 	aggregateID := uuid.New()
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 1)),
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 2)),
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 3)),
@@ -48,7 +48,7 @@ func TestTrackChangeFunc(t *testing.T) {
 	var tracked bool
 	foo := test.NewFoo(
 		aggregateID,
-		test.TrackChangeFunc(func(changes []event.Of[any], track func(...event.Of[any])) {
+		test.TrackChangeFunc(func(changes []event.Event, track func(...event.Event)) {
 			tracked = true
 			track(changes...)
 		}),
@@ -66,7 +66,7 @@ func TestTrackChangeFunc(t *testing.T) {
 func TestCommitFunc(t *testing.T) {
 	aggregateID := uuid.New()
 	foo := test.NewFoo(aggregateID, test.CommitFunc(func(flush func()) {}))
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 1)),
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 2)),
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 3)),

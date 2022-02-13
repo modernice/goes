@@ -15,7 +15,7 @@ import (
 func TestShuffle(t *testing.T) {
 	a := aggregate.New("foo", uuid.New())
 	events := xevent.Make("foo", test.FooEventData{}, 100, xevent.ForAggregate(a))
-	sorted := make([]event.Of[any], len(events))
+	sorted := make([]event.Event, len(events))
 	copy(sorted, events)
 	sort.Slice(sorted, func(i, j int) bool {
 		return pick.AggregateVersion(sorted[i]) < pick.AggregateVersion(sorted[j])

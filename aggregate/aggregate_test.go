@@ -24,7 +24,7 @@ func TestNew(t *testing.T) {
 		t.Errorf("b.Version should return %v; got %v", 0, b.AggregateVersion())
 	}
 	changes := b.AggregateChanges()
-	wantType := []event.Of[any]{}
+	wantType := []event.Event{}
 	if reflect.TypeOf(changes) != reflect.TypeOf(wantType) {
 		t.Errorf("b.Changes should return type %T; got %T", wantType, changes)
 	}
@@ -44,7 +44,7 @@ func TestNew_version(t *testing.T) {
 func TestBase_TrackChange(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 1)),
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 2)),
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 3)),
@@ -58,7 +58,7 @@ func TestBase_TrackChange(t *testing.T) {
 func TestBase_FlushChanges(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 1)),
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 2)),
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, "foo", 3)),
@@ -78,11 +78,11 @@ func TestBase_FlushChanges(t *testing.T) {
 }
 
 func TestApplyHistory(t *testing.T) {
-	var applied []event.Of[any]
+	var applied []event.Event
 	var flushed bool
 	foo := test.NewFoo(
 		uuid.New(),
-		test.ApplyEventFunc("foo", func(evt event.Of[any]) {
+		test.ApplyEventFunc("foo", func(evt event.Event) {
 			applied = append(applied, evt)
 		}),
 		test.CommitFunc(func(flush func()) {
@@ -91,7 +91,7 @@ func TestApplyHistory(t *testing.T) {
 		}),
 	)
 
-	events := []event.Of[any]{
+	events := []event.Event{
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 1)),
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 2)),
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 3)),

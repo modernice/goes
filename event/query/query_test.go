@@ -191,12 +191,12 @@ func TestTest(t *testing.T) {
 	tests := []struct {
 		name  string
 		query event.Query
-		tests map[event.Of[any]]bool
+		tests map[event.Event]bool
 	}{
 		{
 			name:  "Name",
 			query: New(Name("foo", "bar")),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}): true,
 				event.New[any]("bar", test.BarEventData{}): true,
 				event.New[any]("baz", test.BazEventData{}): false,
@@ -205,7 +205,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "ID",
 			query: New(ID(ids[:2]...)),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.ID[any](ids[0])): true,
 				event.New[any]("bar", test.BarEventData{}, event.ID[any](ids[1])): true,
 				event.New[any]("baz", test.BazEventData{}, event.ID[any](ids[2])): false,
@@ -214,7 +214,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "Time (exact)",
 			query: New(Time(time.Exact(times[:2]...))),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.Time[any](times[0])): true,
 				event.New[any]("bar", test.BarEventData{}, event.Time[any](times[1])): true,
 				event.New[any]("baz", test.BazEventData{}, event.Time[any](times[2])): false,
@@ -223,7 +223,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "Time (range)",
 			query: New(Time(time.InRange(time.Range{times[0], times[1]}))),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.Time[any](times[0])): true,
 				event.New[any]("bar", test.BarEventData{}, event.Time[any](times[1])): true,
 				event.New[any]("baz", test.BazEventData{}, event.Time[any](times[2])): false,
@@ -232,7 +232,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "Time (min/max)",
 			query: New(Time(time.Min(times[0]), time.Max(times[1]))),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.Time[any](times[0])): true,
 				event.New[any]("bar", test.BarEventData{}, event.Time[any](times[1])): true,
 				event.New[any]("baz", test.BazEventData{}, event.Time[any](times[2])): false,
@@ -241,7 +241,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "AggregateName",
 			query: New(AggregateName("foo", "bar")),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0)): true,
 				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](uuid.New(), "bar", 0)): true,
 				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](uuid.New(), "baz", 0)): false,
@@ -250,7 +250,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "AggregateID",
 			query: New(AggregateID(ids[:2]...)),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](ids[0], "foo", 0)): true,
 				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](ids[1], "bar", 0)): true,
 				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](ids[2], "baz", 0)): false,
@@ -259,7 +259,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "AggregateVersion (exact)",
 			query: New(AggregateVersion(version.Exact(1, 2))),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 1)): true,
 				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](uuid.New(), "bar", 2)): true,
 				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](uuid.New(), "baz", 3)): false,
@@ -268,7 +268,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "AggregateVersion (range)",
 			query: New(AggregateVersion(version.InRange(version.Range{1, 2}))),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 1)): true,
 				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](uuid.New(), "bar", 2)): true,
 				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](uuid.New(), "baz", 3)): false,
@@ -277,7 +277,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "AggregateVersion (min/max)",
 			query: New(AggregateVersion(version.Min(1), version.Max(2))),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 1)): true,
 				event.New[any]("bar", test.BarEventData{}, event.Aggregate[any](uuid.New(), "bar", 2)): true,
 				event.New[any]("baz", test.BazEventData{}, event.Aggregate[any](uuid.New(), "baz", 3)): false,
@@ -286,7 +286,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "Aggregate",
 			query: New(Aggregate("foo", aggregateID)),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}):                                              false,
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0)):  false,
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 0)): true,
@@ -296,7 +296,7 @@ func TestTest(t *testing.T) {
 		{
 			name:  "Aggregate (uuid.Nil)",
 			query: New(Aggregate("foo", aggregateID), Aggregate("bar", uuid.Nil)),
-			tests: map[event.Of[any]]bool{
+			tests: map[event.Event]bool{
 				event.New[any]("foo", test.FooEventData{}):                                              false,
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](uuid.New(), "foo", 0)):  false,
 				event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 0)): true,

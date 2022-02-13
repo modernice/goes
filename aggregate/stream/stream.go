@@ -142,7 +142,7 @@ func Filter[D any](fns ...func(event.Of[D]) bool) Option[D] {
 //
 // Use the Drain function to get the Histories as a slice and a single error:
 //
-//	var events <-chan event.EventOf[D]
+//	var events <-chan event.Of[D]
 //	str, errs := stream.New(events)
 //	histories, err := streams.Drain(context.TODO(), str, errs)
 //	// handle err

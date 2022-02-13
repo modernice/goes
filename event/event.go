@@ -12,6 +12,7 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
+// Event is any event.
 type Event = Of[any]
 
 // An Event describes something that has happened in the application or

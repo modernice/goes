@@ -159,11 +159,11 @@ func newMockAggregate(id uuid.UUID) *mockAggregate {
 	}
 }
 
-func (ma *mockAggregate) ApplyEvent(evt event.Of[any]) {
+func (ma *mockAggregate) ApplyEvent(evt event.Event) {
 	data := evt.Data().(test.FoobarEventData)
 	ma.Foo += data.A
 }
 
-func newMockEvent(a aggregate.Aggregate, foo int) event.Of[any] {
+func newMockEvent(a aggregate.Aggregate, foo int) event.Event {
 	return aggregate.NextEvent[any](a, "foobar", test.FoobarEventData{A: foo})
 }

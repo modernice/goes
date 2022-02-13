@@ -101,8 +101,8 @@ func TestMake_skipVersion(t *testing.T) {
 	}
 }
 
-func eventsFor(id uuid.UUID, events ...event.Of[any]) []event.Of[any] {
-	result := make([]event.Of[any], 0, len(events))
+func eventsFor(id uuid.UUID, events ...event.Event) []event.Event {
+	result := make([]event.Event, 0, len(events))
 	for _, evt := range events {
 		if pick.AggregateID(evt) == id {
 			result = append(result, evt)

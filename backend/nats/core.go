@@ -78,7 +78,7 @@ func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (r
 	return rcpt, nil
 }
 
-func (core *core) publish(ctx context.Context, bus *EventBus, evt event.Of[any]) error {
+func (core *core) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w [event=%v, type(data)=%T]", err, evt.Name(), evt.Data())

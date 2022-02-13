@@ -22,8 +22,8 @@ type AggregateOption func(*testAggregate)
 type testAggregate struct {
 	*aggregate.Base
 
-	applyFuncs map[string]func(event.Of[any])
-	trackFunc  func([]event.Of[any], func(...event.Of[any]))
+	applyFuncs map[string]func(event.Event)
+	trackFunc  func([]event.Event, func(...event.Event))
 	commitFunc func(func())
 }
 
@@ -31,7 +31,7 @@ type testAggregate struct {
 func NewAggregate(name string, id uuid.UUID, opts ...AggregateOption) aggregate.Aggregate {
 	a := &testAggregate{
 		Base:       aggregate.New(name, id),
-		applyFuncs: make(map[string]func(event.Of[any])),
+		applyFuncs: make(map[string]func(event.Event)),
 	}
 	for _, opt := range opts {
 		opt(a)
@@ -44,7 +44,7 @@ func NewFoo(id uuid.UUID, opts ...AggregateOption) *Foo {
 	foo := Foo{
 		testAggregate: testAggregate{
 			Base:       aggregate.New("foo", id),
-			applyFuncs: make(map[string]func(event.Of[any])),
+			applyFuncs: make(map[string]func(event.Event)),
 		},
 	}
 
@@ -57,7 +57,7 @@ func NewFoo(id uuid.UUID, opts ...AggregateOption) *Foo {
 
 // ApplyEventFunc returns an AggregateOption that allows users to intercept
 // calls to a.ApplyEvent.
-func ApplyEventFunc(eventName string, fn func(event.Of[any])) AggregateOption {
+func ApplyEventFunc(eventName string, fn func(event.Event)) AggregateOption {
 	return func(a *testAggregate) {
 		a.applyFuncs[eventName] = fn
 	}
@@ -65,7 +65,7 @@ func ApplyEventFunc(eventName string, fn func(event.Of[any])) AggregateOption {
 
 // TrackChangeFunc returns an AggregateOption that allows users to intercept
 // calls to a.TrackChange.
-func TrackChangeFunc(fn func(changes []event.Of[any], track func(...event.Of[any]))) AggregateOption {
+func TrackChangeFunc(fn func(changes []event.Event, track func(...event.Event))) AggregateOption {
 	return func(a *testAggregate) {
 		a.trackFunc = fn
 	}
@@ -80,7 +80,7 @@ func CommitFunc(fn func(flush func())) AggregateOption {
 	}
 }
 
-func (a *testAggregate) ApplyEvent(evt event.Of[any]) {
+func (a *testAggregate) ApplyEvent(evt event.Event) {
 	if fn := a.applyFuncs[evt.Name()]; fn != nil {
 		fn(evt)
 		return
@@ -91,7 +91,7 @@ func (a *testAggregate) ApplyEvent(evt event.Of[any]) {
 	}
 }
 
-func (a *testAggregate) TrackChange(changes ...event.Of[any]) {
+func (a *testAggregate) TrackChange(changes ...event.Event) {
 	if a.trackFunc == nil {
 		a.trackChange(changes...)
 		return
@@ -99,7 +99,7 @@ func (a *testAggregate) TrackChange(changes ...event.Of[any]) {
 	a.trackFunc(changes, a.trackChange)
 }
 
-func (a *testAggregate) trackChange(changes ...event.Of[any]) {
+func (a *testAggregate) trackChange(changes ...event.Event) {
 	a.Base.TrackChange(changes...)
 }
 

@@ -92,7 +92,7 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	ex := Expect(ctx)
 	ex.Events(sub, 100*time.Millisecond, "foo", "baz")
 
-	evts := []event.Of[any]{
+	evts := []event.Event{
 		event.New("foo", test.FooEventData{}).Any(),
 		event.New("baz", test.BazEventData{}).Any(),
 	}
@@ -186,7 +186,7 @@ func PublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	ex := Expect(ctx)
 	ex.Events(sub, 500*time.Millisecond, "foo", "baz")
 
-	evts := []event.Of[any]{
+	evts := []event.Event{
 		event.New("foo", test.FooEventData{}).Any(),
 		event.New("baz", test.BazEventData{}).Any(),
 		event.New("foobar", test.FoobarEventData{}).Any(),

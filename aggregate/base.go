@@ -33,6 +33,24 @@ func Version(v int) Option {
 	}
 }
 
+// New returns a new base aggregate.
+func New(name string, id uuid.UUID, opts ...Option) *Base {
+	b := &Base{
+		ID:       id,
+		Name:     name,
+		handlers: make(map[string]func(event.Event)),
+	}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b
+}
+
+// ApplyWith is an alias for event.RegisterHandler.
+func ApplyWith[Data any](a event.Handler, eventName string, apply func(event.Of[Data])) {
+	event.RegisterHandler(a, eventName, apply)
+}
+
 // RegisterHandler registers an event handler for the given event name.
 // When b.ApplyEvent is called and a handler is registered for the given event,
 // the provided handler is called.
@@ -40,19 +58,6 @@ func Version(v int) Option {
 // This method implements event.Handler.
 func (b *Base) RegisterHandler(eventName string, handle func(event.Event)) {
 	b.handlers[eventName] = handle
-}
-
-// New returns a new base aggregate.
-func New(name string, id uuid.UUID, opts ...Option) *Base {
-	b := &Base{
-		ID:       id,
-		Name:     name,
-		handlers: make(map[string]func(event.Of[any])),
-	}
-	for _, opt := range opts {
-		opt(b)
-	}
-	return b
 }
 
 func (b *Base) Aggregate() (uuid.UUID, string, int) {

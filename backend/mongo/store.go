@@ -55,7 +55,7 @@ type VersionError struct {
 	CurrentVersion int
 
 	// Event is the event with the invalid version.
-	Event event.Of[any]
+	Event event.Event
 }
 
 type state struct {
@@ -191,7 +191,7 @@ func (s *EventStore) StateCollection() *mongo.Collection {
 }
 
 // Insert saves the given Events into the database.
-func (s *EventStore) Insert(ctx context.Context, events ...event.Of[any]) error {
+func (s *EventStore) Insert(ctx context.Context, events ...event.Event) error {
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
@@ -236,7 +236,7 @@ func (s *EventStore) Insert(ctx context.Context, events ...event.Of[any]) error 
 	})
 }
 
-func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []event.Of[any]) (state, error) {
+func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []event.Event) (state, error) {
 	if len(events) == 0 {
 		return state{}, nil
 	}
@@ -279,7 +279,7 @@ func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []ev
 	return st, nil
 }
 
-func (s *EventStore) updateState(ctx mongo.SessionContext, st state, events []event.Of[any]) error {
+func (s *EventStore) updateState(ctx mongo.SessionContext, st state, events []event.Event) error {
 	if len(events) == 0 || st.AggregateName == "" || st.AggregageID == uuid.Nil {
 		return nil
 	}
@@ -298,7 +298,7 @@ func (s *EventStore) updateState(ctx mongo.SessionContext, st state, events []ev
 	return nil
 }
 
-func (s *EventStore) insert(ctx context.Context, events []event.Of[any]) error {
+func (s *EventStore) insert(ctx context.Context, events []event.Event) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -328,7 +328,7 @@ func (s *EventStore) insert(ctx context.Context, events []event.Of[any]) error {
 }
 
 // Find returns the Event with the specified UUID from the database if it exists.
-func (s *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Of[any], error) {
+func (s *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
@@ -341,7 +341,7 @@ func (s *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Of[any], err
 }
 
 // Delete deletes the given Event from the database.
-func (s *EventStore) Delete(ctx context.Context, events ...event.Of[any]) error {
+func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -419,7 +419,7 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.Of[any]) error 
 
 // Query queries the database for events filtered by Query q and returns an
 // streams.New for those events.
-func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Of[any], <-chan error, error) {
+func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
@@ -433,7 +433,7 @@ func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Of[
 		return nil, nil, fmt.Errorf("mongo: %w", err)
 	}
 
-	events := make(chan event.Of[any])
+	events := make(chan event.Event)
 	errs := make(chan error)
 
 	go func() {
@@ -579,7 +579,7 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 	return nil
 }
 
-func (e entry) event(enc codec.Encoding) (event.Of[any], error) {
+func (e entry) event(enc codec.Encoding) (event.Event, error) {
 	data, err := enc.Decode(bytes.NewReader(e.Data), e.Name)
 	if err != nil {
 		return nil, fmt.Errorf("decode %q event data: %w", e.Name, err)

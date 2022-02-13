@@ -6,14 +6,19 @@ import (
 	"github.com/modernice/goes/helper/pick"
 )
 
+// A Handler is an object that can register handlers for different events.
 type Handler interface {
+	// RegisterHandler registers an event handler for the given event name.
 	RegisterHandler(eventName string, handler func(Event))
 }
 
 // RegisterHandler registers an event handler for the given event name.
-// The provided eventHandler should usually be an aggregate or projection that
-// uses the registered handler to apply the events onto itself. The *Base
-// aggregate implements Handler.
+// The provided Handler should usually be an aggregate or projection that uses
+// the registered handler to apply the events onto itself.
+//
+// Handler is implemented by
+//  - aggregate.Base
+//  - projection.Base
 //
 //	type Foo struct {
 //		*aggregate.Base
@@ -35,15 +40,15 @@ type Handler interface {
 //		return foo
 //	}
 //
-//	func (f *Foo) foo(e event.EventOf[FooEvent]) {
+//	func (f *Foo) foo(e event.Of[FooEvent]) {
 //		f.Foo = e.Data().Foo
 //	}
 //
-//	func (f *Foo) foo(e event.EventOf[BarEvent]) {
+//	func (f *Foo) foo(e event.Of[BarEvent]) {
 //		f.Bar = e.Data().Bar
 //	}
 //
-//	func (f *Foo) foo(e event.EventOf[BazEvent]) {
+//	func (f *Foo) foo(e event.Of[BazEvent]) {
 //		f.Baz = e.Data().Baz
 //	}
 func RegisterHandler[D any](eh Handler, eventName string, handler func(Of[D])) {
@@ -55,11 +60,12 @@ func RegisterHandler[D any](eh Handler, eventName string, handler func(Of[D])) {
 			if a, ok := eh.(pick.AggregateProvider); ok {
 				aggregateName = pick.AggregateName(a)
 			}
+			var zero D
 			panic(fmt.Errorf(
 				"[goes/event.RegisterHandler] Cannot cast %T to %T. "+
 					"You probably provided the wrong event name for this handler. "+
 					"[event=%v, aggregate=%v]",
-				evt, casted, eventName, aggregateName,
+				evt.Data(), zero, eventName, aggregateName,
 			))
 		}
 	})
