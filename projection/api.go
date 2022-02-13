@@ -50,7 +50,13 @@ type Resetter interface {
 // events. When a projection p implements Guard, p.GuardProjection(e) is called
 // for every Event e and prevents the p.ApplyEvent(e) call if GuardProjection
 // returns false.
-type Guard[D any] interface {
+type Guard = GuardOf[any]
+
+// GuardOf can be implemented by projection to prevent the application of an
+// events. When a projection p implements Guard, p.GuardProjection(e) is called
+// for every Event e and prevents the p.ApplyEvent(e) call if GuardProjection
+// returns false.
+type GuardOf[D any] interface {
 	// GuardProjection determines whether an Event is allowed to be applied onto a projection.
 	GuardProjection(event.Of[D]) bool
 }

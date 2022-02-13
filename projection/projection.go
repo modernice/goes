@@ -46,7 +46,7 @@ func Apply[D any, Event event.Of[D], Events ~[]Event](proj EventApplier[D], even
 	cfg := newApplyConfig(opts...)
 
 	progressor, isProgressor := proj.(Progressing)
-	guard, hasGuard := proj.(Guard[D])
+	guard, hasGuard := proj.(GuardOf[D])
 
 	for _, evt := range events {
 		if hasGuard && !guard.GuardProjection(evt) {
