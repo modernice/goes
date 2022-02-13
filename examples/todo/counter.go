@@ -13,7 +13,7 @@ import (
 
 // Counter provides the number of active, removed and archived tasks.
 type Counter struct {
-	*projection.Applier
+	*projection.Base
 
 	sync.RWMutex
 	active   int
@@ -23,11 +23,12 @@ type Counter struct {
 
 // NewCounter returns a new task counter.
 func NewCounter() *Counter {
-	c := &Counter{Applier: projection.NewApplier()}
+	c := &Counter{Base: projection.New()}
 
-	event.RegisterHandler(c, TaskAdded, c.taskAdded)
-	event.RegisterHandler(c, TaskRemoved, c.taskRemoved)
-	event.RegisterHandler(c, TasksDone, c.tasksDone)
+	// Register event appliers for each of the projection events.
+	projection.ApplyWith(c, TaskAdded, c.taskAdded)
+	projection.ApplyWith(c, TaskRemoved, c.taskRemoved)
+	projection.ApplyWith(c, TasksDone, c.tasksDone)
 
 	return c
 }

@@ -24,10 +24,10 @@ type List struct {
 func New(id uuid.UUID) *List {
 	list := &List{Base: aggregate.New(ListAggregate, id)}
 
-	// Register the event handlers/appliers for each of the aggregate events.
-	event.RegisterHandler(list, TaskAdded, list.add)
-	event.RegisterHandler(list, TaskRemoved, list.remove)
-	event.RegisterHandler(list, TasksDone, list.done)
+	// Register the event appliers for each of the aggregate events.
+	aggregate.ApplyWith(list, TaskAdded, list.add)
+	aggregate.ApplyWith(list, TaskRemoved, list.remove)
+	aggregate.ApplyWith(list, TasksDone, list.done)
 
 	return list
 }
