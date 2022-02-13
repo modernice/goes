@@ -7,10 +7,6 @@ components of this library, feel free [open an issue](
 http://github.com/modernice/goes/issues) or [start a discussion](
 http://github.com/modernice/goes/discussions). Feedback is always welcome.
 
-> The [generics](https://github.com/modernice/goes/tree/generics) branch will be
-merged into main with Go 1.18, so the API will also change a bit to make use of
-generics.
-
 `goes` is a collection of interfaces, tools and backend implementations that
 allow you to write event-sourced applications in Go.
 
