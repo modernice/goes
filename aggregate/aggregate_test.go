@@ -97,7 +97,7 @@ func TestApplyHistory(t *testing.T) {
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](foo.AggregateID(), foo.AggregateName(), 3)),
 	}
 
-	if err := aggregate.ApplyHistory[any](foo, events); err != nil {
+	if err := aggregate.ApplyHistory(foo, events); err != nil {
 		t.Fatalf("history could not be applied: %v", err)
 	}
 

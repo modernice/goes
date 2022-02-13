@@ -290,7 +290,7 @@ func (s *stream[D]) sortEvents() {
 
 		if s.validateConsistency {
 			a := aggregate.New(j.name, j.id)
-			if err := aggregate.ValidateConsistency[D](a, events); err != nil {
+			if err := aggregate.ValidateConsistency(a, events); err != nil {
 				s.outErrors <- err
 				continue
 			}
@@ -299,7 +299,7 @@ func (s *stream[D]) sortEvents() {
 		s.out <- applier{
 			job: j,
 			apply: func(a aggregate.Aggregate) {
-				aggregate.ApplyHistory[D](a, events)
+				aggregate.ApplyHistory(a, events)
 			},
 		}
 	}

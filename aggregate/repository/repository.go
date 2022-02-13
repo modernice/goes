@@ -257,7 +257,7 @@ func (r *Repository) fetch(ctx context.Context, a aggregate.Aggregate, opts ...e
 		return fmt.Errorf("query events: %w", err)
 	}
 
-	if err = aggregate.ApplyHistory[any](a, events); err != nil {
+	if err = aggregate.ApplyHistory(a, events); err != nil {
 		return fmt.Errorf("apply history: %w", err)
 	}
 

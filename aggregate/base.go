@@ -116,14 +116,14 @@ func (b *Base) SetVersion(v int) {
 // ApplyHistory applies the given events to the aggregate a to reconstruct the
 // state of a at the time of the latest event. If the aggregate implements
 // Committer, a.TrackChange(events) and a.Commit() are called before returning.
-func ApplyHistory[D any, E event.Of[D], Events ~[]E](a Aggregate, events Events) error {
-	if err := ValidateConsistency[D, E, Events](a, events); err != nil {
+func ApplyHistory[Events ~[]event.Of[Data], Data any](a Aggregate, events Events) error {
+	if err := ValidateConsistency[Events, Data](a, events); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 
 	aevents := make([]event.Event, len(events))
 	for i, evt := range events {
-		aevt := event.Any[D](evt)
+		aevt := event.Any(evt)
 		aevents[i] = aevt
 		a.ApplyEvent(aevt)
 	}

@@ -142,7 +142,7 @@ func TestStream_inconsistent(t *testing.T) {
 		t.Fatalf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *aggregate.ConsistencyError[any, event.Event]
+	var cerr *aggregate.ConsistencyError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("stream should return an error of type %T; got %T", cerr, err)
 	}
@@ -174,7 +174,7 @@ func TestSorted(t *testing.T) {
 		t.Errorf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *aggregate.ConsistencyError[any, event.Event]
+	var cerr *aggregate.ConsistencyError
 	if !errors.As(err, &cerr) {
 		t.Errorf("stream should return an error of type %T; got %T", cerr, err)
 	}
