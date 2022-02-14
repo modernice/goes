@@ -49,7 +49,7 @@ func TestList_Add_alreadyExists(t *testing.T) {
 		t.Fatalf("Tasks should be unique")
 	}
 
-	test.Change(t, list, todo.TaskAdded, test.EventData("foo"), test.Exactly[string](1))
+	test.Change(t, list, todo.TaskAdded, test.EventData("foo"), test.Exactly(1))
 }
 
 func TestList_Remove(t *testing.T) {

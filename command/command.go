@@ -1,7 +1,5 @@
 package command
 
-//go:generate mockgen -destination=./mocks/command.go . Command,Bus
-
 import (
 	"context"
 	"errors"

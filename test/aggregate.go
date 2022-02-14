@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/event"
 )
 
 var (
@@ -26,39 +25,37 @@ var (
 //		return &Foo{Base: aggregate.New()}
 //	}
 //
-//	func TestNewFoo() {
-//		test[E any].NewAggregate(func(id uuid.UUID) aggregate.Aggregate {
-//			return NewFoo(id)
-//		})
+//	func TestNewFoo(t *testing.T) {
+//		test.NewAggregate(t, NewFoo, "foo")
 //	}
-func NewAggregate[A aggregate.Aggregate](t TestingT, newFunc func(uuid.UUID) A, expectedName string) {
+func NewAggregate[Aggregate aggregate.Aggregate](t TestingT, newFunc func(uuid.UUID) Aggregate, expectedName string) {
 	a := newFunc(ExampleID)
 
 	id, name, _ := a.Aggregate()
 
 	if name != expectedName {
-		t.Fatal(fmt.Sprintf("AggregateName() should return %q; got %q", expectedName, name))
+		t.Fatal(fmt.Sprintf("aggregate name should be %q; is %q", expectedName, name))
 	}
 
 	if id != ExampleID {
-		t.Fatal(fmt.Sprintf("AggregateID() should return %q; got %q", ExampleID, id))
+		t.Fatal(fmt.Sprintf("aggregate id should be %q; is %q", ExampleID, id))
 	}
 }
 
 // ExpectedChangeError is returned by the `Change` testing helper when the
 // testd Aggregate doesn't have the required change.
-type ExpectedChangeError[E any] struct {
+type ExpectedChangeError struct {
 	// EventName is the name of the tested change.
 	EventName string
 
 	// Matches is the number of changes that matched.
 	Matches int
 
-	cfg          changeConfig[E]
-	mismatchData []E
+	cfg          changeConfig
+	mismatchData []any
 }
 
-func (err ExpectedChangeError[E]) Error() string {
+func (err ExpectedChangeError) Error() string {
 	var eventDataSuffix string
 
 	if err.cfg.hasEventData {
@@ -96,10 +93,10 @@ func (err UnexpectedChangeError) Error() string {
 }
 
 // ChangeOption is an option for the `Change` testing helper.
-type ChangeOption[E any] func(*changeConfig[E])
+type ChangeOption func(*changeConfig)
 
-type changeConfig[E any] struct {
-	eventData    E
+type changeConfig struct {
+	eventData    any
 	hasEventData bool
 	changeConfigValues
 }
@@ -112,9 +109,9 @@ type changeConfigValues struct {
 
 // EventData returns a ChangeOption that also tests the event data of
 // changes instead of just the event name.
-func EventData[E any](d E) ChangeOption[E] {
-	return func(cfg *changeConfig[E]) {
-		cfg.eventData = d
+func EventData(data any) ChangeOption {
+	return func(cfg *changeConfig) {
+		cfg.eventData = data
 		cfg.hasEventData = true
 	}
 }
@@ -123,8 +120,8 @@ func EventData[E any](d E) ChangeOption[E] {
 // least as many times as provided.
 //
 // AtLeast has no effect when used in `NoChange`.
-func AtLeast[E any](times int) ChangeOption[E] {
-	return func(cfg *changeConfig[E]) {
+func AtLeast(times int) ChangeOption {
+	return func(cfg *changeConfig) {
 		cfg.atLeast = times
 	}
 }
@@ -133,8 +130,8 @@ func AtLeast[E any](times int) ChangeOption[E] {
 // most as many times as provided.
 //
 // AtMost has no effect when used in `NoChange`.
-func AtMost[E any](times int) ChangeOption[E] {
-	return func(cfg *changeConfig[E]) {
+func AtMost(times int) ChangeOption {
+	return func(cfg *changeConfig) {
 		cfg.atMost = times
 	}
 }
@@ -143,39 +140,41 @@ func AtMost[E any](times int) ChangeOption[E] {
 // exactly as many times as provided.
 //
 // Exactly has no effect when used in `NoChange`.
-func Exactly[E any](times int) ChangeOption[E] {
-	return func(cfg *changeConfig[E]) {
+func Exactly(times int) ChangeOption {
+	return func(cfg *changeConfig) {
 		cfg.exactly = times
 	}
 }
 
 // Change tests an Aggregate for a change. The Aggregate must have an
 // uncommitted change with the specified event name.
-func Change[E any](t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeOption[E]) {
-	var cfg changeConfig[E]
+func Change(t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeOption) {
+	var cfg changeConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
 	var matches int
-	var mismatchData []E
+	var mismatchData []any
 
 	for _, change := range a.AggregateChanges() {
 		if change.Name() != eventName {
 			continue
 		}
 
-		casted, ok := event.TryCast[E](change)
-		if !ok {
-			t.Fatal(fmt.Errorf(
-				"cannot cast %T to %T. either provide %T to the test.EventData option or provide the correct event name for %T.",
-				change.Data(), casted.Data(), casted.Data(), casted.Data(),
-			))
-			continue
-		}
+		// casted, ok := event.TryCast[E](change)
+		// if !ok {
+		// 	t.Fatal(fmt.Errorf(
+		// 		"cannot cast %T to %T. either provide %T to the test.EventData option or provide the correct event name for %T.",
+		// 		change.Data(), casted.Data(), casted.Data(), casted.Data(),
+		// 	))
+		// 	continue
+		// }
 
-		if cfg.hasEventData && !reflect.DeepEqual(cfg.eventData, change.Data()) {
-			mismatchData = append(mismatchData, casted.Data())
+		data := change.Data()
+
+		if cfg.hasEventData && !reflect.DeepEqual(cfg.eventData, data) {
+			mismatchData = append(mismatchData, data)
 			continue
 		}
 
@@ -183,7 +182,7 @@ func Change[E any](t TestingT, a aggregate.Aggregate, eventName string, opts ...
 	}
 
 	if cfg.atLeast > 0 && matches < cfg.atLeast {
-		t.Fatal(&ExpectedChangeError[E]{
+		t.Fatal(&ExpectedChangeError{
 			EventName: eventName,
 			Matches:   matches,
 			cfg:       cfg,
@@ -192,7 +191,7 @@ func Change[E any](t TestingT, a aggregate.Aggregate, eventName string, opts ...
 	}
 
 	if cfg.atMost > 0 && matches > cfg.atMost {
-		t.Fatal(&ExpectedChangeError[E]{
+		t.Fatal(&ExpectedChangeError{
 			EventName: eventName,
 			Matches:   matches,
 			cfg:       cfg,
@@ -201,7 +200,7 @@ func Change[E any](t TestingT, a aggregate.Aggregate, eventName string, opts ...
 	}
 
 	if matches == 0 || (cfg.exactly > 0 && matches != cfg.exactly) {
-		t.Fatal(&ExpectedChangeError[E]{
+		t.Fatal(&ExpectedChangeError{
 			EventName:    eventName,
 			Matches:      matches,
 			cfg:          cfg,
@@ -212,8 +211,8 @@ func Change[E any](t TestingT, a aggregate.Aggregate, eventName string, opts ...
 
 // Change tests an Aggregate for a change. The Aggregate must not have an
 // uncommitted change with the specified event name.
-func NoChange[E any](t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeOption[E]) {
-	var cfg changeConfig[E]
+func NoChange(t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeOption) {
+	var cfg changeConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}

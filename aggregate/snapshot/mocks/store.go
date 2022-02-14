@@ -46,7 +46,7 @@ func (m *MockStore) Delete(arg0 context.Context, arg1 snapshot.Snapshot) error {
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockStoreMockRecorder) Delete(arg0, arg1 any) *gomock.Call {
+func (mr *MockStoreMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStore)(nil).Delete), arg0, arg1)
 }
@@ -61,7 +61,7 @@ func (m *MockStore) Latest(arg0 context.Context, arg1 string, arg2 uuid.UUID) (s
 }
 
 // Latest indicates an expected call of Latest.
-func (mr *MockStoreMockRecorder) Latest(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockStoreMockRecorder) Latest(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Latest", reflect.TypeOf((*MockStore)(nil).Latest), arg0, arg1, arg2)
 }
@@ -76,7 +76,7 @@ func (m *MockStore) Limit(arg0 context.Context, arg1 string, arg2 uuid.UUID, arg
 }
 
 // Limit indicates an expected call of Limit.
-func (mr *MockStoreMockRecorder) Limit(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockStoreMockRecorder) Limit(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Limit", reflect.TypeOf((*MockStore)(nil).Limit), arg0, arg1, arg2, arg3)
 }
@@ -92,7 +92,7 @@ func (m *MockStore) Query(arg0 context.Context, arg1 snapshot.Query) (<-chan sna
 }
 
 // Query indicates an expected call of Query.
-func (mr *MockStoreMockRecorder) Query(arg0, arg1 any) *gomock.Call {
+func (mr *MockStoreMockRecorder) Query(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockStore)(nil).Query), arg0, arg1)
 }
@@ -106,7 +106,7 @@ func (m *MockStore) Save(arg0 context.Context, arg1 snapshot.Snapshot) error {
 }
 
 // Save indicates an expected call of Save.
-func (mr *MockStoreMockRecorder) Save(arg0, arg1 any) *gomock.Call {
+func (mr *MockStoreMockRecorder) Save(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockStore)(nil).Save), arg0, arg1)
 }
@@ -121,7 +121,7 @@ func (m *MockStore) Version(arg0 context.Context, arg1 string, arg2 uuid.UUID, a
 }
 
 // Version indicates an expected call of Version.
-func (mr *MockStoreMockRecorder) Version(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockStoreMockRecorder) Version(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockStore)(nil).Version), arg0, arg1, arg2, arg3)
 }

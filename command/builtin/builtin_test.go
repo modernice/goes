@@ -51,7 +51,7 @@ func TestDeleteAggregate(t *testing.T) {
 
 	bus := cmdbus.New(reg, ebus)
 
-	go panicOn(builtin.MustHandle[any](ctx, bus, repo, builtin.PublishEvents(ebus, nil)))
+	go panicOn(builtin.MustHandle(ctx, bus, repo, builtin.PublishEvents(ebus, nil)))
 
 	foo := newMockAggregate(aggregateID)
 	newMockEvent(foo, 2)

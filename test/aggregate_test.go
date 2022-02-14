@@ -37,13 +37,13 @@ func TestNewAggregate(t *testing.T) {
 			new: func(id uuid.UUID) aggregate.Aggregate {
 				return aggregate.New("bar", id)
 			},
-			wantError: fmt.Sprintf("AggregateName() should return %q; got %q", name, "bar"),
+			wantError: fmt.Sprintf("aggregate name should be %q; is %q", name, "bar"),
 		},
 		{
 			new: func(id uuid.UUID) aggregate.Aggregate {
 				return aggregate.New(name, id2)
 			},
-			wantError: fmt.Sprintf("AggregateID() should return %q; got %q", test.ExampleID, id2),
+			wantError: fmt.Sprintf("aggregate id should be %q; is %q", test.ExampleID, id2),
 		},
 	}
 
@@ -65,14 +65,14 @@ func TestChange_expectedChange(t *testing.T) {
 	foo := aggregate.New("foo", uuid.New())
 
 	var err error
-	var changeError *test.ExpectedChangeError[any]
+	var changeError *test.ExpectedChangeError
 
 	tt := mock_test.NewMockTestingT(ctrl)
 	tt.EXPECT().Fatal(gomock.Any()).Do(func(args ...any) {
 		err, _ = args[0].(error)
 	})
 
-	test.Change[any](tt, foo, "evt")
+	test.Change(tt, foo, "evt")
 
 	if !errors.As(err, &changeError) {
 		t.Fatalf("Change() should fail with %T; got %#v", changeError, err)
@@ -92,7 +92,7 @@ func TestChange(t *testing.T) {
 
 	tt := mock_test.NewMockTestingT(ctrl)
 
-	test.Change[any](tt, foo, "evt")
+	test.Change(tt, foo, "evt")
 }
 
 func TestChange_WithEventData(t *testing.T) {
@@ -105,13 +105,13 @@ func TestChange_WithEventData(t *testing.T) {
 	tt := mock_test.NewMockTestingT(ctrl)
 	tt.EXPECT().Fatal(gomock.Any())
 
-	test.Change[any](tt, foo, "evt", test.EventData[any](mockEventData{A: "foo"}))
+	test.Change(tt, foo, "evt", test.EventData(mockEventData{A: "foo"}))
 
 	foo.TrackChange(event.New("evt", mockEventData{A: "foo"}).Any())
 
 	tt = mock_test.NewMockTestingT(ctrl)
 
-	test.Change[any](tt, foo, "evt", test.EventData[any](mockEventData{A: "foo"}))
+	test.Change(tt, foo, "evt", test.EventData(mockEventData{A: "foo"}))
 }
 
 func TestChange_AtLeast(t *testing.T) {
@@ -127,17 +127,17 @@ func TestChange_AtLeast(t *testing.T) {
 	tt := mock_test.NewMockTestingT(ctrl)
 	tt.EXPECT().Fatal(gomock.Any())
 
-	test.Change[any](tt, foo, "evt", test.AtLeast[any](3))
+	test.Change(tt, foo, "evt", test.AtLeast(3))
 
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt = mock_test.NewMockTestingT(ctrl)
 
-	test.Change[any](tt, foo, "evt", test.AtLeast[any](3))
+	test.Change(tt, foo, "evt", test.AtLeast(3))
 
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
-	test.Change[any](tt, foo, "evt", test.AtLeast[any](3))
+	test.Change(tt, foo, "evt", test.AtLeast(3))
 }
 
 func TestChange_AtMost(t *testing.T) {
@@ -152,29 +152,29 @@ func TestChange_AtMost(t *testing.T) {
 
 	tt := mock_test.NewMockTestingT(ctrl)
 
-	test.Change[any](tt, foo, "evt", test.AtMost[any](2))
+	test.Change(tt, foo, "evt", test.AtMost(2))
 
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt = mock_test.NewMockTestingT(ctrl)
 	tt.EXPECT().Fatal(gomock.Any())
 
-	test.Change[any](tt, foo, "evt", test.AtMost[any](2))
+	test.Change(tt, foo, "evt", test.AtMost(2))
 
 	tt = mock_test.NewMockTestingT(ctrl)
 
-	test.Change[any](tt, foo, "evt", test.AtMost[any](3))
+	test.Change(tt, foo, "evt", test.AtMost(3))
 
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
-	test.Change[any](tt, foo, "evt", test.AtMost[any](4))
+	test.Change(tt, foo, "evt", test.AtMost(4))
 
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt = mock_test.NewMockTestingT(ctrl)
 	tt.EXPECT().Fatal(gomock.Any())
 
-	test.Change[any](tt, foo, "evt", test.AtMost[any](4))
+	test.Change(tt, foo, "evt", test.AtMost(4))
 }
 
 func TestChange_Exactly(t *testing.T) {
@@ -190,20 +190,20 @@ func TestChange_Exactly(t *testing.T) {
 	tt := mock_test.NewMockTestingT(ctrl)
 	tt.EXPECT().Fatal(gomock.Any())
 
-	test.Change[any](tt, foo, "evt", test.Exactly[any](3))
+	test.Change(tt, foo, "evt", test.Exactly(3))
 
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt = mock_test.NewMockTestingT(ctrl)
 
-	test.Change[any](tt, foo, "evt", test.Exactly[any](3))
+	test.Change(tt, foo, "evt", test.Exactly(3))
 
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt = mock_test.NewMockTestingT(ctrl)
 	tt.EXPECT().Fatal(gomock.Any())
 
-	test.Change[any](tt, foo, "evt", test.Exactly[any](3))
+	test.Change(tt, foo, "evt", test.Exactly(3))
 }
 
 func TestNoChange(t *testing.T) {
@@ -214,7 +214,7 @@ func TestNoChange(t *testing.T) {
 
 	tt := mock_test.NewMockTestingT(ctrl)
 
-	test.NoChange[any](tt, foo, "evt")
+	test.NoChange(tt, foo, "evt")
 }
 
 func TestNoChange_unexpectedChange(t *testing.T) {
@@ -232,7 +232,7 @@ func TestNoChange_unexpectedChange(t *testing.T) {
 		err, _ = args[0].(error)
 	})
 
-	test.NoChange[any](tt, foo, "evt")
+	test.NoChange(tt, foo, "evt")
 
 	if !errors.As(err, &noChangeError) {
 		t.Fatalf("NoChange() should fail with %T; got %#v", noChangeError, err)
@@ -251,12 +251,12 @@ func TestNoChange_WithEventData(t *testing.T) {
 	foo.TrackChange(event.New("evt", mockEventData{}).Any())
 
 	tt := mock_test.NewMockTestingT(ctrl)
-	test.NoChange[any](tt, foo, "evt", test.EventData[any](mockEventData{A: "foo"}))
+	test.NoChange(tt, foo, "evt", test.EventData(mockEventData{A: "foo"}))
 
 	foo.TrackChange(event.New("evt", mockEventData{A: "foo"}).Any())
 
 	tt = mock_test.NewMockTestingT(ctrl)
 	tt.EXPECT().Fatal(gomock.Any())
 
-	test.NoChange[any](tt, foo, "evt", test.EventData[any](mockEventData{A: "foo"}))
+	test.NoChange(tt, foo, "evt", test.EventData(mockEventData{A: "foo"}))
 }
