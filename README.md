@@ -37,17 +37,11 @@ https://github.com/heynickc/awesome-ddd) before reading further.
   - Aggregates
   - Commands
   - Projections
-- Development Tools
-  - Code Generators (?)
+- Development Tooling
   - Event Store CLI/UI
   - Projection CLI/UI
 - Documentation
   - Examples / Guides
-- Generics
-  - [Helpers](./helper)
-  - `codec.Registry`
-  - `event.Event` (?)
-  - `command.Command` (?)
 
 ## Getting Started
 
@@ -59,7 +53,7 @@ go get github.com/modernice/goes
 
 ### Examples
 
-[~~A full example of an app can be found here.~~ (To-Do)](./examples)
+[Here is a small example of a simple To-Do app.](./examples/todo)
 
 ### Guides
 
