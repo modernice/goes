@@ -12,7 +12,7 @@ import (
 // If len(in) == 0, FanIn returns a closed channel.
 //
 // Multiple calls to stop have no effect.
-func FanIn[T any, Chan ~<-chan T](in ...Chan) (_ Chan, stop func()) {
+func FanIn[T any](in ...<-chan T) (_ <-chan T, stop func()) {
 	stopped := make(chan struct{})
 	var once sync.Once
 	stop = func() { once.Do(func() { close(stopped) }) }
@@ -22,7 +22,7 @@ func FanIn[T any, Chan ~<-chan T](in ...Chan) (_ Chan, stop func()) {
 	var wg sync.WaitGroup
 	wg.Add(len(in))
 	for _, in := range in {
-		go func(in Chan) {
+		go func(in <-chan T) {
 			defer wg.Done()
 			for {
 				select {
@@ -55,8 +55,8 @@ func FanIn[T any, Chan ~<-chan T](in ...Chan) (_ Chan, stop func()) {
 // the returned channel is closed.
 //
 // If len(in) == 0, FanInContext returns a closed channel.
-func FanInContext[T any, Chan ~<-chan T](ctx context.Context, in ...Chan) Chan {
-	out, stop := FanIn[T, Chan](in...)
+func FanInContext[T any](ctx context.Context, in ...<-chan T) <-chan T {
+	out, stop := FanIn(in...)
 	go func() {
 		<-ctx.Done()
 		stop()
