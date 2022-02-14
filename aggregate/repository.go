@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event/query/version"
 )
 
@@ -81,11 +82,7 @@ type Repository interface {
 //	var repo aggregate.Repository
 //	typed := repository.Typed(repo, NewFoo)
 type TypedRepository[A Aggregate] interface {
-	// Save inserts the changes of the aggregate into the event store.
-	Save(ctx context.Context, a A) error
-
-	// Fetch fetches the given aggregate from the event store.
-	Fetch(ctx context.Context, id uuid.UUID) (A, error)
+	goes.TypedRepository[uuid.UUID, A]
 
 	// FetchVersion fetches all events for the given aggregate up to the given
 	// version from the event store and applies them onto the aggregate.
@@ -112,16 +109,6 @@ type TypedRepository[A Aggregate] interface {
 	//		// a is your aggregate
 	//	}
 	Query(ctx context.Context, q Query) (<-chan A, <-chan error, error)
-
-	// Use first fetches the given aggregate from the event store, then calls
-	// the provided function with the aggregate as the argument and finally
-	// save aggregate back to the event store. If fn returns a non-nil error,
-	// the aggregate is not saved and the error is returned.
-	Use(ctx context.Context, id uuid.UUID, fn func(A) error) error
-
-	// Delete deletes the given aggregate by deleting all of its events from the
-	// event store.
-	Delete(ctx context.Context, a A) error
 }
 
 // Query is used by repositories to filter aggregates from the event store.
