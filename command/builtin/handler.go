@@ -26,8 +26,8 @@ func PublishEvents(bus event.Bus, store event.Store) HandleOption {
 }
 
 // MustHandle does the same as Handle, but panic if command registration fails.
-func MustHandle[P any](ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) <-chan error {
-	errs, err := Handle[P](ctx, bus, repo, opts...)
+func MustHandle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) <-chan error {
+	errs, err := Handle(ctx, bus, repo, opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +41,7 @@ func MustHandle[P any](ctx context.Context, bus command.Bus, repo aggregate.Repo
 //
 // The following commands are handled:
 //	- DeleteAggregateCmd ("goes.command.aggregate.delete")
-func Handle[P any](ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) (<-chan error, error) {
+func Handle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) (<-chan error, error) {
 	var cfg handleConfig
 	for _, opt := range opts {
 		opt(&cfg)
