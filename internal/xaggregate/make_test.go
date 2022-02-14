@@ -32,7 +32,7 @@ func TestMake(t *testing.T) {
 			t.Errorf("aggregate should not have any events applied; got %d", l)
 		}
 
-		evt := event.New[any]("foo", test.FooEventData{}, event.Aggregate[any](id, name, v+1))
+		evt := event.New[any]("foo", test.FooEventData{}, event.Aggregate(id, name, v+1))
 		a.ApplyEvent(evt)
 
 		test.AssertEqualEvents(t, getAppliedEvents(id), []event.Event{evt})

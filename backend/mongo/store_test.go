@@ -57,9 +57,9 @@ func TestStore_Insert_versionError(t *testing.T) {
 	}
 
 	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+5)),
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+6)),
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](a.AggregateID(), a.AggregateName(), a.AggregateVersion()+7)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+5)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+6)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+7)),
 	}
 
 	err := s.Insert(context.Background(), events...)

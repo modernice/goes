@@ -75,13 +75,13 @@ func makeAggregateEvents(name string, data any, n int, cfg makeConfig) []event.E
 		aid, aname, av := a.Aggregate()
 
 		for i := range aevents {
-			var opts []event.Option[any]
+			var opts []event.Option
 			v := cfg.aggregateVersion(av, i, &skipped)
-			opts = append(opts, event.Aggregate[any](
+			opts = append(opts, event.Aggregate(
 				aid,
 				aname,
 				v,
-			), event.Time[any](t))
+			), event.Time(t))
 			aevents[i] = event.New(name, data, opts...)
 			t = t.Add(time.Nanosecond)
 		}

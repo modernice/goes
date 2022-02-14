@@ -1,6 +1,7 @@
 package stream_test
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 
@@ -126,12 +127,12 @@ func benchmark(b *testing.B, naggregates, nevents int) {
 func run(b *testing.B, naggregates, nevents int, grouped, sorted bool) {
 	as := makeAggregates(naggregates)
 	events := makeEvents(nevents, as, grouped, sorted)
-	var opts []stream.Option[any]
+	var opts []stream.Option
 	if grouped {
-		opts = append(opts, stream.Grouped[any](true))
+		opts = append(opts, stream.Grouped(true))
 	}
 	if sorted {
-		opts = append(opts, stream.Sorted[any](true))
+		opts = append(opts, stream.Sorted(true))
 	}
 
 	b.ReportAllocs()
@@ -145,7 +146,7 @@ L:
 		estr := streams.New(events...)
 		b.StartTimer()
 
-		str, errs := stream.New(estr, opts...)
+		str, errs := stream.New(context.Background(), estr, opts...)
 		for {
 			select {
 			case err, ok := <-errs:
@@ -199,7 +200,7 @@ func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.E
 			evt := event.New[any](
 				randomName(),
 				test.FooEventData{},
-				event.Aggregate[any](id, name, v),
+				event.Aggregate(id, name, v),
 			)
 			events[i] = evt
 		}

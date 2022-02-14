@@ -89,14 +89,14 @@ type ContextOf[P any] interface {
 }
 
 // Option is a command option.
-type Option[P any] func(*Cmd[P])
+type Option func(*Cmd[any])
 
 // Cmd is the implementation of Command.
 type Cmd[Payload any] struct {
 	Data Data[Payload]
 }
 
-// Data contains the actual fields of Cmd.
+// Data contains the actual fields of a Cmd.
 type Data[Payload any] struct {
 	ID            uuid.UUID
 	Name          string
@@ -106,24 +106,24 @@ type Data[Payload any] struct {
 }
 
 // ID returns an Option that overrides the auto-generated UUID of a Command.
-func ID[P any](id uuid.UUID) Option[P] {
-	return func(b *Cmd[P]) {
+func ID(id uuid.UUID) Option {
+	return func(b *Cmd[any]) {
 		b.Data.ID = id
 	}
 }
 
 // Aggregate returns an Option that links a Command to an Aggregate.
-func Aggregate[P any](name string, id uuid.UUID) Option[P] {
-	return func(b *Cmd[P]) {
+func Aggregate(name string, id uuid.UUID) Option {
+	return func(b *Cmd[any]) {
 		b.Data.AggregateName = name
 		b.Data.AggregateID = id
 	}
 }
 
 // New returns a new command with the given name and payload.
-func New[P any](name string, pl P, opts ...Option[P]) Cmd[P] {
-	cmd := Cmd[P]{
-		Data: Data[P]{
+func New[P any](name string, pl P, opts ...Option) Cmd[P] {
+	cmd := Cmd[any]{
+		Data: Data[any]{
 			ID:      uuid.New(),
 			Name:    name,
 			Payload: pl,
@@ -132,7 +132,15 @@ func New[P any](name string, pl P, opts ...Option[P]) Cmd[P] {
 	for _, opt := range opts {
 		opt(&cmd)
 	}
-	return cmd
+	return Cmd[P]{
+		Data: Data[P]{
+			ID:            cmd.Data.ID,
+			Name:          cmd.Data.Name,
+			Payload:       cmd.Data.Payload.(P),
+			AggregateName: cmd.Data.AggregateName,
+			AggregateID:   cmd.Data.AggregateID,
+		},
+	}
 }
 
 // ID returns the command id.
@@ -168,7 +176,7 @@ func (cmd Cmd[P]) Command() Of[P] {
 // Any returns the command with its type paramter set to `any`.
 func Any[P any](cmd Of[P]) Cmd[any] {
 	id, name := cmd.Aggregate()
-	return New[any](cmd.Name(), cmd.Payload(), ID[any](cmd.ID()), Aggregate[any](name, id))
+	return New[any](cmd.Name(), cmd.Payload(), ID(cmd.ID()), Aggregate(name, id))
 }
 
 func TryCast[To, From any](cmd Of[From]) (Cmd[To], bool) {
@@ -177,10 +185,10 @@ func TryCast[To, From any](cmd Of[From]) (Cmd[To], bool) {
 		return Cmd[To]{}, false
 	}
 	id, name := cmd.Aggregate()
-	return New(cmd.Name(), load, ID[To](cmd.ID()), Aggregate[To](name, id)), true
+	return New(cmd.Name(), load, ID(cmd.ID()), Aggregate(name, id)), true
 }
 
 func Cast[To, From any](cmd Of[From]) Cmd[To] {
 	id, name := cmd.Aggregate()
-	return New(cmd.Name(), any(cmd.Payload()).(To), ID[To](cmd.ID()), Aggregate[To](name, id))
+	return New(cmd.Name(), any(cmd.Payload()).(To), ID(cmd.ID()), Aggregate(name, id))
 }

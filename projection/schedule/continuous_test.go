@@ -167,10 +167,10 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 	}
 
 	events := []event.Event{
-		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Minute))),
-		event.New[any]("bar", test.FooEventData{}, event.Time[any](now)),
-		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
-		event.New[any]("foobar", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
+		event.New[any]("bar", test.FooEventData{}, event.Time(now)),
+		event.New[any]("baz", test.FooEventData{}, event.Time(now.Add(time.Second))),
+		event.New[any]("foobar", test.FooEventData{}, event.Time(now.Add(time.Minute))),
 	}
 
 	if err := bus.Publish(ctx, events...); err != nil {
@@ -395,10 +395,10 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 
 	now := time.Now()
 	storeEvents := []event.Event{
-		event.New[any]("foo", test.FooEventData{}, event.Time[any](now)),
-		event.New[any]("bar", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
-		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
-		event.New[any]("foobar", test.FooEventData{}, event.Time[any](now.Add(time.Hour))),
+		event.New[any]("foo", test.FooEventData{}, event.Time(now)),
+		event.New[any]("bar", test.FooEventData{}, event.Time(now.Add(time.Second))),
+		event.New[any]("baz", test.FooEventData{}, event.Time(now.Add(time.Minute))),
+		event.New[any]("foobar", test.FooEventData{}, event.Time(now.Add(time.Hour))),
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {

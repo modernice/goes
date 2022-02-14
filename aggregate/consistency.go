@@ -52,7 +52,7 @@ type ConsistencyKind int
 // The first Event e in events that is invalid causes Validate to return an
 // *Error containing the Kind of inconsistency and the Event that caused the
 // inconsistency.
-func ValidateConsistency[Events ~[]event.Of[Data], Data any](a Aggregate, events Events) error {
+func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events Events) error {
 	id, name, _ := a.Aggregate()
 	version := currentVersion(a)
 	cv := version

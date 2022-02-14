@@ -6,9 +6,12 @@ import (
 )
 
 // Aggregate is an event-sourced Aggregate.
-type Aggregate interface {
+type Aggregate = AggregateOf[uuid.UUID]
+
+// AggregateOf is an event-sourced Aggregate.
+type AggregateOf[ID comparable] interface {
 	// Aggregate returns the id, name and version of the aggregate.
-	Aggregate() (uuid.UUID, string, int)
+	Aggregate() (ID, string, int)
 
 	// AggregateChanges returns the uncommited events of the aggregate.
 	AggregateChanges() []event.Event

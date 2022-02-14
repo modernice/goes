@@ -12,30 +12,34 @@ type cmdctx[P any] struct {
 	context.Context
 	Of[P]
 
-	whenDone func(context.Context, finish.Config) error
-	mux      sync.Mutex
+	mux sync.Mutex
+	options
 	finished bool
 }
 
 // ContextOption is a Context option.
-type ContextOption[P any] func(*cmdctx[P])
+type ContextOption func(*options)
+
+type options struct {
+	whenDone func(context.Context, finish.Config) error
+}
 
 // WhenDone returns an Option that makes the delegates calls to ctx.Done() to
 // fn.
-func WhenDone[P any](fn func(context.Context, finish.Config) error) ContextOption[P] {
-	return func(ctx *cmdctx[P]) {
-		ctx.whenDone = fn
+func WhenDone(fn func(context.Context, finish.Config) error) ContextOption {
+	return func(opts *options) {
+		opts.whenDone = fn
 	}
 }
 
 // NewContext returns a context for the given command.
-func NewContext[P any](base context.Context, cmd Of[P], opts ...ContextOption[P]) ContextOf[P] {
+func NewContext[P any](base context.Context, cmd Of[P], opts ...ContextOption) ContextOf[P] {
 	ctx := cmdctx[P]{
 		Context: base,
 		Of:      cmd,
 	}
 	for _, opt := range opts {
-		opt(&ctx)
+		opt(&ctx.options)
 	}
 	return &ctx
 }
@@ -69,9 +73,9 @@ func TryCastContext[To, From any](ctx ContextOf[From]) (ContextOf[To], bool) {
 		return nil, false
 	}
 
-	var opts []ContextOption[To]
+	var opts []ContextOption
 	if ctx, ok := ctx.(*cmdctx[From]); ok {
-		opts = append(opts, WhenDone[To](ctx.whenDone))
+		opts = append(opts, WhenDone(ctx.whenDone))
 	}
 
 	return NewContext[To](ctx, cmd, opts...), true
@@ -80,9 +84,9 @@ func TryCastContext[To, From any](ctx ContextOf[From]) (ContextOf[To], bool) {
 func CastContext[To, From any](ctx ContextOf[From]) ContextOf[To] {
 	cmd := Cast[To, From](ctx)
 
-	var opts []ContextOption[To]
+	var opts []ContextOption
 	if ctx, ok := ctx.(*cmdctx[From]); ok {
-		opts = append(opts, WhenDone[To](ctx.whenDone))
+		opts = append(opts, WhenDone(ctx.whenDone))
 	}
 
 	return NewContext[To](ctx, cmd, opts...)

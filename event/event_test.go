@@ -52,7 +52,7 @@ func TestNew(t *testing.T) {
 
 func TestNew_time(t *testing.T) {
 	ts := xtime.Now().Add(time.Hour)
-	evt := event.New("foo", newMockData(), event.Time[mockData](ts))
+	evt := event.New("foo", newMockData(), event.Time(ts))
 	if !ts.Equal(evt.Time()) {
 		t.Errorf("expected evt.Time() to equal %s; got %s", ts, evt.Time())
 	}
@@ -63,24 +63,24 @@ func TestNew_aggregate(t *testing.T) {
 	aid := uuid.New()
 	v := 3
 
-	evt := event.New("foo", newMockData(), event.Aggregate[mockData](aid, aname, v))
+	evt := event.New("foo", newMockData(), event.Aggregate(aid, aname, v))
 	if pick.AggregateName(evt) != "bar" {
-		t.Errorf("expected event.AggregateName(evt) to return %q; got %q", "bar", pick.AggregateName(evt))
+		t.Errorf("expected pick.AggregateName(evt) to return %q; got %q", "bar", pick.AggregateName(evt))
 	}
 
 	if pick.AggregateID(evt) != aid {
-		t.Errorf("expected event.AggregateID(evt) to return %q; got %q", aid, pick.AggregateID(evt))
+		t.Errorf("expected pick.AggregateID(evt) to return %q; got %q", aid, pick.AggregateID(evt))
 	}
 
 	if pick.AggregateVersion(evt) != v {
-		t.Errorf("expected event.AggregateVersion(evt) to return %v; got %v", v, pick.AggregateVersion(evt))
+		t.Errorf("expected pick.AggregateVersion(evt) to return %v; got %v", v, pick.AggregateVersion(evt))
 	}
 }
 
 func TestNew_previous(t *testing.T) {
 	aggregateID := uuid.New()
-	prev := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate[test.FooEventData](aggregateID, "foobar", 3))
-	evt := event.New("bar", test.BarEventData{A: "bar"}, event.Previous[test.BarEventData, test.FooEventData](prev))
+	prev := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foobar", 3))
+	evt := event.New("bar", test.BarEventData{A: "bar"}, event.Previous[test.FooEventData](prev))
 
 	if evt.Name() != "bar" {
 		t.Errorf("expected evt.Name to return %q; got %q", "bar", evt.Name())
@@ -113,18 +113,18 @@ func TestEqual(t *testing.T) {
 		want bool
 	}{
 		{
-			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now)),
-			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now)),
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
 			want: true,
 		},
 		{
-			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id)),
-			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now)),
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
 			want: false,
 		},
 		{
 			a:    event.New("foo", mockData{FieldA: "foo"}),
-			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id)),
 			want: false,
 		},
 		{
@@ -133,23 +133,23 @@ func TestEqual(t *testing.T) {
 			want: false,
 		},
 		{
-			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now)),
-			b:    event.New("bar", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now)),
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("bar", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
 			want: false,
 		},
 		{
-			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now)),
-			b:    event.New("foo", mockData{FieldA: "bar"}, event.ID[mockData](id), event.Time[mockData](now)),
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("foo", mockData{FieldA: "bar"}, event.ID(id), event.Time(now)),
 			want: false,
 		},
 		{
-			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now)),
-			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now), event.ID[mockData](uuid.New())),
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.ID(uuid.New())),
 			want: false,
 		},
 		{
-			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now)),
-			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID[mockData](id), event.Time[mockData](now), event.Aggregate[mockData](uuid.New(), "foobar", 2)),
+			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.Aggregate(uuid.New(), "foobar", 2)),
 			want: false,
 		},
 	}
@@ -171,16 +171,16 @@ func TestEqual_variadic(t *testing.T) {
 	id := uuid.New()
 	now := xtime.Now()
 	events := []event.Of[mockData]{
-		event.New("foo", newMockData(), event.ID[mockData](id), event.Time[mockData](now)),
-		event.New("foo", newMockData(), event.ID[mockData](id), event.Time[mockData](now)),
-		event.New("foo", newMockData(), event.ID[mockData](id), event.Time[mockData](now)),
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
 	}
 
 	if !event.Equal(events...) {
 		t.Error(fmt.Errorf("expected events to be equal but they aren't\n%#v", events))
 	}
 
-	events = append(events, event.New("bar", newMockData(), event.ID[mockData](id), event.Time[mockData](now)))
+	events = append(events, event.New("bar", newMockData(), event.ID(id), event.Time(now)))
 
 	if event.Equal(events...) {
 		t.Error(fmt.Errorf("expected events not to be equal but they are\n%#v", events))

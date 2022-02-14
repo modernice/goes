@@ -131,9 +131,9 @@ func (sub *subscription) send(bus *EventBus, msg []byte) error {
 	evt := event.New(
 		env.Name,
 		data,
-		event.ID[any](env.ID),
-		event.Time[any](env.Time),
-		event.Aggregate[any](
+		event.ID(env.ID),
+		event.Time(env.Time),
+		event.Aggregate(
 			env.AggregateID,
 			env.AggregateName,
 			env.AggregateVersion,

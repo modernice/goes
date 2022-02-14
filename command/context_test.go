@@ -29,7 +29,7 @@ func TestWhenDone_withError(t *testing.T) {
 	mockDoneError := errors.New("mock done error")
 
 	var cfg finish.Config
-	ctx := command.NewContext[mockPayload](context.Background(), cmd, command.WhenDone[mockPayload](func(_ context.Context, cfg2 finish.Config) error {
+	ctx := command.NewContext[mockPayload](context.Background(), cmd, command.WhenDone(func(_ context.Context, cfg2 finish.Config) error {
 		cfg = cfg2
 		return mockDoneError
 	}))

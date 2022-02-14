@@ -34,7 +34,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 	es := streams.New(events...)
 
-	str, errs := stream.New(es)
+	str, errs := stream.New(context.Background(), es)
 
 	res, err := drain(str, errs, time.Second, makeFactory(am))
 	if err != nil {
@@ -68,7 +68,7 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 	events = xevent.Shuffle(events)
 	es := streams.New(events...)
 
-	str, errs := stream.New(es)
+	str, errs := stream.New(context.Background(), es)
 
 	res, err := drain(str, errs, time.Second, makeFactory(am))
 	if err != nil {
@@ -94,7 +94,7 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 	events = xevent.Shuffle(events)
 	es := streams.New(events...)
 
-	str, errs := stream.New(es)
+	str, errs := stream.New(context.Background(), es)
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
 	if err != nil {
@@ -134,7 +134,7 @@ func TestStream_inconsistent(t *testing.T) {
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion(3))
 
 	es := streams.New(events...)
-	str, errs := stream.New(es)
+	str, errs := stream.New(context.Background(), es)
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
 
@@ -166,7 +166,7 @@ func TestSorted(t *testing.T) {
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
 	es := streams.New(events...)
-	str, errs := stream.New(es, stream.Sorted[any](true))
+	str, errs := stream.New(context.Background(), es, stream.Sorted(true))
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
 
@@ -206,7 +206,7 @@ func TestGrouped(t *testing.T) {
 	es := streams.New(events...)
 	es = xstream.Delayed(100*time.Millisecond, es)
 
-	str, errs := stream.New(es, stream.Grouped[any](true))
+	str, errs := stream.New(context.Background(), es, stream.Grouped(true))
 	start := xtime.Now()
 	select {
 	case err, ok := <-errs:
@@ -242,12 +242,12 @@ func TestValidateConsistency(t *testing.T) {
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
 	es := streams.New(events...)
-	str, errs := stream.New(
+	str, errs := stream.New(context.Background(),
 		es,
 		// prevent sorting of events
-		stream.Sorted[any](true),
+		stream.Sorted(true),
 		// disable consistency validation
-		stream.ValidateConsistency[any](false),
+		stream.ValidateConsistency(false),
 	)
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
@@ -276,7 +276,7 @@ func TestFilter(t *testing.T) {
 
 	es := streams.New(events...)
 
-	str, errs := stream.New(
+	str, errs := stream.New(context.Background(),
 		es,
 		stream.Filter(
 			func(evt event.Event) bool {

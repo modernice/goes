@@ -405,10 +405,11 @@ func (r *Repository) Query(ctx context.Context, q aggregate.Query) (<-chan aggre
 	}
 
 	out, outErrors := stream.New(
+		ctx,
 		events,
-		stream.Errors[any](errs),
-		stream.Grouped[any](true),
-		stream.Sorted[any](true),
+		stream.Errors(errs),
+		stream.Grouped(true),
+		stream.Sorted(true),
 	)
 
 	return out, outErrors, nil

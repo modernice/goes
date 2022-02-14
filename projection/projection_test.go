@@ -33,9 +33,9 @@ func TestApply_Progressor(t *testing.T) {
 
 	now := time.Now()
 	events := []event.Event{
-		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(time.Second))),
-		event.New[any]("bar", test.FooEventData{}, event.Time[any](now.Add(time.Minute))),
-		event.New[any]("baz", test.FooEventData{}, event.Time[any](now.Add(time.Hour))),
+		event.New[any]("foo", test.FooEventData{}, event.Time(now.Add(time.Second))),
+		event.New[any]("bar", test.FooEventData{}, event.Time(now.Add(time.Minute))),
+		event.New[any]("baz", test.FooEventData{}, event.Time(now.Add(time.Hour))),
 	}
 
 	if err := projection.Apply[any](proj, events); err != nil {
@@ -52,7 +52,7 @@ func TestApply_Progressor_ErrProgressed(t *testing.T) {
 	proj := projectiontest.NewMockProgressor()
 	proj.SetProgress(now)
 
-	events := []event.Event{event.New[any]("foo", test.FooEventData{}, event.Time[any](now))}
+	events := []event.Event{event.New[any]("foo", test.FooEventData{}, event.Time(now))}
 
 	if err := projection.Apply[any](proj, events); !errors.Is(err, projection.ErrProgressed) {
 		t.Fatalf("Apply should fail with %q if Event time is before progress time; got %q", projection.ErrProgressed, err)
@@ -69,8 +69,8 @@ func TestApply_Progressor_IgnoreProgress(t *testing.T) {
 	proj.SetProgress(now)
 
 	events := []event.Event{
-		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Hour))),
-		event.New[any]("foo", test.FooEventData{}, event.Time[any](now.Add(-time.Minute))),
+		event.New[any]("foo", test.FooEventData{}, event.Time(now.Add(-time.Hour))),
+		event.New[any]("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
 	}
 
 	if err := projection.Apply[any](proj, events, projection.IgnoreProgress()); err != nil {

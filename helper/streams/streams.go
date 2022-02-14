@@ -153,3 +153,21 @@ func Await[T any, Chan ~<-chan T](ctx context.Context, in Chan, errs <-chan erro
 		return el, nil
 	}
 }
+
+// Map maps the elements from the provided `in` channel using the provided
+// `mapper` and sends the mapped values to the returned channel. The returned
+// channel is closed when the input channel is closed or ctx is canceled.
+func Map[To, From any](ctx context.Context, in <-chan From, mapper func(From) To) <-chan To {
+	out := make(chan To)
+	go func() {
+		defer close(out)
+		for v := range in {
+			select {
+			case <-ctx.Done():
+				return
+			case out <- mapper(v):
+			}
+		}
+	}()
+	return out
+}

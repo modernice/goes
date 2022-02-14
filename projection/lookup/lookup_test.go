@@ -20,9 +20,9 @@ func TestLookup(t *testing.T) {
 	store := eventstore.WithBus(eventstore.New(), bus)
 
 	events := []event.Event{
-		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate[LookupEvent](uuid.New(), "foo", 1)).Any(),
-		event.New("bar", LookupEvent{Foo: "bar"}, event.Aggregate[LookupEvent](uuid.New(), "foo", 1)).Any(),
-		event.New("baz", LookupEvent{Foo: "baz"}, event.Aggregate[LookupEvent](uuid.New(), "foo", 1)).Any(),
+		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New("bar", LookupEvent{Foo: "bar"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New("baz", LookupEvent{Foo: "baz"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {

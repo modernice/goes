@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -10,25 +11,29 @@ import (
 )
 
 // Option is a stream option.
-type Option[D any] func(*stream[D])
+type Option func(*options)
 
-type stream[D any] struct {
+type options struct {
 	isSorted            bool
 	isGrouped           bool
 	validateConsistency bool
-	filters             []func(event.Of[D]) bool
+	filters             []func(event.Event) bool
+	streamErrors        []<-chan error
+}
 
-	stream       <-chan event.Of[D]
-	streamErrors []<-chan error
-	inErrors     <-chan error
-	stopErrors   func()
+type stream struct {
+	options
+
+	stream     <-chan event.E[any]
+	inErrors   <-chan error
+	stopErrors func()
 
 	acceptDone chan struct{}
 
-	events   chan event.Of[D]
+	events   chan event.Event
 	complete chan job
 
-	groupReqs chan groupRequest[D]
+	groupReqs chan groupRequest
 
 	out       chan aggregate.History
 	outErrors chan error
@@ -39,9 +44,9 @@ type job struct {
 	id   uuid.UUID
 }
 
-type groupRequest[D any] struct {
+type groupRequest struct {
 	job
-	out chan []event.Of[D]
+	out chan []event.Event
 }
 
 type applier struct {
@@ -53,9 +58,9 @@ type applier struct {
 // Errors returns an Option that provides a Stream with error channels. A Stream
 // will cancel its operation as soon as an error can be received from one of the
 // error channels.
-func Errors[D any](errs ...<-chan error) Option[D] {
-	return func(s *stream[D]) {
-		s.streamErrors = append(s.streamErrors, errs...)
+func Errors(errs ...<-chan error) Option {
+	return func(opts *options) {
+		opts.streamErrors = append(opts.streamErrors, errs...)
 	}
 }
 
@@ -68,9 +73,9 @@ func Errors[D any](errs ...<-chan error) Option[D] {
 //
 // Enable this option only if the underlying streams.New guarantees that
 // incoming Events are sorted by AggregateVersion.
-func Sorted[D any](v bool) Option[D] {
-	return func(s *stream[D]) {
-		s.isSorted = v
+func Sorted(v bool) Option {
+	return func(opts *options) {
+		opts.isSorted = v
 	}
 }
 
@@ -108,9 +113,9 @@ func Sorted[D any](v bool) Option[D] {
 // 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
 // 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
 // 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-func Grouped[D any](v bool) Option[D] {
-	return func(s *stream[D]) {
-		s.isGrouped = v
+func Grouped(v bool) Option {
+	return func(opts *options) {
+		opts.isGrouped = v
 	}
 }
 
@@ -121,18 +126,18 @@ func Grouped[D any](v bool) Option[D] {
 // This option is enabled by default and should only be disabled if the
 // consistency of Events is guaranteed by the underlying streams.New or if it's
 // explicitly desired to put an Aggregate into an invalid state.
-func ValidateConsistency[D any](v bool) Option[D] {
-	return func(s *stream[D]) {
-		s.validateConsistency = v
+func ValidateConsistency(v bool) Option {
+	return func(opts *options) {
+		opts.validateConsistency = v
 	}
 }
 
 // Filter returns an Option that filters incoming Events before they're handled
 // by the Stream. Events are passed to every fn in fns until a fn returns false.
 // If any of fns returns false, the Event is discarded by the Stream.
-func Filter[D any](fns ...func(event.Of[D]) bool) Option[D] {
-	return func(s *stream[D]) {
-		s.filters = append(s.filters, fns...)
+func Filter(fns ...func(event.Event) bool) Option {
+	return func(opts *options) {
+		opts.filters = append(opts.filters, fns...)
 	}
 }
 
@@ -142,7 +147,7 @@ func Filter[D any](fns ...func(event.Of[D]) bool) Option[D] {
 //
 // Use the Drain function to get the Histories as a slice and a single error:
 //
-//	var events <-chan event.Of[D]
+//	var events <-chan event.Event
 //	str, errs := stream.New(events)
 //	histories, err := streams.Drain(context.TODO(), str, errs)
 //	// handle err
@@ -150,25 +155,43 @@ func Filter[D any](fns ...func(event.Of[D]) bool) Option[D] {
 //		foo := newFoo(h.AggregateID())
 //		h.Apply(foo)
 //	}
-func New[D any, Events ~<-chan event.Of[D]](events Events, opts ...Option[D]) (<-chan aggregate.History, <-chan error) {
+func New(ctx context.Context, events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <-chan error) {
+	return NewOf[any](ctx, events, opts...)
+}
+
+// NewOf takes a channel of Events and returns both a channel of Aggregate
+// Histories and an error channel. A History apply itself on an Aggregate to
+// build the current state of the Aggregate.
+//
+// Use the Drain function to get the Histories as a slice and a single error:
+//
+//	var events <-chan event.Event
+//	str, errs := stream.New(events)
+//	histories, err := streams.Drain(context.TODO(), str, errs)
+//	// handle err
+//	for _, h := range histories {
+//		foo := newFoo(h.AggregateID())
+//		h.Apply(foo)
+//	}
+func NewOf[D any, Event event.Of[D]](ctx context.Context, events <-chan Event, opts ...Option) (<-chan aggregate.History, <-chan error) {
 	if events == nil {
-		evts := make(chan event.Of[D])
+		evts := make(chan Event)
 		close(evts)
 		events = evts
 	}
 
-	aes := stream[D]{
-		validateConsistency: true,
-		stream:              events,
-		acceptDone:          make(chan struct{}),
-		events:              make(chan event.Of[D]),
-		complete:            make(chan job),
-		groupReqs:           make(chan groupRequest[D]),
-		out:                 make(chan aggregate.History),
-		outErrors:           make(chan error),
+	aes := stream{
+		options:    options{validateConsistency: true},
+		stream:     streams.Map(ctx, events, func(e Event) event.E[any] { return event.Any[D](e) }),
+		acceptDone: make(chan struct{}),
+		events:     make(chan event.Event),
+		complete:   make(chan job),
+		groupReqs:  make(chan groupRequest),
+		out:        make(chan aggregate.History),
+		outErrors:  make(chan error),
 	}
 	for _, opt := range opts {
-		opt(&aes)
+		opt(&aes.options)
 	}
 
 	aes.inErrors, aes.stopErrors = streams.FanIn(aes.streamErrors...)
@@ -180,7 +203,7 @@ func New[D any, Events ~<-chan event.Of[D]](events Events, opts ...Option[D]) (<
 	return aes.out, aes.outErrors
 }
 
-func (s *stream[D]) acceptEvents() {
+func (s *stream) acceptEvents() {
 	defer close(s.complete)
 	defer close(s.acceptDone)
 	defer close(s.events)
@@ -233,7 +256,7 @@ L:
 	}
 }
 
-func (s *stream[D]) shouldDiscard(evt event.Of[D]) bool {
+func (s *stream) shouldDiscard(evt event.Event) bool {
 	for _, fn := range s.filters {
 		if !fn(evt) {
 			return true
@@ -242,8 +265,8 @@ func (s *stream[D]) shouldDiscard(evt event.Of[D]) bool {
 	return false
 }
 
-func (s *stream[D]) groupEvents() {
-	groups := make(map[job][]event.Of[D])
+func (s *stream) groupEvents() {
+	groups := make(map[job][]event.Event)
 	events := s.events
 	groupReqs := s.groupReqs
 	for {
@@ -271,15 +294,15 @@ func (s *stream[D]) groupEvents() {
 	}
 }
 
-func (s *stream[D]) sortEvents() {
+func (s *stream) sortEvents() {
 	defer close(s.out)
 	defer close(s.outErrors)
 	defer close(s.groupReqs)
 
 	for j := range s.complete {
-		req := groupRequest[D]{
+		req := groupRequest{
 			job: j,
-			out: make(chan []event.Of[D]),
+			out: make(chan []event.Event),
 		}
 		s.groupReqs <- req
 		events := <-req.out
@@ -297,10 +320,8 @@ func (s *stream[D]) sortEvents() {
 		}
 
 		s.out <- applier{
-			job: j,
-			apply: func(a aggregate.Aggregate) {
-				aggregate.ApplyHistory(a, events)
-			},
+			job:   j,
+			apply: func(a aggregate.Aggregate) { aggregate.ApplyHistory(a, events) },
 		}
 	}
 }

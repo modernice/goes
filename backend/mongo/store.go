@@ -587,9 +587,9 @@ func (e entry) event(enc codec.Encoding) (event.Event, error) {
 	return event.New(
 		e.Name,
 		data,
-		event.ID[any](e.ID),
-		event.Time[any](stdtime.Unix(0, e.TimeNano)),
-		event.Aggregate[any](e.AggregateID, e.AggregateName, e.AggregateVersion),
+		event.ID(e.ID),
+		event.Time(stdtime.Unix(0, e.TimeNano)),
+		event.Aggregate(e.AggregateID, e.AggregateName, e.AggregateVersion),
 	), nil
 }
 

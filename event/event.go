@@ -54,7 +54,7 @@ type Of[Data any] interface {
 }
 
 // Option is an event option.
-type Option[D any] func(*E[D])
+type Option func(*E[any])
 
 // E implements Event.
 type E[D any] struct {
@@ -82,8 +82,8 @@ type Data[D any] struct {
 //	Time(time.Time): Use a custom Time
 //	Aggregate(string, uuid.UUID, int): Add Aggregate data
 //	Previous(event.Event): Set Aggregate data based on previous Event
-func New[D any](name string, data D, opts ...Option[D]) E[D] {
-	evt := E[D]{D: Data[D]{
+func New[D any](name string, data D, opts ...Option) E[D] {
+	evt := E[any]{D: Data[any]{
 		ID:   uuid.New(),
 		Name: name,
 		Time: xtime.Now(),
@@ -92,26 +92,37 @@ func New[D any](name string, data D, opts ...Option[D]) E[D] {
 	for _, opt := range opts {
 		opt(&evt)
 	}
-	return evt
+
+	return E[D]{
+		D: Data[D]{
+			ID:               evt.D.ID,
+			Name:             evt.D.Name,
+			Time:             evt.D.Time,
+			Data:             evt.D.Data.(D),
+			AggregateName:    evt.D.AggregateName,
+			AggregateID:      evt.D.AggregateID,
+			AggregateVersion: evt.D.AggregateVersion,
+		},
+	}
 }
 
 // ID returns an Option that overrides the auto-generated UUID of an event.
-func ID[D any](id uuid.UUID) Option[D] {
-	return func(evt *E[D]) {
+func ID(id uuid.UUID) Option {
+	return func(evt *E[any]) {
 		evt.D.ID = id
 	}
 }
 
 // Time returns an Option that overrides the auto-generated timestamp of an Event.
-func Time[D any](t stdtime.Time) Option[D] {
-	return func(evt *E[D]) {
+func Time(t stdtime.Time) Option {
+	return func(evt *E[any]) {
 		evt.D.Time = t
 	}
 }
 
 // Aggregate returns an Option that links an Event to an Aggregate.
-func Aggregate[D any](id uuid.UUID, name string, version int) Option[D] {
-	return func(evt *E[D]) {
+func Aggregate(id uuid.UUID, name string, version int) Option {
+	return func(evt *E[any]) {
 		evt.D.AggregateName = name
 		evt.D.AggregateID = id
 		evt.D.AggregateVersion = version
@@ -121,12 +132,12 @@ func Aggregate[D any](id uuid.UUID, name string, version int) Option[D] {
 // Previous returns an Option that adds Aggregate data to an Event. If prev
 // provides non-nil aggregate data (id, name & version), the returned Option
 // adds those to the new event with its version increased by 1.
-func Previous[D, P any](prev Of[P]) Option[D] {
+func Previous[Data any](prev Of[Data]) Option {
 	id, name, v := prev.Aggregate()
 	if id != uuid.Nil {
 		v++
 	}
-	return Aggregate[D](id, name, v)
+	return Aggregate(id, name, v)
 }
 
 // Equal compares events and determines if they're equal. It works exactly like
@@ -234,9 +245,9 @@ func Cast[To, From any](evt Of[From]) E[To] {
 	return New(
 		evt.Name(),
 		any(evt.Data()).(To),
-		ID[To](evt.ID()),
-		Time[To](evt.Time()),
-		Aggregate[To](evt.Aggregate()),
+		ID(evt.ID()),
+		Time(evt.Time()),
+		Aggregate(evt.Aggregate()),
 	)
 }
 
@@ -251,9 +262,9 @@ func TryCast[To, From any](evt Of[From]) (E[To], bool) {
 	return New(
 		evt.Name(),
 		data,
-		ID[To](evt.ID()),
-		Time[To](evt.Time()),
-		Aggregate[To](evt.Aggregate()),
+		ID(evt.ID()),
+		Time(evt.Time()),
+		Aggregate(evt.Aggregate()),
 	), true
 }
 
@@ -278,7 +289,7 @@ func TryCastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) ([]Of[
 
 // Expand expands an interfaced event to a struct.
 func Expand[D any](evt Of[D]) E[D] {
-	return New(evt.Name(), evt.Data(), ID[D](evt.ID()), Time[D](evt.Time()), Aggregate[D](evt.Aggregate()))
+	return New(evt.Name(), evt.Data(), ID(evt.ID()), Time(evt.Time()), Aggregate(evt.Aggregate()))
 }
 
 // Test tests the Event evt against the Query q and returns true if q should

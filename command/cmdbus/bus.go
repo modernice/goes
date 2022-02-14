@@ -17,7 +17,6 @@ import (
 	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/internal/xcommand/cmdctx"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -531,8 +530,8 @@ func (b *Bus) workSubscription(
 				cmd := command.New(
 					data.Name,
 					load,
-					command.ID[any](data.ID),
-					command.Aggregate[any](data.AggregateName, data.AggregateID),
+					command.ID(data.ID),
+					command.Aggregate(data.AggregateName, data.AggregateID),
 				)
 
 				if err := b.requestCommand(ctx, cmd); err != nil {
@@ -567,10 +566,10 @@ func (b *Bus) workSubscription(
 				select {
 				case <-ctx.Done():
 					outErrs <- fmt.Errorf("drop %q command: %w", req.cmd.Name(), ErrDrainTimeout)
-				case out <- cmdctx.New(
+				case out <- command.NewContext(
 					context.Background(),
 					req.cmd,
-					cmdctx.WhenDone[any](func(ctx context.Context, cfg finish.Config) error {
+					command.WhenDone(func(ctx context.Context, cfg finish.Config) error {
 						return b.markDone(ctx, req.cmd, cfg)
 					}),
 				):

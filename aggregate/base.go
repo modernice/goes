@@ -116,8 +116,8 @@ func (b *Base) SetVersion(v int) {
 // ApplyHistory applies the given events to the aggregate a to reconstruct the
 // state of a at the time of the latest event. If the aggregate implements
 // Committer, a.TrackChange(events) and a.Commit() are called before returning.
-func ApplyHistory[Events ~[]event.Of[Data], Data any](a Aggregate, events Events) error {
-	if err := ValidateConsistency[Events, Data](a, events); err != nil {
+func ApplyHistory[Data any, Events ~[]event.Of[Data]](a Aggregate, events Events) error {
+	if err := ValidateConsistency[Data](a, events); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 
@@ -165,16 +165,16 @@ func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 //
 //	var foo aggregate.Aggregate
 //	evt := aggregate.NextEvent(foo, "event-name", ...)
-func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option[D]) event.E[D] {
+func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option) event.E[D] {
 	aid, aname, _ := a.Aggregate()
 
-	opts = append([]event.Option[D]{
-		event.Aggregate[D](
+	opts = append([]event.Option{
+		event.Aggregate(
 			aid,
 			aname,
 			NextVersion(a),
 		),
-		event.Time[D](nextTime(a)),
+		event.Time(nextTime(a)),
 	}, opts...)
 
 	evt := event.New(name, data, opts...)

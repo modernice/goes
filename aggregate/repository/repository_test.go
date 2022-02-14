@@ -38,9 +38,9 @@ func TestRepository_Save(t *testing.T) {
 
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 1)),
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 2)),
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate[any](aggregateID, "foo", 3)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 1)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 2)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 3)),
 	}
 
 	flushed := make(chan struct{})
@@ -211,9 +211,9 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	aggregateName := "foo"
 	aggregateID := uuid.New()
 	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, aggregateName, 1)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, aggregateName, 2)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate[any](aggregateID, aggregateName, 3)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 1)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 2)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 3)),
 	}
 
 	org := test.NewFoo(aggregateID)

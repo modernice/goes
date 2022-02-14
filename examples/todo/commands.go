@@ -17,17 +17,17 @@ const (
 
 // AddTask returns the command to add the given task to the given todo list.
 func AddTask(listID uuid.UUID, task string) command.Cmd[string] {
-	return command.New(AddTaskCmd, task, command.Aggregate[string](ListAggregate, listID))
+	return command.New(AddTaskCmd, task, command.Aggregate(ListAggregate, listID))
 }
 
 // RemoveTask removes the command to remove the given task from the given todo list.
 func RemoveTask(listID uuid.UUID, task string) command.Cmd[string] {
-	return command.New(RemoveTaskCmd, task, command.Aggregate[string](ListAggregate, listID))
+	return command.New(RemoveTaskCmd, task, command.Aggregate(ListAggregate, listID))
 }
 
 // DoneTasks returns the command to mark the given tasks within the given list a done.
 func DoneTasks(listID uuid.UUID, tasks ...string) command.Cmd[[]string] {
-	return command.New(DoneTaskCmd, tasks, command.Aggregate[[]string](ListAggregate, listID))
+	return command.New(DoneTaskCmd, tasks, command.Aggregate(ListAggregate, listID))
 }
 
 // RegisterCommands registers commands into a registry.
