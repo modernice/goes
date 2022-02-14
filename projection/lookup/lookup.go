@@ -27,7 +27,7 @@ var (
 type Lookup struct {
 	schedule *schedule.Continuous
 
-	sync.RWMutex
+	mux       sync.RWMutex
 	providers map[aggregate.Ref]*provider
 
 	once  sync.Once
@@ -127,21 +127,21 @@ func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider 
 		ID:   aggregateID,
 	}
 
-	l.RLock()
+	l.mux.RLock()
 	if prov, ok := l.providers[ref]; ok {
-		l.RUnlock()
+		l.mux.RUnlock()
 		return &provider{
-			mux:    &l.RWMutex,
+			mux:    &l.mux,
 			values: prov.values,
 		}
 	}
-	l.RUnlock()
+	l.mux.RUnlock()
 
-	l.Lock()
-	defer l.Unlock()
+	l.mux.Lock()
+	defer l.mux.Unlock()
 
 	return &provider{
-		mux:    &l.RWMutex,
+		mux:    &l.mux,
 		values: l.newProvider(ref).values,
 	}
 }
@@ -155,8 +155,8 @@ func (l *Lookup) Lookup(ctx context.Context, aggregateName, key string, aggregat
 	case <-l.Ready():
 	}
 
-	l.RLock()
-	defer l.RUnlock()
+	l.mux.RLock()
+	defer l.mux.RUnlock()
 
 	ref := aggregate.Ref{Name: aggregateName, ID: aggregateID}
 	provider, ok := l.providers[ref]
@@ -172,8 +172,8 @@ func (l *Lookup) Lookup(ctx context.Context, aggregateName, key string, aggregat
 func (l *Lookup) Run(ctx context.Context) (<-chan error, error) {
 	errs, err := l.schedule.Subscribe(ctx, func(ctx projection.Job) error {
 		defer l.once.Do(func() { close(l.ready) })
-		l.Lock()
-		defer l.Unlock()
+		l.mux.Lock()
+		defer l.mux.Unlock()
 		return ctx.Apply(ctx, l)
 	})
 	if err != nil {
