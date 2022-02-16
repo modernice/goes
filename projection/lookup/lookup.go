@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
@@ -28,7 +27,7 @@ type Lookup struct {
 	schedule *schedule.Continuous
 
 	mux       sync.RWMutex
-	providers map[aggregate.Ref]*provider
+	providers map[string]*provider
 
 	once  sync.Once
 	ready chan struct{}
@@ -106,7 +105,7 @@ func Contains[Value any](ctx context.Context, l lookup, aggregateName, key strin
 func New(store event.Store, bus event.Bus, events []string, opts ...schedule.ContinuousOption) *Lookup {
 	l := &Lookup{
 		schedule:  schedule.Continuously(bus, store, events, opts...),
-		providers: make(map[event.AggregateRef]*provider),
+		providers: make(map[string]*provider),
 		ready:     make(chan struct{}),
 	}
 	return l
@@ -122,17 +121,13 @@ func (l *Lookup) Ready() <-chan struct{} {
 // Provider returns the Provider for the given aggregate. The returned Provider
 // is is thread-safe.
 func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider {
-	ref := aggregate.Ref{
-		Name: aggregateName,
-		ID:   aggregateID,
-	}
-
 	l.mux.RLock()
-	if prov, ok := l.providers[ref]; ok {
+	if prov, ok := l.providers[aggregateName]; ok {
 		l.mux.RUnlock()
 		return &provider{
 			mux:    &l.mux,
-			values: prov.values,
+			stores: make(map[uuid.UUID]*store),
+			active: prov.store(aggregateID),
 		}
 	}
 	l.mux.RUnlock()
@@ -142,7 +137,8 @@ func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider 
 
 	return &provider{
 		mux:    &l.mux,
-		values: l.newProvider(ref).values,
+		stores: make(map[uuid.UUID]*store),
+		active: l.provider(aggregateName).store(aggregateID),
 	}
 }
 
@@ -158,13 +154,22 @@ func (l *Lookup) Lookup(ctx context.Context, aggregateName, key string, aggregat
 	l.mux.RLock()
 	defer l.mux.RUnlock()
 
-	ref := aggregate.Ref{Name: aggregateName, ID: aggregateID}
-	provider, ok := l.providers[ref]
-	if !ok {
-		return nil, false
+	s := l.provider(aggregateName).store(aggregateID)
+
+	return s.get(key)
+}
+
+func (l *Lookup) Reverse(ctx context.Context, aggregateName, key string, value any) (uuid.UUID, bool) {
+	select {
+	case <-ctx.Done():
+		return uuid.Nil, false
+	case <-l.Ready():
 	}
 
-	return provider.get(key)
+	l.mux.RLock()
+	defer l.mux.RUnlock()
+
+	return l.provider(aggregateName).id(value)
 }
 
 // Run runs the projection of the lookup table until ctx is canceled. Any
@@ -193,36 +198,30 @@ func (l *Lookup) ApplyEvent(evt event.Event) {
 	}
 
 	id, name, _ := evt.Aggregate()
-	ref := aggregate.Ref{
-		Name: name,
-		ID:   id,
-	}
 
-	prov, ok := l.providers[ref]
-	if !ok {
-		prov = l.newProvider(ref)
-	}
+	prov := l.provider(name)
+	prov.active = prov.store(id)
+
 	data.ProvideLookup(prov)
 }
 
-func (l *Lookup) newProvider(ref aggregate.Ref) *provider {
-	prov := &provider{values: make(map[string]any)}
-	l.providers[ref] = prov
+func (l *Lookup) provider(aggregateName string) *provider {
+	if p, ok := l.providers[aggregateName]; ok {
+		return p
+	}
+	prov := &provider{
+		stores: make(map[uuid.UUID]*store),
+		ids:    make(map[any]uuid.UUID),
+	}
+	l.providers[aggregateName] = prov
 	return prov
 }
 
 type provider struct {
 	mux    *sync.RWMutex // only for providers returned by (*Lookup).Provider()
-	values map[string]any
-}
-
-func (p *provider) get(key string) (any, bool) {
-	if p.mux != nil {
-		p.mux.RLock()
-		defer p.mux.RUnlock()
-	}
-	v, ok := p.values[key]
-	return v, ok
+	stores map[uuid.UUID]*store
+	ids    map[any]uuid.UUID
+	active *store
 }
 
 func (p *provider) Provide(key string, val any) {
@@ -230,7 +229,11 @@ func (p *provider) Provide(key string, val any) {
 		p.mux.Lock()
 		defer p.mux.Unlock()
 	}
-	p.values[key] = val
+	p.active.provide(key, val)
+
+	if p.active != nil {
+		p.ids[val] = p.active.aggregateID
+	}
 }
 
 func (p *provider) Remove(keys ...string) {
@@ -238,7 +241,55 @@ func (p *provider) Remove(keys ...string) {
 		p.mux.Lock()
 		defer p.mux.Unlock()
 	}
+
 	for _, key := range keys {
-		delete(p.values, key)
+		val, ok := p.active.remove(key)
+		if !ok || p.active == nil {
+			continue
+		}
+		delete(p.ids, val)
 	}
+}
+
+func (p *provider) id(val any) (uuid.UUID, bool) {
+	if p.mux != nil {
+		p.mux.Lock()
+		defer p.mux.Unlock()
+	}
+	id, ok := p.ids[val]
+	return id, ok
+}
+
+func (p *provider) store(aggregateID uuid.UUID) *store {
+	if s, ok := p.stores[aggregateID]; ok {
+		return s
+	}
+	s := &store{
+		aggregateID: aggregateID,
+		values:      make(map[string]any),
+	}
+	p.stores[aggregateID] = s
+	return s
+}
+
+type store struct {
+	aggregateID uuid.UUID
+	values      map[string]any
+}
+
+func (s *store) get(key string) (any, bool) {
+	v, ok := s.values[key]
+	return v, ok
+}
+
+func (s *store) provide(key string, val any) {
+	s.values[key] = val
+}
+
+func (s *store) remove(key string) (any, bool) {
+	if val, ok := s.values[key]; ok {
+		delete(s.values, key)
+		return val, true
+	}
+	return nil, false
 }
