@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/google/uuid"
@@ -159,7 +160,15 @@ func (l *Lookup) Lookup(ctx context.Context, aggregateName, key string, aggregat
 	return s.get(key)
 }
 
+// Reverse returns the aggregate id that has the given value as the lookup value
+// for the given lookup key. If value is not comparable or if the value does not
+// exists for the given aggregate, uuid.Nil and false are returned. Otherwise
+// the aggregate id and true are returned.
 func (l *Lookup) Reverse(ctx context.Context, aggregateName, key string, value any) (uuid.UUID, bool) {
+	if !isKeyable(value) {
+		return uuid.Nil, false
+	}
+
 	select {
 	case <-ctx.Done():
 		return uuid.Nil, false
@@ -231,7 +240,7 @@ func (p *provider) Provide(key string, val any) {
 	}
 	p.active.provide(key, val)
 
-	if p.active != nil {
+	if p.active != nil && isKeyable(val) {
 		p.ids[val] = p.active.aggregateID
 	}
 }
@@ -247,7 +256,10 @@ func (p *provider) Remove(keys ...string) {
 		if !ok || p.active == nil {
 			continue
 		}
-		delete(p.ids, val)
+
+		if isKeyable(val) {
+			delete(p.ids, val)
+		}
 	}
 }
 
@@ -292,4 +304,17 @@ func (s *store) remove(key string) (any, bool) {
 		return val, true
 	}
 	return nil, false
+}
+
+func isKeyable(val any) bool {
+	rt := reflect.TypeOf(val)
+	for rtk := rt.Kind(); rtk == reflect.Interface; {
+		rt = rt.Elem()
+	}
+
+	if rtk := rt.Kind(); rtk <= reflect.Array || rtk == reflect.Pointer || rtk == reflect.String {
+		return true
+	}
+
+	return false
 }
