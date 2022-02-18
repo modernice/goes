@@ -7,13 +7,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 )
 
-type eventSlice[D any] []event.Of[D]
+type eventSlice[D any, ID goes.ID] []event.Of[D, ID]
 
 // EqualEvents compares slices of Events.
-func EqualEvents[Events ~[]event.Of[D], D any](events ...Events) bool {
+func EqualEvents[Events ~[]event.Of[D, ID], D any, ID goes.ID](events ...Events) bool {
 	if len(events) < 2 {
 		return true
 	}
@@ -37,11 +38,11 @@ func EqualEvents[Events ~[]event.Of[D], D any](events ...Events) bool {
 
 // AssertEqualEvents compares slices of events and reports an error to
 // testing.T if they don't match.
-func AssertEqualEvents[Events ~[]event.Of[D], D any](t *testing.T, events ...Events) {
+func AssertEqualEvents[Events ~[]event.Of[D, ID], D any, ID goes.ID](t *testing.T, events ...Events) {
 	if len(events) < 2 {
 		return
 	}
-	if EqualEvents[Events, D](events...) {
+	if EqualEvents[Events, D, ID](events...) {
 		return
 	}
 
@@ -72,16 +73,16 @@ func AssertEqualEvents[Events ~[]event.Of[D], D any](t *testing.T, events ...Eve
 
 // AssertEqualEventsUnsorted does the same as AssertEqualEvents but ignores
 // the order of the events.
-func AssertEqualEventsUnsorted[Events ~[]event.Of[D], D any](t *testing.T, events ...Events) {
+func AssertEqualEventsUnsorted[Events ~[]event.Of[D, ID], D any, ID goes.ID](t *testing.T, events ...Events) {
 	for i, evts := range events {
-		es := eventSlice[D](evts)
+		es := eventSlice[D, ID](evts)
 		es.sortByTime()
 		events[i] = Events(es)
 	}
-	AssertEqualEvents[Events, D](t, events...)
+	AssertEqualEvents[Events, D, ID](t, events...)
 }
 
-func (es eventSlice[D]) sortByTime() {
+func (es eventSlice[D, ID]) sortByTime() {
 	sort.Slice(es, func(i, j int) bool {
 		return es[i].Time().Equal(es[j].Time()) ||
 			es[i].Time().Before(es[j].Time())

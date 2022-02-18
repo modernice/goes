@@ -3,14 +3,16 @@ package projection
 import (
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 )
 
 // EventApplier should be implemented by projections. It is the main projection
 // interface and is used to apply events onto the projection.
-type EventApplier[D any] interface {
-	ApplyEvent(event.Of[D])
+type EventApplier[D any, ID goes.ID] interface {
+	ApplyEvent(event.Of[D, ID])
 }
 
 // Progressing makes projections track their projection progress.
@@ -50,30 +52,30 @@ type Resetter interface {
 // events. When a projection p implements Guard, p.GuardProjection(e) is called
 // for every Event e and prevents the p.ApplyEvent(e) call if GuardProjection
 // returns false.
-type Guard = GuardOf[any]
+type Guard = GuardOf[uuid.UUID]
 
 // GuardOf can be implemented by projection to prevent the application of an
 // events. When a projection p implements Guard, p.GuardProjection(e) is called
 // for every Event e and prevents the p.ApplyEvent(e) call if GuardProjection
 // returns false.
-type GuardOf[D any] interface {
+type GuardOf[ID goes.ID] interface {
 	// GuardProjection determines whether an Event is allowed to be applied onto a projection.
-	GuardProjection(event.Of[D]) bool
+	GuardProjection(event.Of[any, ID]) bool
 }
 
 // QueryGuard is a Guard that used an event query to determine the events that
 // are allowed to be applied onto a projection.
-type QueryGuard = QueryGuardOf[any]
+type QueryGuard = QueryGuardOf[uuid.UUID]
 
 // QueryGuardOf is a Guard that used an event query to determine the events that
 // are allowed to be applied onto a projection.
-type QueryGuardOf[D any] query.Query
+type QueryGuardOf[ID goes.ID] query.Query[ID]
 
 // GuardFunc allows functions to be used as Guards.
-type GuardFunc = GuardFuncOf[any]
+type GuardFunc = GuardFuncOf[uuid.UUID]
 
 // GuardFuncOf allows functions to be used as Guards.
-type GuardFuncOf[D any] func(event.Of[D]) bool
+type GuardFuncOf[ID goes.ID] func(event.Of[any, ID]) bool
 
 // HistoryDependent can be implemented by continuous projections that need the
 // full event history (of the events that are configured in the Schedule) instead
@@ -112,7 +114,7 @@ type GuardFuncOf[D any] func(event.Of[D]) bool
 //
 //		done := make(map[uuid.UUID]bool) // SearchIndexes that have been projected
 //
-//		return streams.Walk(ctx, func(r aggregate.Ref) error {
+//		return streams.Walk(ctx, func(r event.AggregateRef) error {
 //			p := &Product{Base: aggregate.New("product", r.ID)}
 //			err := repo.Fetch(ctx, p)
 //			shopID := p.ShopID
@@ -142,12 +144,12 @@ type HistoryDependent interface {
 }
 
 // GuardProjection returns guard(evt).
-func (guard GuardFuncOf[D]) GuardProjection(evt event.Of[D]) bool {
+func (guard GuardFuncOf[ID]) GuardProjection(evt event.Of[any, ID]) bool {
 	return guard(evt)
 }
 
 // GuardProjection tests the Guard's Query against a given Event and returns
 // whether the Event is allowed to be applied onto the projection.
-func (g QueryGuardOf[D]) GuardProjection(evt event.Of[D]) bool {
-	return query.Test(query.Query(g), evt)
+func (g QueryGuardOf[ID]) GuardProjection(evt event.Of[any, ID]) bool {
+	return query.Test[any, ID](query.Query[ID](g), evt)
 }

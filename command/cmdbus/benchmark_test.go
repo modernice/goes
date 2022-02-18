@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
@@ -33,7 +34,7 @@ func BenchmarkBus_Dispatch_Synchronous(t *testing.B) {
 		}
 	}()
 
-	cmd := command.New("foo", struct{}{})
+	cmd := command.New(uuid.New(), "foo", struct{}{})
 
 	t.ReportAllocs()
 	t.ResetTimer()

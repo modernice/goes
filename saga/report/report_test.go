@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/internal/xtime"
 	"github.com/modernice/goes/saga/action"
 	"github.com/modernice/goes/saga/report"
@@ -15,7 +16,7 @@ func TestReport(t *testing.T) {
 	start := xtime.Now()
 	dur := 12345678 * time.Millisecond
 	end := start.Add(dur)
-	r := report.New(start, end)
+	r := report.New[uuid.UUID](start, end)
 
 	if !r.Start.Equal(start) {
 		t.Errorf("Start() should return %v; got %v", start, r.Start)
@@ -32,7 +33,7 @@ func TestReport(t *testing.T) {
 
 func TestError(t *testing.T) {
 	mockError := errors.New("mock error")
-	r := report.New(xtime.Now(), xtime.Now(), report.Error(mockError))
+	r := report.New[uuid.UUID](xtime.Now(), xtime.Now(), report.Error[uuid.UUID](mockError))
 
 	if r.Error != mockError {
 		t.Errorf("Error() should return %q; got %q", mockError, r.Error)
@@ -43,9 +44,9 @@ func TestAction(t *testing.T) {
 	start := xtime.Now()
 	dur := 12345678 * time.Millisecond
 	end := start.Add(dur)
-	act := action.New("foo", nil)
+	act := action.New[uuid.UUID]("foo", nil)
 	mockError := errors.New("mock error")
-	r := report.New(xtime.Now(), xtime.Now(), report.Action(act, start, end, action.Error(mockError)))
+	r := report.New[uuid.UUID](xtime.Now(), xtime.Now(), report.Action(act, start, end, action.Error[uuid.UUID](mockError)))
 
 	acts := r.Actions
 	if len(acts) != 1 {
@@ -76,17 +77,17 @@ func TestAction(t *testing.T) {
 
 func TestAction_grouping(t *testing.T) {
 	mockError := errors.New("mock error")
-	compRep := action.NewReport(action.New("comp1", nil), xtime.Now(), xtime.Now())
-	compErrorRep := action.NewReport(action.New("comp2", nil), xtime.Now(), xtime.Now(), action.Error(mockError))
-	opts := []report.Option{
-		report.Action(action.New("foo", nil), xtime.Now(), xtime.Now()),
-		report.Action(action.New("bar", nil), xtime.Now(), xtime.Now()),
-		report.Action(action.New("baz", nil), xtime.Now(), xtime.Now(), action.Error(mockError)),
-		report.Action(action.New("foobar", nil), xtime.Now(), xtime.Now(), action.Error(mockError)),
-		report.Action(action.New("barbaz", nil), xtime.Now(), xtime.Now(), action.Error(mockError), action.CompensatedBy(compRep)),
-		report.Action(action.New("bazfoo", nil), xtime.Now(), xtime.Now(), action.Error(mockError), action.CompensatedBy(compErrorRep)),
+	compRep := action.NewReport(action.New[uuid.UUID]("comp1", nil), xtime.Now(), xtime.Now())
+	compErrorRep := action.NewReport(action.New[uuid.UUID]("comp2", nil), xtime.Now(), xtime.Now(), action.Error[uuid.UUID](mockError))
+	opts := []report.Option[uuid.UUID]{
+		report.Action(action.New[uuid.UUID]("foo", nil), xtime.Now(), xtime.Now()),
+		report.Action(action.New[uuid.UUID]("bar", nil), xtime.Now(), xtime.Now()),
+		report.Action(action.New[uuid.UUID]("baz", nil), xtime.Now(), xtime.Now(), action.Error[uuid.UUID](mockError)),
+		report.Action(action.New[uuid.UUID]("foobar", nil), xtime.Now(), xtime.Now(), action.Error[uuid.UUID](mockError)),
+		report.Action(action.New[uuid.UUID]("barbaz", nil), xtime.Now(), xtime.Now(), action.Error[uuid.UUID](mockError), action.CompensatedBy(compRep)),
+		report.Action(action.New[uuid.UUID]("bazfoo", nil), xtime.Now(), xtime.Now(), action.Error[uuid.UUID](mockError), action.CompensatedBy(compErrorRep)),
 	}
-	r := report.New(xtime.Now(), xtime.Now(), opts...)
+	r := report.New[uuid.UUID](xtime.Now(), xtime.Now(), opts...)
 
 	wantSucceeded := []string{"foo", "bar"}
 	wantFailed := []string{"baz", "foobar", "barbaz", "bazfoo"}
@@ -121,11 +122,11 @@ func TestReport_Report(t *testing.T) {
 	mockError := errors.New("mock error")
 	rep := report.New(
 		xtime.Now(), xtime.Now(),
-		report.Action(action.New("foo", nil), xtime.Now(), xtime.Now(), action.Error(mockError)),
-		report.Error(mockError),
+		report.Action(action.New[uuid.UUID]("foo", nil), xtime.Now(), xtime.Now(), action.Error[uuid.UUID](mockError)),
+		report.Error[uuid.UUID](mockError),
 	)
 
-	var r report.Report
+	var r report.Report[uuid.UUID]
 	r.Report(rep)
 
 	if !reflect.DeepEqual(r, rep) {

@@ -16,13 +16,13 @@ func TestLookup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.WithBus(eventstore.New(), bus)
+	bus := eventbus.New[uuid.UUID]()
+	store := eventstore.WithBus(eventstore.New[uuid.UUID](), bus)
 
-	events := []event.Event{
-		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("bar", LookupEvent{Foo: "bar"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("baz", LookupEvent{Foo: "baz"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+	events := []event.Of[any, uuid.UUID]{
+		event.New(uuid.New(), "foo", LookupEvent{Foo: "foo"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New(uuid.New(), "bar", LookupEvent{Foo: "bar"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New(uuid.New(), "baz", LookupEvent{Foo: "baz"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {
@@ -41,14 +41,14 @@ func TestLookup(t *testing.T) {
 		}
 	}()
 
-	tests := map[event.Event]string{
+	tests := map[event.Of[any, uuid.UUID]]string{
 		events[0]: "foo",
 		events[1]: "bar",
 		events[2]: "baz",
 	}
 
 	for evt, want := range tests {
-		got, ok := l.Lookup(ctx, "foo", "foo", pick.AggregateID(evt))
+		got, ok := l.Lookup(ctx, "foo", "foo", pick.AggregateID[uuid.UUID](evt))
 		if !ok {
 			t.Fatalf("Lookup has no value for %q", "foo")
 		}
@@ -56,7 +56,7 @@ func TestLookup(t *testing.T) {
 			t.Fatalf("Lookup(%q) should return %q; got %q", "foo", want, got)
 		}
 
-		got, err := lookup.Expect[string](ctx, l, "foo", "foo", pick.AggregateID(evt))
+		got, err := lookup.Expect[string, uuid.UUID](ctx, l, "foo", "foo", pick.AggregateID[uuid.UUID](evt))
 		if err != nil {
 			t.Fatalf("lookup.Expect() failed with %q", err)
 		}
@@ -64,7 +64,7 @@ func TestLookup(t *testing.T) {
 			t.Fatalf("lookup.Expect() should return %q; got %q", want, got)
 		}
 
-		if _, err = lookup.Expect[int](ctx, l, "foo", "foo", pick.AggregateID(evt)); err == nil {
+		if _, err = lookup.Expect[int, uuid.UUID](ctx, l, "foo", "foo", pick.AggregateID[uuid.UUID](evt)); err == nil {
 			t.Fatalf("lookup.Expect() should fail when provided a wrong generic type")
 		}
 	}
@@ -74,13 +74,13 @@ func TestLookup_Reverse(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := eventbus.New()
-	store := eventstore.WithBus(eventstore.New(), bus)
+	bus := eventbus.New[uuid.UUID]()
+	store := eventstore.WithBus(eventstore.New[uuid.UUID](), bus)
 
-	events := []event.Event{
-		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("bar", LookupEvent{Foo: "bar"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("baz", LookupEvent{Foo: "baz"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+	events := []event.Of[any, uuid.UUID]{
+		event.New(uuid.New(), "foo", LookupEvent{Foo: "foo"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New(uuid.New(), "bar", LookupEvent{Foo: "bar"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New(uuid.New(), "baz", LookupEvent{Foo: "baz"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {
@@ -99,7 +99,7 @@ func TestLookup_Reverse(t *testing.T) {
 		}
 	}()
 
-	tests := map[string]event.Event{
+	tests := map[string]event.Of[any, uuid.UUID]{
 		"foo": events[0],
 		"bar": events[1],
 		"baz": events[2],
@@ -111,7 +111,7 @@ func TestLookup_Reverse(t *testing.T) {
 			t.Fatalf("Lookup has no key for the value %q", val)
 		}
 
-		want := pick.AggregateID(evt)
+		want := pick.AggregateID[uuid.UUID](evt)
 
 		if got != want {
 			t.Fatalf("Reverse(%q) should return %q; got %q", "foo", want, got)

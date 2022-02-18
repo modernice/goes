@@ -3,6 +3,8 @@ package snapshot
 import (
 	"encoding"
 	"errors"
+
+	"github.com/modernice/goes"
 )
 
 // ErrUnimplemented is returned when trying to marshal or unmarshal a snapshot
@@ -80,7 +82,7 @@ type Target interface {
 // encoding.BinaryMarshaler, a.UnmarshalBinary() is returned and if a implements
 // encoding.TextUnmarshaler, a.UnmarshalText() is returned. If a implements none
 // of these interfaces, encoding/gob is used to unmarshal the snapshot.
-func Unmarshal(s Snapshot, a Target) error {
+func Unmarshal[ID goes.ID](s Snapshot[ID], a Target) error {
 	a.SetVersion(s.AggregateVersion())
 
 	if u, ok := a.(Unmarshaler); ok {

@@ -27,7 +27,7 @@ import (
 func example() {
   ereg := codec.New() // Event registry
   creg := codec.New() // Command registry
-  ebus := eventbus.New() // In-memory event bus
+  ebus := eventbus.New[uuid.UUID]() // In-memory event bus
 
   cbus := cmdbus.New(creg, ereg, ebus)
 
@@ -153,7 +153,7 @@ package auth
 func HandleCommands(
   ctx context.Context,
   bus command.Bus,
-  repo aggregate.Repository,
+  repo aggregate.RepositoryOf[ID]
 ) <-chan error {
   h := command.NewHandler(bus)
 
@@ -198,7 +198,7 @@ import (
   "github.com/modernice/goes/command/cmdbus"
 )
 
-func example(ebus event.Bus) {
+func example(ebus event.Bus[ID]) {
   ereg := codec.New() // Event registry
   creg := codec.New() // Command registry
   cbus := cmdbus.New(creg, ereg, ebus)

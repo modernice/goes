@@ -3,6 +3,7 @@ package nats
 import (
 	"time"
 
+	"github.com/modernice/goes"
 	"github.com/nats-io/nats.go"
 )
 
@@ -10,9 +11,9 @@ import (
 // By default, the Core Driver is used.
 //
 //	bus := NewEventBus(enc, Use(JetStream()))
-func Use(d Driver) EventBusOption {
-	return func(bus *EventBus) {
-		bus.driver = d
+func Use[ID goes.ID](d Driver[ID]) EventBusOption {
+	return func(opts *eventBusOptions) {
+		opts.driver = d
 	}
 }
 
@@ -21,8 +22,8 @@ func Use(d Driver) EventBusOption {
 // connection URL. If that is also not set, the default NATS URL
 // (nats.DefaultURL) is used instead.
 func URL(url string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.url = url
+	return func(opts *eventBusOptions) {
+		opts.url = url
 	}
 }
 
@@ -30,8 +31,8 @@ func URL(url string) EventBusOption {
 // event bus. When providing a connection, the event bus does not try to connect
 // to NATS but uses the provided connection instead.
 func Conn(conn *nats.Conn) EventBusOption {
-	return func(bus *EventBus) {
-		bus.conn = conn
+	return func(opts *eventBusOptions) {
+		opts.conn = conn
 	}
 }
 
@@ -42,8 +43,8 @@ func Conn(conn *nats.Conn) EventBusOption {
 //	var bus *EventBus
 //	events, _, err := bus.Subscribe(context.TODO(), ...)
 func EatErrors() EventBusOption {
-	return func(bus *EventBus) {
-		bus.eatErrors = true
+	return func(opts *eventBusOptions) {
+		opts.eatErrors = true
 	}
 }
 
@@ -78,8 +79,8 @@ func EatErrors() EventBusOption {
 //
 // Read more about queue groups: https://docs.nats.io/nats-concepts/core-nats/queue
 func QueueGroupByFunc(fn func(eventName string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.queueFunc = fn
+	return func(opts *eventBusOptions) {
+		opts.queueFunc = fn
 	}
 }
 
@@ -146,8 +147,8 @@ func WithLoadBalancer(serviceName string) EventBusOption {
 //
 // By default, subjects are the event names with "." replaced with "_".
 func SubjectFunc(fn func(eventName string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.subjectFunc = func(eventName string) string {
+	return func(opts *eventBusOptions) {
+		opts.subjectFunc = func(eventName string) string {
 			return replaceDots(fn(eventName))
 		}
 	}
@@ -194,8 +195,8 @@ func SubjectPrefix(prefix string) EventBusOption {
 // Read more about durable subscriptions:
 // https://docs.nats.io/nats-concepts/jetstream/consumers#durable-name
 func DurableFunc(fn func(subject, queue string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.durableFunc = fn
+	return func(opts *eventBusOptions) {
+		opts.durableFunc = fn
 	}
 }
 
@@ -226,8 +227,8 @@ func Durable(name string) EventBusOption {
 //
 // Read more about streams: https://docs.nats.io/nats-concepts/jetstream/streams
 func StreamNameFunc(fn func(subject, queue string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.streamNameFunc = fn
+	return func(opts *eventBusOptions) {
+		opts.streamNameFunc = fn
 	}
 }
 
@@ -236,8 +237,8 @@ func StreamNameFunc(fn func(subject, queue string) string) EventBusOption {
 //
 // This option is valid only for the JetStream Driver.
 func SubOpts(opts ...nats.SubOpt) EventBusOption {
-	return func(bus *EventBus) {
-		bus.subOpts = append(bus.subOpts, opts...)
+	return func(bopts *eventBusOptions) {
+		bopts.subOpts = append(bopts.subOpts, opts...)
 	}
 }
 
@@ -255,7 +256,7 @@ func SubOpts(opts ...nats.SubOpt) EventBusOption {
 //
 // Default is no timeout.
 func PullTimeout(d time.Duration) EventBusOption {
-	return func(bus *EventBus) {
-		bus.pullTimeout = d
+	return func(opts *eventBusOptions) {
+		opts.pullTimeout = d
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/examples/todo"
 	"github.com/modernice/goes/examples/todo/cmd"
@@ -23,10 +24,10 @@ func main() {
 	cbus, _ := setup.Commands(ereg.Registry, ebus)
 
 	repo := setup.Aggregates(estore)
-	lists := repository.Typed(repo, todo.New)
+	lists := repository.Typed[uuid.UUID](repo, todo.New)
 
 	counter := todo.NewCounter()
-	counterErrors, err := counter.Project(ctx, ebus, estore, schedule.Debounce(time.Second))
+	counterErrors, err := counter.Project(ctx, ebus, estore, schedule.Debounce[uuid.UUID](time.Second))
 	if err != nil {
 		log.Panic(fmt.Errorf("project counter: %w", err))
 	}

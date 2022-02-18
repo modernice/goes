@@ -2,19 +2,21 @@
 package query
 
 import (
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 )
 
+var _ event.QueryOf[goes.SID] = Query[goes.SID]{}
+
 // Query is used by event stores to filter events.
-type Query struct {
+type Query[ID goes.ID] struct {
 	names          []string
-	ids            []uuid.UUID
+	ids            []ID
 	aggregateNames []string
-	aggregateIDs   []uuid.UUID
-	aggregates     []event.AggregateRef
+	aggregateIDs   []ID
+	aggregates     []event.AggregateRefOf[ID]
 	sortings       []event.SortOptions
 
 	times             time.Constraints
@@ -25,18 +27,19 @@ type Query struct {
 type Option func(*builder)
 
 type builder struct {
-	Query
+	Query[goes.AID]
+
 	timeConstraints    []time.Option
 	versionConstraints []version.Option
 }
 
 // New builds a Query from opts.
-func New(opts ...Option) Query {
+func New[ID goes.ID](opts ...Option) Query[ID] {
 	var b builder
 	for _, opt := range opts {
 		opt(&b)
 	}
-	return b.build()
+	return buildQuery[ID](b)
 }
 
 // Name returns an Option that filters events by their names.
@@ -55,16 +58,21 @@ func Name(names ...string) Option {
 }
 
 // ID returns an Option that filters events by their ids.
-func ID(ids ...uuid.UUID) Option {
+func ID[ID goes.ID](ids ...ID) Option {
+	sids := make([]goes.AID, len(ids))
+	for i, id := range ids {
+		sids[i] = goes.AnyID(id)
+	}
+
 	return func(b *builder) {
 	L:
-		for _, id := range ids {
+		for _, id := range sids {
 			for _, id2 := range b.ids {
-				if id2 == id {
+				if id2.String() == id.String() {
 					continue L
 				}
 			}
-			b.ids = append(b.ids, ids...)
+			b.ids = append(b.ids, id)
 		}
 	}
 }
@@ -92,10 +100,15 @@ func AggregateName(names ...string) Option {
 }
 
 // AggregateID returns an Option that filters events by their aggregate ids.
-func AggregateID(ids ...uuid.UUID) Option {
+func AggregateID[ID goes.ID](ids ...ID) Option {
+	sids := make([]goes.AID, len(ids))
+	for i, id := range ids {
+		sids[i] = goes.AnyID(id)
+	}
+
 	return func(b *builder) {
 	L:
-		for _, id := range ids {
+		for _, id := range sids {
 			for _, id2 := range b.aggregateIDs {
 				if id2 == id {
 					continue L
@@ -115,28 +128,31 @@ func AggregateVersion(constraints ...version.Option) Option {
 }
 
 // Aggregate returns an Option that filters Events by a specific Aggregate.
-func Aggregate(name string, id uuid.UUID) Option {
+func Aggregate[ID goes.ID](name string, id ID) Option {
 	return func(b *builder) {
 		for _, at := range b.aggregates {
-			if at.Name == name && at.ID == id {
+			if at.Name == name && at.ID.String() == id.String() {
 				return
 			}
 		}
-		b.aggregates = append(b.aggregates, event.AggregateRef{Name: name, ID: id})
+		b.aggregates = append(b.aggregates, event.AggregateRefOf[goes.AID]{Name: name, ID: goes.AnyID(id)})
 	}
 }
 
 // Aggregates returns an Option that filters Events by specific Aggregates.
-func Aggregates(aggregates ...event.AggregateRef) Option {
+func Aggregates[ID goes.ID](aggregates ...event.AggregateRefOf[ID]) Option {
 	return func(b *builder) {
 	L:
 		for _, at := range aggregates {
 			for _, at2 := range b.aggregates {
-				if at2 == at {
+				if at2.Name == at.Name && at2.ID.String() == at.ID.String() {
 					continue L
 				}
 			}
-			b.aggregates = append(b.aggregates, at)
+			b.aggregates = append(b.aggregates, event.AggregateRefOf[goes.AID]{
+				Name: at.Name,
+				ID:   goes.AnyID(at.ID),
+			})
 		}
 	}
 }
@@ -185,17 +201,17 @@ func SortByTime() Option {
 // Test tests the Event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
-func Test[D any](q event.Query, evt event.Of[D]) bool {
+func Test[D any, ID goes.ID](q event.QueryOf[ID], evt event.Of[D, ID]) bool {
 	return event.Test(q, evt)
 }
 
 // Apply tests events against the provided Query and returns only those events
 // that match the Query.
-func Apply[D any](q event.Query, events ...event.Of[D]) []event.Of[D] {
+func Apply[D any, ID goes.ID](q event.QueryOf[ID], events ...event.Of[D, ID]) []event.Of[D, ID] {
 	if events == nil {
 		return nil
 	}
-	out := make([]event.Of[D], 0, len(events))
+	out := make([]event.Of[D, ID], 0, len(events))
 	for _, evt := range events {
 		if Test(q, evt) {
 			out = append(out, evt)
@@ -208,7 +224,7 @@ func Apply[D any](q event.Query, events ...event.Of[D]) []event.Of[D] {
 //
 // In cases where only a single value can be assigned to a filter, the last
 // provided Query that provides that filter is used.
-func Merge(queries ...event.Query) Query {
+func Merge[Data any, IDType goes.ID, Queries ~[]event.QueryOf[IDType]](queries Queries) Query[IDType] {
 	var opts []Option
 	for _, q := range queries {
 		if q == nil {
@@ -230,52 +246,77 @@ func Merge(queries ...event.Query) Query {
 			SortByMulti(q.Sortings()...),
 		)
 	}
-	return New(opts...)
+	return New[IDType](opts...)
 }
 
 // Names returns the event names to query for.
-func (q Query) Names() []string {
+func (q Query[ID]) Names() []string {
 	return q.names
 }
 
 // IDs returns the event ids to query for.
-func (q Query) IDs() []uuid.UUID {
+func (q Query[ID]) IDs() []ID {
 	return q.ids
 }
 
 // Times returns the time constraints. Times guarantees to return non-nil
 // time.Constraints.
-func (q Query) Times() time.Constraints {
+func (q Query[ID]) Times() time.Constraints {
 	return q.times
 }
 
 // AggregateNames returns the aggregate names to query for.
-func (q Query) AggregateNames() []string {
+func (q Query[ID]) AggregateNames() []string {
 	return q.aggregateNames
 }
 
 // AggregateIDs returns the aggregate ids to query for.
-func (q Query) AggregateIDs() []uuid.UUID {
+func (q Query[ID]) AggregateIDs() []ID {
 	return q.aggregateIDs
 }
 
 // AggregateVersions returns the aggregate versions to query for.
-func (q Query) AggregateVersions() version.Constraints {
+func (q Query[ID]) AggregateVersions() version.Constraints {
 	return q.aggregateVersions
 }
 
 // Aggregates returns a slice of specific Aggregates to query for.
-func (q Query) Aggregates() []event.AggregateRef {
+func (q Query[ID]) Aggregates() []event.AggregateRefOf[ID] {
 	return q.aggregates
 }
 
 // Sortings returns the SortConfigs for the query.
-func (q Query) Sortings() []event.SortOptions {
+func (q Query[ID]) Sortings() []event.SortOptions {
 	return q.sortings
 }
 
-func (b builder) build() Query {
-	b.times = time.Filter(b.timeConstraints...)
-	b.aggregateVersions = version.Filter(b.versionConstraints...)
-	return b.Query
+func buildQuery[ID goes.ID](b builder) Query[ID] {
+	ids := make([]ID, len(b.Query.ids))
+	for i, id := range b.Query.ids {
+		ids[i] = any(id).(goes.AID).ID.(ID)
+	}
+
+	aggregateIDs := make([]ID, len(b.Query.aggregateIDs))
+	for i, id := range b.Query.aggregateIDs {
+		aggregateIDs[i] = any(id).(goes.AID).ID.(ID)
+	}
+
+	aggregates := make([]event.AggregateRefOf[ID], len(b.Query.aggregates))
+	for i, a := range b.Query.aggregates {
+		aggregates[i] = event.AggregateRefOf[ID]{
+			Name: a.Name,
+			ID:   any(a.ID).(goes.AID).ID.(ID),
+		}
+	}
+
+	return Query[ID]{
+		names:             b.Query.names,
+		ids:               ids,
+		aggregateNames:    b.Query.aggregateNames,
+		aggregateIDs:      aggregateIDs,
+		aggregates:        aggregates,
+		sortings:          b.Query.sortings,
+		times:             time.Filter(b.timeConstraints...),
+		aggregateVersions: version.Filter(b.versionConstraints...),
+	}
 }

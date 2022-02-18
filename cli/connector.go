@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/cli/internal/projectionrpc"
 	"github.com/modernice/goes/cli/internal/proto"
 	"github.com/modernice/goes/projection"
@@ -17,8 +18,8 @@ const (
 )
 
 // Connector provides the gRPC server for CLI commands.
-type Connector struct {
-	projectionService *projection.Service
+type Connector[ID goes.ID] struct {
+	projectionService *projection.Service[ID]
 }
 
 // ServeOption is an option for serving a Connetor.
@@ -50,8 +51,8 @@ func Listener(lis net.Listener) ServeOption {
 }
 
 // NewConnector returns a new CLI Connector.
-func NewConnector(svc *projection.Service) *Connector {
-	return &Connector{
+func NewConnector[ID goes.ID](svc *projection.Service[ID]) *Connector[ID] {
+	return &Connector[ID]{
 		projectionService: svc,
 	}
 }
@@ -60,7 +61,7 @@ func NewConnector(svc *projection.Service) *Connector {
 //
 //	c := cli.NewConnector(...)
 //	err := c.Serve(context.TODO(), cli.Port(8080))
-func (c *Connector) Serve(ctx context.Context, opts ...ServeOption) error {
+func (c *Connector[ID]) Serve(ctx context.Context, opts ...ServeOption) error {
 	cfg, err := c.newServeConfig(opts...)
 	if err != nil {
 		return err
@@ -77,7 +78,7 @@ func (c *Connector) Serve(ctx context.Context, opts ...ServeOption) error {
 	}
 }
 
-func (c *Connector) newServeConfig(opts ...ServeOption) (serveConfig, error) {
+func (c *Connector[ID]) newServeConfig(opts ...ServeOption) (serveConfig, error) {
 	cfg := serveConfig{port: DefaultPort}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -99,11 +100,11 @@ func (c *Connector) newServeConfig(opts ...ServeOption) (serveConfig, error) {
 	return cfg, nil
 }
 
-func (c *Connector) register(srv *grpc.Server) {
+func (c *Connector[ID]) register(srv *grpc.Server) {
 	proto.RegisterProjectionServiceServer(srv, projectionrpc.NewServer(c.projectionService))
 }
 
-func (c *Connector) serve(ctx context.Context, srv *grpc.Server, lis net.Listener) <-chan error {
+func (c *Connector[ID]) serve(ctx context.Context, srv *grpc.Server, lis net.Listener) <-chan error {
 	serveError := make(chan error)
 	go func() {
 		if err := srv.Serve(lis); err != nil {
@@ -116,7 +117,7 @@ func (c *Connector) serve(ctx context.Context, srv *grpc.Server, lis net.Listene
 	return serveError
 }
 
-func (c *Connector) stopOnCancel(ctx context.Context, srv *grpc.Server) <-chan struct{} {
+func (c *Connector[ID]) stopOnCancel(ctx context.Context, srv *grpc.Server) <-chan struct{} {
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)

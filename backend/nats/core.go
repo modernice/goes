@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 	"github.com/nats-io/nats.go"
 )
@@ -15,21 +16,21 @@ import (
 //
 //	bus := NewEventBus(enc, Use(Core())) // or
 //	bus := NewEventBus(enc)
-func Core() Driver {
-	return &core{subs: make(map[string]*subscription)}
+func Core[ID goes.ID]() Driver[ID] {
+	return &core[ID]{subs: make(map[string]*subscription[ID])}
 }
 
 const coreDriverName = "core"
 
-type core struct {
+type core[ID goes.ID] struct {
 	sync.RWMutex
 
-	subs map[string]*subscription
+	subs map[string]*subscription[ID]
 }
 
-func (core *core) name() string { return coreDriverName }
+func (core *core[ID]) name() string { return coreDriverName }
 
-func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (recipient, error) {
+func (core *core[ID]) subscribe(ctx context.Context, bus *EventBus[ID], event string) (recipient[ID], error) {
 	core.Lock()
 	defer core.Unlock()
 
@@ -49,12 +50,12 @@ func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (r
 			msgs <- msg.Data
 		})
 		if err != nil {
-			return recipient{}, fmt.Errorf("subscribe with queue group: %w [subject=%v queue=%v]", err, subject, queue)
+			return recipient[ID]{}, fmt.Errorf("subscribe with queue group: %w [subject=%v queue=%v]", err, subject, queue)
 		}
 	} else {
 		nsub, err = bus.conn.Subscribe(subject, func(msg *nats.Msg) { msgs <- msg.Data })
 		if err != nil {
-			return recipient{}, fmt.Errorf("subscribe: %w [subject=%v]", err, subject)
+			return recipient[ID]{}, fmt.Errorf("subscribe: %w [subject=%v]", err, subject)
 		}
 	}
 
@@ -78,7 +79,7 @@ func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (r
 	return rcpt, nil
 }
 
-func (core *core) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
+func (core *core[ID]) publish(ctx context.Context, bus *EventBus[ID], evt event.Of[any, ID]) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w [event=%v, type(data)=%T]", err, evt.Name(), evt.Data())
@@ -88,7 +89,7 @@ func (core *core) publish(ctx context.Context, bus *EventBus, evt event.Event) e
 
 	id, name, v := evt.Aggregate()
 
-	env := envelope{
+	env := envelope[ID]{
 		ID:               evt.ID(),
 		Name:             evt.Name(),
 		Time:             evt.Time(),

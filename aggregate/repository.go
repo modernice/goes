@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/persistence/model"
 )
 
 const (
@@ -26,22 +27,26 @@ const (
 
 // Repository is the aggregate repository. It saves and fetches aggregates to
 // and from the underlying event store.
-type Repository interface {
+type Repository = RepositoryOf[uuid.UUID]
+
+// RepositoryOf is the aggregate repository. It saves and fetches aggregates to
+// and from the underlying event store.
+type RepositoryOf[ID goes.ID] interface {
 	// Save inserts the changes of the aggregate into the event store.
-	Save(ctx context.Context, a Aggregate) error
+	Save(ctx context.Context, a AggregateOf[ID]) error
 
 	// Fetch fetches the events for the given Aggregate from the event store,
 	// beginning from version a.AggregateVersion()+1 up to the latest version
 	// for that Aggregate and applies them to a, so that a is in the latest
 	// state. If the event store does not return any events, a stays untouched.
-	Fetch(ctx context.Context, a Aggregate) error
+	Fetch(ctx context.Context, a AggregateOf[ID]) error
 
 	// FetchVersion fetches the events for the given Aggregate from the event
 	// store, beginning from version a.AggregateVersion()+1 up to v and applies
 	// them to a, so that a is in the state of the time of the event with
 	// version v. If the event store does not return any events, a stays
 	// untouched.
-	FetchVersion(ctx context.Context, a Aggregate, v int) error
+	FetchVersion(ctx context.Context, a AggregateOf[ID], v int) error
 
 	// Query queries the Event Store for Aggregates and returns a channel of
 	// Histories and an error channel. If the query fails, Query returns nil
@@ -59,18 +64,18 @@ type Repository interface {
 	//	// handle err
 	//	for _, app := range appliers {
 	//		// Initialize your Aggregate.
-	//		var a Aggregate = newAggregate(app.AggregateName(), app.AggregateID())
+	//		var a Aggregateggregate = newAggregate(app.AggregateName(), app.AggregateID())
 	//		a.Apply(a)
 	//	}
-	Query(ctx context.Context, q Query) (<-chan History, <-chan error, error)
+	Query(ctx context.Context, q Query[ID]) (<-chan HistoryOf[ID], <-chan error, error)
 
 	// Use first fetches the Aggregate a from the event store, then calls fn(a)
 	// and finally saves the aggregate changes. If fn returns a non-nil error,
 	// the aggregate is not saved and the error is returned.
-	Use(ctx context.Context, a Aggregate, fn func() error) error
+	Use(ctx context.Context, a AggregateOf[ID], fn func() error) error
 
 	// Delete deletes an Aggregate by deleting its Events from the Event Store.
-	Delete(ctx context.Context, a Aggregate) error
+	Delete(ctx context.Context, a AggregateOf[ID]) error
 }
 
 // TypedRepository is a repository for a specific aggregate type.
@@ -81,8 +86,11 @@ type Repository interface {
 //
 //	var repo aggregate.Repository
 //	typed := repository.Typed(repo, NewFoo)
-type TypedRepository[A Aggregate] interface {
-	goes.TypedRepository[uuid.UUID, A]
+type TypedRepository[A interface {
+	AggregateOf[ID]
+	ModelID() ID
+}, ID goes.ID] interface {
+	model.TypedRepository[A, ID]
 
 	// FetchVersion fetches all events for the given aggregate up to the given
 	// version from the event store and applies them onto the aggregate.
@@ -108,16 +116,16 @@ type TypedRepository[A Aggregate] interface {
 	//	for _, a := range res {
 	//		// a is your aggregate
 	//	}
-	Query(ctx context.Context, q Query) (<-chan A, <-chan error, error)
+	Query(ctx context.Context, q Query[ID]) (<-chan A, <-chan error, error)
 }
 
 // Query is used by repositories to filter aggregates from the event store.
-type Query interface {
+type Query[ID goes.ID] interface {
 	// Names returns the aggregate names to query for.
 	Names() []string
 
 	// IDs returns the aggregate UUIDs to query for.
-	IDs() []uuid.UUID
+	IDs() []ID
 
 	// Versions returns the version constraints for the query.
 	Versions() version.Constraints
@@ -138,24 +146,25 @@ type Sorting int
 // SortDirection is a sorting direction.
 type SortDirection int
 
-// A History provides the event history of an aggregate. A History can be
+type History = HistoryOf[uuid.UUID]
+
+// A HistoryOf provides the event history of an aggregate. A History can be
 // applied onto an aggregate to rebuild its current state.
-type History interface {
+type HistoryOf[ID goes.ID] interface {
 	// AggregateName returns the name of the aggregate.
 	AggregateName() string
 
-	// AggregateID returns the UUID of the aggregate.
-	AggregateID() uuid.UUID
+	// AggregateID returns the id of the aggregate.
+	AggregateID() ID
 
 	// Apply applies the History on an Aggregate. Callers are responsible for
 	// providing an Aggregate that can make use of the Events in the History.
 
 	// Apply applies the history onto the aggregate to rebuild its current state.
-	Apply(Aggregate)
+	Apply(AggregateOf[ID])
 }
 
-// Compare compares a and b and returns -1 if a < b, 0 if a == b or 1 if a > b.
-func (s Sorting) Compare(a, b Aggregate) (cmp int8) {
+func CompareSorting[ID goes.ID](s Sorting, a, b AggregateOf[ID]) (cmp int8) {
 	aid, aname, av := a.Aggregate()
 	bid, bname, bv := b.Aggregate()
 
@@ -177,6 +186,11 @@ func (s Sorting) Compare(a, b Aggregate) (cmp int8) {
 		)
 	}
 	return
+}
+
+// Compare compares a and b and returns -1 if a < b, 0 if a == b or 1 if a > b.
+func (s Sorting) Compare(a, b AggregateOf[goes.SID]) int8 {
+	return CompareSorting(s, a, b)
 }
 
 // Bool returns either b if dir=SortAsc or !b if dir=SortDesc.

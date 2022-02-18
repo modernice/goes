@@ -3,6 +3,7 @@ package dispatch_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 	"github.com/modernice/goes/command/cmdbus/report"
 )
@@ -15,8 +16,8 @@ func TestSynchronous(t *testing.T) {
 }
 
 func TestReport(t *testing.T) {
-	var rep report.Report
-	cfg := dispatch.Configure(dispatch.Report(&rep))
+	var rep report.Report[uuid.UUID]
+	cfg := dispatch.Configure(dispatch.Report[uuid.UUID](&rep))
 
 	if cfg.Reporter != &rep {
 		t.Fatalf("cfg.Report should point to %p; got %v", &rep, cfg.Reporter)

@@ -20,7 +20,7 @@ import (
 )
 
 type mockAggregate struct {
-	*aggregate.Base
+	*aggregate.Base[uuid.UUID]
 	mockState
 }
 
@@ -31,17 +31,17 @@ type mockState struct {
 }
 
 func TestService(t *testing.T) {
-	store := memsnap.New()
+	store := memsnap.New[uuid.UUID]()
 
 	foo1 := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
 	foo2 := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
 
-	snap1, err := snapshot.New(foo1)
+	snap1, err := snapshot.New[uuid.UUID](foo1)
 	if err != nil {
 		t.Fatalf("make Snapshot: %v", err)
 	}
 
-	snap2, err := snapshot.New(foo2, snapshot.Time(xtime.Now().Add(-2*time.Hour)))
+	snap2, err := snapshot.New[uuid.UUID](foo2, snapshot.Time(xtime.Now().Add(-2*time.Hour)))
 	if err != nil {
 		t.Fatalf("make Snapshot: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestService(t *testing.T) {
 		t.Fatalf("Save shouldn't fail; failed with %q", err)
 	}
 
-	c := cleanup.NewService(10*time.Millisecond, time.Hour)
+	c := cleanup.NewService[uuid.UUID](10*time.Millisecond, time.Hour)
 
 	errs, err := c.Start(store)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestService(t *testing.T) {
 		t.Fatalf("Stop shouldn't fail; failed with %q", err)
 	}
 
-	res, errs, err := store.Query(context.Background(), query.New())
+	res, errs, err := store.Query(context.Background(), query.New[uuid.UUID]())
 	if err != nil {
 		t.Fatalf("Query shouldn't fail; failed with %q", err)
 	}
@@ -94,8 +94,8 @@ func TestService(t *testing.T) {
 }
 
 func TestService_Start_errStarted(t *testing.T) {
-	svc := cleanup.NewService(time.Minute, time.Minute)
-	store := memsnap.New()
+	svc := cleanup.NewService[uuid.UUID](time.Minute, time.Minute)
+	store := memsnap.New[uuid.UUID]()
 
 	if _, err := svc.Start(store); err != nil {
 		t.Fatalf("Start shouldn't fail; failed with %q", err)
@@ -107,15 +107,15 @@ func TestService_Start_errStarted(t *testing.T) {
 }
 
 func TestService_Start_nilStore(t *testing.T) {
-	svc := cleanup.NewService(time.Minute, time.Minute)
+	svc := cleanup.NewService[uuid.UUID](time.Minute, time.Minute)
 	if _, err := svc.Start(nil); err == nil {
 		t.Fatalf("Start should fail without a Store!")
 	}
 }
 
 func TestService_Stop(t *testing.T) {
-	svc := cleanup.NewService(time.Minute, time.Minute)
-	store := memsnap.New()
+	svc := cleanup.NewService[uuid.UUID](time.Minute, time.Minute)
+	store := memsnap.New[uuid.UUID]()
 
 	if _, err := svc.Start(store); err != nil {
 		t.Fatalf("Start shouldn't fail; failed with %q", err)
@@ -131,7 +131,7 @@ func TestService_Stop(t *testing.T) {
 }
 
 func TestService_Stop_errNotStarted(t *testing.T) {
-	svc := cleanup.NewService(time.Minute, time.Minute)
+	svc := cleanup.NewService[uuid.UUID](time.Minute, time.Minute)
 
 	if err := svc.Stop(context.Background()); !errors.Is(err, cleanup.ErrStopped) {
 		t.Fatalf("Stop shouldn't fail; failed with %q", err)

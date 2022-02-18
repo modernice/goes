@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
@@ -36,7 +37,7 @@ func TestBus_Dispatch(t *testing.T) {
 	}
 
 	load := mockPayload{A: "foo"}
-	cmd := command.New("foo-cmd", load)
+	cmd := command.New(uuid.New(), "foo-cmd", load)
 
 	dispatchErr := make(chan error)
 	go func() {
@@ -83,11 +84,11 @@ func TestBus_Dispatch_Report(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	cmd := command.New("foo-cmd", mockPayload{A: "foo"})
-	var rep report.Report
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{A: "foo"})
+	var rep report.Report[uuid.UUID]
 
 	dispatchErr := make(chan error)
-	go func() { dispatchErr <- bus.Dispatch(ctx, cmd.Any(), dispatch.Report(&rep)) }()
+	go func() { dispatchErr <- bus.Dispatch(ctx, cmd.Any(), dispatch.Report[uuid.UUID](&rep)) }()
 
 	var cmdCtx command.Context
 	var ok bool
@@ -122,7 +123,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 		t.Fatalf("Dispatch should return an error!")
 	}
 
-	var execError *cmdbus.ExecutionError[any]
+	var execError *cmdbus.ExecutionError[any, uuid.UUID]
 	if !errors.As(dispatchError, &execError) {
 		t.Fatalf("Dispatch should return a %T error; got %T", execError, dispatchError)
 	}
@@ -143,7 +144,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 func TestBus_Dispatch_cancel(t *testing.T) {
 	bus, _, _ := newBus()
 
-	cmd := command.New("foo-cmd", mockPayload{})
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -163,7 +164,7 @@ func TestSynchronous(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	cmd := command.New("foo-cmd", mockPayload{A: "foo"})
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{A: "foo"})
 
 	dispatchErr := make(chan error)
 	dispatchTime := make(chan time.Time)
@@ -213,9 +214,9 @@ L:
 }
 
 func TestAssignTimeout(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.AssignTimeout[any](500 * time.Millisecond))
+	bus, _, _ := newBus(cmdbus.AssignTimeout(500 * time.Millisecond))
 
-	cmd := command.New("foo-cmd", mockPayload{})
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{})
 
 	dispatchErrc := make(chan error)
 	go func() { dispatchErrc <- bus.Dispatch(context.Background(), cmd.Any()) }()
@@ -233,9 +234,9 @@ func TestAssignTimeout(t *testing.T) {
 }
 
 func TestAssignTimeout_0(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.AssignTimeout[any](0))
+	bus, _, _ := newBus(cmdbus.AssignTimeout(0))
 
-	cmd := command.New("foo-cmd", mockPayload{})
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{})
 
 	dispatchErrc := make(chan error)
 	go func() { dispatchErrc <- bus.Dispatch(context.Background(), cmd.Any()) }()
@@ -248,7 +249,7 @@ func TestAssignTimeout_0(t *testing.T) {
 }
 
 func TestDrainTimeout(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.DrainTimeout[any](100 * time.Millisecond))
+	bus, _, _ := newBus(cmdbus.DrainTimeout(100 * time.Millisecond))
 
 	subCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -259,7 +260,7 @@ func TestDrainTimeout(t *testing.T) {
 	}
 
 	newCmd := func() command.Command {
-		return command.New[any]("foo-cmd", mockPayload{})
+		return command.New[any](uuid.New(), "foo-cmd", mockPayload{})
 	}
 	dispatchErrc := make(chan error)
 
@@ -299,7 +300,7 @@ L:
 }
 
 func TestDrainTimeout_0(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.DrainTimeout[any](0))
+	bus, _, _ := newBus(cmdbus.DrainTimeout(0))
 
 	subCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -310,7 +311,7 @@ func TestDrainTimeout_0(t *testing.T) {
 	}
 
 	newCmd := func() command.Command {
-		return command.New[any]("foo-cmd", mockPayload{})
+		return command.New[any](uuid.New(), "foo-cmd", mockPayload{})
 	}
 	dispatchErrc := make(chan error)
 
@@ -350,13 +351,13 @@ L:
 	}
 }
 
-func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
+func newBus(opts ...cmdbus.Option) (command.Bus[uuid.UUID], event.Bus[uuid.UUID], *codec.Registry) {
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() any {
 		return mockPayload{}
 	})
-	ebus := eventbus.New()
-	return cmdbus.New(enc, ebus, opts...), ebus, enc.Registry
+	ebus := eventbus.New[uuid.UUID]()
+	return cmdbus.New(uuid.New, enc, ebus, opts...), ebus, enc.Registry
 }
 
 func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {

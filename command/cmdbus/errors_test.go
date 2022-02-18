@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 )
 
 func TestExecError(t *testing.T) {
-	execError := &cmdbus.ExecutionError[any]{}
+	execError := &cmdbus.ExecutionError[any, uuid.UUID]{}
 
-	err, ok := cmdbus.ExecError[any](execError)
+	err, ok := cmdbus.ExecError[any, uuid.UUID](execError)
 	if !ok {
 		t.Fatalf("ExecError() should return true for %v; got %t", execError, ok)
 	}
@@ -23,8 +24,8 @@ func TestExecError(t *testing.T) {
 }
 
 func TestExecutionError_Error(t *testing.T) {
-	err := &cmdbus.ExecutionError[any]{
-		Cmd: command.New("foo", mockPayload{}).Any(),
+	err := &cmdbus.ExecutionError[any, uuid.UUID]{
+		Cmd: command.New(uuid.New(), "foo", mockPayload{}).Any(),
 		Err: errors.New("mock error"),
 	}
 

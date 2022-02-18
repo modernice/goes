@@ -10,7 +10,7 @@ import (
 	"sync"
 	stdtime "time"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
@@ -21,17 +21,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// EventStore is the MongoDB event.Store.
-type EventStore struct {
-	enc              codec.Encoding
-	url              string
-	dbname           string
-	entriesCol       string
-	statesCol        string
-	transactions     bool
-	validateVersions bool
+// EventStore is the MongoDB event.Store[ID]
+type EventStore[ID goes.ID] struct {
+	eventStoreOptions
 
-	client  *mongo.Client
 	db      *mongo.Database
 	entries *mongo.Collection
 	states  *mongo.Collection
@@ -40,37 +33,48 @@ type EventStore struct {
 }
 
 // EventStoreOption is an EventStore option.
-type EventStoreOption func(*EventStore)
+type EventStoreOption func(*eventStoreOptions)
+
+type eventStoreOptions struct {
+	enc              codec.Encoding
+	url              string
+	dbname           string
+	entriesCol       string
+	statesCol        string
+	transactions     bool
+	validateVersions bool
+	client           *mongo.Client
+}
 
 // A VersionError means the insertion of events failed because at least one of
 // the events has an invalid/inconsistent version.
-type VersionError struct {
+type VersionError[ID goes.ID] struct {
 	// AggregateName is the name of the Aggregate.
 	AggregateName string
 
 	// AggregateID is the UUID of the Aggregate.
-	AggregateID uuid.UUID
+	AggregateID ID
 
 	// CurrentVersion is the current version of the Aggregate.
 	CurrentVersion int
 
 	// Event is the event with the invalid version.
-	Event event.Event
+	Event event.Of[any, ID]
 }
 
-type state struct {
-	AggregateName string    `bson:"aggregateName"`
-	AggregageID   uuid.UUID `bson:"aggregateId"`
-	Version       int       `bson:"version"`
+type state[ID goes.ID] struct {
+	AggregateName string `bson:"aggregateName"`
+	AggregageID   ID     `bson:"aggregateId"`
+	Version       int    `bson:"version"`
 }
 
-type entry struct {
-	ID               uuid.UUID    `bson:"id"`
+type entry[ID goes.ID] struct {
+	ID               ID           `bson:"id"`
 	Name             string       `bson:"name"`
 	Time             stdtime.Time `bson:"time"`
 	TimeNano         int64        `bson:"timeNano"`
 	AggregateName    string       `bson:"aggregateName"`
-	AggregateID      uuid.UUID    `bson:"aggregateId"`
+	AggregateID      ID           `bson:"aggregateId"`
 	AggregateVersion int          `bson:"aggregateVersion"`
 	Data             []byte       `bson:"data"`
 }
@@ -80,39 +84,39 @@ type entry struct {
 //
 // Defaults to the environment variable "MONGO_URL".
 func URL(url string) EventStoreOption {
-	return func(s *EventStore) {
-		s.url = url
+	return func(opts *eventStoreOptions) {
+		opts.url = url
 	}
 }
 
 // Client returns an Option that specifies the underlying mongo.Client to be
 // used by the Store.
 func Client(c *mongo.Client) EventStoreOption {
-	return func(s *EventStore) {
-		s.client = c
+	return func(opts *eventStoreOptions) {
+		opts.client = c
 	}
 }
 
 // Database returns an Option that sets the mongo database to use for the events.
 func Database(name string) EventStoreOption {
-	return func(s *EventStore) {
-		s.dbname = name
+	return func(opts *eventStoreOptions) {
+		opts.dbname = name
 	}
 }
 
 // Collection returns an Option that sets the mongo collection where the Events
 // are stored in.
 func Collection(name string) EventStoreOption {
-	return func(s *EventStore) {
-		s.entriesCol = name
+	return func(opts *eventStoreOptions) {
+		opts.entriesCol = name
 	}
 }
 
 // StateCollection returns an Option that specifies the name of the Collection
 // where the current state of Aggregates are stored in.
 func StateCollection(name string) EventStoreOption {
-	return func(s *EventStore) {
-		s.statesCol = name
+	return func(opts *eventStoreOptions) {
+		opts.statesCol = name
 	}
 }
 
@@ -122,8 +126,8 @@ func StateCollection(name string) EventStoreOption {
 // Transactions can only be used in replica sets or sharded clusters:
 // https://docs.mongodb.com/manual/core/transactions/
 func Transactions(tx bool) EventStoreOption {
-	return func(s *EventStore) {
-		s.transactions = tx
+	return func(opts *eventStoreOptions) {
+		opts.transactions = tx
 	}
 }
 
@@ -132,30 +136,32 @@ func Transactions(tx bool) EventStoreOption {
 //
 // Defaults to true.
 func ValidateVersions(v bool) EventStoreOption {
-	return func(s *EventStore) {
-		s.validateVersions = v
+	return func(opts *eventStoreOptions) {
+		opts.validateVersions = v
 	}
 }
 
-// NewEventStore returns a MongoDB event.Store.
-func NewEventStore(enc codec.Encoding, opts ...EventStoreOption) *EventStore {
-	s := EventStore{
+// NewEventStore returns a MongoDB event.Store[ID]
+func NewEventStore[ID goes.ID](enc codec.Encoding, opts ...EventStoreOption) *EventStore[ID] {
+	options := eventStoreOptions{
 		enc:              enc,
 		validateVersions: true,
 	}
 	for _, opt := range opts {
-		opt(&s)
+		opt(&options)
 	}
-	if strings.TrimSpace(s.dbname) == "" {
-		s.dbname = "event"
+
+	if strings.TrimSpace(options.dbname) == "" {
+		options.dbname = "event"
 	}
-	if strings.TrimSpace(s.entriesCol) == "" {
-		s.entriesCol = "events"
+	if strings.TrimSpace(options.entriesCol) == "" {
+		options.entriesCol = "events"
 	}
-	if strings.TrimSpace(s.statesCol) == "" {
-		s.statesCol = "states"
+	if strings.TrimSpace(options.statesCol) == "" {
+		options.statesCol = "states"
 	}
-	return &s
+
+	return &EventStore[ID]{eventStoreOptions: options}
 }
 
 // Client returns the underlying mongo.Client. If no mongo.Client is provided
@@ -163,14 +169,14 @@ func NewEventStore(enc codec.Encoding, opts ...EventStoreOption) *EventStore {
 // has been established by either explicitly calling s.Connect or implicitly by
 // calling s.Insert, s.Find, s.Delete or s.Query. Otherwise Client returns the
 // provided mongo.Client.
-func (s *EventStore) Client() *mongo.Client {
+func (s *EventStore[ID]) Client() *mongo.Client {
 	return s.client
 }
 
 // Database returns the underlying mongo.Database. Database returns nil until
 // the connection to MongoDB has been established by either explicitly calling
 // s.Connect or implicitly by calling s.Insert, s.Find, s.Delete or s.Query.
-func (s *EventStore) Database() *mongo.Database {
+func (s *EventStore[ID]) Database() *mongo.Database {
 	return s.db
 }
 
@@ -178,7 +184,7 @@ func (s *EventStore) Database() *mongo.Database {
 // stored in. Collection returns nil until the connection to MongoDB has been
 // established by either explicitly calling s.Connect or implicitly by calling
 // s.Insert, s.Find, s.Delete or s.Query.
-func (s *EventStore) Collection() *mongo.Collection {
+func (s *EventStore[ID]) Collection() *mongo.Collection {
 	return s.entries
 }
 
@@ -186,12 +192,12 @@ func (s *EventStore) Collection() *mongo.Collection {
 // states are stored in. StateCollection returns nil until the connection to
 // MongoDB has been established by either explicitly calling s.Connect or
 // implicitly by calling s.Insert, s.Find, s.Delete or s.Query.
-func (s *EventStore) StateCollection() *mongo.Collection {
+func (s *EventStore[ID]) StateCollection() *mongo.Collection {
 	return s.states
 }
 
 // Insert saves the given Events into the database.
-func (s *EventStore) Insert(ctx context.Context, events ...event.Event) error {
+func (s *EventStore[ID]) Insert(ctx context.Context, events ...event.Of[any, ID]) error {
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
@@ -236,15 +242,17 @@ func (s *EventStore) Insert(ctx context.Context, events ...event.Event) error {
 	})
 }
 
-func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []event.Event) (state, error) {
+func (s *EventStore[ID]) validateEventVersions(ctx mongo.SessionContext, events []event.Of[any, ID]) (state[ID], error) {
 	if len(events) == 0 {
-		return state{}, nil
+		return state[ID]{}, nil
 	}
 
 	aggregateID, aggregateName, aggregateVersion := events[0].Aggregate()
 
-	if aggregateName == "" || aggregateID == uuid.Nil {
-		return state{}, nil
+	var zero ID
+
+	if aggregateName == "" || aggregateID == zero {
+		return state[ID]{}, nil
 	}
 
 	res := s.states.FindOne(ctx, bson.D{
@@ -252,12 +260,12 @@ func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []ev
 		{Key: "aggregateId", Value: aggregateID},
 	})
 
-	var st state
+	var st state[ID]
 	if err := res.Decode(&st); err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
-			return state{}, fmt.Errorf("decode state: %w", err)
+			return state[ID]{}, fmt.Errorf("decode state: %w", err)
 		}
-		st = state{
+		st = state[ID]{
 			AggregateName: aggregateName,
 			AggregageID:   aggregateID,
 		}
@@ -268,7 +276,7 @@ func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []ev
 	}
 
 	if st.Version >= aggregateVersion {
-		return st, &VersionError{
+		return st, &VersionError[ID]{
 			AggregateName:  aggregateName,
 			AggregateID:    aggregateID,
 			CurrentVersion: st.Version,
@@ -279,11 +287,12 @@ func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []ev
 	return st, nil
 }
 
-func (s *EventStore) updateState(ctx mongo.SessionContext, st state, events []event.Event) error {
-	if len(events) == 0 || st.AggregateName == "" || st.AggregageID == uuid.Nil {
+func (s *EventStore[ID]) updateState(ctx mongo.SessionContext, st state[ID], events []event.Of[any, ID]) error {
+	var zero ID
+	if len(events) == 0 || st.AggregateName == "" || st.AggregageID == zero {
 		return nil
 	}
-	st.Version = pick.AggregateVersion(events[len(events)-1])
+	st.Version = pick.AggregateVersion[ID](events[len(events)-1])
 	if _, err := s.states.ReplaceOne(
 		ctx,
 		bson.D{
@@ -298,7 +307,7 @@ func (s *EventStore) updateState(ctx mongo.SessionContext, st state, events []ev
 	return nil
 }
 
-func (s *EventStore) insert(ctx context.Context, events []event.Event) error {
+func (s *EventStore[ID]) insert(ctx context.Context, events []event.Of[any, ID]) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -310,7 +319,7 @@ func (s *EventStore) insert(ctx context.Context, events []event.Event) error {
 			return fmt.Errorf("encode %q event data: %w", evt.Name(), err)
 		}
 		id, name, v := evt.Aggregate()
-		docs[i] = entry{
+		docs[i] = entry[ID]{
 			ID:               evt.ID(),
 			Name:             evt.Name(),
 			Time:             evt.Time(),
@@ -328,12 +337,12 @@ func (s *EventStore) insert(ctx context.Context, events []event.Event) error {
 }
 
 // Find returns the Event with the specified UUID from the database if it exists.
-func (s *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
+func (s *EventStore[ID]) Find(ctx context.Context, id ID) (event.Of[any, ID], error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
 	res := s.entries.FindOne(ctx, bson.M{"id": id})
-	var e entry
+	var e entry[ID]
 	if err := res.Decode(&e); err != nil {
 		return nil, fmt.Errorf("decode document: %w", err)
 	}
@@ -341,12 +350,12 @@ func (s *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, error
 }
 
 // Delete deletes the given Event from the database.
-func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
+func (s *EventStore[ID]) Delete(ctx context.Context, events ...event.Of[any, ID]) error {
 	if len(events) == 0 {
 		return nil
 	}
 
-	ids := make([]uuid.UUID, len(events))
+	ids := make([]ID, len(events))
 	for i, evt := range events {
 		ids[i] = evt.ID()
 	}
@@ -354,6 +363,8 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
+
+	var zero ID
 
 	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) error {
 		if s.transactions {
@@ -386,11 +397,11 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
 			return abort(err)
 		}
 
-		aggregateName := pick.AggregateName(events[0])
-		aggregateID := pick.AggregateID(events[0])
-		aggregateVersion := pick.AggregateVersion(events[0])
+		aggregateName := pick.AggregateName[ID](events[0])
+		aggregateID := pick.AggregateID[ID](events[0])
+		aggregateVersion := pick.AggregateVersion[ID](events[0])
 
-		if aggregateName == "" || aggregateID == uuid.Nil || aggregateVersion != 1 {
+		if aggregateName == "" || aggregateID == zero || aggregateVersion != 1 {
 			return commit()
 		}
 
@@ -419,7 +430,7 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
 
 // Query queries the database for events filtered by Query q and returns an
 // streams.New for those events.
-func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
+func (s *EventStore[ID]) Query(ctx context.Context, q event.Query) (<-chan event.Of[any, ID], <-chan error, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
@@ -433,7 +444,7 @@ func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Eve
 		return nil, nil, fmt.Errorf("mongo: %w", err)
 	}
 
-	events := make(chan event.Event)
+	events := make(chan event.Of[any, ID])
 	errs := make(chan error)
 
 	go func() {
@@ -442,7 +453,7 @@ func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Eve
 
 	L:
 		for cur.Next(ctx) {
-			var e entry
+			var e entry[ID]
 			if err := cur.Decode(&e); err != nil {
 				select {
 				case <-ctx.Done():
@@ -482,14 +493,14 @@ func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Eve
 // mongo.Client. Connect doesn't need to be called manually as it's called
 // automatically on the first call to s.Insert, s.Find, s.Delete or s.Query. Use
 // Connect if you want to explicitly control when to connect to MongoDB.
-func (s *EventStore) Connect(ctx context.Context, opts ...*options.ClientOptions) (*mongo.Client, error) {
+func (s *EventStore[ID]) Connect(ctx context.Context, opts ...*options.ClientOptions) (*mongo.Client, error) {
 	if err := s.connectOnce(ctx, opts...); err != nil {
 		return nil, err
 	}
 	return s.client, nil
 }
 
-func (s *EventStore) connectOnce(ctx context.Context, opts ...*options.ClientOptions) error {
+func (s *EventStore[ID]) connectOnce(ctx context.Context, opts ...*options.ClientOptions) error {
 	var err error
 	s.onceConnect.Do(func() {
 		if err = s.connect(ctx, opts...); err != nil {
@@ -503,7 +514,7 @@ func (s *EventStore) connectOnce(ctx context.Context, opts ...*options.ClientOpt
 	return err
 }
 
-func (s *EventStore) connect(ctx context.Context, opts ...*options.ClientOptions) error {
+func (s *EventStore[ID]) connect(ctx context.Context, opts ...*options.ClientOptions) error {
 	if s.client == nil {
 		uri := s.url
 		if uri == "" {
@@ -526,8 +537,10 @@ func (s *EventStore) connect(ctx context.Context, opts ...*options.ClientOptions
 	return nil
 }
 
-func (s *EventStore) ensureIndexes(ctx context.Context) error {
+func (s *EventStore[ID]) ensureIndexes(ctx context.Context) error {
 	// TODO: make indexes configurable
+
+	var zero ID
 
 	if _, err := s.entries.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
@@ -567,7 +580,7 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 			Options: options.Index().SetUnique(true).SetPartialFilterExpression(
 				bson.D{
 					{Key: "aggregateName", Value: bson.D{{Key: "$gt", Value: ""}}},
-					{Key: "aggregateId", Value: bson.D{{Key: "$gt", Value: uuid.UUID{}}}},
+					{Key: "aggregateId", Value: bson.D{{Key: "$gt", Value: zero}}},
 					{Key: "aggregateVersion", Value: bson.D{{Key: "$gt", Value: 0}}},
 				},
 			),
@@ -579,25 +592,25 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 	return nil
 }
 
-func (e entry) event(enc codec.Encoding) (event.Event, error) {
+func (e entry[ID]) event(enc codec.Encoding) (event.Of[any, ID], error) {
 	data, err := enc.Decode(bytes.NewReader(e.Data), e.Name)
 	if err != nil {
 		return nil, fmt.Errorf("decode %q event data: %w", e.Name, err)
 	}
 	return event.New(
+		e.ID,
 		e.Name,
 		data,
-		event.ID(e.ID),
 		event.Time(stdtime.Unix(0, e.TimeNano)),
 		event.Aggregate(e.AggregateID, e.AggregateName, e.AggregateVersion),
 	), nil
 }
 
-func (err *VersionError) Error() string {
+func (err *VersionError[ID]) Error() string {
 	return fmt.Sprintf(
 		"event should have version %d, but has version %d",
 		err.CurrentVersion+1,
-		pick.AggregateVersion(err.Event),
+		pick.AggregateVersion[ID](err.Event),
 	)
 }
 
@@ -622,7 +635,7 @@ func withNameFilter(filter bson.D, names ...string) bson.D {
 	})
 }
 
-func withIDFilter(filter bson.D, ids ...uuid.UUID) bson.D {
+func withIDFilter[ID goes.ID](filter bson.D, ids ...ID) bson.D {
 	if len(ids) == 0 {
 		return filter
 	}
@@ -686,7 +699,7 @@ func withAggregateNameFilter(filter bson.D, names ...string) bson.D {
 	})
 }
 
-func withAggregateIDFilter(filter bson.D, ids ...uuid.UUID) bson.D {
+func withAggregateIDFilter[ID goes.ID](filter bson.D, ids ...ID) bson.D {
 	if len(ids) == 0 {
 		return filter
 	}
@@ -740,15 +753,17 @@ func withAggregateVersionFilter(filter bson.D, versions version.Constraints) bso
 	return filter
 }
 
-func withAggregateRefFilter(filter bson.D, tuples []event.AggregateRef) bson.D {
+func withAggregateRefFilter[ID goes.ID](filter bson.D, tuples []event.AggregateRefOf[ID]) bson.D {
 	if len(tuples) == 0 {
 		return filter
 	}
 
+	var zero ID
+
 	or := make([]bson.D, len(tuples))
 	for i, tuple := range tuples {
 		f := bson.D{{Key: "aggregateName", Value: tuple.Name}}
-		if tuple.ID != uuid.Nil {
+		if tuple.ID != zero {
 			f = append(f, bson.E{Key: "aggregateId", Value: tuple.ID})
 		}
 		or[i] = f

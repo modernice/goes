@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/cli"
 	"github.com/modernice/goes/cli/internal/clitest"
 	"github.com/modernice/goes/cli/internal/proto"
@@ -17,11 +18,11 @@ func TestConnector_Serve(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, bus, store := clitest.SetupEvents()
+	_, bus, store := clitest.SetupEvents[uuid.UUID]()
 
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	received := make(chan struct{})
-	subscribeErrors, err := schedule.Subscribe(ctx, func(projection.Job) error {
+	subscribeErrors, err := schedule.Subscribe(ctx, func(projection.Job[uuid.UUID]) error {
 		close(received)
 		return nil
 	})
@@ -29,7 +30,7 @@ func TestConnector_Serve(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
+	svc := projection.NewService(uuid.New, bus, projection.RegisterSchedule[uuid.UUID]("example", schedule))
 	serviceErrors, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
@@ -69,7 +70,7 @@ L:
 	<-closed
 }
 
-func serve(t *testing.T, ctx context.Context, c *cli.Connector) (*grpc.Server, *bufconn.Listener, <-chan error, <-chan struct{}) {
+func serve(t *testing.T, ctx context.Context, c *cli.Connector[uuid.UUID]) (*grpc.Server, *bufconn.Listener, <-chan error, <-chan struct{}) {
 	srv, _, lis := clitest.NewServer(t, nil)
 	serveError := make(chan error)
 	closed := make(chan struct{})

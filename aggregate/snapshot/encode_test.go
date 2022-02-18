@@ -12,7 +12,7 @@ import (
 )
 
 type mockAggregate struct {
-	*aggregate.Base
+	*aggregate.Base[uuid.UUID]
 	mockState
 }
 
@@ -68,7 +68,7 @@ func TestUnmarshal(t *testing.T) {
 	if err != snapshot.ErrUnimplemented {
 		t.Fatalf("Marshal() should fail with %q; got %v", snapshot.ErrUnimplemented, err)
 	}
-	snap, _ := snapshot.New(a, snapshot.Data(b))
+	snap, _ := snapshot.New[uuid.UUID](a, snapshot.Data(b))
 
 	unmarshaled := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
 
@@ -96,7 +96,7 @@ func TestUnmarshal_unmarshaler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal shouldn't fail; failed with %q", err)
 	}
-	snap, _ := snapshot.New(a, snapshot.Data(b))
+	snap, _ := snapshot.New[uuid.UUID](a, snapshot.Data(b))
 
 	unmarshaled := &mockSnapshotter{Base: aggregate.New("foo", uuid.New())}
 

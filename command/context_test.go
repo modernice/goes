@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/finish"
 )
@@ -12,8 +13,8 @@ import (
 // type mockPayload struct{}
 
 func TestWhenDone(t *testing.T) {
-	cmd := command.New("foo", mockPayload{})
-	ctx := command.NewContext[mockPayload](context.Background(), cmd)
+	cmd := command.New(uuid.New(), "foo", mockPayload{})
+	ctx := command.NewContext[mockPayload, uuid.UUID](context.Background(), cmd)
 
 	doneError := ctx.Finish(context.Background())
 
@@ -23,13 +24,13 @@ func TestWhenDone(t *testing.T) {
 }
 
 func TestWhenDone_withError(t *testing.T) {
-	cmd := command.New("foo", mockPayload{})
+	cmd := command.New(uuid.New(), "foo", mockPayload{})
 
 	mockExecError := errors.New("mock exec error")
 	mockDoneError := errors.New("mock done error")
 
 	var cfg finish.Config
-	ctx := command.NewContext[mockPayload](context.Background(), cmd, command.WhenDone(func(_ context.Context, cfg2 finish.Config) error {
+	ctx := command.NewContext[mockPayload, uuid.UUID](context.Background(), cmd, command.WhenDone(func(_ context.Context, cfg2 finish.Config) error {
 		cfg = cfg2
 		return mockDoneError
 	}))
@@ -46,8 +47,8 @@ func TestWhenDone_withError(t *testing.T) {
 }
 
 func TestContext_Finish_default(t *testing.T) {
-	cmd := command.New("foo", mockPayload{})
-	ctx := command.NewContext[mockPayload](context.Background(), cmd)
+	cmd := command.New(uuid.New(), "foo", mockPayload{})
+	ctx := command.NewContext[mockPayload, uuid.UUID](context.Background(), cmd)
 
 	mockError := errors.New("mock error")
 	err := ctx.Finish(context.Background(), finish.WithError(mockError))
@@ -58,8 +59,8 @@ func TestContext_Finish_default(t *testing.T) {
 }
 
 func TestContext_Finish_multipleTimes(t *testing.T) {
-	cmd := command.New("foo", mockPayload{})
-	ctx := command.NewContext[mockPayload](context.Background(), cmd)
+	cmd := command.New(uuid.New(), "foo", mockPayload{})
+	ctx := command.NewContext[mockPayload, uuid.UUID](context.Background(), cmd)
 
 	err := ctx.Finish(context.Background())
 

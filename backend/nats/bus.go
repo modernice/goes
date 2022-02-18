@@ -13,7 +13,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/env"
@@ -38,9 +38,18 @@ var (
 //
 //	var enc codec.Encoding
 //	bus := nats.NewEventBus(enc, nats.Use(nats.JetStream()))
-type EventBus struct {
-	enc codec.Encoding
+type EventBus[ID goes.ID] struct {
+	eventBusOptions
+	enc         codec.Encoding
+	driver      Driver[ID]
+	onceConnect sync.Once
+	stop        chan struct{}
+}
 
+// EventBusOption is an option for an EventBus.
+type EventBusOption func(*eventBusOptions)
+
+type eventBusOptions struct {
 	eatErrors   bool
 	url         string
 	pullTimeout time.Duration
@@ -50,34 +59,28 @@ type EventBus struct {
 	durableFunc    func(subject string, queue string) string
 	streamNameFunc func(subject, queue string) string
 
-	conn     *nats.Conn
 	natsOpts []nats.Option
 	subOpts  []nats.SubOpt
-	driver   Driver
-
-	onceConnect sync.Once
-	stop        chan struct{}
+	conn     *nats.Conn
+	driver   any
 }
-
-// EventBusOption is an option for an EventBus.
-type EventBusOption func(*EventBus)
 
 // A Driver provides the specific implementation for interacting with either
 // NATS Core or NATS JetStream. Use the Core or JetStream functions to create
 // a Driver.
-type Driver interface {
+type Driver[ID goes.ID] interface {
 	name() string
-	subscribe(ctx context.Context, bus *EventBus, subject string) (recipient, error)
-	publish(ctx context.Context, bus *EventBus, evt event.Event) error
+	subscribe(ctx context.Context, bus *EventBus[ID], subject string) (recipient[ID], error)
+	publish(ctx context.Context, bus *EventBus[ID], evt event.Of[any, ID]) error
 }
 
-type envelope struct {
-	ID               uuid.UUID
+type envelope[ID goes.ID] struct {
+	ID               ID
 	Name             string
 	Time             time.Time
 	Data             []byte
 	AggregateName    string
-	AggregateID      uuid.UUID
+	AggregateID      ID
 	AggregateVersion int
 }
 
@@ -89,14 +92,14 @@ type envelope struct {
 // If no other specified, the returned event bus will use the NATS Core Driver.
 // To use the NATS JetStream Driver instead, explicitly set the Driver:
 //	NewEventBus(enc, Use(JetStream()))
-func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
+func NewEventBus[ID goes.ID](newID func() ID, enc codec.Encoding, opts ...EventBusOption) *EventBus[ID] {
 	if enc == nil {
 		enc = event.NewRegistry()
 	}
 
-	bus := &EventBus{enc: enc, stop: make(chan struct{})}
+	bus := &EventBus[ID]{enc: enc, stop: make(chan struct{})}
 	for _, opt := range opts {
-		opt(bus)
+		opt(&bus.eventBusOptions)
 	}
 	bus.init()
 
@@ -107,7 +110,7 @@ func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
 //
 // It is not required to call Connect to use the EventBus because Connect is
 // automatically called by Subscribe and Publish.
-func (bus *EventBus) Connect(ctx context.Context) error {
+func (bus *EventBus[ID]) Connect(ctx context.Context) error {
 	var err error
 	bus.onceConnect.Do(func() {
 		if err = bus.connect(ctx); err != nil {
@@ -115,7 +118,7 @@ func (bus *EventBus) Connect(ctx context.Context) error {
 		}
 
 		// The JetStream driver initializes the JetStreamContext.
-		if d, ok := bus.driver.(interface{ init(*EventBus) error }); ok {
+		if d, ok := bus.driver.(interface{ init(*EventBus[ID]) error }); ok {
 			if err = d.init(bus); err != nil {
 				return
 			}
@@ -124,7 +127,7 @@ func (bus *EventBus) Connect(ctx context.Context) error {
 	return err
 }
 
-func (bus *EventBus) connect(ctx context.Context) error {
+func (bus *EventBus[ID]) connect(ctx context.Context) error {
 	// *nats.Conn provided via Conn() option.
 	if bus.conn != nil {
 		return nil
@@ -146,7 +149,7 @@ func (bus *EventBus) connect(ctx context.Context) error {
 
 // Disconnect closes the underlying *nats.Conn. Should ctx be canceled before
 // the connection is closed, ctx.Err() is returned.
-func (bus *EventBus) Disconnect(ctx context.Context) error {
+func (bus *EventBus[ID]) Disconnect(ctx context.Context) error {
 	if bus.conn == nil {
 		return nil
 	}
@@ -167,7 +170,7 @@ func (bus *EventBus) Disconnect(ctx context.Context) error {
 }
 
 // Publish publishes events.
-func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
+func (bus *EventBus[ID]) Publish(ctx context.Context, events ...event.Of[any, ID]) error {
 	if err := bus.Connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
@@ -182,12 +185,12 @@ func (bus *EventBus) Publish(ctx context.Context, events ...event.Event) error {
 }
 
 // Subscribe subscribes to events.
-func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan event.Event, <-chan error, error) {
+func (bus *EventBus[ID]) Subscribe(ctx context.Context, names ...string) (<-chan event.Of[any, ID], <-chan error, error) {
 	if err := bus.Connect(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
 
-	rcpts := make([]recipient, len(names))
+	rcpts := make([]recipient[ID], len(names))
 
 	for i, name := range names {
 		rcpt, err := bus.driver.subscribe(ctx, bus, name)
@@ -204,7 +207,7 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 	return bus.fanInEvents(rcpts), fanInErrors(rcpts), nil
 }
 
-func (bus *EventBus) init(opts ...EventBusOption) error {
+func (bus *EventBus[ID]) init(opts ...EventBusOption) error {
 	var envOpts []EventBusOption
 	if env.Bool("NATS_QUEUE_GROUP_BY_EVENT") {
 		envOpts = append(envOpts, QueueGroupByEvent())
@@ -236,7 +239,7 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 
 	opts = append(envOpts, opts...)
 	for _, opt := range opts {
-		opt(bus)
+		opt(&bus.eventBusOptions)
 	}
 
 	if bus.queueFunc == nil {
@@ -260,14 +263,18 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 		bus.durableFunc = fn
 	}
 
+	if bus.eventBusOptions.driver != nil {
+		bus.driver, _ = bus.eventBusOptions.driver.(Driver[ID])
+	}
+
 	if bus.driver == nil {
-		bus.driver = Core()
+		bus.driver = Core[ID]()
 	}
 
 	return nil
 }
 
-func (bus *EventBus) natsURL() string {
+func (bus *EventBus[ID]) natsURL() string {
 	if bus.url != "" {
 		return bus.url
 	}
@@ -277,8 +284,8 @@ func (bus *EventBus) natsURL() string {
 	return nats.DefaultURL
 }
 
-func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Event {
-	out := make(chan event.Event)
+func (bus *EventBus[ID]) fanInEvents(rcpts []recipient[ID]) <-chan event.Of[any, ID] {
+	out := make(chan event.Of[any, ID])
 
 	var wg sync.WaitGroup
 	wg.Add(len(rcpts))
@@ -287,7 +294,7 @@ func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Event {
 		close(out)
 	}()
 
-	drop := func(rcpt recipient, evt event.Event) {
+	drop := func(rcpt recipient[ID], evt event.Of[any, ID]) {
 		rcpt.log(fmt.Errorf(
 			"[goes/backend/nats.EventBus] event dropped: %w [event=%v, timeout=%v]",
 			ErrPullTimeout,
@@ -297,7 +304,7 @@ func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Event {
 	}
 
 	for _, rcpt := range rcpts {
-		go func(rcpt recipient) {
+		go func(rcpt recipient[ID]) {
 			defer wg.Done()
 			for evt := range rcpt.events {
 				var timeout <-chan time.Time
@@ -323,7 +330,7 @@ func (bus *EventBus) fanInEvents(rcpts []recipient) <-chan event.Event {
 	return out
 }
 
-func fanInErrors(rcpts []recipient) <-chan error {
+func fanInErrors[ID goes.ID](rcpts []recipient[ID]) <-chan error {
 	out := make(chan error)
 
 	var wg sync.WaitGroup
@@ -334,7 +341,7 @@ func fanInErrors(rcpts []recipient) <-chan error {
 	}()
 
 	for _, rcpt := range rcpts {
-		go func(rcpt recipient) {
+		go func(rcpt recipient[ID]) {
 			defer wg.Done()
 			for err := range rcpt.errs {
 				select {
@@ -349,9 +356,9 @@ func fanInErrors(rcpts []recipient) <-chan error {
 	return out
 }
 
-func discardErrors(rcpts ...recipient) {
+func discardErrors[ID goes.ID](rcpts ...recipient[ID]) {
 	for _, rcpt := range rcpts {
-		go func(rcpt recipient) {
+		go func(rcpt recipient[ID]) {
 			for range rcpt.errs {
 			}
 		}(rcpt)

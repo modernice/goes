@@ -24,7 +24,7 @@ func TestNew(t *testing.T) {
 		t.Errorf("b.Version should return %v; got %v", 0, b.AggregateVersion())
 	}
 	changes := b.AggregateChanges()
-	wantType := []event.Event{}
+	wantType := []event.Of[any, uuid.UUID]{}
 	if reflect.TypeOf(changes) != reflect.TypeOf(wantType) {
 		t.Errorf("b.Changes should return type %T; got %T", wantType, changes)
 	}
@@ -44,10 +44,10 @@ func TestNew_version(t *testing.T) {
 func TestBase_TrackChange(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
-	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)),
+	events := []event.Of[any, uuid.UUID]{
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)).Any(),
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)).Any(),
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)).Any(),
 	}
 	b.TrackChange(events...)
 	if changes := b.AggregateChanges(); !reflect.DeepEqual(events, changes) {
@@ -58,10 +58,10 @@ func TestBase_TrackChange(t *testing.T) {
 func TestBase_FlushChanges(t *testing.T) {
 	aggregateID := uuid.New()
 	b := aggregate.New("foo", aggregateID)
-	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)),
+	events := []event.Of[any, uuid.UUID]{
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)).Any(),
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)).Any(),
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)).Any(),
 	}
 
 	b.TrackChange(events...)
@@ -78,26 +78,26 @@ func TestBase_FlushChanges(t *testing.T) {
 }
 
 func TestApplyHistory(t *testing.T) {
-	var applied []event.Event
+	var applied []event.Of[any, uuid.UUID]
 	var flushed bool
 	foo := test.NewFoo(
 		uuid.New(),
-		test.ApplyEventFunc("foo", func(evt event.Event) {
+		test.ApplyEventFunc("foo", func(evt event.Of[any, uuid.UUID]) {
 			applied = append(applied, evt)
 		}),
-		test.CommitFunc(func(flush func()) {
+		test.CommitFunc[uuid.UUID](func(flush func()) {
 			flush()
 			flushed = true
 		}),
 	)
 
-	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 1)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 2)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 3)),
+	events := []event.Of[any, uuid.UUID]{
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 1)).Any(),
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 2)).Any(),
+		event.New(uuid.New(), "foo", etest.FooEventData{A: "foo"}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 3)).Any(),
 	}
 
-	if err := aggregate.ApplyHistory(foo, events); err != nil {
+	if err := aggregate.ApplyHistory[any, uuid.UUID](foo, events); err != nil {
 		t.Fatalf("history could not be applied: %v", err)
 	}
 
@@ -111,23 +111,23 @@ func TestApplyHistory(t *testing.T) {
 func TestUncommittedVersion(t *testing.T) {
 	a := aggregate.New("foo", uuid.New())
 
-	if v := aggregate.UncommittedVersion(a); v != 0 {
+	if v := aggregate.UncommittedVersion[uuid.UUID](a); v != 0 {
 		t.Errorf("current aggregate version should be %d; got %d", 0, v)
 	}
 
-	evt := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 1))
+	evt := event.New(uuid.New(), "foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 1)).Any()
 
 	a.TrackChange(evt)
 
-	if v := aggregate.UncommittedVersion(a); v != 1 {
+	if v := aggregate.UncommittedVersion[uuid.UUID](a); v != 1 {
 		t.Errorf("current aggregate version should be %d; got %d", 1, v)
 	}
 
-	evt = event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 2))
+	evt = event.New(uuid.New(), "foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 2)).Any()
 
 	a.TrackChange(evt)
 
-	if v := aggregate.UncommittedVersion(a); v != 2 {
+	if v := aggregate.UncommittedVersion[uuid.UUID](a); v != 2 {
 		t.Errorf("current aggregate version should be %d; got %d", 2, v)
 	}
 }
@@ -135,7 +135,7 @@ func TestUncommittedVersion(t *testing.T) {
 func TestNextEvent(t *testing.T) {
 	a := aggregate.New("foo", uuid.New(), aggregate.Version(3))
 	data := etest.FooEventData{A: "foo"}
-	evt := aggregate.NextEvent(a, "bar", data)
+	evt := aggregate.NextEvent[uuid.UUID](a, uuid.New(), "bar", data)
 
 	id, name, v := evt.Aggregate()
 
@@ -158,18 +158,18 @@ func TestNextEvent(t *testing.T) {
 
 func TestHasChange(t *testing.T) {
 	a := aggregate.New("foo", uuid.New())
-	aggregate.NextEvent(a, "foo", etest.FooEventData{})
-	aggregate.NextEvent(a, "bar", etest.BarEventData{})
-	aggregate.NextEvent(a, "baz", etest.BazEventData{})
+	aggregate.NextEvent[uuid.UUID](a, uuid.New(), "foo", etest.FooEventData{})
+	aggregate.NextEvent[uuid.UUID](a, uuid.New(), "bar", etest.BarEventData{})
+	aggregate.NextEvent[uuid.UUID](a, uuid.New(), "baz", etest.BazEventData{})
 
 	wantChanges := []string{"foo", "bar", "baz"}
 	for _, name := range wantChanges {
-		if !aggregate.HasChange(a, name) {
+		if !aggregate.HasChange[uuid.UUID](a, name) {
 			t.Fatalf("Aggregate should have %q change", name)
 		}
 	}
 
-	if aggregate.HasChange(a, "foobar") {
+	if aggregate.HasChange[uuid.UUID](a, "foobar") {
 		t.Fatalf("Aggregate shouldn't have %q change", "foobar")
 	}
 }

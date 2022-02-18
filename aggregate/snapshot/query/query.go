@@ -3,7 +3,7 @@ package query
 import (
 	stdtime "time"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/snapshot"
@@ -12,8 +12,8 @@ import (
 )
 
 // Query is used by Snapshot Stores to filter Snapshots.
-type Query struct {
-	query.Query
+type Query[ID goes.ID] struct {
+	query.Query[ID]
 
 	times time.Constraints
 }
@@ -21,7 +21,7 @@ type Query struct {
 type Option func(*builder)
 
 type builder struct {
-	Query
+	Query[goes.AID]
 
 	opts            []query.Option
 	timeConstraints []time.Option
@@ -35,7 +35,7 @@ func Name(names ...string) Option {
 }
 
 // ID returns an Option that filters Snapshots by their AggregateID:
-func ID(ids ...uuid.UUID) Option {
+func ID[ID goes.ID](ids ...ID) Option {
 	return func(b *builder) {
 		b.opts = append(b.opts, query.ID(ids...))
 	}
@@ -70,16 +70,15 @@ func SortByMulti(sorts ...aggregate.SortOptions) Option {
 }
 
 // New returns a Query from opts.
-func New(opts ...Option) Query {
-	var b builder
-	return b.build(opts...)
+func New[ID goes.ID](opts ...Option) Query[ID] {
+	return buildQuery[ID](builder{}, opts...)
 }
 
 // Test tests the Snapshot s against the Query q and returns true if q should
 // include s in its results. Test can be used by snapshot.Store implementations
 // to filter events based on the query.
-func Test(q snapshot.Query, s snapshot.Snapshot) bool {
-	if !query.Test[any](q, aggregate.New(
+func Test[ID goes.ID](q snapshot.Query[ID], s snapshot.Snapshot[ID]) bool {
+	if !query.Test[any, ID](q, aggregate.New(
 		s.AggregateName(),
 		s.AggregateID(),
 		aggregate.Version(s.AggregateVersion()),
@@ -108,17 +107,19 @@ func Test(q snapshot.Query, s snapshot.Snapshot) bool {
 }
 
 // Times returns the time.Constraints of the Query.
-func (q Query) Times() time.Constraints {
+func (q Query[ID]) Times() time.Constraints {
 	return q.times
 }
 
-func (b *builder) build(opts ...Option) Query {
+func buildQuery[ID goes.ID](b builder, opts ...Option) Query[ID] {
 	for _, opt := range opts {
-		opt(b)
+		opt(&b)
 	}
-	b.Query.Query = query.New(b.opts...)
-	b.times = time.Filter(b.timeConstraints...)
-	return b.Query
+
+	return Query[ID]{
+		Query: query.New[ID](b.opts...),
+		times: time.Filter(b.timeConstraints...),
+	}
 }
 
 func timesContains(times []stdtime.Time, t stdtime.Time) bool {

@@ -3,12 +3,12 @@
 goes defines and implements an event system that can be used both as a simple
 generic event system for your application events and also as the underlying
 system for event-sourced aggregates. The type that all of goes' components build
-around is the `event.Event` interface. The `event.E` struct provides the
-implementation for `event.Event`.
+around is the `event.Of[any, uuid.UUID]` interface. The `event.E` struct provides the
+implementation for `event.Of[any, uuid.UUID]`.
 
 ## Design
 
-goes' event design unifies generic events and aggregate events into a single `event.Event` type:
+goes' event design unifies generic events and aggregate events into a single `event.Of[any, uuid.UUID]` type:
 
 ```go
 package event
@@ -30,14 +30,14 @@ type Event interface {
 }
 ```
 
-> The `version` field that is returned by `event.Event.Aggregate` refers to the
+> The `version` field that is returned by `event.Of[any, uuid.UUID].Aggregate` refers to the
 optimistic concurrency version of the aggregate the event belongs to. Event
 store implementations use this version to do optimistic concurrency checks when
 inserting event into the store.
 
 ### Event Bus
 
-The `event.Bus` interface defines a simple event bus that is accepted by all
+The `event.Bus[ID] interface defines a simple event bus that is accepted by all
 of goes' components. An event bus must be able to publish and subscribe to events:
 
 ```go
@@ -49,7 +49,7 @@ type Bus interface {
 }
 ```
 
-Instead of returning some kind cursor type, the `event.Bus.Subscribe` method
+Instead of returning some kind cursor type, the `event.Bus[ID]Subscribe` method
 returns two channels: one for the actual subscribed events and one for any
 asynchronous errors that happen during the subscription.
 
@@ -59,7 +59,7 @@ boilerplate code caused by the use of channels.
 
 ### Event Store
 
-The `event.Store` interface defines the event store.
+The `event.Store[ID] interface defines the event store.
 
 ```go
 package event
@@ -192,7 +192,7 @@ Or encode and decode event data:
 package example
 
 // codec.Encoding is implemented by *codec.Registry
-func encodeDecodeEventData(enc codec.Encoding, evt event.Event) {
+func encodeDecodeEventData(enc codec.Encoding, evt event.Of[any, uuid.UUID]) {
   var buf bytes.Buffer
   err := enc.Encode(&buf, evt.Data())
   // handle err

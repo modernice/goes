@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/backend/mongo"
 	"github.com/modernice/goes/backend/mongo/mongotest"
 	"github.com/modernice/goes/event/test"
@@ -16,7 +17,7 @@ import (
 func TestStore_Connect_options(t *testing.T) {
 	// given a store that's not connected yet
 	enc := test.NewEncoder()
-	store := mongo.NewEventStore(enc)
+	store := mongo.NewEventStore[uuid.UUID](enc)
 
 	// when connecting with an invalid mongo uri
 	client, err := store.Connect(context.Background(), options.Client().ApplyURI("foo://bar:123"))

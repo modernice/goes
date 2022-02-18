@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 )
@@ -29,12 +30,12 @@ const (
 )
 
 // A Store persists and queries events.
-type Store interface {
+type Store[ID goes.ID] interface {
 	// Insert inserts Events into the store.
-	Insert(context.Context, ...Event) error
+	Insert(context.Context, ...Of[any, ID]) error
 
 	// Find fetches the Event with the specified UUID from the store.
-	Find(context.Context, uuid.UUID) (Event, error)
+	Find(context.Context, ID) (Of[any, ID], error)
 
 	// Query queries the Store for Events that fit the given Query and returns a
 	// channel of Events and a channel of errors.
@@ -44,23 +45,25 @@ type Store interface {
 	//	var store event.Store
 	//	events, errs, err := store.Query(context.TODO(), query.New())
 	//	// handle err
-	//	err := streams.Walk(context.TODO(), func(evt event.Event) {
+	//	err := streams.Walk(context.TODO(), func(evt event.Of[any, uuid.UUID]) {
 	//		log.Println(fmt.Sprintf("Queried Event: %v", evt))
 	//	}, events, errs)
 	//	// handle err
-	Query(context.Context, Query) (<-chan Event, <-chan error, error)
+	Query(context.Context, QueryOf[ID]) (<-chan Of[any, ID], <-chan error, error)
 
 	// Delete deletes Events from the Store.
-	Delete(context.Context, ...Event) error
+	Delete(context.Context, ...Of[any, ID]) error
 }
 
-// A Query is used by Stores to query Events.
-type Query interface {
+type Query = QueryOf[uuid.UUID]
+
+// A QueryOf is used by Stores to query Events.
+type QueryOf[ID goes.ID] interface {
 	// Names returns the event names to query for.
 	Names() []string
 
 	// IDs returns the event ids to query for.
-	IDs() []uuid.UUID
+	IDs() []ID
 
 	// Times returns the time.Constraints for the query.
 	Times() time.Constraints
@@ -69,7 +72,7 @@ type Query interface {
 	AggregateNames() []string
 
 	// AggregateIDs returns the aggregate ids to query for.
-	AggregateIDs() []uuid.UUID
+	AggregateIDs() []ID
 
 	// AggregateVersions returns the version.Constraints for the query.
 	AggregateVersions() version.Constraints
@@ -83,17 +86,19 @@ type Query interface {
 	//	q := query.New(query.Aggregate("foo", id), query.Aggregate("bar", uuid.Nil))
 	//
 	// The above Query q allows "foo" Aggregates with the UUID id and every "bar" Aggregate.
-	Aggregates() []AggregateRef
+	Aggregates() []AggregateRefOf[ID]
 
 	// Sorting returns the SortConfigs for the query.
 	Sortings() []SortOptions
 }
 
-// AggregateRef is a reference to a specific aggregate, identified by its name
+type AggregateRef = AggregateRefOf[uuid.UUID]
+
+// AggregateRefOf is a reference to a specific aggregate, identified by its name
 // and id.
-type AggregateRef struct {
+type AggregateRefOf[ID goes.ID] struct {
 	Name string
-	ID   uuid.UUID
+	ID   ID
 }
 
 // SortOptions defines the sorting behaviour of a Query.
@@ -112,7 +117,7 @@ type SortDirection int
 //	-1 if a < b
 //	0 is a == b
 //	1 if a > b
-func CompareSorting[A, B any](s Sorting, a Of[A], b Of[B]) (cmp int8) {
+func CompareSorting[A, B any, ID goes.ID](s Sorting, a Of[A, ID], b Of[B, ID]) (cmp int8) {
 	aid, aname, av := a.Aggregate()
 	bid, bname, bv := b.Aggregate()
 
@@ -142,7 +147,7 @@ func CompareSorting[A, B any](s Sorting, a Of[A], b Of[B]) (cmp int8) {
 //	-1 if a < b
 //	0 is a == b
 //	1 if a > b
-func (s Sorting) Compare(a, b Of[any]) (cmp int8) {
+func (s Sorting) Compare(a, b Of[any, goes.SID]) (cmp int8) {
 	return CompareSorting(s, a, b)
 }
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
@@ -19,18 +20,18 @@ import (
 
 func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 	ereg := codec.New()
-	cmdbus.RegisterEvents(ereg)
+	cmdbus.RegisterEvents[uuid.UUID](ereg)
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
-	subEventBus := nats.NewEventBus(ereg, nats.Use(nats.JetStream()), nats.URL(os.Getenv("JETSTREAM_URL")))
-	pubEventBus := nats.NewEventBus(ereg, nats.Use(nats.JetStream()), nats.URL(os.Getenv("JETSTREAM_URL")))
-	subBus := cmdbus.New(enc, subEventBus)
-	pubBus := cmdbus.New(enc, pubEventBus)
+	subEventBus := nats.NewEventBus(uuid.New, ereg, nats.Use(nats.JetStream[uuid.UUID]()), nats.URL(os.Getenv("JETSTREAM_URL")))
+	pubEventBus := nats.NewEventBus(uuid.New, ereg, nats.Use(nats.JetStream[uuid.UUID]()), nats.URL(os.Getenv("JETSTREAM_URL")))
+	subBus := cmdbus.New[uuid.UUID](uuid.New, enc, subEventBus)
+	pubBus := cmdbus.New[uuid.UUID](uuid.New, enc, pubEventBus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h := command.NewHandler[any](subBus)
+	h := command.NewHandler[any, uuid.UUID](subBus)
 	errs, err := h.Handle(ctx, "foo-cmd", func(command.Context) error {
 		return nil
 	})
@@ -44,7 +45,7 @@ func BenchmarkBus_NATS_Dispatch_Synchronous(t *testing.B) {
 		}
 	}()
 
-	cmd := command.New("foo-cmd", mockPayload{})
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{})
 
 	t.ReportAllocs()
 	t.ResetTimer()

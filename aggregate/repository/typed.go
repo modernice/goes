@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/helper/pick"
 )
@@ -26,9 +26,9 @@ import (
 //
 //	var foo Foo
 //	err := repo.Fetch(context.TODO(), &foo)
-type TypedRepository[Aggregate aggregate.Aggregate] struct {
-	repo aggregate.Repository
-	make func(uuid.UUID) Aggregate
+type TypedRepository[Aggregate aggregate.AggregateOf[ID], ID goes.ID] struct {
+	repo aggregate.RepositoryOf[ID]
+	make func(ID) Aggregate
 }
 
 // Typed returns a TypedRepository for the given generic aggregate type. The
@@ -40,29 +40,29 @@ type TypedRepository[Aggregate aggregate.Aggregate] struct {
 //
 //	var repo aggregate.Repository
 //	typed := repository.Typed(repo, NewFoo)
-func Typed[Aggregate aggregate.Aggregate](r aggregate.Repository, makeFunc func(uuid.UUID) Aggregate) *TypedRepository[Aggregate] {
-	return &TypedRepository[Aggregate]{repo: r, make: makeFunc}
+func Typed[ID goes.ID, Aggregate aggregate.AggregateOf[ID]](r aggregate.RepositoryOf[ID], makeFunc func(ID) Aggregate) *TypedRepository[Aggregate, ID] {
+	return &TypedRepository[Aggregate, ID]{repo: r, make: makeFunc}
 }
 
 // Save implements aggregate.TypedRepository.Save.
-func (r *TypedRepository[Aggregate]) Save(ctx context.Context, a Aggregate) error {
+func (r *TypedRepository[Aggregate, ID]) Save(ctx context.Context, a Aggregate) error {
 	return r.repo.Save(ctx, a)
 }
 
 // Fetch implements aggregate.TypedRepository.Fetch.
-func (r *TypedRepository[Aggregate]) Fetch(ctx context.Context, id uuid.UUID) (Aggregate, error) {
+func (r *TypedRepository[Aggregate, ID]) Fetch(ctx context.Context, id ID) (Aggregate, error) {
 	out := r.make(id)
 	return out, r.repo.Fetch(ctx, out)
 }
 
 // FetchVersion implements aggregate.TypedRepository.FetchVersion.
-func (r *TypedRepository[Aggregate]) FetchVersion(ctx context.Context, id uuid.UUID, version int) (Aggregate, error) {
+func (r *TypedRepository[Aggregate, ID]) FetchVersion(ctx context.Context, id ID, version int) (Aggregate, error) {
 	out := r.make(id)
 	return out, r.repo.FetchVersion(ctx, out, version)
 }
 
 // Query implements aggregate.TypedRepository.Query.
-func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Query) (<-chan Aggregate, <-chan error, error) {
+func (r *TypedRepository[Aggregate, ID]) Query(ctx context.Context, q aggregate.Query[ID]) (<-chan Aggregate, <-chan error, error) {
 	str, errs, err := r.repo.Query(ctx, q)
 	if err != nil {
 		return nil, nil, err
@@ -82,9 +82,9 @@ func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Quer
 			// the repository's aggregate using the provided makeFunc and then
 			// add the query filter:
 			//
-			//	name := pick.AggregateName(r.make())
+			//	name := pick.AggregateName[ID](r.make())
 			//	q := query.New(query.AggregateName(name), ...)
-			if pick.AggregateName(a) != his.AggregateName() {
+			if pick.AggregateName[ID](a) != his.AggregateName() {
 				continue
 			}
 
@@ -102,7 +102,7 @@ func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Quer
 }
 
 // Use implements aggregate.TypedRepository.Use.
-func (r *TypedRepository[Aggregate]) Use(ctx context.Context, id uuid.UUID, fn func(Aggregate) error) error {
+func (r *TypedRepository[Aggregate, ID]) Use(ctx context.Context, id ID, fn func(Aggregate) error) error {
 	a, err := r.Fetch(ctx, id)
 	if err != nil {
 		return fmt.Errorf("fetch: %w [id=%v, type=%T]", err, id, a)
@@ -121,6 +121,6 @@ func (r *TypedRepository[Aggregate]) Use(ctx context.Context, id uuid.UUID, fn f
 }
 
 // Delete implements aggregate.TypedRepository.Delete.
-func (r *TypedRepository[Aggregate]) Delete(ctx context.Context, a Aggregate) error {
+func (r *TypedRepository[Aggregate, ID]) Delete(ctx context.Context, a Aggregate) error {
 	return r.repo.Delete(ctx, a)
 }

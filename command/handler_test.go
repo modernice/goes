@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
@@ -18,9 +20,9 @@ import (
 
 func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
-	ebus := eventbus.New()
-	bus := cmdbus.New(enc, ebus)
-	h := command.NewHandler[any](bus)
+	ebus := eventbus.New[uuid.UUID]()
+	bus := cmdbus.New(uuid.New, enc, ebus)
+	h := command.NewHandler[any, uuid.UUID](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -41,7 +43,7 @@ func TestHandler_Handle(t *testing.T) {
 
 	dispatchError := make(chan error)
 
-	cmd := command.New("foo-cmd", mockPayload{})
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{})
 	go func() {
 		if err := bus.Dispatch(ctx, cmd.Any()); err != nil {
 			select {
@@ -66,9 +68,9 @@ func TestHandler_Handle(t *testing.T) {
 
 func TestHandler_Handle_error(t *testing.T) {
 	enc := newEncoder()
-	ebus := eventbus.New()
-	bus := cmdbus.New(enc, ebus)
-	h := command.NewHandler[any](bus)
+	ebus := eventbus.New[uuid.UUID]()
+	bus := cmdbus.New(uuid.New, enc, ebus)
+	h := command.NewHandler[any, uuid.UUID](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -81,7 +83,7 @@ func TestHandler_Handle_error(t *testing.T) {
 		t.Fatalf("subscribe Command handler: %v", err)
 	}
 
-	cmd := command.New("foo-cmd", mockPayload{})
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{})
 	go bus.Dispatch(ctx, cmd.Any())
 
 	select {
@@ -99,9 +101,9 @@ func TestHandler_Handle_error(t *testing.T) {
 
 func TestHandler_Handle_finish(t *testing.T) {
 	enc := newEncoder()
-	ebus := eventbus.New()
-	bus := cmdbus.New(enc, ebus)
-	h := command.NewHandler[any](bus)
+	ebus := eventbus.New[uuid.UUID]()
+	bus := cmdbus.New(uuid.New, enc, ebus)
+	h := command.NewHandler[any, uuid.UUID](bus)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -114,13 +116,13 @@ func TestHandler_Handle_finish(t *testing.T) {
 		t.Fatalf("subscribe Command handler: %v", err)
 	}
 
-	cmd := command.New("foo-cmd", mockPayload{})
+	cmd := command.New(uuid.New(), "foo-cmd", mockPayload{})
 
 	dispatched := make(chan struct{})
 
-	var rep report.Report
+	var rep report.Report[uuid.UUID]
 	go func() {
-		bus.Dispatch(ctx, cmd.Any(), dispatch.Report(&rep))
+		bus.Dispatch(ctx, cmd.Any(), dispatch.Report[uuid.UUID](&rep))
 		close(dispatched)
 	}()
 
@@ -143,7 +145,7 @@ L:
 
 	id, name := cmd.Aggregate()
 
-	wantCmd := report.Command{
+	wantCmd := report.Command[uuid.UUID]{
 		Name:          cmd.Name(),
 		ID:            cmd.ID(),
 		AggregateName: name,
@@ -152,10 +154,10 @@ L:
 	}
 
 	if !reflect.DeepEqual(rep.Command, wantCmd) {
-		t.Fatalf("Report has wrong Command. want=%v got=%v", wantCmd, rep.Command)
+		t.Fatalf("Report has wrong Command. want=%v got=%v\n%s", wantCmd, rep.Command, cmp.Diff(wantCmd, rep.Command))
 	}
 
-	execError, ok := cmdbus.ExecError[any](rep.Error)
+	execError, ok := cmdbus.ExecError[any, uuid.UUID](rep.Error)
 	if !ok {
 		t.Fatalf("Report error should be a %T; got %T\n\t%#v", execError, rep.Error, rep.Error)
 	}

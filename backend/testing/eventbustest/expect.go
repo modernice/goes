@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 )
 
-type Expectations struct {
+type Expectations[ID goes.ID] struct {
 	ctx   context.Context
 	once  sync.Once
 	wg    sync.WaitGroup
@@ -22,14 +23,14 @@ type Expectations struct {
 }
 
 // A Subscription wraps the event and and error channels from an event subscription
-type Subscription struct {
-	events <-chan event.Event
+type Subscription[ID goes.ID] struct {
+	events <-chan event.Of[any, ID]
 	errs   <-chan error
 }
 
 // Sub wraps the given event and error channels in a Subscription.
-func Sub(events <-chan event.Event, errs <-chan error) Subscription {
-	return Subscription{events, errs}
+func Sub[ID goes.ID](events <-chan event.Of[any, ID], errs <-chan error) Subscription[ID] {
+	return Subscription[ID]{events, errs}
 }
 
 // MustSub does the same as Sub, but accepts an additional error argument so it
@@ -39,7 +40,7 @@ func Sub(events <-chan event.Event, errs <-chan error) Subscription {
 //	sub := MustSub(bus.Subscribe(context.TODO(), "foo"))
 //
 // MustSub panics if error is not nil.
-func MustSub(events <-chan event.Event, errs <-chan error, err error) Subscription {
+func MustSub[ID goes.ID](events <-chan event.Of[any, ID], errs <-chan error, err error) Subscription[ID] {
 	if err != nil {
 		panic(err)
 	}
@@ -47,8 +48,8 @@ func MustSub(events <-chan event.Event, errs <-chan error, err error) Subscripti
 }
 
 // Expect returns a new Expectation for expecting subscribed events and errors.
-func Expect(ctx context.Context) *Expectations {
-	return &Expectations{
+func Expect[ID goes.ID](ctx context.Context) *Expectations[ID] {
+	return &Expectations[ID]{
 		ctx:  ctx,
 		errs: make(chan error),
 		ok:   make(chan struct{}),
@@ -56,7 +57,7 @@ func Expect(ctx context.Context) *Expectations {
 }
 
 // Result returns the result of the expectations.
-func (ex *Expectations) Result() error {
+func (ex *Expectations[ID]) Result() error {
 	select {
 	case err := <-ex.errs:
 		return err
@@ -67,7 +68,7 @@ func (ex *Expectations) Result() error {
 
 // Apply applies the result onto the provided test. If the result is an error,
 // t.Fatal(err) is called.
-func (ex *Expectations) Apply(t *testing.T) {
+func (ex *Expectations[ID]) Apply(t *testing.T) {
 	if err := ex.Result(); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +76,7 @@ func (ex *Expectations) Apply(t *testing.T) {
 
 // Nothing expectes that nothing happens to the event and error channel of a
 // subscription within the given duration.
-func (ex *Expectations) Nothing(sub Subscription, timeout time.Duration) {
+func (ex *Expectations[ID]) Nothing(sub Subscription[ID], timeout time.Duration) {
 	count := ex.init()
 	go func() {
 		defer ex.wg.Done()
@@ -100,7 +101,7 @@ func (ex *Expectations) Nothing(sub Subscription, timeout time.Duration) {
 }
 
 // Event expects any of the given events to be received within the given duration.
-func (ex *Expectations) Event(sub Subscription, timeout time.Duration, names ...string) {
+func (ex *Expectations[ID]) Event(sub Subscription[ID], timeout time.Duration, names ...string) {
 	count := ex.init()
 	go func() {
 		defer ex.wg.Done()
@@ -135,7 +136,7 @@ func (ex *Expectations) Event(sub Subscription, timeout time.Duration, names ...
 }
 
 // Events expects all of the given events to be received within the given duration.
-func (ex *Expectations) Events(sub Subscription, timeout time.Duration, names ...string) {
+func (ex *Expectations[ID]) Events(sub Subscription[ID], timeout time.Duration, names ...string) {
 	count := ex.init()
 	go func() {
 		defer ex.wg.Done()
@@ -192,7 +193,7 @@ func (ex *Expectations) Events(sub Subscription, timeout time.Duration, names ..
 
 // Closed expects the event and error channels of a subscription to be closed
 // within the given duration.
-func (ex *Expectations) Closed(sub Subscription, timeout time.Duration) {
+func (ex *Expectations[ID]) Closed(sub Subscription[ID], timeout time.Duration) {
 	count := ex.init()
 	go func() {
 		defer ex.wg.Done()
@@ -217,18 +218,18 @@ func (ex *Expectations) Closed(sub Subscription, timeout time.Duration) {
 	}()
 }
 
-func (ex *Expectations) init() int64 {
+func (ex *Expectations[ID]) init() int64 {
 	ex.wg.Add(1)
 	ex.once.Do(func() { go ex.work() })
 	return atomic.AddInt64(&ex.count, 1)
 }
 
-func (ex *Expectations) work() {
+func (ex *Expectations[ID]) work() {
 	ex.wg.Wait()
 	close(ex.ok)
 }
 
-func (ex *Expectations) err(fn string, count int64, err error) {
+func (ex *Expectations[ID]) err(fn string, count int64, err error) {
 	err = fmt.Errorf("[expectations.%s:%d] %v", fn, count, err)
 	log.Println(err)
 	select {

@@ -25,7 +25,7 @@ func TestClient(t *testing.T) {
 		t.Fatalf("mongo.Connect: %v", err)
 	}
 
-	store := mongo.NewEventStore(test.NewEncoder(), mongo.Client(client))
+	store := mongo.NewEventStore[uuid.UUID](test.NewEncoder(), mongo.Client(client))
 	if _, err = store.Connect(context.Background()); err != nil {
 		t.Fatalf("expected store.Connect to succeed; got %#v", err)
 	}
@@ -66,7 +66,7 @@ func TestCollection(t *testing.T) {
 		mongo.Collection("custom"),
 		mongo.URL(os.Getenv("MONGOSTORE_URL")),
 	)
-	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 1))
+	evt := event.New(uuid.New(), "foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 1))
 	if err := store.Insert(context.Background(), evt.Any()); err != nil {
 		t.Fatalf("store.Insert: %#v", err)
 	}

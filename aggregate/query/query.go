@@ -1,16 +1,16 @@
 package query
 
 import (
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
 )
 
 // Query is used by aggregate repositories to filter aggregates.
-type Query struct {
+type Query[ID2 goes.ID] struct {
 	names    []string
-	ids      []uuid.UUID
+	ids      []ID2
 	versions version.Constraints
 	sortings []aggregate.SortOptions
 }
@@ -19,26 +19,25 @@ type Query struct {
 type Option func(*builder)
 
 type builder struct {
-	Query
+	Query[goes.AID]
 
 	versionConstraints []version.Option
 }
 
 // New returns a Query that is built from opts.
-func New(opts ...Option) Query {
-	var b builder
-	return b.build(opts...)
+func New[ID2 goes.ID](opts ...Option) Query[ID2] {
+	return buildQuery[ID2](builder{}, opts...)
 }
 
 // Merge merges multiple Queries into one.
-func Merge(queries ...aggregate.Query) Query {
+func Merge[IDType goes.ID](queries ...aggregate.Query[IDType]) Query[IDType] {
 	var opts []Option
 	versionConstraints := make([]version.Constraints, 0, len(queries))
 	for _, q := range queries {
-		opts = append(opts, Name(q.Names()...), ID(q.IDs()...))
+		opts = append(opts, Name(q.Names()...), ID[IDType](q.IDs()...))
 		versionConstraints = append(versionConstraints, q.Versions())
 	}
-	return New(append(opts, Version(version.DryMerge(versionConstraints...)...))...)
+	return New[IDType](append(opts, Version(version.DryMerge(versionConstraints...)...))...)
 }
 
 // Name returns an Option that filters aggregates by their names.
@@ -57,16 +56,16 @@ func Name(names ...string) Option {
 }
 
 // ID returns an Option that filters aggregates by their ids.
-func ID(ids ...uuid.UUID) Option {
+func ID[ID2 goes.ID](ids ...ID2) Option {
 	return func(b *builder) {
 	L:
 		for _, id := range ids {
 			for _, id2 := range b.ids {
-				if id == id2 {
+				if id.String() == id2.String() {
 					continue L
 				}
 			}
-			b.ids = append(b.ids, id)
+			b.ids = append(b.ids, goes.AnyID(id))
 		}
 	}
 }
@@ -99,8 +98,8 @@ type Tagger interface {
 	HasTag(string) bool
 }
 
-type queryWithTags interface {
-	aggregate.Query
+type queryWithTags[ID2 goes.ID] interface {
+	aggregate.Query[ID2]
 
 	Tags() []string
 }
@@ -108,7 +107,7 @@ type queryWithTags interface {
 // Test tests the Aggregate a against the Query q and returns true if q should
 // include a in its results. Test can be used by in-memory aggregate.Repository
 // implementations to filter aggregates based on the query.
-func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
+func Test[D any, ID2 goes.ID](q aggregate.Query[ID2], a aggregate.AggregateOf[ID2]) bool {
 	id, name, v := a.Aggregate()
 
 	if names := q.Names(); len(names) > 0 {
@@ -118,7 +117,7 @@ func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
 	}
 
 	if ids := q.IDs(); len(ids) > 0 {
-		if !uuidsContains(ids, id) {
+		if !idsContains(ids, id) {
 			return false
 		}
 	}
@@ -143,7 +142,7 @@ func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
 	}
 
 	if tagger, ok := a.(Tagger); ok {
-		if q, ok := q.(queryWithTags); ok {
+		if q, ok := q.(queryWithTags[ID2]); ok {
 			if tags := q.Tags(); len(tags) > 0 {
 				var hasTag bool
 				for _, tag := range tags {
@@ -162,7 +161,7 @@ func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
 	return true
 }
 
-// EventQueryOpts returns query.Options for a given aggregate.Query.
+// EventQueryOpts returns query.Options for a given aggregate.Query[ID2].
 //
 // In order for the returned Query to return the correct Events, EventQueryOpts
 // needs to rewrite some of the version filters to make sense for an Aggregate-
@@ -173,7 +172,7 @@ func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
 // 	- version.Min is discarded
 // 		(because an Aggregate cannot start at a version > 1)
 // 	- version.Ranges is rewritten to version.Max
-func EventQueryOpts(q aggregate.Query) []query.Option {
+func EventQueryOpts[ID2 goes.ID](q aggregate.Query[ID2]) []query.Option {
 	var opts []query.Option
 	if names := q.Names(); len(names) > 0 {
 		opts = append(opts, query.AggregateName(names...))
@@ -202,31 +201,42 @@ func EventQueryOpts(q aggregate.Query) []query.Option {
 }
 
 // Names returns the aggregate names to query for.
-func (q Query) Names() []string {
+func (q Query[ID2]) Names() []string {
 	return q.names
 }
 
 // IDs returns the aggregate ids to query for.
-func (q Query) IDs() []uuid.UUID {
+func (q Query[ID2]) IDs() []ID2 {
 	return q.ids
 }
 
 // Versions returns the aggregate version constraints for the query.
-func (q Query) Versions() version.Constraints {
+func (q Query[ID2]) Versions() version.Constraints {
 	return q.versions
 }
 
 // Sortings returns the SortConfig for the query.
-func (q Query) Sortings() []aggregate.SortOptions {
+func (q Query[ID2]) Sortings() []aggregate.SortOptions {
 	return q.sortings
 }
 
-func (b builder) build(opts ...Option) Query {
+func buildQuery[ID2 goes.ID](b builder, opts ...Option) Query[ID2] {
 	for _, opt := range opts {
 		opt(&b)
 	}
 	b.versions = version.Filter(b.versionConstraints...)
-	return b.Query
+
+	ids := make([]ID2, len(b.ids))
+	for i, id := range b.ids {
+		ids[i] = any(id).(goes.AID).ID.(ID2)
+	}
+
+	return Query[ID2]{
+		names:    b.names,
+		ids:      ids,
+		versions: b.versions,
+		sortings: b.sortings,
+	}
 }
 
 func stringsContains(vals []string, s string) bool {
@@ -238,7 +248,7 @@ func stringsContains(vals []string, s string) bool {
 	return false
 }
 
-func uuidsContains(ids []uuid.UUID, id uuid.UUID) bool {
+func idsContains[ID2 goes.ID](ids []ID2, id ID2) bool {
 	for _, i := range ids {
 		if i == id {
 			return true

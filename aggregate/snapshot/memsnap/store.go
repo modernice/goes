@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/query"
 )
@@ -16,20 +16,20 @@ var (
 	ErrNotFound = errors.New("snapshot not found")
 )
 
-type store struct {
+type store[ID goes.ID] struct {
 	sync.Mutex
 
-	snaps map[string]map[uuid.UUID]map[int]snapshot.Snapshot
+	snaps map[string]map[ID]map[int]snapshot.Snapshot[ID]
 }
 
 // New returns an in-memory Snapshot Store.
-func New() snapshot.Store {
-	return &store{
-		snaps: make(map[string]map[uuid.UUID]map[int]snapshot.Snapshot),
+func New[ID goes.ID]() snapshot.Store[ID] {
+	return &store[ID]{
+		snaps: make(map[string]map[ID]map[int]snapshot.Snapshot[ID]),
 	}
 }
 
-func (s *store) Save(_ context.Context, snap snapshot.Snapshot) error {
+func (s *store[ID]) Save(_ context.Context, snap snapshot.Snapshot[ID]) error {
 	snaps := s.get(snap.AggregateName(), snap.AggregateID())
 	s.Lock()
 	defer s.Unlock()
@@ -37,14 +37,14 @@ func (s *store) Save(_ context.Context, snap snapshot.Snapshot) error {
 	return nil
 }
 
-func (s *store) Latest(_ context.Context, name string, id uuid.UUID) (snapshot.Snapshot, error) {
+func (s *store[ID]) Latest(_ context.Context, name string, id ID) (snapshot.Snapshot[ID], error) {
 	snaps := s.get(name, id)
 	if len(snaps) == 0 {
 		return nil, ErrNotFound
 	}
 	var (
 		v    int
-		snap snapshot.Snapshot
+		snap snapshot.Snapshot[ID]
 	)
 	for version, sn := range snaps {
 		if version >= v {
@@ -55,7 +55,7 @@ func (s *store) Latest(_ context.Context, name string, id uuid.UUID) (snapshot.S
 	return snap, nil
 }
 
-func (s *store) Version(_ context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
+func (s *store[ID]) Version(_ context.Context, name string, id ID, v int) (snapshot.Snapshot[ID], error) {
 	snaps := s.get(name, id)
 	snap, ok := snaps[v]
 	if !ok {
@@ -64,14 +64,14 @@ func (s *store) Version(_ context.Context, name string, id uuid.UUID, v int) (sn
 	return snap, nil
 }
 
-func (s *store) Limit(_ context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
+func (s *store[ID]) Limit(_ context.Context, name string, id ID, v int) (snapshot.Snapshot[ID], error) {
 	snaps := s.get(name, id)
 	if len(snaps) == 0 {
 		return nil, ErrNotFound
 	}
 	var (
 		foundV int
-		snap   snapshot.Snapshot
+		snap   snapshot.Snapshot[ID]
 	)
 	for version, sn := range snaps {
 		if version >= foundV && version <= v {
@@ -85,8 +85,8 @@ func (s *store) Limit(_ context.Context, name string, id uuid.UUID, v int) (snap
 	return snap, nil
 }
 
-func (s *store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
-	var snaps []snapshot.Snapshot
+func (s *store[ID]) Query(ctx context.Context, q snapshot.Query[ID]) (<-chan snapshot.Snapshot[ID], <-chan error, error) {
+	var snaps []snapshot.Snapshot[ID]
 	for _, idsnaps := range s.snaps {
 		for _, vsnaps := range idsnaps {
 			for _, snap := range vsnaps {
@@ -99,7 +99,7 @@ func (s *store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Sn
 	}
 	snaps = snapshot.SortMulti(snaps, q.Sortings()...)
 
-	out, outErrs := make(chan snapshot.Snapshot), make(chan error)
+	out, outErrs := make(chan snapshot.Snapshot[ID]), make(chan error)
 
 	go func() {
 		defer close(out)
@@ -116,7 +116,7 @@ func (s *store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Sn
 	return out, outErrs, nil
 }
 
-func (s *store) Delete(_ context.Context, snap snapshot.Snapshot) error {
+func (s *store[ID]) Delete(_ context.Context, snap snapshot.Snapshot[ID]) error {
 	snaps := s.get(snap.AggregateName(), snap.AggregateID())
 	s.Lock()
 	defer s.Unlock()
@@ -124,17 +124,17 @@ func (s *store) Delete(_ context.Context, snap snapshot.Snapshot) error {
 	return nil
 }
 
-func (s *store) get(name string, id uuid.UUID) map[int]snapshot.Snapshot {
+func (s *store[ID]) get(name string, id ID) map[int]snapshot.Snapshot[ID] {
 	s.Lock()
 	defer s.Unlock()
 	snaps, ok := s.snaps[name]
 	if !ok {
-		snaps = make(map[uuid.UUID]map[int]snapshot.Snapshot)
+		snaps = make(map[ID]map[int]snapshot.Snapshot[ID])
 		s.snaps[name] = snaps
 	}
 	isnaps, ok := snaps[id]
 	if !ok {
-		isnaps = make(map[int]snapshot.Snapshot)
+		isnaps = make(map[int]snapshot.Snapshot[ID])
 		snaps[id] = isnaps
 	}
 	return isnaps

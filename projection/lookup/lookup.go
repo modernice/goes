@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
@@ -24,11 +24,11 @@ var (
 // Lookup is a projection that provides a lookup table for a given set of
 // events. The lookup table is populated by events that implment the Data
 // interface. A *Lookup is thread-safe.
-type Lookup struct {
-	schedule *schedule.Continuous
+type Lookup[ID goes.ID] struct {
+	schedule *schedule.Continuous[ID]
 
 	mux       sync.RWMutex
-	providers map[string]*provider
+	providers map[string]*provider[ID]
 
 	once  sync.Once
 	ready chan struct{}
@@ -65,15 +65,15 @@ type Provider interface {
 	Remove(keys ...string)
 }
 
-type lookup interface {
-	Lookup(context.Context, string, string, uuid.UUID) (any, bool)
+type lookup[ID goes.ID] interface {
+	Lookup(context.Context, string, string, ID) (any, bool)
 }
 
 // Expect calls l.Lookup with the given arguments and casts the result to the
 // given generic type. If the lookup value cannot be found, an error that
 // unwraps to ErrNotFound is returned. If the lookup value is not of the
 // expected type, an error that unwraps to ErrWrongType is returned.
-func Expect[Value any](ctx context.Context, l lookup, aggregateName, key string, aggregateID uuid.UUID) (Value, error) {
+func Expect[Value any, ID goes.ID](ctx context.Context, l lookup[ID], aggregateName, key string, aggregateID ID) (Value, error) {
 	val, ok := l.Lookup(ctx, aggregateName, key, aggregateID)
 	if !ok {
 		var zero Value
@@ -90,7 +90,7 @@ func Expect[Value any](ctx context.Context, l lookup, aggregateName, key string,
 
 // Contains returns whether the lookup table contains the given key for the
 // given aggregate.
-func Contains[Value any](ctx context.Context, l lookup, aggregateName, key string, aggregateID uuid.UUID) bool {
+func Contains[Value any, ID goes.ID](ctx context.Context, l lookup[ID], aggregateName, key string, aggregateID ID) bool {
 	val, ok := l.Lookup(ctx, aggregateName, key, aggregateID)
 	if !ok {
 		return false
@@ -103,10 +103,10 @@ func Contains[Value any](ctx context.Context, l lookup, aggregateName, key strin
 // first projection job has been applied. Use the l.Ready() method of the
 // returned *Lookup to wait for the lookup table to become ready. Use l.Run()
 // to start the projection of the lookup table.
-func New(store event.Store, bus event.Bus, events []string, opts ...schedule.ContinuousOption) *Lookup {
-	l := &Lookup{
+func New[ID goes.ID](store event.Store[ID], bus event.Bus[ID], events []string, opts ...schedule.ContinuousOption[ID]) *Lookup[ID] {
+	l := &Lookup[ID]{
 		schedule:  schedule.Continuously(bus, store, events, opts...),
-		providers: make(map[string]*provider),
+		providers: make(map[string]*provider[ID]),
 		ready:     make(chan struct{}),
 	}
 	return l
@@ -115,19 +115,19 @@ func New(store event.Store, bus event.Bus, events []string, opts ...schedule.Con
 // Ready returns a channel that is closed when the lookup table is ready. The
 // lookup table becomes ready after the first projection job has been applied.
 // Call l.Run() to start the projection of the lookup table.
-func (l *Lookup) Ready() <-chan struct{} {
+func (l *Lookup[ID]) Ready() <-chan struct{} {
 	return l.ready
 }
 
 // Provider returns the Provider for the given aggregate. The returned Provider
 // is is thread-safe.
-func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider {
+func (l *Lookup[ID]) Provider(aggregateName string, aggregateID ID) Provider {
 	l.mux.RLock()
 	if prov, ok := l.providers[aggregateName]; ok {
 		l.mux.RUnlock()
-		return &provider{
+		return &provider[ID]{
 			mux:    &l.mux,
-			stores: make(map[uuid.UUID]*store),
+			stores: make(map[ID]*store[ID]),
 			active: prov.store(aggregateID),
 		}
 	}
@@ -136,16 +136,16 @@ func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider 
 	l.mux.Lock()
 	defer l.mux.Unlock()
 
-	return &provider{
+	return &provider[ID]{
 		mux:    &l.mux,
-		stores: make(map[uuid.UUID]*store),
+		stores: make(map[ID]*store[ID]),
 		active: l.provider(aggregateName).store(aggregateID),
 	}
 }
 
 // Lookup returns the lookup value for the given key of the given aggregate, or
 // false if no value for the key exists.
-func (l *Lookup) Lookup(ctx context.Context, aggregateName, key string, aggregateID uuid.UUID) (any, bool) {
+func (l *Lookup[ID]) Lookup(ctx context.Context, aggregateName, key string, aggregateID ID) (any, bool) {
 	select {
 	case <-ctx.Done():
 		return nil, false
@@ -164,14 +164,16 @@ func (l *Lookup) Lookup(ctx context.Context, aggregateName, key string, aggregat
 // for the given lookup key. If value is not comparable or if the value does not
 // exists for the given aggregate, uuid.Nil and false are returned. Otherwise
 // the aggregate id and true are returned.
-func (l *Lookup) Reverse(ctx context.Context, aggregateName, key string, value any) (uuid.UUID, bool) {
+func (l *Lookup[ID]) Reverse(ctx context.Context, aggregateName, key string, value any) (ID, bool) {
+	var zero ID
+
 	if !isKeyable(value) {
-		return uuid.Nil, false
+		return zero, false
 	}
 
 	select {
 	case <-ctx.Done():
-		return uuid.Nil, false
+		return zero, false
 	case <-l.Ready():
 	}
 
@@ -183,8 +185,8 @@ func (l *Lookup) Reverse(ctx context.Context, aggregateName, key string, value a
 
 // Run runs the projection of the lookup table until ctx is canceled. Any
 // asynchronous errors are sent into the returned channel.
-func (l *Lookup) Run(ctx context.Context) (<-chan error, error) {
-	errs, err := l.schedule.Subscribe(ctx, func(ctx projection.Job) error {
+func (l *Lookup[ID]) Run(ctx context.Context) (<-chan error, error) {
+	errs, err := l.schedule.Subscribe(ctx, func(ctx projection.Job[ID]) error {
 		defer l.once.Do(func() { close(l.ready) })
 		l.mux.Lock()
 		defer l.mux.Unlock()
@@ -200,7 +202,7 @@ func (l *Lookup) Run(ctx context.Context) (<-chan error, error) {
 }
 
 // ApplyEvent implements projection.EventApplier.
-func (l *Lookup) ApplyEvent(evt event.Event) {
+func (l *Lookup[ID]) ApplyEvent(evt event.Of[any, ID]) {
 	data, ok := evt.Data().(Data)
 	if !ok {
 		return
@@ -214,26 +216,26 @@ func (l *Lookup) ApplyEvent(evt event.Event) {
 	data.ProvideLookup(prov)
 }
 
-func (l *Lookup) provider(aggregateName string) *provider {
+func (l *Lookup[ID]) provider(aggregateName string) *provider[ID] {
 	if p, ok := l.providers[aggregateName]; ok {
 		return p
 	}
-	prov := &provider{
-		stores: make(map[uuid.UUID]*store),
-		ids:    make(map[any]uuid.UUID),
+	prov := &provider[ID]{
+		stores: make(map[ID]*store[ID]),
+		ids:    make(map[any]ID),
 	}
 	l.providers[aggregateName] = prov
 	return prov
 }
 
-type provider struct {
+type provider[ID goes.ID] struct {
 	mux    *sync.RWMutex // only for providers returned by (*Lookup).Provider()
-	stores map[uuid.UUID]*store
-	ids    map[any]uuid.UUID
-	active *store
+	stores map[ID]*store[ID]
+	ids    map[any]ID
+	active *store[ID]
 }
 
-func (p *provider) Provide(key string, val any) {
+func (p *provider[ID]) Provide(key string, val any) {
 	if p.mux != nil {
 		p.mux.Lock()
 		defer p.mux.Unlock()
@@ -245,7 +247,7 @@ func (p *provider) Provide(key string, val any) {
 	}
 }
 
-func (p *provider) Remove(keys ...string) {
+func (p *provider[ID]) Remove(keys ...string) {
 	if p.mux != nil {
 		p.mux.Lock()
 		defer p.mux.Unlock()
@@ -263,7 +265,7 @@ func (p *provider) Remove(keys ...string) {
 	}
 }
 
-func (p *provider) id(val any) (uuid.UUID, bool) {
+func (p *provider[ID]) id(val any) (ID, bool) {
 	if p.mux != nil {
 		p.mux.Lock()
 		defer p.mux.Unlock()
@@ -272,11 +274,11 @@ func (p *provider) id(val any) (uuid.UUID, bool) {
 	return id, ok
 }
 
-func (p *provider) store(aggregateID uuid.UUID) *store {
+func (p *provider[ID]) store(aggregateID ID) *store[ID] {
 	if s, ok := p.stores[aggregateID]; ok {
 		return s
 	}
-	s := &store{
+	s := &store[ID]{
 		aggregateID: aggregateID,
 		values:      make(map[string]any),
 	}
@@ -284,21 +286,21 @@ func (p *provider) store(aggregateID uuid.UUID) *store {
 	return s
 }
 
-type store struct {
-	aggregateID uuid.UUID
+type store[ID goes.ID] struct {
+	aggregateID ID
 	values      map[string]any
 }
 
-func (s *store) get(key string) (any, bool) {
+func (s *store[ID]) get(key string) (any, bool) {
 	v, ok := s.values[key]
 	return v, ok
 }
 
-func (s *store) provide(key string, val any) {
+func (s *store[ID]) provide(key string, val any) {
 	s.values[key] = val
 }
 
-func (s *store) remove(key string) (any, bool) {
+func (s *store[ID]) remove(key string) (any, bool) {
 	if val, ok := s.values[key]; ok {
 		delete(s.values, key)
 		return val, true

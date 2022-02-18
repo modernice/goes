@@ -28,20 +28,20 @@ type makeEventsConfig struct {
 }
 
 func TestStream_singleAggregate_sorted(t *testing.T) {
-	as, getAppliedEvents := xaggregate.Make(1)
+	as, getAppliedEvents := xaggregate.Make(uuid.New, 1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make(uuid.New, "foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 	es := streams.New(events...)
 
-	str, errs := stream.New(context.Background(), es)
+	str, errs := stream.New(es)
 
 	res, err := drain(str, errs, time.Second, makeFactory(am))
 	if err != nil {
 		t.Fatalf("drain stream: %v", err)
 	}
 
-	applied := getAppliedEvents(pick.AggregateID(as[0]))
+	applied := getAppliedEvents(pick.AggregateID[uuid.UUID](as[0]))
 	test.AssertEqualEvents(t, xevent.FilterAggregate(events, as[0]), applied)
 
 	if len(res) != 1 {
@@ -56,26 +56,26 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 		t.Errorf("stream should flush aggregate changes. len(changes)=%d", l)
 	}
 
-	if v := pick.AggregateVersion(res[0]); v != 10 {
+	if v := pick.AggregateVersion[uuid.UUID](res[0]); v != 10 {
 		t.Errorf("aggregate should have version %d; got %d", 10, v)
 	}
 }
 
 func TestStream_singleAggregate_unsorted(t *testing.T) {
-	as, getAppliedEvents := xaggregate.Make(1)
+	as, getAppliedEvents := xaggregate.Make(uuid.New, 1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make(uuid.New, "foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
 	es := streams.New(events...)
 
-	str, errs := stream.New(context.Background(), es)
+	str, errs := stream.New(es)
 
 	res, err := drain(str, errs, time.Second, makeFactory(am))
 	if err != nil {
 		t.Fatalf("drain stream: %v", err)
 	}
 
-	applied := getAppliedEvents(pick.AggregateID(as[0]))
+	applied := getAppliedEvents(pick.AggregateID[uuid.UUID](as[0]))
 	test.AssertEqualEvents(t, event.Sort(events, event.SortAggregateVersion, event.SortAsc), applied)
 
 	if len(res) != 1 {
@@ -88,13 +88,13 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 }
 
 func TestStream_multipleAggregates_unsorted(t *testing.T) {
-	as, getAppliedEvents := xaggregate.Make(10)
+	as, getAppliedEvents := xaggregate.Make(uuid.New, 10)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make(uuid.New, "foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
 	es := streams.New(events...)
 
-	str, errs := stream.New(context.Background(), es)
+	str, errs := stream.New(es)
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
 	if err != nil {
@@ -129,12 +129,12 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 }
 
 func TestStream_inconsistent(t *testing.T) {
-	as, _ := xaggregate.Make(1)
+	as, _ := xaggregate.Make(uuid.New, 1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion(3))
+	events := xevent.Make(uuid.New, "foo", test.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion[uuid.UUID](3))
 
 	es := streams.New(events...)
-	str, errs := stream.New(context.Background(), es)
+	str, errs := stream.New(es)
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
 
@@ -142,12 +142,12 @@ func TestStream_inconsistent(t *testing.T) {
 		t.Fatalf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *aggregate.ConsistencyError
+	var cerr *aggregate.ConsistencyError[uuid.UUID]
 	if !errors.As(err, &cerr) {
 		t.Fatalf("stream should return an error of type %T; got %T", cerr, err)
 	}
 
-	if pick.AggregateID(cerr.Aggregate) != pick.AggregateID(as[0]) {
+	if pick.AggregateID[uuid.UUID](cerr.Aggregate) != pick.AggregateID[uuid.UUID](as[0]) {
 		t.Errorf("cerr.Aggregate should be %#v; got %#v", as[0], cerr.Aggregate)
 	}
 
@@ -157,16 +157,16 @@ func TestStream_inconsistent(t *testing.T) {
 }
 
 func TestSorted(t *testing.T) {
-	as, _ := xaggregate.Make(1)
+	as, _ := xaggregate.Make(uuid.New, 1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make(uuid.New, "foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 
 	// swap first and last event, so they're unordered
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
 	es := streams.New(events...)
-	str, errs := stream.New(context.Background(), es, stream.Sorted(true))
+	str, errs := stream.New(es, stream.Sorted(true))
 
 	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
 
@@ -174,12 +174,12 @@ func TestSorted(t *testing.T) {
 		t.Errorf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
 	}
 
-	var cerr *aggregate.ConsistencyError
+	var cerr *aggregate.ConsistencyError[uuid.UUID]
 	if !errors.As(err, &cerr) {
 		t.Errorf("stream should return an error of type %T; got %T", cerr, err)
 	}
 
-	if pick.AggregateID(cerr.Aggregate) != pick.AggregateID(as[0]) {
+	if pick.AggregateID[uuid.UUID](cerr.Aggregate) != pick.AggregateID[uuid.UUID](as[0]) {
 		t.Errorf("cerr.Aggregate should be %#v; got %#v", as[0], cerr.Aggregate)
 	}
 
@@ -189,13 +189,13 @@ func TestSorted(t *testing.T) {
 }
 
 func TestGrouped(t *testing.T) {
-	as, _ := xaggregate.Make(3)
+	as, _ := xaggregate.Make(uuid.New, 3)
 	as = aggregate.SortMulti(
 		as,
 		aggregate.SortOptions{Sort: aggregate.SortName, Dir: aggregate.SortAsc},
 		aggregate.SortOptions{Sort: aggregate.SortID, Dir: aggregate.SortAsc},
 	)
-	events := xevent.Make("foo", test.FooEventData{}, 3, xevent.ForAggregate(as...))
+	events := xevent.Make(uuid.New, "foo", test.FooEventData{}, 3, xevent.ForAggregate(as...))
 	events = event.SortMulti(
 		events,
 		event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
@@ -206,7 +206,7 @@ func TestGrouped(t *testing.T) {
 	es := streams.New(events...)
 	es = xstream.Delayed(100*time.Millisecond, es)
 
-	str, errs := stream.New(context.Background(), es, stream.Grouped(true))
+	str, errs := stream.New(es, stream.Grouped(true))
 	start := xtime.Now()
 	select {
 	case err, ok := <-errs:
@@ -233,16 +233,16 @@ func TestGrouped(t *testing.T) {
 }
 
 func TestValidateConsistency(t *testing.T) {
-	as, _ := xaggregate.Make(1)
+	as, _ := xaggregate.Make(uuid.New, 1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make(uuid.New, "foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 
 	// swap first and last event, so they're unordered
 	events[0], events[len(events)-1] = events[len(events)-1], events[0]
 
 	es := streams.New(events...)
-	str, errs := stream.New(context.Background(),
+	str, errs := stream.New(
 		es,
 		// prevent sorting of events
 		stream.Sorted(true),
@@ -266,24 +266,24 @@ func TestValidateConsistency(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
-	foos, _ := xaggregate.Make(5, xaggregate.Name("foo"))
-	foobars, _ := xaggregate.Make(5, xaggregate.Name("foobar"))
+	foos, _ := xaggregate.Make(uuid.New, 5, xaggregate.Name("foo"))
+	foobars, _ := xaggregate.Make(uuid.New, 5, xaggregate.Name("foobar"))
 	as := append(foos, foobars...)
 	am := xaggregate.Map(as)
 
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make(uuid.New, "foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
 
 	es := streams.New(events...)
 
-	str, errs := stream.New(context.Background(),
+	str, errs := stream.New(
 		es,
 		stream.Filter(
-			func(evt event.Event) bool {
-				return strings.HasPrefix(pick.AggregateName(evt), "foo")
+			func(evt stream.Event[uuid.UUID]) bool {
+				return strings.HasPrefix(pick.AggregateName[uuid.UUID](evt), "foo")
 			},
-			func(evt event.Event) bool {
-				return strings.HasSuffix(pick.AggregateName(evt), "bar")
+			func(evt stream.Event[uuid.UUID]) bool {
+				return strings.HasSuffix(pick.AggregateName[uuid.UUID](evt), "bar")
 			},
 		),
 	)

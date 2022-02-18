@@ -3,11 +3,12 @@ package xaggregate_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/internal/xaggregate"
 )
 
 func TestMap(t *testing.T) {
-	as, _ := xaggregate.Make(10)
+	as, _ := xaggregate.Make(uuid.New, 10)
 	am := xaggregate.Map(as)
 
 	if len(am) != len(as) {

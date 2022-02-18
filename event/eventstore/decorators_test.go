@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
@@ -13,8 +14,8 @@ import (
 )
 
 func TestWithBus(t *testing.T) {
-	s := eventstore.New()
-	b := eventbus.New()
+	s := eventstore.New[uuid.UUID]()
+	b := eventbus.New[uuid.UUID]()
 	swb := eventstore.WithBus(s, b)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -25,14 +26,14 @@ func TestWithBus(t *testing.T) {
 		t.Fatalf("failed to subscribe to Events: %v", err)
 	}
 
-	evt := event.New("foo", test.FooEventData{})
+	evt := event.New(uuid.New(), "foo", test.FooEventData{})
 	if err := swb.Insert(ctx, evt.Any()); err != nil {
 		t.Fatalf("failed to insert Event: %v", err)
 	}
 
-	var walkedEvent event.Event
+	var walkedEvent event.Of[any, uuid.UUID]
 
-	if err = streams.Walk(context.Background(), func(e event.Event) error {
+	if err = streams.Walk(context.Background(), func(e event.Of[any, uuid.UUID]) error {
 		walkedEvent = e
 		cancel()
 		return nil

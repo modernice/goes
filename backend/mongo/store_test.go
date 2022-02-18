@@ -21,25 +21,25 @@ import (
 
 func TestStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store[uuid.UUID] {
 			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
-		})
+		}, uuid.New)
 	})
 
 	t.Run("ReplicaSet", func(t *testing.T) {
-		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
+		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store[uuid.UUID] {
 			return mongotest.NewEventStore(
 				enc,
 				mongo.URL(os.Getenv("MONGOREPLSTORE_URL")),
 				mongo.Transactions(true),
 			)
-		})
+		}, uuid.New)
 	})
 }
 
 func TestStore_Insert_versionError(t *testing.T) {
 	enc := etest.NewEncoder()
-	s := mongo.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
+	s := mongo.NewEventStore[uuid.UUID](enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
 
 	if _, err := s.Connect(context.Background()); err != nil {
 		t.Fatalf("failed to connect to mongodb: %v", err)
@@ -56,15 +56,15 @@ func TestStore_Insert_versionError(t *testing.T) {
 		t.Fatalf("failed to insert state: %v", err)
 	}
 
-	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+5)),
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+6)),
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+7)),
+	events := []event.Of[any, uuid.UUID]{
+		event.New[any](uuid.New(), "foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+5)),
+		event.New[any](uuid.New(), "foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+6)),
+		event.New[any](uuid.New(), "foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), a.AggregateVersion()+7)),
 	}
 
 	err := s.Insert(context.Background(), events...)
 
-	var versionError *mongo.VersionError
+	var versionError *mongo.VersionError[uuid.UUID]
 	if !errors.As(err, &versionError) {
 		t.Fatalf("Insert should fail a %T error; got %T", versionError, err)
 	}

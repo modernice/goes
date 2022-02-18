@@ -14,7 +14,7 @@ import (
 func TestNew(t *testing.T) {
 	now := xtime.Now()
 	a := &mockSnapshotter{Base: aggregate.New("foo", uuid.New(), aggregate.Version(8))}
-	snap, err := snapshot.New(a)
+	snap, err := snapshot.New[uuid.UUID](a)
 	if err != nil {
 		t.Errorf("New shouldn't fail; failed with %q", err)
 	}
@@ -39,7 +39,7 @@ func TestNew(t *testing.T) {
 
 func TestNew_marshaler(t *testing.T) {
 	a := &mockSnapshotter{Base: aggregate.New("foo", uuid.New())}
-	snap, err := snapshot.New(a)
+	snap, err := snapshot.New[uuid.UUID](a)
 	if err != nil {
 		t.Errorf("New shouldn't fail; failed with %q", err)
 	}
@@ -57,7 +57,7 @@ func TestNew_marshaler(t *testing.T) {
 func TestTime(t *testing.T) {
 	a := &mockSnapshotter{Base: aggregate.New("foo", uuid.New())}
 	st := xtime.Now().Add(123456 * time.Millisecond)
-	snap, err := snapshot.New(a, snapshot.Time(st))
+	snap, err := snapshot.New[uuid.UUID](a, snapshot.Time(st))
 	if err != nil {
 		t.Fatalf("New shouldn't fail; failed with %q", err)
 	}
@@ -70,7 +70,7 @@ func TestTime(t *testing.T) {
 func TestData(t *testing.T) {
 	a := aggregate.New("foo", uuid.New())
 	data := []byte{2, 4, 8}
-	snap, err := snapshot.New(a, snapshot.Data(data))
+	snap, err := snapshot.New[uuid.UUID](a, snapshot.Data(data))
 	if err != nil {
 		t.Fatalf("New shouldn't fail; failed with %q", err)
 	}

@@ -3,22 +3,23 @@ package xevent
 import (
 	"time"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 )
 
 // MakeOption is an option for Make.
-type MakeOption func(*makeConfig)
+type MakeOption[ID goes.ID] func(*makeConfig[ID])
 
-type makeConfig struct {
-	as   []aggregate.Aggregate
+type makeConfig[ID goes.ID] struct {
+	as   []aggregate.AggregateOf[ID]
 	skip []int
 }
 
 // ForAggregate returns a MakeOption that sets the aggregate for events returne
 // by Make.
-func ForAggregate(as ...aggregate.Aggregate) MakeOption {
-	return func(cfg *makeConfig) {
+func ForAggregate[ID goes.ID](as ...aggregate.AggregateOf[ID]) MakeOption[ID] {
+	return func(cfg *makeConfig[ID]) {
 		cfg.as = append(cfg.as, as...)
 	}
 }
@@ -26,27 +27,27 @@ func ForAggregate(as ...aggregate.Aggregate) MakeOption {
 // SkipVersion returns a MakeOption that emulates a consistency error by
 // skipping the specified aggregate versions when creating the events. This
 // option only has an effect when used together with ForAggregate.
-func SkipVersion(v ...int) MakeOption {
-	return func(cfg *makeConfig) {
+func SkipVersion[ID goes.ID](v ...int) MakeOption[ID] {
+	return func(cfg *makeConfig[ID]) {
 		cfg.skip = append(cfg.skip, v...)
 	}
 }
 
 // Make returns n Events with the specified name and data.
-func Make(name string, data any, n int, opts ...MakeOption) []event.Event {
-	var cfg makeConfig
+func Make[ID goes.ID](newID func() ID, name string, data any, n int, opts ...MakeOption[ID]) []event.Of[any, ID] {
+	var cfg makeConfig[ID]
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
 	if len(cfg.as) == 0 {
-		return makeEvents(name, data, n)
+		return makeEvents(newID, name, data, n)
 	}
 
-	return makeAggregateEvents(name, data, n, cfg)
+	return makeAggregateEvents(newID, name, data, n, cfg)
 }
 
-func (cfg makeConfig) aggregateVersion(b, i int, skipped *int) int {
+func (cfg makeConfig[ID]) aggregateVersion(b, i int, skipped *int) int {
 	v := b + i + 1
 	for _, skip := range cfg.skip {
 		if skip == v {
@@ -57,19 +58,19 @@ func (cfg makeConfig) aggregateVersion(b, i int, skipped *int) int {
 	return v
 }
 
-func makeEvents(name string, data any, n int) []event.Event {
-	events := make([]event.Event, n)
+func makeEvents[ID goes.ID](newID func() ID, name string, data any, n int) []event.Of[any, ID] {
+	events := make([]event.Of[any, ID], n)
 	for i := range events {
-		events[i] = event.New(name, data)
+		events[i] = event.New(newID(), name, data)
 	}
 	return events
 }
 
-func makeAggregateEvents(name string, data any, n int, cfg makeConfig) []event.Event {
-	events := make([]event.Event, 0, n*len(cfg.as))
+func makeAggregateEvents[ID goes.ID](newID func() ID, name string, data any, n int, cfg makeConfig[ID]) []event.Of[any, ID] {
+	events := make([]event.Of[any, ID], 0, n*len(cfg.as))
 	for _, a := range cfg.as {
 		var skipped int
-		aevents := make([]event.Event, n)
+		aevents := make([]event.Of[any, ID], n)
 		t := time.Now()
 
 		aid, aname, av := a.Aggregate()
@@ -82,7 +83,7 @@ func makeAggregateEvents(name string, data any, n int, cfg makeConfig) []event.E
 				aname,
 				v,
 			), event.Time(t))
-			aevents[i] = event.New(name, data, opts...)
+			aevents[i] = event.New(newID(), name, data, opts...)
 			t = t.Add(time.Nanosecond)
 		}
 		events = append(events, aevents...)

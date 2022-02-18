@@ -1,7 +1,6 @@
 package stream_test
 
 import (
-	"context"
 	"math/rand"
 	"testing"
 
@@ -20,7 +19,7 @@ var names = [...]string{
 }
 
 type mockAggregate struct {
-	*aggregate.Base
+	*aggregate.Base[uuid.UUID]
 
 	a float64
 	b string
@@ -146,7 +145,7 @@ L:
 		estr := streams.New(events...)
 		b.StartTimer()
 
-		str, errs := stream.New(context.Background(), estr, opts...)
+		str, errs := stream.New(estr, opts...)
 		for {
 			select {
 			case err, ok := <-errs:
@@ -166,7 +165,7 @@ L:
 	_ = gerr
 }
 
-func (a *mockAggregate) ApplyEvent(evt event.Event) {
+func (a *mockAggregate) ApplyEvent(evt event.Of[any, uuid.UUID]) {
 	for i, name := range names {
 		if name != evt.Name() {
 			continue
@@ -189,19 +188,20 @@ func makeAggregates(n int) []aggregate.Aggregate {
 	return as
 }
 
-func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.Event {
+func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.Of[any, uuid.UUID] {
 	rand.Seed(xtime.Now().UnixNano())
-	eventm := make(map[aggregate.Aggregate][]event.Event)
+	eventm := make(map[aggregate.Aggregate][]event.Of[any, uuid.UUID])
 	for _, a := range as {
-		events := make([]event.Event, n)
+		events := make([]event.Of[any, uuid.UUID], n)
 		for i := range events {
 			id, name, v := a.Aggregate()
 			v += i + 1
-			evt := event.New[any](
+			evt := event.New(
+				uuid.New(),
 				randomName(),
 				test.FooEventData{},
 				event.Aggregate(id, name, v),
-			)
+			).Any()
 			events[i] = evt
 		}
 		if !sorted {
@@ -211,7 +211,7 @@ func makeEvents(n int, as []aggregate.Aggregate, grouped, sorted bool) []event.E
 		}
 		eventm[a] = events
 	}
-	out := make([]event.Event, 0, len(as)*n)
+	out := make([]event.Of[any, uuid.UUID], 0, len(as)*n)
 	for _, events := range eventm {
 		out = append(out, events...)
 	}

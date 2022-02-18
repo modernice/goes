@@ -1,14 +1,15 @@
 package stream
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
 )
+
+type Event[ID goes.ID] event.Of[any, ID]
 
 // Option is a stream option.
 type Option func(*options)
@@ -17,42 +18,42 @@ type options struct {
 	isSorted            bool
 	isGrouped           bool
 	validateConsistency bool
-	filters             []func(event.Event) bool
+	filters             []func(Event[goes.AID]) bool
 	streamErrors        []<-chan error
 }
 
-type stream struct {
+type stream[ID goes.ID] struct {
 	options
 
-	stream     <-chan event.E[any]
+	stream     <-chan event.Of[any, ID]
 	inErrors   <-chan error
 	stopErrors func()
 
 	acceptDone chan struct{}
 
-	events   chan event.Event
-	complete chan job
+	events   chan event.Of[any, ID]
+	complete chan job[ID]
 
-	groupReqs chan groupRequest
+	groupReqs chan groupRequest[ID]
 
-	out       chan aggregate.History
+	out       chan aggregate.HistoryOf[ID]
 	outErrors chan error
 }
 
-type job struct {
+type job[ID goes.ID] struct {
 	name string
-	id   uuid.UUID
+	id   ID
 }
 
-type groupRequest struct {
-	job
-	out chan []event.Event
+type groupRequest[ID goes.ID] struct {
+	job[ID]
+	out chan []event.Of[any, ID]
 }
 
-type applier struct {
-	job
+type applier[ID goes.ID] struct {
+	job[ID]
 
-	apply func(aggregate.Aggregate)
+	apply func(aggregate.AggregateOf[ID])
 }
 
 // Errors returns an Option that provides a Stream with error channels. A Stream
@@ -135,9 +136,17 @@ func ValidateConsistency(v bool) Option {
 // Filter returns an Option that filters incoming Events before they're handled
 // by the Stream. Events are passed to every fn in fns until a fn returns false.
 // If any of fns returns false, the Event is discarded by the Stream.
-func Filter(fns ...func(event.Event) bool) Option {
+func Filter[ID goes.ID](fns ...func(Event[ID]) bool) Option {
 	return func(opts *options) {
-		opts.filters = append(opts.filters, fns...)
+		opts.filters = append(opts.filters, func(evt Event[goes.AID]) bool {
+			e := event.MapID[ID, goes.AID, any](evt, goes.UnwrapID[ID, goes.AID])
+			for _, fn := range fns {
+				if !fn(e) {
+					return false
+				}
+			}
+			return true
+		})
 	}
 }
 
@@ -147,7 +156,7 @@ func Filter(fns ...func(event.Event) bool) Option {
 //
 // Use the Drain function to get the Histories as a slice and a single error:
 //
-//	var events <-chan event.Event
+//	var events <-chan event.Of[any, uuid.UUID]
 //	str, errs := stream.New(events)
 //	histories, err := streams.Drain(context.TODO(), str, errs)
 //	// handle err
@@ -155,39 +164,21 @@ func Filter(fns ...func(event.Event) bool) Option {
 //		foo := newFoo(h.AggregateID())
 //		h.Apply(foo)
 //	}
-func New(ctx context.Context, events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <-chan error) {
-	return NewOf[any](ctx, events, opts...)
-}
-
-// NewOf takes a channel of Events and returns both a channel of Aggregate
-// Histories and an error channel. A History apply itself on an Aggregate to
-// build the current state of the Aggregate.
-//
-// Use the Drain function to get the Histories as a slice and a single error:
-//
-//	var events <-chan event.Event
-//	str, errs := stream.New(events)
-//	histories, err := streams.Drain(context.TODO(), str, errs)
-//	// handle err
-//	for _, h := range histories {
-//		foo := newFoo(h.AggregateID())
-//		h.Apply(foo)
-//	}
-func NewOf[D any, Event event.Of[D]](ctx context.Context, events <-chan Event, opts ...Option) (<-chan aggregate.History, <-chan error) {
+func New[ID goes.ID](events <-chan event.Of[any, ID], opts ...Option) (<-chan aggregate.HistoryOf[ID], <-chan error) {
 	if events == nil {
-		evts := make(chan Event)
+		evts := make(chan event.Of[any, ID])
 		close(evts)
 		events = evts
 	}
 
-	aes := stream{
+	aes := stream[ID]{
 		options:    options{validateConsistency: true},
-		stream:     streams.Map(ctx, events, func(e Event) event.E[any] { return event.Any[D](e) }),
+		stream:     events,
 		acceptDone: make(chan struct{}),
-		events:     make(chan event.Event),
-		complete:   make(chan job),
-		groupReqs:  make(chan groupRequest),
-		out:        make(chan aggregate.History),
+		events:     make(chan event.Of[any, ID]),
+		complete:   make(chan job[ID]),
+		groupReqs:  make(chan groupRequest[ID]),
+		out:        make(chan aggregate.HistoryOf[ID]),
 		outErrors:  make(chan error),
 	}
 	for _, opt := range opts {
@@ -203,15 +194,15 @@ func NewOf[D any, Event event.Of[D]](ctx context.Context, events <-chan Event, o
 	return aes.out, aes.outErrors
 }
 
-func (s *stream) acceptEvents() {
+func (s *stream[ID]) acceptEvents() {
 	defer close(s.complete)
 	defer close(s.acceptDone)
 	defer close(s.events)
 	defer s.stopErrors()
 
-	pending := make(map[job]bool)
+	pending := make(map[job[ID]]bool)
 
-	var prev job
+	var prev job[ID]
 L:
 	for {
 		select {
@@ -235,7 +226,7 @@ L:
 
 			id, name, _ := evt.Aggregate()
 
-			j := job{
+			j := job[ID]{
 				name: name,
 				id:   id,
 			}
@@ -256,17 +247,20 @@ L:
 	}
 }
 
-func (s *stream) shouldDiscard(evt event.Event) bool {
+func (s *stream[ID]) shouldDiscard(evt event.Of[any, ID]) bool {
+	e := event.AnyID(evt)
+
 	for _, fn := range s.filters {
-		if !fn(evt) {
+		if !fn(e) {
 			return true
 		}
 	}
+
 	return false
 }
 
-func (s *stream) groupEvents() {
-	groups := make(map[job][]event.Event)
+func (s *stream[ID]) groupEvents() {
+	groups := make(map[job[ID]][]event.Of[any, ID])
 	events := s.events
 	groupReqs := s.groupReqs
 	for {
@@ -281,7 +275,7 @@ func (s *stream) groupEvents() {
 				break
 			}
 			id, name, _ := evt.Aggregate()
-			j := job{name, id}
+			j := job[ID]{name, id}
 			groups[j] = append(groups[j], evt)
 		case req, ok := <-groupReqs:
 			if !ok {
@@ -294,15 +288,15 @@ func (s *stream) groupEvents() {
 	}
 }
 
-func (s *stream) sortEvents() {
+func (s *stream[ID]) sortEvents() {
 	defer close(s.out)
 	defer close(s.outErrors)
 	defer close(s.groupReqs)
 
 	for j := range s.complete {
-		req := groupRequest{
+		req := groupRequest[ID]{
 			job: j,
-			out: make(chan []event.Event),
+			out: make(chan []event.Of[any, ID]),
 		}
 		s.groupReqs <- req
 		events := <-req.out
@@ -313,27 +307,27 @@ func (s *stream) sortEvents() {
 
 		if s.validateConsistency {
 			a := aggregate.New(j.name, j.id)
-			if err := aggregate.ValidateConsistency(a, events); err != nil {
+			if err := aggregate.ValidateConsistency[ID](a, events); err != nil {
 				s.outErrors <- err
 				continue
 			}
 		}
 
-		s.out <- applier{
+		s.out <- applier[ID]{
 			job:   j,
-			apply: func(a aggregate.Aggregate) { aggregate.ApplyHistory(a, events) },
+			apply: func(a aggregate.AggregateOf[ID]) { aggregate.ApplyHistory(a, events) },
 		}
 	}
 }
 
-func (a applier) AggregateName() string {
+func (a applier[ID]) AggregateName() string {
 	return a.name
 }
 
-func (a applier) AggregateID() uuid.UUID {
+func (a applier[ID]) AggregateID() ID {
 	return a.id
 }
 
-func (a applier) Apply(ag aggregate.Aggregate) {
+func (a applier[ID]) Apply(ag aggregate.AggregateOf[ID]) {
 	a.apply(ag)
 }

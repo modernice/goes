@@ -3,7 +3,7 @@ package aggregate
 import (
 	"fmt"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 )
 
@@ -24,13 +24,13 @@ const (
 )
 
 // Error is a consistency error.
-type ConsistencyError struct {
+type ConsistencyError[ID goes.ID] struct {
 	// Kind is the kind of incosistency.
 	Kind ConsistencyKind
 	// Aggregate is the handled aggregate.
-	Aggregate Aggregate
+	Aggregate AggregateOf[ID]
 	// Events are the tested events.
-	Events []event.Event
+	Events []event.Of[any, ID]
 	// EventIndex is the index of the Event that caused the Error.
 	EventIndex int
 }
@@ -52,22 +52,22 @@ type ConsistencyKind int
 // The first Event e in events that is invalid causes Validate to return an
 // *Error containing the Kind of inconsistency and the Event that caused the
 // inconsistency.
-func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events Events) error {
+func ValidateConsistency[ID goes.ID, Data any, Events ~[]event.Of[Data, ID]](a AggregateOf[ID], events Events) error {
 	id, name, _ := a.Aggregate()
 	version := currentVersion(a)
 	cv := version
-	var prev event.Event
+	var prev event.Of[any, ID]
 	var hasPrev bool
 
-	aevents := make([]event.Event, len(events))
+	aevents := make([]event.Of[any, ID], len(events))
 	for i, evt := range events {
-		aevents[i] = event.Any(evt)
+		aevents[i] = event.ToAny(evt)
 	}
 
 	for i, evt := range aevents {
 		eid, ename, ev := evt.Aggregate()
 		if eid != id {
-			return &ConsistencyError{
+			return &ConsistencyError[ID]{
 				Kind:       InconsistentID,
 				Aggregate:  a,
 				Events:     aevents,
@@ -75,7 +75,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 			}
 		}
 		if ename != name {
-			return &ConsistencyError{
+			return &ConsistencyError[ID]{
 				Kind:       InconsistentName,
 				Aggregate:  a,
 				Events:     aevents,
@@ -83,7 +83,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 			}
 		}
 		if ev != cv+1 {
-			return &ConsistencyError{
+			return &ConsistencyError[ID]{
 				Kind:       InconsistentVersion,
 				Aggregate:  a,
 				Events:     aevents,
@@ -94,7 +94,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 			nano := evt.Time().UnixNano()
 			prevNano := prev.Time().UnixNano()
 			if nano <= prevNano {
-				return &ConsistencyError{
+				return &ConsistencyError[ID]{
 					Kind:       InconsistentTime,
 					Aggregate:  a,
 					Events:     aevents,
@@ -110,17 +110,17 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 }
 
 // Event return the first Event that caused an inconsistency.
-func (err *ConsistencyError) Event() event.Event {
+func (err *ConsistencyError[ID]) Event() event.Of[any, ID] {
 	if err.EventIndex < 0 || err.EventIndex >= len(err.Events) {
 		return nil
 	}
 	return err.Events[err.EventIndex]
 }
 
-func (err *ConsistencyError) Error() string {
+func (err *ConsistencyError[ID]) Error() string {
 	evt := err.Event()
 	var (
-		id   uuid.UUID
+		id   ID
 		name string
 		v    int
 	)
@@ -129,7 +129,7 @@ func (err *ConsistencyError) Error() string {
 	}
 
 	var (
-		aid   uuid.UUID
+		aid   ID
 		aname string
 	)
 
@@ -178,7 +178,7 @@ func (k ConsistencyKind) String() string {
 	}
 }
 
-func currentVersion(a Aggregate) int {
+func currentVersion[ID goes.ID](a AggregateOf[ID]) int {
 	_, _, v := a.Aggregate()
 	return v + len(a.AggregateChanges())
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/saga"
 	"github.com/modernice/goes/saga/action"
 	"github.com/modernice/goes/saga/report"
@@ -20,11 +21,11 @@ type recorder struct {
 func TestExecute_implicitStartAction(t *testing.T) {
 	var called bool
 	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
+		saga.Action("foo", func(action.Context[uuid.UUID]) error {
 			called = true
 			return nil
 		}),
-		saga.Action("bar", func(action.Context) error {
+		saga.Action("bar", func(action.Context[uuid.UUID]) error {
 			return nil
 		}),
 	)
@@ -41,14 +42,14 @@ func TestExecute_implicitStartAction(t *testing.T) {
 func TestExecute_explicitStartAction(t *testing.T) {
 	var called bool
 	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
+		saga.Action("foo", func(action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		saga.Action("bar", func(action.Context) error {
+		saga.Action("bar", func(action.Context[uuid.UUID]) error {
 			called = true
 			return nil
 		}),
-		saga.StartWith("bar"),
+		saga.StartWith[uuid.UUID]("bar"),
 	)
 
 	if err := saga.Execute(context.Background(), s); err != nil {
@@ -63,7 +64,7 @@ func TestExecute_explicitStartAction(t *testing.T) {
 func TestExecute_actionError(t *testing.T) {
 	mockError := errors.New("mock error")
 	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
+		saga.Action("foo", func(action.Context[uuid.UUID]) error {
 			return mockError
 		}),
 	)
@@ -77,18 +78,18 @@ func TestExecute_compensate(t *testing.T) {
 	mockError := errors.New("mock error")
 	var compensated bool
 	s := saga.New(
-		saga.Action("foo", func(c action.Context) error {
+		saga.Action("foo", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		saga.Action("bar", func(action.Context) error {
+		saga.Action("bar", func(action.Context[uuid.UUID]) error {
 			return mockError
 		}),
-		saga.Action("comp-foo", func(action.Context) error {
+		saga.Action("comp-foo", func(action.Context[uuid.UUID]) error {
 			compensated = true
 			return nil
 		}),
-		saga.Sequence("foo", "bar"),
-		saga.Compensate("foo", "comp-foo"),
+		saga.Sequence[uuid.UUID]("foo", "bar"),
+		saga.Compensate[uuid.UUID]("foo", "comp-foo"),
 	)
 
 	if err := saga.Execute(context.Background(), s); !errors.Is(err, mockError) {
@@ -104,17 +105,17 @@ func TestExecute_compensateError(t *testing.T) {
 	mockError := errors.New("mock error")
 	mockCompError := errors.New("mock comp error")
 	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
+		saga.Action("foo", func(action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		saga.Action("bar", func(action.Context) error {
+		saga.Action("bar", func(action.Context[uuid.UUID]) error {
 			return mockError
 		}),
-		saga.Action("baz", func(action.Context) error {
+		saga.Action("baz", func(action.Context[uuid.UUID]) error {
 			return mockCompError
 		}),
-		saga.Sequence("foo", "bar"),
-		saga.Compensate("foo", "baz"),
+		saga.Sequence[uuid.UUID]("foo", "bar"),
+		saga.Compensate[uuid.UUID]("foo", "baz"),
 	)
 
 	err := saga.Execute(context.Background(), s)
@@ -142,28 +143,28 @@ func TestExecute_compensateChain(t *testing.T) {
 
 	rec := newRecorder()
 	s := saga.New(
-		rec.newAction("foo", func(c action.Context) error {
+		rec.newAction("foo", func(c action.Context[uuid.UUID]) error {
 			c.Run(c, "bar")
 			return mockError
 		}),
-		rec.newAction("bar", func(c action.Context) error {
+		rec.newAction("bar", func(c action.Context[uuid.UUID]) error {
 			return c.Run(c, "baz")
 		}),
-		rec.newAction("baz", func(c action.Context) error {
+		rec.newAction("baz", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("comp-foo", func(c action.Context) error {
+		rec.newAction("comp-foo", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("comp-bar", func(c action.Context) error {
+		rec.newAction("comp-bar", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("comp-baz", func(c action.Context) error {
+		rec.newAction("comp-baz", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		saga.Compensate("foo", "comp-foo"),
-		saga.Compensate("bar", "comp-bar"),
-		saga.Compensate("baz", "comp-baz"),
+		saga.Compensate[uuid.UUID]("foo", "comp-foo"),
+		saga.Compensate[uuid.UUID]("bar", "comp-bar"),
+		saga.Compensate[uuid.UUID]("baz", "comp-baz"),
 	)
 
 	if err := saga.Execute(context.Background(), s); !errors.Is(err, mockError) {
@@ -184,28 +185,28 @@ func TestExecute_compensateChainError(t *testing.T) {
 	mockCompError := errors.New("mock comp error")
 	rec := newRecorder()
 	s := saga.New(
-		rec.newAction("foo", func(c action.Context) error {
+		rec.newAction("foo", func(c action.Context[uuid.UUID]) error {
 			c.Run(c, "bar")
 			return mockError
 		}),
-		rec.newAction("bar", func(c action.Context) error {
+		rec.newAction("bar", func(c action.Context[uuid.UUID]) error {
 			return c.Run(c, "baz")
 		}),
-		rec.newAction("baz", func(c action.Context) error {
+		rec.newAction("baz", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("comp-foo", func(c action.Context) error {
+		rec.newAction("comp-foo", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("comp-bar", func(c action.Context) error {
+		rec.newAction("comp-bar", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("comp-baz", func(c action.Context) error {
+		rec.newAction("comp-baz", func(c action.Context[uuid.UUID]) error {
 			return mockCompError
 		}),
-		saga.Compensate("foo", "comp-foo"),
-		saga.Compensate("bar", "comp-bar"),
-		saga.Compensate("baz", "comp-baz"),
+		saga.Compensate[uuid.UUID]("foo", "comp-foo"),
+		saga.Compensate[uuid.UUID]("bar", "comp-bar"),
+		saga.Compensate[uuid.UUID]("baz", "comp-baz"),
 	)
 
 	if err := saga.Execute(context.Background(), s); !errors.Is(err, mockCompError) {
@@ -226,28 +227,28 @@ func TestExecute_compensateChainErrorMiddle(t *testing.T) {
 	mockCompError := errors.New("mock comp error")
 	rec := newRecorder()
 	s := saga.New(
-		rec.newAction("foo", func(c action.Context) error {
+		rec.newAction("foo", func(c action.Context[uuid.UUID]) error {
 			c.Run(c, "bar")
 			return mockError
 		}),
-		rec.newAction("bar", func(c action.Context) error {
+		rec.newAction("bar", func(c action.Context[uuid.UUID]) error {
 			return c.Run(c, "baz")
 		}),
-		rec.newAction("baz", func(c action.Context) error {
+		rec.newAction("baz", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("comp-foo", func(c action.Context) error {
+		rec.newAction("comp-foo", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("comp-bar", func(c action.Context) error {
+		rec.newAction("comp-bar", func(c action.Context[uuid.UUID]) error {
 			return mockCompError
 		}),
-		rec.newAction("comp-baz", func(c action.Context) error {
+		rec.newAction("comp-baz", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		saga.Compensate("foo", "comp-foo"),
-		saga.Compensate("bar", "comp-bar"),
-		saga.Compensate("baz", "comp-baz"),
+		saga.Compensate[uuid.UUID]("foo", "comp-foo"),
+		saga.Compensate[uuid.UUID]("bar", "comp-bar"),
+		saga.Compensate[uuid.UUID]("baz", "comp-baz"),
 	)
 
 	if err := saga.Execute(context.Background(), s); !errors.Is(err, mockCompError) {
@@ -266,10 +267,10 @@ func TestExecute_compensateChainErrorMiddle(t *testing.T) {
 func TestExecute_compensatorNotFound(t *testing.T) {
 	mockError := errors.New("mock error")
 	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
+		saga.Action("foo", func(action.Context[uuid.UUID]) error {
 			return mockError
 		}),
-		saga.Compensate("foo", "bar"),
+		saga.Compensate[uuid.UUID]("foo", "bar"),
 	)
 
 	if err := saga.Execute(context.Background(), s); !errors.Is(err, saga.ErrActionNotFound) {
@@ -279,14 +280,14 @@ func TestExecute_compensatorNotFound(t *testing.T) {
 
 func TestExecute_reportRuntime(t *testing.T) {
 	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
+		saga.Action("foo", func(action.Context[uuid.UUID]) error {
 			<-time.After(50 * time.Millisecond)
 			return nil
 		}),
 	)
 
-	var rep report.Report
-	if err := saga.Execute(context.Background(), s, saga.Report(&rep)); err != nil {
+	var rep report.Report[uuid.UUID]
+	if err := saga.Execute(context.Background(), s, saga.Report[uuid.UUID](&rep)); err != nil {
 		t.Fatalf("SAGA shouldn't fail; failed with %q", err)
 	}
 
@@ -296,15 +297,15 @@ func TestExecute_reportRuntime(t *testing.T) {
 }
 
 func TestExecute_reportError(t *testing.T) {
-	var rep report.Report
+	var rep report.Report[uuid.UUID]
 	mockError := errors.New("mock error")
 	s := saga.New(
-		saga.Action("foo", func(action.Context) error {
+		saga.Action("foo", func(action.Context[uuid.UUID]) error {
 			return mockError
 		}),
 	)
 
-	if err := saga.Execute(context.Background(), s, saga.Report(&rep)); !errors.Is(err, mockError) {
+	if err := saga.Execute(context.Background(), s, saga.Report[uuid.UUID](&rep)); !errors.Is(err, mockError) {
 		t.Errorf("SAGA should fail with %q; got %q", mockError, err)
 	}
 
@@ -316,16 +317,16 @@ func TestExecute_reportError(t *testing.T) {
 func TestExecute_sequence(t *testing.T) {
 	rec := newRecorder()
 	s := saga.New(
-		rec.newAction("foo", func(c action.Context) error {
+		rec.newAction("foo", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("bar", func(c action.Context) error {
+		rec.newAction("bar", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		rec.newAction("baz", func(c action.Context) error {
+		rec.newAction("baz", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		saga.Sequence("foo", "baz", "bar"),
+		saga.Sequence[uuid.UUID]("foo", "baz", "bar"),
 	)
 
 	if err := saga.Execute(context.Background(), s); err != nil {
@@ -342,9 +343,9 @@ func TestExecute_sequence(t *testing.T) {
 // 	ctrl := gomock.NewController(t)
 // 	defer ctrl.Finish()
 
-// 	evt := event.New("foo", test.FooEventData{})
+// 	evt := event.New(uuid.New(), "foo", test.FooEventData{})
 // 	s := saga.New(
-// 		saga.Action("foo", func(c action.Context) error {
+// 		saga.Action("foo", func(c action.Context[uuid.UUID]) error {
 // 			return c.Publish(c, evt)
 // 		}),
 // 	)
@@ -365,7 +366,7 @@ func TestExecute_sequence(t *testing.T) {
 
 // 	cmd := command.New("foo", mockPayload{})
 // 	s := saga.New(
-// 		saga.Action("foo", func(c action.Context) error {
+// 		saga.Action("foo", func(c action.Context[uuid.UUID]) error {
 // 			return c.Dispatch(c, cmd)
 // 		}),
 // 	)
@@ -385,7 +386,7 @@ func TestExecute_sequence(t *testing.T) {
 // 	foo := aggregate.New("foo", uuid.New())
 // 	repo := mock_aggregate.NewMockRepository(ctrl)
 // 	s := saga.New(
-// 		saga.Action("foo", func(c action.Context) error {
+// 		saga.Action("foo", func(c action.Context[uuid.UUID]) error {
 // 			return c.Fetch(c, foo)
 // 		}),
 // 	)
@@ -400,21 +401,21 @@ func TestExecute_sequence(t *testing.T) {
 func TestExecute_compensateTimeout(t *testing.T) {
 	mockError := errors.New("mock error")
 	s := saga.New(
-		saga.Action("foo", func(c action.Context) error {
+		saga.Action("foo", func(c action.Context[uuid.UUID]) error {
 			return nil
 		}),
-		saga.Action("bar", func(c action.Context) error {
+		saga.Action("bar", func(c action.Context[uuid.UUID]) error {
 			return mockError
 		}),
-		saga.Action("comp-foo", func(action.Context) error {
+		saga.Action("comp-foo", func(action.Context[uuid.UUID]) error {
 			<-time.After(100 * time.Millisecond)
 			return nil
 		}),
-		saga.Sequence("foo", "bar"),
-		saga.Compensate("foo", "comp-foo"),
+		saga.Sequence[uuid.UUID]("foo", "bar"),
+		saga.Compensate[uuid.UUID]("foo", "comp-foo"),
 	)
 
-	err := saga.Execute(context.Background(), s, saga.CompensateTimeout(10*time.Millisecond))
+	err := saga.Execute(context.Background(), s, saga.CompensateTimeout[uuid.UUID](10*time.Millisecond))
 
 	if !errors.Is(err, saga.ErrCompensateTimeout) {
 		t.Fatalf("Execute should fail with %q; got %q", saga.ErrCompensateTimeout, err)
@@ -424,30 +425,30 @@ func TestExecute_compensateTimeout(t *testing.T) {
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name      string
-		opts      []saga.Option
+		opts      []saga.Option[uuid.UUID]
 		wantError error
 	}{
 		{
 			name: "invalid sequence: action not found",
-			opts: []saga.Option{
-				saga.Action("foo", nil),
-				saga.Action("bar", nil),
-				saga.Sequence("foo", "bar", "baz"),
+			opts: []saga.Option[uuid.UUID]{
+				saga.Action[uuid.UUID]("foo", nil),
+				saga.Action[uuid.UUID]("bar", nil),
+				saga.Sequence[uuid.UUID]("foo", "bar", "baz"),
 			},
 			wantError: saga.ErrActionNotFound,
 		},
 		{
 			name: "empty name",
-			opts: []saga.Option{
-				saga.Action("   ", nil),
+			opts: []saga.Option[uuid.UUID]{
+				saga.Action[uuid.UUID]("   ", nil),
 			},
 			wantError: saga.ErrEmptyName,
 		},
 		{
 			name: "compensator not found",
-			opts: []saga.Option{
-				saga.Action("foo", nil),
-				saga.Compensate("foo", "bar"),
+			opts: []saga.Option[uuid.UUID]{
+				saga.Action[uuid.UUID]("foo", nil),
+				saga.Compensate[uuid.UUID]("foo", "bar"),
 			},
 			wantError: saga.ErrActionNotFound,
 		},
@@ -469,8 +470,8 @@ func newRecorder() *recorder {
 	return &recorder{count: make(map[string]int)}
 }
 
-func (r *recorder) newAction(name string, run func(action.Context) error) saga.Option {
-	return saga.Action(name, func(ctx action.Context) error {
+func (r *recorder) newAction(name string, run func(action.Context[uuid.UUID]) error) saga.Option[uuid.UUID] {
+	return saga.Action(name, func(ctx action.Context[uuid.UUID]) error {
 		defer r.done(name)
 		return run(ctx)
 	})

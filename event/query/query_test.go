@@ -5,6 +5,8 @@ import (
 	"testing"
 	stdtime "time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
@@ -13,7 +15,7 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-var _ event.Query = Query{}
+var _ event.QueryOf[uuid.UUID] = Query[uuid.UUID]{}
 
 func TestNew(t *testing.T) {
 	ids := make([]uuid.UUID, 4)
@@ -29,7 +31,7 @@ func TestNew(t *testing.T) {
 	tests := []struct {
 		name string
 		opts []Option
-		want Query
+		want Query[uuid.UUID]
 	}{
 		{
 			name: "Name",
@@ -37,9 +39,12 @@ func TestNew(t *testing.T) {
 				Name("foo", "bar"),
 				Name("baz", "foobar"),
 			},
-			want: Query{
+			want: Query[uuid.UUID]{
+				ids:               []uuid.UUID{},
 				times:             time.Filter(),
+				aggregateIDs:      []uuid.UUID{},
 				aggregateVersions: version.Filter(),
+				aggregates:        []event.AggregateRefOf[uuid.UUID]{},
 				names:             []string{"foo", "bar", "baz", "foobar"},
 			},
 		},
@@ -49,10 +54,12 @@ func TestNew(t *testing.T) {
 				ID(ids[:2]...),
 				ID(ids[2:4]...),
 			},
-			want: Query{
+			want: Query[uuid.UUID]{
 				times:             time.Filter(),
+				aggregateIDs:      []uuid.UUID{},
 				aggregateVersions: version.Filter(),
 				ids:               ids,
+				aggregates:        []event.AggregateRefOf[uuid.UUID]{},
 			},
 		},
 		{
@@ -61,8 +68,11 @@ func TestNew(t *testing.T) {
 				Time(time.Exact(times[2:]...)),
 				Time(time.InRange(time.Range{times[2], times[3]})),
 			},
-			want: Query{
+			want: Query[uuid.UUID]{
+				ids:               []uuid.UUID{},
+				aggregateIDs:      []uuid.UUID{},
 				aggregateVersions: version.Filter(),
+				aggregates:        []event.AggregateRefOf[uuid.UUID]{},
 				times: time.Filter(
 					time.Exact(times[2:]...),
 					time.InRange(time.Range{times[2], times[3]}),
@@ -75,10 +85,13 @@ func TestNew(t *testing.T) {
 				AggregateName("foo", "bar"),
 				AggregateName("baz", "foobar"),
 			},
-			want: Query{
+			want: Query[uuid.UUID]{
+				ids:               []uuid.UUID{},
 				times:             time.Filter(),
+				aggregateIDs:      []uuid.UUID{},
 				aggregateVersions: version.Filter(),
 				aggregateNames:    []string{"foo", "bar", "baz", "foobar"},
+				aggregates:        []event.AggregateRefOf[uuid.UUID]{},
 			},
 		},
 		{
@@ -87,10 +100,12 @@ func TestNew(t *testing.T) {
 				AggregateID(ids[:2]...),
 				AggregateID(ids[2:]...),
 			},
-			want: Query{
+			want: Query[uuid.UUID]{
+				ids:               []uuid.UUID{},
 				times:             time.Filter(),
 				aggregateVersions: version.Filter(),
 				aggregateIDs:      ids,
+				aggregates:        []event.AggregateRefOf[uuid.UUID]{},
 			},
 		},
 		{
@@ -99,12 +114,15 @@ func TestNew(t *testing.T) {
 				AggregateVersion(version.Exact(1, 2, 3)),
 				AggregateVersion(version.InRange(version.Range{10, 20})),
 			},
-			want: Query{
-				times: time.Filter(),
+			want: Query[uuid.UUID]{
+				ids:          []uuid.UUID{},
+				times:        time.Filter(),
+				aggregateIDs: []uuid.UUID{},
 				aggregateVersions: version.Filter(
 					version.Exact(1, 2, 3),
 					version.InRange(version.Range{10, 20}),
 				),
+				aggregates: []event.AggregateRefOf[uuid.UUID]{},
 			},
 		},
 		{
@@ -113,8 +131,10 @@ func TestNew(t *testing.T) {
 				Aggregate("foo", aggregateID),
 				Aggregate("bar", aggregateID),
 			},
-			want: Query{
+			want: Query[uuid.UUID]{
+				ids:               []uuid.UUID{},
 				times:             time.Filter(),
+				aggregateIDs:      []uuid.UUID{},
 				aggregateVersions: version.Filter(),
 				aggregates: []event.AggregateRef{
 					{
@@ -133,9 +153,12 @@ func TestNew(t *testing.T) {
 			opts: []Option{
 				SortBy(event.SortTime, event.SortAsc),
 			},
-			want: Query{
+			want: Query[uuid.UUID]{
+				ids:               []uuid.UUID{},
 				times:             time.Filter(),
+				aggregateIDs:      []uuid.UUID{},
 				aggregateVersions: version.Filter(),
+				aggregates:        []event.AggregateRefOf[uuid.UUID]{},
 				sortings: []event.SortOptions{{
 					Sort: event.SortTime,
 					Dir:  event.SortAsc,
@@ -150,9 +173,12 @@ func TestNew(t *testing.T) {
 					event.SortOptions{Sort: event.SortAggregateVersion, Dir: event.SortDesc},
 				),
 			},
-			want: Query{
+			want: Query[uuid.UUID]{
+				ids:               []uuid.UUID{},
 				times:             time.Filter(),
+				aggregateIDs:      []uuid.UUID{},
 				aggregateVersions: version.Filter(),
+				aggregates:        []event.AggregateRefOf[uuid.UUID]{},
 				sortings: []event.SortOptions{
 					{
 						Sort: event.SortTime,
@@ -169,9 +195,9 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			q := New(tt.opts...)
+			q := New[uuid.UUID](tt.opts...)
 			if !reflect.DeepEqual(q, tt.want) {
-				t.Errorf("returned query doesn't match expected\ngot: %#v\n\nexpected: %#v", q, tt.want)
+				t.Errorf("returned query doesn't match expected\ngot: %#v\n\nexpected: %#v\n\n%s", q, tt.want, cmp.Diff(tt.want, q, cmpopts.IgnoreUnexported(q)))
 			}
 		})
 	}
@@ -191,118 +217,118 @@ func TestTest(t *testing.T) {
 	tests := []struct {
 		name  string
 		query event.Query
-		tests map[event.Event]bool
+		tests map[event.Of[any, uuid.UUID]]bool
 	}{
 		{
 			name:  "Name",
-			query: New(Name("foo", "bar")),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}): true,
-				event.New[any]("bar", test.BarEventData{}): true,
-				event.New[any]("baz", test.BazEventData{}): false,
+			query: New[uuid.UUID](Name("foo", "bar")),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}): false,
 			},
 		},
 		{
 			name:  "ID",
-			query: New(ID(ids[:2]...)),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.ID(ids[0])): true,
-				event.New[any]("bar", test.BarEventData{}, event.ID(ids[1])): true,
-				event.New[any]("baz", test.BazEventData{}, event.ID(ids[2])): false,
+			query: New[uuid.UUID](ID(ids[:2]...)),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.ID(ids[0])): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.ID(ids[1])): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.ID(ids[2])): false,
 			},
 		},
 		{
 			name:  "Time (exact)",
-			query: New(Time(time.Exact(times[:2]...))),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.Time(times[0])): true,
-				event.New[any]("bar", test.BarEventData{}, event.Time(times[1])): true,
-				event.New[any]("baz", test.BazEventData{}, event.Time(times[2])): false,
+			query: New[uuid.UUID](Time(time.Exact(times[:2]...))),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Time(times[0])): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.Time(times[1])): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.Time(times[2])): false,
 			},
 		},
 		{
 			name:  "Time (range)",
-			query: New(Time(time.InRange(time.Range{times[0], times[1]}))),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.Time(times[0])): true,
-				event.New[any]("bar", test.BarEventData{}, event.Time(times[1])): true,
-				event.New[any]("baz", test.BazEventData{}, event.Time(times[2])): false,
+			query: New[uuid.UUID](Time(time.InRange(time.Range{times[0], times[1]}))),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Time(times[0])): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.Time(times[1])): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.Time(times[2])): false,
 			},
 		},
 		{
 			name:  "Time (min/max)",
-			query: New(Time(time.Min(times[0]), time.Max(times[1]))),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.Time(times[0])): true,
-				event.New[any]("bar", test.BarEventData{}, event.Time(times[1])): true,
-				event.New[any]("baz", test.BazEventData{}, event.Time(times[2])): false,
+			query: New[uuid.UUID](Time(time.Min(times[0]), time.Max(times[1]))),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Time(times[0])): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.Time(times[1])): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.Time(times[2])): false,
 			},
 		},
 		{
 			name:  "AggregateName",
-			query: New(AggregateName("foo", "bar")),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)): true,
-				event.New[any]("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 0)): true,
-				event.New[any]("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 0)): false,
+			query: New[uuid.UUID](AggregateName("foo", "bar")),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 0)): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 0)): false,
 			},
 		},
 		{
 			name:  "AggregateID",
-			query: New(AggregateID(ids[:2]...)),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(ids[0], "foo", 0)): true,
-				event.New[any]("bar", test.BarEventData{}, event.Aggregate(ids[1], "bar", 0)): true,
-				event.New[any]("baz", test.BazEventData{}, event.Aggregate(ids[2], "baz", 0)): false,
+			query: New[uuid.UUID](AggregateID(ids[:2]...)),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(ids[0], "foo", 0)): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.Aggregate(ids[1], "bar", 0)): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.Aggregate(ids[2], "baz", 0)): false,
 			},
 		},
 		{
 			name:  "AggregateVersion (exact)",
-			query: New(AggregateVersion(version.Exact(1, 2))),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
-				event.New[any]("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
-				event.New[any]("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
+			query: New[uuid.UUID](AggregateVersion(version.Exact(1, 2))),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
 			},
 		},
 		{
 			name:  "AggregateVersion (range)",
-			query: New(AggregateVersion(version.InRange(version.Range{1, 2}))),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
-				event.New[any]("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
-				event.New[any]("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
+			query: New[uuid.UUID](AggregateVersion(version.InRange(version.Range{1, 2}))),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
 			},
 		},
 		{
 			name:  "AggregateVersion (min/max)",
-			query: New(AggregateVersion(version.Min(1), version.Max(2))),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
-				event.New[any]("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
-				event.New[any]("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
+			query: New[uuid.UUID](AggregateVersion(version.Min(1), version.Max(2))),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)): true,
+				event.New[any](uuid.New(), "bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 2)): true,
+				event.New[any](uuid.New(), "baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 3)): false,
 			},
 		},
 		{
 			name:  "Aggregate",
-			query: New(Aggregate("foo", aggregateID)),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}):                                         false,
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)):  false,
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 0)): true,
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 4)): true,
+			query: New[uuid.UUID](Aggregate("foo", aggregateID)),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}):                                         false,
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)):  false,
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 0)): true,
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 4)): true,
 			},
 		},
 		{
 			name:  "Aggregate (uuid.Nil)",
-			query: New(Aggregate("foo", aggregateID), Aggregate("bar", uuid.Nil)),
-			tests: map[event.Event]bool{
-				event.New[any]("foo", test.FooEventData{}):                                         false,
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)):  false,
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 0)): true,
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 4)): true,
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar", 0)):  true,
-				event.New[any]("foo", test.FooEventData{}, event.Aggregate(aggregateID, "bar", 0)): true,
+			query: New[uuid.UUID](Aggregate("foo", aggregateID), Aggregate("bar", uuid.Nil)),
+			tests: map[event.Of[any, uuid.UUID]]bool{
+				event.New[any](uuid.New(), "foo", test.FooEventData{}):                                         false,
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 0)):  false,
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 0)): true,
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(aggregateID, "foo", 4)): true,
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(uuid.New(), "bar", 0)):  true,
+				event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(aggregateID, "bar", 0)): true,
 			},
 		},
 	}
@@ -320,8 +346,8 @@ func TestTest(t *testing.T) {
 
 func TestMerge(t *testing.T) {
 	now := xtime.Now()
-	queries := []event.Query{
-		Query{
+	queries := []event.QueryOf[uuid.UUID]{
+		Query[uuid.UUID]{
 			names:             []string{"foo"},
 			ids:               []uuid.UUID{uuid.New()},
 			aggregateNames:    []string{"foo"},
@@ -331,7 +357,7 @@ func TestMerge(t *testing.T) {
 			aggregateVersions: version.Filter(version.Exact(1)),
 			aggregates:        []event.AggregateRef{{Name: "foo", ID: uuid.New()}},
 		},
-		Query{
+		Query[uuid.UUID]{
 			names:             []string{"bar"},
 			ids:               []uuid.UUID{uuid.New()},
 			aggregateNames:    []string{"bar"},
@@ -341,7 +367,7 @@ func TestMerge(t *testing.T) {
 			aggregateVersions: version.Filter(version.Exact(2, 3)),
 			aggregates:        []event.AggregateRef{{Name: "bar", ID: uuid.New()}},
 		},
-		Query{
+		Query[uuid.UUID]{
 			names:             []string{"baz"},
 			ids:               []uuid.UUID{uuid.New()},
 			aggregateNames:    []string{"baz"},
@@ -353,7 +379,7 @@ func TestMerge(t *testing.T) {
 		},
 	}
 
-	q := Merge(queries...)
+	q := Merge[any](queries)
 
 	wantNames := []string{"foo", "bar", "baz"}
 	if !reflect.DeepEqual(q.Names(), wantNames) {

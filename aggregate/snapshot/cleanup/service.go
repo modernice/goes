@@ -6,6 +6,7 @@ import (
 	"fmt"
 	stdtime "time"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/query"
 	"github.com/modernice/goes/event/query/time"
@@ -27,7 +28,7 @@ var (
 
 // Service is a Snapshot cleanup service which deletes Snapshots that exceed a
 // given age.
-type Service struct {
+type Service[ID goes.ID] struct {
 	every  stdtime.Duration
 	maxAge stdtime.Duration
 
@@ -45,15 +46,15 @@ type Service struct {
 // Example:
 //
 //	// Every day, delete Snapshots that are older than a week.
-//	var store snapshot.Store
+//	var store snapshot.Store[ID]
 //	svc := cleanup.NewService(24*time.Hour, 7*24*time.Hour)
 //	errs, err := svc.Start(store)
 //	// handle err
 //	for err := range errs {
 //		// handle async err
 //	}
-func NewService(every, maxAge stdtime.Duration) *Service {
-	return &Service{
+func NewService[ID goes.ID](every, maxAge stdtime.Duration) *Service[ID] {
+	return &Service[ID]{
 		every:  every,
 		maxAge: maxAge,
 	}
@@ -69,7 +70,7 @@ func NewService(every, maxAge stdtime.Duration) *Service {
 //
 // Example:
 //
-//	var store snapshot.Store
+//	var store snapshot.Store[ID]
 // 	svc := cleanup.NewService(24*time.Hour, 7*24*time.Hour)
 //	errs, err := svc.Start(store)
 //	// handle err
@@ -78,7 +79,7 @@ func NewService(every, maxAge stdtime.Duration) *Service {
 //			// handle async err
 //		}
 //	}()
-func (c *Service) Start(store snapshot.Store) (<-chan error, error) {
+func (c *Service[ID]) Start(store snapshot.Store[ID]) (<-chan error, error) {
 	if store == nil {
 		return nil, errNilStore
 	}
@@ -97,7 +98,7 @@ func (c *Service) Start(store snapshot.Store) (<-chan error, error) {
 	return out, nil
 }
 
-func (c *Service) work(store snapshot.Store, out chan<- error) {
+func (c *Service[ID]) work(store snapshot.Store[ID], out chan<- error) {
 	defer close(c.done)
 	defer close(out)
 	ticker := stdtime.NewTicker(c.every)
@@ -112,14 +113,14 @@ func (c *Service) work(store snapshot.Store, out chan<- error) {
 	}
 }
 
-func (c *Service) cleanup(store snapshot.Store, out chan<- error) error {
-	str, errs, err := store.Query(c.ctx, query.New(
+func (c *Service[ID]) cleanup(store snapshot.Store[ID], out chan<- error) error {
+	str, errs, err := store.Query(c.ctx, query.New[ID](
 		query.Time(time.Before(xtime.Now().Add(-c.maxAge))),
 	))
 	if err != nil {
 		return fmt.Errorf("query Snapshots: %w", err)
 	}
-	return streams.Walk(c.ctx, func(s snapshot.Snapshot) error {
+	return streams.Walk(c.ctx, func(s snapshot.Snapshot[ID]) error {
 		if err := store.Delete(c.ctx, s); err != nil {
 			select {
 			case <-c.ctx.Done():
@@ -143,7 +144,7 @@ func (c *Service) cleanup(store snapshot.Store, out chan<- error) error {
 //	if err = svc.Stop(context.TODO()); err != nil {
 //		// handle err
 //	}
-func (c *Service) Stop(ctx context.Context) error {
+func (c *Service[ID]) Stop(ctx context.Context) error {
 	if !c.started {
 		return ErrStopped
 	}

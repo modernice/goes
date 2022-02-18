@@ -4,13 +4,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection"
 )
 
-// MockProjection is a projection mock that's used for testing.
+// MockProjection ion mock that's used for testing.
 type MockProjection struct {
-	AppliedEvents []event.Event
+	AppliedEvents []event.Of[any, uuid.UUID]
 }
 
 // NewMockProjection returns a MockProjection.
@@ -19,13 +20,13 @@ func NewMockProjection() *MockProjection {
 }
 
 // ApplyEvent adds evt as an applied Event to the MockProjection.
-func (proj *MockProjection) ApplyEvent(evt event.Event) {
+func (proj *MockProjection) ApplyEvent(evt event.Of[any, uuid.UUID]) {
 	proj.AppliedEvents = append(proj.AppliedEvents, evt)
 }
 
 // HasApplied determines whether the passed Events have been applied onto the
 // MockProjection.
-func (proj *MockProjection) HasApplied(events ...event.Event) bool {
+func (proj *MockProjection) HasApplied(events ...event.Of[any, uuid.UUID]) bool {
 	for _, evt := range events {
 		var applied bool
 		for _, pevt := range proj.AppliedEvents {
@@ -43,7 +44,7 @@ func (proj *MockProjection) HasApplied(events ...event.Event) bool {
 
 // ExpectApplied determines whether events were applied onto the MockProjection
 // and if not, makes the test fail.
-func (proj *MockProjection) ExpectApplied(t *testing.T, events ...event.Event) {
+func (proj *MockProjection) ExpectApplied(t *testing.T, events ...event.Of[any, uuid.UUID]) {
 	if !proj.HasApplied(events...) {
 		t.Fatalf("mockProjection should have applied %v; has applied %v", events, proj.AppliedEvents)
 	}

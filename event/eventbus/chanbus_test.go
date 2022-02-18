@@ -3,6 +3,7 @@ package eventbus_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/backend/testing/eventbustest"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
@@ -10,5 +11,5 @@ import (
 )
 
 func TestChanbus(t *testing.T) {
-	eventbustest.Run(t, func(e codec.Encoding) event.Bus { return eventbus.New() })
+	eventbustest.Run(t, func(e codec.Encoding) event.Bus[uuid.UUID] { return eventbus.New[uuid.UUID]() }, uuid.New)
 }

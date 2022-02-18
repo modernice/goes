@@ -6,6 +6,8 @@ import (
 	"context"
 	"os"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestDatabase(t *testing.T) {
@@ -30,8 +32,8 @@ func TestCollection(t *testing.T) {
 	}
 }
 
-func newStore(opts ...Option) *Store {
+func newStore(opts ...Option) *Store[uuid.UUID] {
 	url := os.Getenv("MONGOSNAP_URL")
 	opts = append([]Option{URL(url)}, opts...)
-	return New(opts...)
+	return New[uuid.UUID](opts...)
 }

@@ -8,61 +8,62 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 	"github.com/nats-io/nats.go"
 )
 
-type subscription struct {
+type subscription[ID goes.ID] struct {
 	event string
 
 	sub  *nats.Subscription
 	msgs chan []byte
 
-	recipients []recipient
+	recipients []recipient[ID]
 
-	subscribeQueue   chan subscribeJob
-	unsubscribeQueue chan subscribeJob
-	logQueue         chan logJob
+	subscribeQueue   chan subscribeJob[ID]
+	unsubscribeQueue chan subscribeJob[ID]
+	logQueue         chan logJob[ID]
 	stop             chan struct{}
 }
 
-type recipient struct {
-	sub      *subscription
-	events   chan event.Event
+type recipient[ID goes.ID] struct {
+	sub      *subscription[ID]
+	events   chan event.Of[any, ID]
 	errs     chan error
 	unsubbed chan struct{}
 }
 
-type subscribeJob struct {
-	recipient recipient
+type subscribeJob[ID goes.ID] struct {
+	recipient recipient[ID]
 	done      chan struct{}
 }
 
-type logJob struct {
+type logJob[ID goes.ID] struct {
 	err        error
-	recipients []recipient
+	recipients []recipient[ID]
 }
 
-func newSubscription(
+func newSubscription[ID goes.ID](
 	event string,
-	bus *EventBus,
+	bus *EventBus[ID],
 	sub *nats.Subscription,
 	msgs chan []byte,
-) *subscription {
-	out := &subscription{
+) *subscription[ID] {
+	out := &subscription[ID]{
 		event:            event,
 		sub:              sub,
 		msgs:             msgs,
-		subscribeQueue:   make(chan subscribeJob),
-		unsubscribeQueue: make(chan subscribeJob),
-		logQueue:         make(chan logJob),
+		subscribeQueue:   make(chan subscribeJob[ID]),
+		unsubscribeQueue: make(chan subscribeJob[ID]),
+		logQueue:         make(chan logJob[ID]),
 		stop:             bus.stop,
 	}
 	go out.work(bus)
 	return out
 }
 
-func (sub *subscription) work(bus *EventBus) {
+func (sub *subscription[ID]) work(bus *EventBus[ID]) {
 	defer sub.close()
 	for {
 		select {
@@ -109,15 +110,15 @@ func (sub *subscription) work(bus *EventBus) {
 }
 
 // Print error message to ALL recipients in this subscription.
-func (sub *subscription) err(err error) {
+func (sub *subscription[ID]) err(err error) {
 	select {
 	case <-sub.stop:
-	case sub.logQueue <- logJob{err: err}:
+	case sub.logQueue <- logJob[ID]{err: err}:
 	}
 }
 
-func (sub *subscription) send(bus *EventBus, msg []byte) error {
-	var env envelope
+func (sub *subscription[ID]) send(bus *EventBus[ID], msg []byte) error {
+	var env envelope[ID]
 	dec := gob.NewDecoder(bytes.NewReader(msg))
 	if err := dec.Decode(&env); err != nil {
 		return fmt.Errorf("gob decode envelope: %w", err)
@@ -129,9 +130,9 @@ func (sub *subscription) send(bus *EventBus, msg []byte) error {
 	}
 
 	evt := event.New(
+		env.ID,
 		env.Name,
 		data,
-		event.ID(env.ID),
 		event.Time(env.Time),
 		event.Aggregate(
 			env.AggregateID,
@@ -151,12 +152,12 @@ func (sub *subscription) send(bus *EventBus, msg []byte) error {
 	return nil
 }
 
-func (sub *subscription) subscribe(ctx context.Context) (recipient, error) {
+func (sub *subscription[ID]) subscribe(ctx context.Context) (recipient[ID], error) {
 	done := make(chan struct{})
 
-	rcpt := recipient{
+	rcpt := recipient[ID]{
 		sub:      sub,
-		events:   make(chan event.Event),
+		events:   make(chan event.Of[any, ID]),
 		errs:     make(chan error),
 		unsubbed: make(chan struct{}),
 	}
@@ -164,7 +165,7 @@ func (sub *subscription) subscribe(ctx context.Context) (recipient, error) {
 	select {
 	case <-ctx.Done():
 		return rcpt, ctx.Err()
-	case sub.subscribeQueue <- subscribeJob{
+	case sub.subscribeQueue <- subscribeJob[ID]{
 		recipient: rcpt,
 		done:      done,
 	}:
@@ -181,7 +182,7 @@ func (sub *subscription) subscribe(ctx context.Context) (recipient, error) {
 		close(rcpt.unsubbed)
 		select {
 		case <-sub.stop:
-		case sub.unsubscribeQueue <- subscribeJob{
+		case sub.unsubscribeQueue <- subscribeJob[ID]{
 			recipient: rcpt,
 			done:      make(chan struct{}),
 		}:
@@ -191,7 +192,7 @@ func (sub *subscription) subscribe(ctx context.Context) (recipient, error) {
 	return rcpt, nil
 }
 
-func (sub *subscription) close() {
+func (sub *subscription[ID]) close() {
 	if err := sub.sub.Unsubscribe(); err != nil && !errors.Is(err, nats.ErrConnectionClosed) {
 		log.Printf(
 			"[goes/backend/nats.subscription] Failed to unsubscribe from NATS: %v [event=%v, subject=%v]",
@@ -205,12 +206,12 @@ func (sub *subscription) close() {
 	}
 }
 
-func (rcpt recipient) log(err error) {
+func (rcpt recipient[ID]) log(err error) {
 	select {
 	case <-rcpt.sub.stop:
-	case rcpt.sub.logQueue <- logJob{
+	case rcpt.sub.logQueue <- logJob[ID]{
 		err:        err,
-		recipients: []recipient{rcpt},
+		recipients: []recipient[ID]{rcpt},
 	}:
 	}
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/event"
 )
 
 // ListAggregate is the name of the List aggregate.
@@ -14,7 +13,7 @@ const ListAggregate = "todo.list"
 
 // List is a "todo" list.
 type List struct {
-	*aggregate.Base
+	*aggregate.Base[uuid.UUID]
 
 	tasks   []string
 	archive []string
@@ -25,9 +24,9 @@ func New(id uuid.UUID) *List {
 	list := &List{Base: aggregate.New(ListAggregate, id)}
 
 	// Register the event appliers for each of the aggregate events.
-	aggregate.ApplyWith(list, TaskAdded, list.add)
-	aggregate.ApplyWith(list, TaskRemoved, list.remove)
-	aggregate.ApplyWith(list, TasksDone, list.done)
+	aggregate.ApplyWith[string, uuid.UUID](list, TaskAdded, list.add)
+	aggregate.ApplyWith[TaskRemovedEvent, uuid.UUID](list, TaskRemoved, list.remove)
+	aggregate.ApplyWith[[]string, uuid.UUID](list, TasksDone, list.done)
 
 	return list
 }
@@ -61,12 +60,12 @@ func (list *List) Add(task string) error {
 		}
 	}
 
-	aggregate.NextEvent(list, TaskAdded, task)
+	aggregate.NextEvent[uuid.UUID](list, uuid.New(), TaskAdded, task)
 
 	return nil
 }
 
-func (list *List) add(evt event.Of[string]) {
+func (list *List) add(evt Event[string]) {
 	list.tasks = append(list.tasks, evt.Data())
 }
 
@@ -75,11 +74,11 @@ func (list *List) Remove(task string) error {
 	if !list.Contains(task) {
 		return nil
 	}
-	aggregate.NextEvent(list, TaskRemoved, TaskRemovedEvent{task})
+	aggregate.NextEvent[uuid.UUID](list, uuid.New(), TaskRemoved, TaskRemovedEvent{task})
 	return nil
 }
 
-func (list *List) remove(evt event.Of[TaskRemovedEvent]) {
+func (list *List) remove(evt Event[TaskRemovedEvent]) {
 	for i, task := range list.tasks {
 		if strings.ToLower(task) == strings.ToLower(evt.Data().Task) {
 			list.tasks = append(list.tasks[:i], list.tasks[i+1:]...)
@@ -106,13 +105,13 @@ func (list *List) Done(tasks ...string) error {
 	}
 
 	if len(done) > 0 {
-		aggregate.NextEvent(list, TasksDone, done)
+		aggregate.NextEvent[uuid.UUID](list, uuid.New(), TasksDone, done)
 	}
 
 	return nil
 }
 
-func (list *List) done(evt event.Of[[]string]) {
+func (list *List) done(evt Event[[]string]) {
 	for _, task := range evt.Data() {
 		ltask := strings.ToLower(task)
 

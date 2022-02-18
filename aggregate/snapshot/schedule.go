@@ -1,21 +1,22 @@
 package snapshot
 
 import (
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate"
 )
 
 // A Schedule determines if an Aggregate is scheduled to be snapshotted.
-type Schedule interface {
+type Schedule[ID goes.ID] interface {
 	// Test returns true if the given Aggregate should be snapshotted.
-	Test(aggregate.Aggregate) bool
+	Test(aggregate.AggregateOf[ID]) bool
 }
 
-type scheduleFunc func(aggregate.Aggregate) bool
+type scheduleFunc[ID goes.ID] func(aggregate.AggregateOf[ID]) bool
 
 // Every returns a Schedule that instructs to make Snapshots of an Aggregate
-// every nth Event of that Aggregate.
-func Every(n int) Schedule {
-	return scheduleFunc(func(a aggregate.Aggregate) bool {
+// every nth Event of the Aggregate.
+func Every[ID goes.ID](n int) Schedule[ID] {
+	return scheduleFunc[ID](func(a aggregate.AggregateOf[ID]) bool {
 		_, _, old := a.Aggregate()
 		current := aggregate.UncommittedVersion(a)
 
@@ -29,6 +30,6 @@ func Every(n int) Schedule {
 	})
 }
 
-func (fn scheduleFunc) Test(a aggregate.Aggregate) bool {
+func (fn scheduleFunc[ID]) Test(a aggregate.AggregateOf[ID]) bool {
 	return fn(a)
 }

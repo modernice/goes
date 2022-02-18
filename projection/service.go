@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
@@ -31,9 +32,9 @@ var (
 )
 
 // TriggeredData is the event data for triggering a Schedule.
-type TriggeredData struct {
+type TriggeredData[ID goes.ID] struct {
 	TriggerID uuid.UUID
-	Trigger   Trigger
+	Trigger   Trigger[ID]
 	Schedule  string
 }
 
@@ -42,19 +43,22 @@ type TriggerAcceptedData struct {
 	TriggerID uuid.UUID
 }
 
+// ServiceOption is an option for creating a Service.
+type ServiceOption[ID goes.ID] func(*Service[ID])
+
 // Service is an event-driven projection service. A Service allows to trigger
 // Schedules that are registered in Services that communicate over the same
 // event bus.
-type Service struct {
-	bus            event.Bus
+type Service[ID goes.ID] struct {
+	newID          func() ID
 	triggerTimeout time.Duration
-
-	schedulesMux sync.RWMutex
-	schedules    map[string]Schedule
+	bus            event.Bus[ID]
+	schedulesMux   sync.RWMutex
+	schedules      map[string]Schedule[ID]
 }
 
 // Schedule is a projection schedule.
-type Schedule interface {
+type Schedule[ID goes.ID] interface {
 	// Subscribe subscribes the provided function to the Schedule and returns a
 	// channel of asynchronous projection errors. When the Schedule is
 	// triggered, a Job is created and passed to subscribers of the Schedule.
@@ -70,7 +74,7 @@ type Schedule interface {
 	//	for err := range errs {
 	//		log.Printf("projection failed: %v\n", err)
 	//	}
-	Subscribe(context.Context, func(Job) error) (<-chan error, error)
+	Subscribe(context.Context, func(Job[ID]) error) (<-chan error, error)
 
 	// Trigger manually triggers the Schedule immediately. A Job is created and
 	// passed to every subscriber of the Schedule. Trigger does not wait for the
@@ -116,32 +120,29 @@ type Schedule interface {
 	//
 	//	var s projection.Schedule
 	//	err := s.Trigger(context.TODO(), projection.Filter(query.New(...), query.New(...)))
-	Trigger(context.Context, ...TriggerOption) error
+	Trigger(context.Context, ...TriggerOption[ID]) error
 }
 
 // RegisterService register the projection service events into an event
 // registry.
-func RegisterService(r *codec.Registry) {
+func RegisterService[ID goes.ID](r *codec.Registry) {
 	gob := codec.Gob(r)
-	gob.GobRegister(Triggered, func() any { return TriggeredData{} })
+	gob.GobRegister(Triggered, func() any { return TriggeredData[ID]{} })
 	gob.GobRegister(TriggerAccepted, func() any { return TriggerAcceptedData{} })
 }
 
-// ServiceOption is an option for creating a Service.
-type ServiceOption func(*Service)
-
 // RegisterSchedule returns a ServiceOption that registers the Schedule s with
 // the given name into a Service
-func RegisterSchedule(name string, s Schedule) ServiceOption {
-	return func(svc *Service) {
+func RegisterSchedule[ID goes.ID](name string, s Schedule[ID]) ServiceOption[ID] {
+	return func(svc *Service[ID]) {
 		svc.schedules[name] = s
 	}
 }
 
 // TriggerTimeout returns a ServiceOption that overrides the default timeout for
 // triggering a Schedule. Default is 5s. Zero Duration means no timeout.
-func TriggerTimeout(d time.Duration) ServiceOption {
-	return func(svc *Service) {
+func TriggerTimeout[ID goes.ID](d time.Duration) ServiceOption[ID] {
+	return func(svc *Service[ID]) {
 		svc.triggerTimeout = d
 	}
 }
@@ -158,11 +159,12 @@ func TriggerTimeout(d time.Duration) ServiceOption {
 //	)
 //
 //	errs, err := svc.Run(context.TODO())
-func NewService(bus event.Bus, opts ...ServiceOption) *Service {
-	svc := Service{
+func NewService[ID goes.ID](newID func() ID, bus event.Bus[ID], opts ...ServiceOption[ID]) *Service[ID] {
+	svc := Service[ID]{
+		newID:          newID,
 		bus:            bus,
 		triggerTimeout: DefaultTriggerTimeout,
-		schedules:      make(map[string]Schedule),
+		schedules:      make(map[string]Schedule[ID]),
 	}
 	for _, opt := range opts {
 		opt(&svc)
@@ -171,7 +173,7 @@ func NewService(bus event.Bus, opts ...ServiceOption) *Service {
 }
 
 // Register registers a Schedule with the given name into the Service.
-func (svc *Service) Register(name string, s Schedule) {
+func (svc *Service[ID]) Register(name string, s Schedule[ID]) {
 	svc.schedulesMux.Lock()
 	svc.schedules[name] = s
 	svc.schedulesMux.Unlock()
@@ -183,14 +185,14 @@ func (svc *Service) Register(name string, s Schedule) {
 // TriggerAccepted event to be published by another Service. Should the
 // TriggerAccepted event not be published within the trigger timeout,
 // ErrUnhandledTrigger is returned. When ctx is canceled, ctx.Err() is returned.
-func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOption) error {
+func (svc *Service[ID]) Trigger(ctx context.Context, name string, opts ...TriggerOption[ID]) error {
 	events, errs, err := svc.bus.Subscribe(ctx, TriggerAccepted)
 	if err != nil {
 		return fmt.Errorf("subscribe to %q Event: %w", TriggerAccepted, err)
 	}
 
 	id := uuid.New()
-	evt := event.New[any](Triggered, TriggeredData{
+	evt := event.New[any](svc.newID(), Triggered, TriggeredData[ID]{
 		TriggerID: id,
 		Trigger:   NewTrigger(opts...),
 		Schedule:  name,
@@ -206,7 +208,7 @@ func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOpt
 	}
 
 	done := errors.New("done")
-	if err := streams.Walk(ctx, func(evt event.Event) error {
+	if err := streams.Walk(ctx, func(evt event.Of[any, ID]) error {
 		data := evt.Data().(TriggerAcceptedData)
 		if data.TriggerID != id {
 			return nil
@@ -227,7 +229,7 @@ func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOpt
 // When another Service triggers a Schedule with a name that is registered in
 // svc, svc accepts that trigger by publishing a TriggerAccepted event and then
 // actually triggers the Schedule.
-func (svc *Service) Run(ctx context.Context) (<-chan error, error) {
+func (svc *Service[ID]) Run(ctx context.Context) (<-chan error, error) {
 	events, errs, err := svc.bus.Subscribe(ctx, Triggered)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to %q Event: %w", Triggered, err)
@@ -239,7 +241,7 @@ func (svc *Service) Run(ctx context.Context) (<-chan error, error) {
 	return out, nil
 }
 
-func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event, errs <-chan error, out chan<- error) {
+func (svc *Service[ID]) handleEvents(ctx context.Context, events <-chan event.Of[any, ID], errs <-chan error, out chan<- error) {
 	defer close(out)
 
 	fail := func(err error) {
@@ -249,15 +251,15 @@ func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event,
 		}
 	}
 
-	streams.ForEach(ctx, func(evt event.Event) {
-		data := evt.Data().(TriggeredData)
+	streams.ForEach(ctx, func(evt event.Of[any, ID]) {
+		data := evt.Data().(TriggeredData[ID])
 
 		s, ok := svc.schedule(data.Schedule)
 		if !ok {
 			return
 		}
 
-		evt = event.New[any](TriggerAccepted, TriggerAcceptedData{TriggerID: data.TriggerID})
+		evt = event.New[any](svc.newID(), TriggerAccepted, TriggerAcceptedData{TriggerID: data.TriggerID})
 		if err := svc.bus.Publish(ctx, evt); err != nil {
 			fail(fmt.Errorf("publish %q Event: %w", evt.Name(), err))
 			return
@@ -269,7 +271,7 @@ func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event,
 	}, fail, events, errs)
 }
 
-func (svc *Service) schedule(name string) (Schedule, bool) {
+func (svc *Service[ID]) schedule(name string) (Schedule[ID], bool) {
 	svc.schedulesMux.RLock()
 	s, ok := svc.schedules[name]
 	svc.schedulesMux.RUnlock()

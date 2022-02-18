@@ -3,13 +3,13 @@ package event
 import (
 	"fmt"
 
-	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes"
 )
 
 // A Handler is an object that can register handlers for different events.
-type Handler interface {
+type Handler[ID goes.ID] interface {
 	// RegisterHandler registers an event handler for the given event name.
-	RegisterHandler(eventName string, handler func(Event))
+	RegisterHandler(eventName string, handler func(Of[any, ID]))
 }
 
 // RegisterHandler registers an event handler for the given event name.
@@ -51,21 +51,17 @@ type Handler interface {
 //	func (f *Foo) foo(e event.Of[BazEvent]) {
 //		f.Baz = e.Data().Baz
 //	}
-func RegisterHandler[D any](eh Handler, eventName string, handler func(Of[D])) {
-	eh.RegisterHandler(eventName, func(evt Event) {
-		if casted, ok := TryCast[D](evt); ok {
-			handler(casted)
+func RegisterHandler[Data any, ID goes.ID, Event Of[Data, ID]](eh Handler[ID], eventName string, handler func(Event)) {
+	eh.RegisterHandler(eventName, func(evt Of[any, ID]) {
+		if casted, ok := TryCast[Data](evt); ok {
+			handler(any(casted).(Event))
 		} else {
-			aggregateName := "<unknown>"
-			if a, ok := eh.(pick.AggregateProvider); ok {
-				aggregateName = pick.AggregateName(a)
-			}
-			var zero D
+			var zero Data
 			panic(fmt.Errorf(
 				"[goes/event.RegisterHandler] Cannot cast %T to %T. "+
 					"You probably provided the wrong event name for this handler. "+
-					"[event=%v, aggregate=%v]",
-				evt.Data(), zero, eventName, aggregateName,
+					"[event=%v, handler=%T]",
+				evt.Data(), zero, eventName, eh,
 			))
 		}
 	})

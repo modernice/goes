@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/query"
@@ -23,15 +24,15 @@ import (
 //	errs, err := s.Subscribe(context.TODO(), func(job projection.Job) error {
 //		return job.Apply(job, proj)
 //	})
-type Continuous struct {
-	*schedule
+type Continuous[ID goes.ID] struct {
+	*schedule[ID]
 
-	bus      event.Bus
+	bus      event.Bus[ID]
 	debounce time.Duration
 }
 
 // ContinuousOption is an option for the Continuous schedule.
-type ContinuousOption func(*Continuous)
+type ContinuousOption[ID goes.ID] func(*Continuous[ID])
 
 // Debounce returns a ContinuousOption that debounces projection Jobs by the
 // given Duration. When multiple Events are published within the given Duration,
@@ -48,12 +49,12 @@ type ContinuousOption func(*Continuous)
 //
 //	err := bus.Publish(
 //		context.TODO(),
-//		event.New("foo", ...),
-//		event.New("bar", ...),
-//		event.New("baz", ...),
+//		event.New(uuid.New(), "foo", ...),
+//		event.New(uuid.New(), "bar", ...),
+//		event.New(uuid.New(), "baz", ...),
 //	)
-func Debounce(d time.Duration) ContinuousOption {
-	return func(c *Continuous) {
+func Debounce[ID goes.ID](d time.Duration) ContinuousOption[ID] {
+	return func(c *Continuous[ID]) {
 		c.debounce = d
 	}
 }
@@ -71,9 +72,9 @@ func Debounce(d time.Duration) ContinuousOption {
 //	var bus event.Bus
 //	var store event.Store
 //	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(time.Second))
-func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ...ContinuousOption) *Continuous {
-	c := Continuous{
-		schedule: newSchedule(store, eventNames),
+func Continuously[ID goes.ID](bus event.Bus[ID], store event.Store[ID], eventNames []string, opts ...ContinuousOption[ID]) *Continuous[ID] {
+	c := Continuous[ID]{
+		schedule: newSchedule[ID](store, eventNames),
 		bus:      bus,
 	}
 	for _, opt := range opts {
@@ -112,14 +113,14 @@ func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ..
 //
 // When the schedule is triggered by calling schedule.Trigger, a projection Job
 // will be created and passed to apply.
-func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection.Job) error) (<-chan error, error) {
+func (schedule *Continuous[ID]) Subscribe(ctx context.Context, apply func(projection.Job[ID]) error) (<-chan error, error) {
 	events, errs, err := schedule.bus.Subscribe(ctx, schedule.eventNames...)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to events: %w (Events=%v)", err, schedule.eventNames)
 	}
 
 	out := make(chan error)
-	jobs := make(chan projection.Job)
+	jobs := make(chan projection.Job[ID])
 	triggers := schedule.newTriggers()
 	done := make(chan struct{})
 
@@ -142,11 +143,11 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 	return out, nil
 }
 
-func (schedule *Continuous) handleEvents(
+func (schedule *Continuous[ID]) handleEvents(
 	ctx context.Context,
-	events <-chan event.Event,
+	events <-chan event.Of[any, ID],
 	errs <-chan error,
-	jobs chan<- projection.Job,
+	jobs chan<- projection.Job[ID],
 	out chan<- error,
 	wg *sync.WaitGroup,
 ) {
@@ -160,7 +161,7 @@ func (schedule *Continuous) handleEvents(
 	}
 
 	var mux sync.Mutex
-	var buf []event.Event
+	var buf []event.Of[any, ID]
 	var debounce *time.Timer
 
 	defer func() {
@@ -175,13 +176,13 @@ func (schedule *Continuous) handleEvents(
 		mux.Lock()
 		defer mux.Unlock()
 
-		events := make([]event.Event, len(buf))
+		events := make([]event.Of[any, ID], len(buf))
 		copy(events, buf)
 
-		job := projection.NewJob(
+		job := projection.NewJob[ID](
 			ctx,
 			eventstore.New(events...),
-			query.New(query.SortBy(event.SortTime, event.SortAsc)),
+			query.New[ID](query.SortBy(event.SortTime, event.SortAsc)),
 			projection.WithHistoryStore(schedule.store),
 		)
 
@@ -194,7 +195,7 @@ func (schedule *Continuous) handleEvents(
 		debounce = nil
 	}
 
-	addEvent := func(evt event.Event) {
+	addEvent := func(evt event.Of[any, ID]) {
 		mux.Lock()
 
 		if debounce != nil {

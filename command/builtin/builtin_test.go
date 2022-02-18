@@ -43,15 +43,15 @@ func TestDeleteAggregate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ebus := eventbus.New()
-	estore := eventstore.WithBus(eventstore.New(), ebus)
+	ebus := eventbus.New[uuid.UUID]()
+	estore := eventstore.WithBus(eventstore.New[uuid.UUID](), ebus)
 	repo := repository.New(estore)
 	reg := codec.New()
 	builtin.RegisterCommands(reg)
 
-	bus := cmdbus.New(reg, ebus)
+	bus := cmdbus.New(uuid.New, reg, ebus)
 
-	go panicOn(builtin.MustHandle(ctx, bus, repo, builtin.PublishEvents(ebus, nil)))
+	go panicOn(builtin.MustHandle[uuid.UUID](ctx, uuid.New, bus, repo, builtin.PublishEvents(ebus, nil)))
 
 	foo := newMockAggregate(aggregateID)
 	newMockEvent(foo, 2)
@@ -62,7 +62,7 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Foo should be %d; is %d", 14, foo.Foo)
 	}
 
-	if aggregate.UncommittedVersion(foo) != 3 {
+	if aggregate.UncommittedVersion[uuid.UUID](foo) != 3 {
 		t.Fatalf("AggregateVersion() should return %d; got %d", 3, foo.AggregateVersion())
 	}
 
@@ -109,16 +109,16 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Data() should return type %T; got %T", data, evt.Data())
 	}
 
-	if pick.AggregateName(evt) != aggregateName {
-		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, pick.AggregateName(evt))
+	if pick.AggregateName[uuid.UUID](evt) != aggregateName {
+		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, pick.AggregateName[uuid.UUID](evt))
 	}
 
-	if pick.AggregateID(evt) != aggregateID {
-		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, pick.AggregateID(evt))
+	if pick.AggregateID[uuid.UUID](evt) != aggregateID {
+		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, pick.AggregateID[uuid.UUID](evt))
 	}
 
-	if pick.AggregateVersion(evt) != 0 {
-		t.Fatalf("evt.AggregateVersion() should return 0; got %v", pick.AggregateVersion(evt))
+	if pick.AggregateVersion[uuid.UUID](evt) != 0 {
+		t.Fatalf("evt.AggregateVersion() should return 0; got %v", pick.AggregateVersion[uuid.UUID](evt))
 	}
 
 	if data.Version != 3 {
@@ -148,7 +148,7 @@ func panicOn(errs <-chan error) {
 }
 
 type mockAggregate struct {
-	*aggregate.Base
+	*aggregate.Base[uuid.UUID]
 
 	Foo int
 }
@@ -159,11 +159,11 @@ func newMockAggregate(id uuid.UUID) *mockAggregate {
 	}
 }
 
-func (ma *mockAggregate) ApplyEvent(evt event.Event) {
+func (ma *mockAggregate) ApplyEvent(evt event.Of[any, uuid.UUID]) {
 	data := evt.Data().(test.FoobarEventData)
 	ma.Foo += data.A
 }
 
-func newMockEvent(a aggregate.Aggregate, foo int) event.Event {
-	return aggregate.NextEvent[any](a, "foobar", test.FoobarEventData{A: foo})
+func newMockEvent(a aggregate.AggregateOf[uuid.UUID], foo int) event.E[test.FoobarEventData, uuid.UUID] {
+	return aggregate.NextEvent(a, uuid.New(), "foobar", test.FoobarEventData{A: foo})
 }

@@ -14,12 +14,12 @@ func TestTest(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		query aggregate.Query
+		query aggregate.Query[uuid.UUID]
 		tests map[aggregate.Aggregate]bool
 	}{
 		{
 			name:  "Name",
-			query: query.New(query.Name("foo", "bar")),
+			query: query.New[uuid.UUID](query.Name("foo", "bar")),
 			tests: map[aggregate.Aggregate]bool{
 				aggregate.New("foo", uuid.New()): true,
 				aggregate.New("bar", uuid.New()): true,
@@ -28,7 +28,7 @@ func TestTest(t *testing.T) {
 		},
 		{
 			name:  "ID",
-			query: query.New(query.ID(ids[0], ids[2])),
+			query: query.New[uuid.UUID](query.ID(ids[0], ids[2])),
 			tests: map[aggregate.Aggregate]bool{
 				aggregate.New("foo", ids[0]): true,
 				aggregate.New("bar", ids[1]): false,
@@ -38,7 +38,7 @@ func TestTest(t *testing.T) {
 		},
 		{
 			name:  "Version (exact)",
-			query: query.New(query.Version(version.Exact(2, 3))),
+			query: query.New[uuid.UUID](query.Version(version.Exact(2, 3))),
 			tests: map[aggregate.Aggregate]bool{
 				aggregate.New("foo", uuid.New(), aggregate.Version(1)): false,
 				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
@@ -47,7 +47,7 @@ func TestTest(t *testing.T) {
 		},
 		{
 			name:  "Version (range)",
-			query: query.New(query.Version(version.InRange(version.Range{1, 2}))),
+			query: query.New[uuid.UUID](query.Version(version.InRange(version.Range{1, 2}))),
 			tests: map[aggregate.Aggregate]bool{
 				aggregate.New("foo", uuid.New(), aggregate.Version(1)): true,
 				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
@@ -56,7 +56,7 @@ func TestTest(t *testing.T) {
 		},
 		{
 			name:  "Version (min/max)",
-			query: query.New(query.Version(version.Min(2), version.Max(3))),
+			query: query.New[uuid.UUID](query.Version(version.Min(2), version.Max(3))),
 			tests: map[aggregate.Aggregate]bool{
 				aggregate.New("foo", uuid.New(), aggregate.Version(1)): false,
 				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
@@ -65,7 +65,7 @@ func TestTest(t *testing.T) {
 		},
 		{
 			name: "Version (mixed)",
-			query: query.New(query.Version(
+			query: query.New[uuid.UUID](query.Version(
 				version.Min(2),
 				version.Max(5),
 				version.InRange(version.Range{3, 5}),

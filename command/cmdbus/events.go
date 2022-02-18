@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/codec"
 )
 
@@ -29,9 +30,9 @@ const (
 )
 
 // CommandDispatchedData is the Event Data for the CommandDispatched Event.
-type CommandDispatchedData struct {
+type CommandDispatchedData[ID goes.ID] struct {
 	// ID is the unique Command ID.
-	ID uuid.UUID
+	ID ID
 
 	// Name is the name of the Command.
 	Name string
@@ -41,53 +42,53 @@ type CommandDispatchedData struct {
 	AggregateName string
 
 	// AggregateID is the ID of the Aggregate the Command belongs to. (optional)
-	AggregateID uuid.UUID
+	AggregateID ID
 
 	// Payload is the encoded domain-specific Command Payload.
 	Payload []byte
 }
 
 // CommandRequestedData is the Event Data for the CommandRequested Event.
-type CommandRequestedData struct {
-	ID        uuid.UUID
+type CommandRequestedData[ID goes.ID] struct {
+	ID        ID
 	HandlerID uuid.UUID
 }
 
 // CommandAssignedData is the Event Data for the CommandAssigned Event.
-type CommandAssignedData struct {
-	ID        uuid.UUID
+type CommandAssignedData[ID goes.ID] struct {
+	ID        ID
 	HandlerID uuid.UUID
 }
 
 // CommandAcceptedData is the Event Data for the CommandAccepted Event.
-type CommandAcceptedData struct {
-	ID        uuid.UUID
+type CommandAcceptedData[ID goes.ID] struct {
+	ID        ID
 	HandlerID uuid.UUID
 }
 
 // CommandExecutedData is the Event Data for the CommandExecuted Event.
-type CommandExecutedData struct {
-	ID      uuid.UUID
+type CommandExecutedData[ID goes.ID] struct {
+	ID      ID
 	Runtime time.Duration
 	Error   string
 }
 
 // RegisterEvents registers the command events into a Registry.
-func RegisterEvents(reg *codec.Registry) {
+func RegisterEvents[ID goes.ID](reg *codec.Registry) {
 	gob := codec.Gob(reg)
 	gob.GobRegister(CommandDispatched, func() any {
-		return CommandDispatchedData{}
+		return CommandDispatchedData[ID]{}
 	})
 	gob.GobRegister(CommandRequested, func() any {
-		return CommandRequestedData{}
+		return CommandRequestedData[ID]{}
 	})
 	gob.GobRegister(CommandAssigned, func() any {
-		return CommandAssignedData{}
+		return CommandAssignedData[ID]{}
 	})
 	gob.GobRegister(CommandAccepted, func() any {
-		return CommandAcceptedData{}
+		return CommandAcceptedData[ID]{}
 	})
 	gob.GobRegister(CommandExecuted, func() any {
-		return CommandExecutedData{}
+		return CommandExecutedData[ID]{}
 	})
 }

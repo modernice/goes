@@ -16,8 +16,8 @@ type DeleteAggregatePayload struct{}
 // built-in command handler of this package, aggregates are deleted by deleting
 // their events from the event store. Additionally, a "goes.command.aggregate.deleted"
 // is published after deletion.
-func DeleteAggregate(name string, id uuid.UUID) command.Cmd[DeleteAggregatePayload] {
-	return command.New(DeleteAggregateCmd, DeleteAggregatePayload{}, command.Aggregate(name, id))
+func DeleteAggregate(name string, id uuid.UUID) command.Cmd[DeleteAggregatePayload, uuid.UUID] {
+	return command.New(id, DeleteAggregateCmd, DeleteAggregatePayload{}, command.Aggregate[DeleteAggregatePayload](name, id))
 }
 
 // RegisterCommands registers the built-in commands into a command registry.

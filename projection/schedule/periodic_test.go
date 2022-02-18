@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/test"
@@ -18,13 +19,13 @@ func TestPeriodic_Subscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	store := eventstore.New()
+	store := eventstore.New[uuid.UUID]()
 
-	events := []event.Event{
-		event.New[any]("foo", test.FooEventData{}),
-		event.New[any]("bar", test.FooEventData{}),
-		event.New[any]("baz", test.FooEventData{}),
-		event.New[any]("foobar", test.FooEventData{}),
+	events := []event.Of[any, uuid.UUID]{
+		event.New[any](uuid.New(), "foo", test.FooEventData{}),
+		event.New[any](uuid.New(), "bar", test.FooEventData{}),
+		event.New[any](uuid.New(), "baz", test.FooEventData{}),
+		event.New[any](uuid.New(), "foobar", test.FooEventData{}),
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {
@@ -38,9 +39,9 @@ func TestPeriodic_Subscribe(t *testing.T) {
 	subscribeCtx, cancelSubscribe := context.WithTimeout(ctx, 200*time.Millisecond)
 	defer cancelSubscribe()
 
-	appliedJobs := make(chan projection.Job)
+	appliedJobs := make(chan projection.Job[uuid.UUID])
 
-	errs, err := schedule.Subscribe(subscribeCtx, func(job projection.Job) error {
+	errs, err := schedule.Subscribe(subscribeCtx, func(job projection.Job[uuid.UUID]) error {
 		if err := job.Apply(context.Background(), proj); err != nil {
 			return fmt.Errorf("apply Job: %w", err)
 		}

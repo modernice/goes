@@ -2,7 +2,7 @@
 package version
 
 // Constraints provides the different constraints for querying events. An
-// event.Store that uses Constraints should combine the different types of
+// event.Store[ID]that uses Constraints should combine the different types of
 // constraints with a logical "AND" and the different values for a constraint
 // with a logical "OR".
 type Constraints interface {

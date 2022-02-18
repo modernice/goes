@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/nats-io/nats.go"
@@ -21,9 +22,9 @@ func TestQueueGroupByFunc(t *testing.T) {
 	enc := test.NewEncoder()
 
 	// given 5 "foo" subscribers
-	subs := make([]<-chan event.Event, 5)
+	subs := make([]<-chan event.Of[any, uuid.UUID], 5)
 	for i := range subs {
-		bus := NewEventBus(enc, QueueGroupByFunc(func(eventName string) string {
+		bus := NewEventBus(uuid.New, enc, QueueGroupByFunc(func(eventName string) string {
 			return fmt.Sprintf("bar.%s", eventName)
 		}))
 
@@ -40,17 +41,17 @@ func TestQueueGroupByFunc(t *testing.T) {
 		}()
 	}
 
-	pubBus := NewEventBus(enc)
+	pubBus := NewEventBus(uuid.New, enc)
 
 	// when a "foo" event is published
-	evt := event.New("foo", test.FooEventData{})
+	evt := event.New(uuid.New(), "foo", test.FooEventData{})
 	err := pubBus.Publish(context.Background(), evt.Any())
 	if err != nil {
 		t.Fatal(fmt.Errorf("publish event %v: %w", evt, err))
 	}
 
 	// only 1 subscriber should received the event
-	receivedChan := make(chan event.Event, len(subs))
+	receivedChan := make(chan event.Of[any, uuid.UUID], len(subs))
 	var wg sync.WaitGroup
 	wg.Add(len(subs))
 	go func() {
@@ -58,7 +59,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 		wg.Wait()
 	}()
 	for _, events := range subs {
-		go func(events <-chan event.Event) {
+		go func(events <-chan event.Of[any, uuid.UUID]) {
 			defer wg.Done()
 			select {
 			case evt := <-events:
@@ -69,7 +70,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 	}
 	wg.Wait()
 
-	var received []event.Event
+	var received []event.Of[any, uuid.UUID]
 	for evt := range receivedChan {
 		received = append(received, evt)
 	}
@@ -84,7 +85,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 }
 
 func TestQueueGroupByEvent(t *testing.T) {
-	bus := NewEventBus(test.NewEncoder(), QueueGroupByEvent())
+	bus := NewEventBus(uuid.New, test.NewEncoder(), QueueGroupByEvent())
 	names := []string{"foo", "bar", "baz"}
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
@@ -97,7 +98,7 @@ func TestQueueGroupByEvent(t *testing.T) {
 
 func TestURL(t *testing.T) {
 	url := "foo://bar:123"
-	bus := NewEventBus(test.NewEncoder(), URL(url))
+	bus := NewEventBus(uuid.New, test.NewEncoder(), URL(url))
 	if bus.natsURL() != url {
 		t.Fatal(fmt.Errorf("expected bus.natsURL to return %q; got %q", url, bus.natsURL()))
 	}
@@ -115,7 +116,7 @@ func TestEventBus_natsURL(t *testing.T) {
 		}
 	}()
 
-	bus := NewEventBus(test.NewEncoder())
+	bus := NewEventBus(uuid.New, test.NewEncoder())
 	if bus.natsURL() != envURL {
 		t.Fatal(fmt.Errorf("expected bus.natsURL to return %q; got %q", envURL, bus.natsURL()))
 	}
@@ -128,7 +129,7 @@ func TestEventBus_natsURL(t *testing.T) {
 
 func TestConnection(t *testing.T) {
 	conn := &nats.Conn{}
-	bus := NewEventBus(test.NewEncoder(), Conn(conn))
+	bus := NewEventBus(uuid.New, test.NewEncoder(), Conn(conn))
 
 	if bus.conn != conn {
 		t.Fatal(fmt.Errorf("expected bus.conn to be %v; got %v", conn, bus.conn))
@@ -144,7 +145,7 @@ func TestConnection(t *testing.T) {
 }
 
 func TestSubjectFunc(t *testing.T) {
-	bus := NewEventBus(test.NewEncoder(), SubjectFunc(func(eventName string) string {
+	bus := NewEventBus(uuid.New, test.NewEncoder(), SubjectFunc(func(eventName string) string {
 		return "prefix." + eventName
 	}))
 
@@ -153,7 +154,7 @@ func TestSubjectFunc(t *testing.T) {
 		t.Fatal(fmt.Errorf("subscribe to %q events: %w", "foo", err))
 	}
 
-	evt := event.New("foo", test.FooEventData{A: "foo"})
+	evt := event.New(uuid.New(), "foo", test.FooEventData{A: "foo"})
 	if err := bus.Publish(context.Background(), evt.Any().Event()); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "foo", err))
 	}
@@ -170,13 +171,13 @@ func TestSubjectFunc(t *testing.T) {
 
 func TestSubjectFunc_subjectFunc(t *testing.T) {
 	// default subject
-	bus := NewEventBus(test.NewEncoder())
+	bus := NewEventBus(uuid.New, test.NewEncoder())
 	if got := bus.subjectFunc("foo"); got != "foo" {
 		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", "foo", got))
 	}
 
 	// custom subject func
-	bus = NewEventBus(test.NewEncoder(), SubjectFunc(func(eventName string) string {
+	bus = NewEventBus(uuid.New, test.NewEncoder(), SubjectFunc(func(eventName string) string {
 		return fmt.Sprintf("prefix.%s", eventName)
 	}))
 
@@ -187,7 +188,7 @@ func TestSubjectFunc_subjectFunc(t *testing.T) {
 }
 
 func TestSubjectPrefix(t *testing.T) {
-	bus := NewEventBus(test.NewEncoder(), SubjectPrefix("prefix."))
+	bus := NewEventBus(uuid.New, test.NewEncoder(), SubjectPrefix("prefix."))
 
 	want := "prefix_foo"
 	if got := bus.subjectFunc("foo"); got != want {
@@ -197,13 +198,13 @@ func TestSubjectPrefix(t *testing.T) {
 
 func TestDurableFunc(t *testing.T) {
 	// default durable name
-	bus := NewEventBus(test.NewEncoder())
+	bus := NewEventBus(uuid.New, test.NewEncoder())
 	if got := bus.durableFunc("foo", "bar"); got != "" {
 		t.Fatal(fmt.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", "", got))
 	}
 
 	// custom durable func
-	bus = NewEventBus(test.NewEncoder(), DurableFunc(func(subject, queue string) string {
+	bus = NewEventBus(uuid.New, test.NewEncoder(), DurableFunc(func(subject, queue string) string {
 		return fmt.Sprintf("prefix.%s.%s", subject, queue)
 	}))
 
@@ -214,7 +215,7 @@ func TestDurableFunc(t *testing.T) {
 }
 
 func TestDurable(t *testing.T) {
-	bus := NewEventBus(test.NewEncoder(), Durable("foo-dur"))
+	bus := NewEventBus(uuid.New, test.NewEncoder(), Durable("foo-dur"))
 	want := "foo-dur"
 	if got := bus.durableFunc("foo", "bar"); got != want {
 		t.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", want, got)
@@ -228,8 +229,8 @@ func TestPullTimeout(t *testing.T) {
 	// given a pull timeout of 100ms
 	timeout := 100 * time.Millisecond
 	enc := test.NewEncoder()
-	subBus := NewEventBus(enc, PullTimeout(timeout))
-	pubBus := NewEventBus(enc)
+	subBus := NewEventBus(uuid.New, enc, PullTimeout(timeout))
+	pubBus := NewEventBus(uuid.New, enc)
 
 	// given a "foo" and "bar" subscription
 	events, errs, err := subBus.Subscribe(ctx, "foo", "bar")
@@ -239,7 +240,7 @@ func TestPullTimeout(t *testing.T) {
 
 	go func() {
 		// when a "foo" event is published
-		foo := event.New("foo", test.FooEventData{A: "foo bar baz"})
+		foo := event.New(uuid.New(), "foo", test.FooEventData{A: "foo bar baz"})
 		if err := pubBus.Publish(ctx, foo.Any()); err != nil {
 			panic(fmt.Errorf("publish %q event: %w", "foo", err))
 		}
@@ -268,7 +269,7 @@ func TestPullTimeout(t *testing.T) {
 	}
 
 	// when another "bar" event is published
-	bar := event.New("bar", test.BarEventData{A: "bar"})
+	bar := event.New(uuid.New(), "bar", test.BarEventData{A: "bar"})
 	if err := pubBus.Publish(ctx, bar.Any()); err != nil {
 		t.Fatal(fmt.Errorf("publish %q event: %w", "bar", err))
 	}

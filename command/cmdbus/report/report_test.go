@@ -12,9 +12,9 @@ import (
 type mockPayload struct{}
 
 func TestReport_Report(t *testing.T) {
-	var r report.Report
+	var r report.Report[uuid.UUID]
 
-	cmd := report.Command{
+	cmd := report.Command[uuid.UUID]{
 		Name:          "foo",
 		ID:            uuid.New(),
 		AggregateName: "foo",
@@ -23,7 +23,7 @@ func TestReport_Report(t *testing.T) {
 	err := errors.New("mock error")
 	d := 10 * time.Second
 
-	want := report.New(cmd, report.Runtime(d), report.Error(err))
+	want := report.New(cmd, report.Runtime[uuid.UUID](d), report.Error[uuid.UUID](err))
 
 	r.Report(want)
 

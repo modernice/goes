@@ -7,13 +7,14 @@ import (
 	stdtime "time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/internal/xtime"
 )
 
 // Event is any event.
-type Event = Of[any]
+type Event = Of[any, uuid.UUID]
 
 // An Event describes something that has happened in the application or
 // specifically something that has happened to an Aggregate in the application.
@@ -25,7 +26,7 @@ type Event = Of[any]
 //
 // Example (publish):
 // 	var b event.Bus
-// 	evt := event.New("foo", someData{})
+// 	evt := event.New(uuid.New(), "foo", someData{})
 // 	err := b.Publish(context.TODO(), evt)
 // 	// handle err
 //
@@ -33,13 +34,13 @@ type Event = Of[any]
 // 	var b event.Bus
 // 	res, errs, err := b.Subscribe(context.TODO(), "foo")
 // 	// handle err
-//	err := streams.Walk(context.TODO(), func(e event.Event) {
+//	err := streams.Walk(context.TODO(), func(e event.Of[any, uuid.UUID]) {
 // 	    log.Println(fmt.Sprintf("Received %q event: %v", e.Name(), e))
 //	}, res, errs)
 //	// handle err
-type Of[Data any] interface {
+type Of[Data any, ID goes.ID] interface {
 	// ID returns the unique id of the Event.
-	ID() uuid.UUID
+	ID() ID
 	// Name returns the name of the Event.
 	Name() string
 	// Time returns the time of the Event.
@@ -50,27 +51,37 @@ type Of[Data any] interface {
 	// Aggregate returns the id, name and version of the aggregate that the
 	// event belongs to. Aggregate should return zero values if the event is not
 	// an aggregate event.
-	Aggregate() (id uuid.UUID, name string, version int)
+	Aggregate() (id ID, name string, version int)
 }
 
 // Option is an event option.
-type Option func(*E[any])
+type Option func(*options)
+
+type options struct {
+	id               any
+	name             string
+	time             stdtime.Time
+	data             any
+	aggregateName    string
+	aggregateID      any
+	aggregateVersion int
+}
 
 // E implements Event.
-type E[D any] struct {
-	D Data[D]
+type E[D any, ID goes.ID] struct {
+	D Data[D, ID]
 }
 
 // Data can be used to provide the data that is needed to implement the Event
 // interface. E embeds Data and provides the methods that return the data in
 // Data.
-type Data[D any] struct {
-	ID               uuid.UUID
+type Data[D any, ID goes.ID] struct {
+	ID               ID
 	Name             string
 	Time             stdtime.Time
 	Data             D
 	AggregateName    string
-	AggregateID      uuid.UUID
+	AggregateID      ID
 	AggregateVersion int
 }
 
@@ -81,60 +92,70 @@ type Data[D any] struct {
 //	ID(uuid.UUID): Use a custom UUID
 //	Time(time.Time): Use a custom Time
 //	Aggregate(string, uuid.UUID, int): Add Aggregate data
-//	Previous(event.Event): Set Aggregate data based on previous Event
-func New[D any](name string, data D, opts ...Option) E[D] {
-	evt := E[any]{D: Data[any]{
-		ID:   uuid.New(),
-		Name: name,
-		Time: xtime.Now(),
-		Data: data,
-	}}
+//	Previous(event.Of[any, uuid.UUID]): Set Aggregate data based on previous Event
+func New[D any, ID goes.ID](id ID, name string, data D, opts ...Option) E[D, ID] {
+	eopts := options{
+		id:   id,
+		name: name,
+		time: xtime.Now(),
+		data: data,
+	}
 	for _, opt := range opts {
-		opt(&evt)
+		opt(&eopts)
 	}
 
-	return E[D]{
-		D: Data[D]{
-			ID:               evt.D.ID,
-			Name:             evt.D.Name,
-			Time:             evt.D.Time,
-			Data:             evt.D.Data.(D),
-			AggregateName:    evt.D.AggregateName,
-			AggregateID:      evt.D.AggregateID,
-			AggregateVersion: evt.D.AggregateVersion,
+	if eopts.id != nil {
+		id, _ = eopts.id.(ID)
+	}
+
+	var aggregateID ID
+	if eopts.aggregateID != nil {
+		aggregateID, _ = eopts.aggregateID.(ID)
+	}
+
+	return E[D, ID]{
+		D: Data[D, ID]{
+			ID:               id,
+			Name:             eopts.name,
+			Time:             eopts.time,
+			Data:             data,
+			AggregateName:    eopts.aggregateName,
+			AggregateID:      aggregateID,
+			AggregateVersion: eopts.aggregateVersion,
 		},
 	}
 }
 
 // ID returns an Option that overrides the auto-generated UUID of an event.
-func ID(id uuid.UUID) Option {
-	return func(evt *E[any]) {
-		evt.D.ID = id
+func ID[T comparable](id T) Option {
+	return func(opts *options) {
+		opts.id = id
 	}
 }
 
 // Time returns an Option that overrides the auto-generated timestamp of an Event.
 func Time(t stdtime.Time) Option {
-	return func(evt *E[any]) {
-		evt.D.Time = t
+	return func(opts *options) {
+		opts.time = t
 	}
 }
 
 // Aggregate returns an Option that links an Event to an Aggregate.
-func Aggregate(id uuid.UUID, name string, version int) Option {
-	return func(evt *E[any]) {
-		evt.D.AggregateName = name
-		evt.D.AggregateID = id
-		evt.D.AggregateVersion = version
+func Aggregate[ID goes.ID](id ID, name string, version int) Option {
+	return func(opts *options) {
+		opts.aggregateName = name
+		opts.aggregateID = id
+		opts.aggregateVersion = version
 	}
 }
 
 // Previous returns an Option that adds Aggregate data to an Event. If prev
 // provides non-nil aggregate data (id, name & version), the returned Option
 // adds those to the new event with its version increased by 1.
-func Previous[Data any](prev Of[Data]) Option {
+func Previous[Data any, ID goes.ID](prev Of[Data, ID]) Option {
+	var zero ID
 	id, name, v := prev.Aggregate()
-	if id != uuid.Nil {
+	if id != zero {
 		v++
 	}
 	return Aggregate(id, name, v)
@@ -144,7 +165,7 @@ func Previous[Data any](prev Of[Data]) Option {
 // a normal "==" comparison except for the Time field which is being compared by
 // calling a.Time().Equal(b.Time()) for the two Events a and b that are being
 // compared.
-func Equal[D comparable](events ...Of[D]) bool {
+func Equal[D comparable, ID goes.ID](events ...Of[D, ID]) bool {
 	if len(events) < 2 {
 		return true
 	}
@@ -171,12 +192,12 @@ func Equal[D comparable](events ...Of[D]) bool {
 }
 
 // Sort sorts events and returns the sorted events.
-func Sort[D any, Events ~[]Of[D]](events Events, sort Sorting, dir SortDirection) Events {
-	return SortMulti[D, Events](events, SortOptions{Sort: sort, Dir: dir})
+func Sort[D any, ID goes.ID, Events ~[]Of[D, ID]](events Events, sort Sorting, dir SortDirection) Events {
+	return SortMulti[D, ID, Events](events, SortOptions{Sort: sort, Dir: dir})
 }
 
 // SortMulti sorts events by multiple fields and returns the sorted events.
-func SortMulti[D any, Events ~[]Of[D]](events Events, sorts ...SortOptions) Events {
+func SortMulti[D any, ID goes.ID, Events ~[]Of[D, ID]](events Events, sorts ...SortOptions) Events {
 	sorted := make(Events, len(events))
 	copy(sorted, events)
 
@@ -193,46 +214,46 @@ func SortMulti[D any, Events ~[]Of[D]](events Events, sorts ...SortOptions) Even
 	return sorted
 }
 
-func (evt E[D]) ID() uuid.UUID {
+func (evt E[D, ID]) ID() ID {
 	return evt.D.ID
 }
 
-func (evt E[D]) Name() string {
+func (evt E[D, ID]) Name() string {
 	return evt.D.Name
 }
 
-func (evt E[D]) Time() stdtime.Time {
+func (evt E[D, ID]) Time() stdtime.Time {
 	return evt.D.Time
 }
 
-func (evt E[D]) Data() D {
+func (evt E[D, ID]) Data() D {
 	return evt.D.Data
 }
 
-func (evt E[D]) Aggregate() (uuid.UUID, string, int) {
+func (evt E[D, ID]) Aggregate() (ID, string, int) {
 	return evt.D.AggregateID, evt.D.AggregateName, evt.D.AggregateVersion
 }
 
-// Any returns the event with its type paramter set to `any`.
-func (evt E[D]) Any() E[any] {
-	return Any[D](evt)
+// Any returns the event with its data type set to `any`.
+func (evt E[D, ID]) Any() E[any, ID] {
+	return ToAny[D, ID](evt)
 }
 
 // Event returns the event as an interface.
-func (evt E[D]) Event() Of[D] {
+func (evt E[D, ID]) Event() Of[D, ID] {
 	return evt
 }
 
-// Any casts the type parameter of the given event to `any` and returns the
+// ToAny casts the type parameter of the given event to `any` and returns the
 // re-typed event.
-func Any[D any](evt Of[D]) E[any] {
+func ToAny[D any, ID goes.ID](evt Of[D, ID]) E[any, ID] {
 	return Cast[any](evt)
 }
 
-func Many[D any, Events ~[]Of[D]](events Events) []E[any] {
-	out := make([]E[any], len(events))
+func Many[D any, ID goes.ID, Events ~[]Of[D, ID]](events Events) []E[any, ID] {
+	out := make([]E[any, ID], len(events))
 	for i, evt := range events {
-		out[i] = Any(evt)
+		out[i] = ToAny(evt)
 	}
 	return out
 }
@@ -241,11 +262,11 @@ func Many[D any, Events ~[]Of[D]](events Events) []E[any] {
 // the re-typed event. Cast panics if the event data cannot be casted to `To`.
 //
 // Use TryCast to test if the event data can be casted to `To`.
-func Cast[To, From any](evt Of[From]) E[To] {
+func Cast[To, From any, IDType goes.ID](evt Of[From, IDType]) E[To, IDType] {
 	return New(
+		evt.ID(),
 		evt.Name(),
 		any(evt.Data()).(To),
-		ID(evt.ID()),
 		Time(evt.Time()),
 		Aggregate(evt.Aggregate()),
 	)
@@ -254,30 +275,30 @@ func Cast[To, From any](evt Of[From]) E[To] {
 // TryCast casts the type paramater of given event to the type `To` and returns
 // the re-typed event. Cast returns false if the event data cannot be casted to
 // `To`.
-func TryCast[To, From any](evt Of[From]) (E[To], bool) {
+func TryCast[To, From any, IDType goes.ID](evt Of[From, IDType]) (E[To, IDType], bool) {
 	data, ok := any(evt.Data()).(To)
 	if !ok {
-		return E[To]{}, false
+		return E[To, IDType]{}, false
 	}
 	return New(
+		evt.ID(),
 		evt.Name(),
 		data,
-		ID(evt.ID()),
 		Time(evt.Time()),
 		Aggregate(evt.Aggregate()),
 	), true
 }
 
-func CastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) []E[To] {
-	out := make([]E[To], len(events))
+func CastMany[To, From any, ID goes.ID, FromEvents ~[]Of[From, ID]](events FromEvents) []E[To, ID] {
+	out := make([]E[To, ID], len(events))
 	for i, evt := range events {
 		out[i] = Cast[To](evt)
 	}
 	return out
 }
 
-func TryCastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) ([]Of[To], bool) {
-	out := make([]Of[To], len(events))
+func TryCastMany[To, From any, ID goes.ID, FromEvents ~[]Of[From, ID]](events FromEvents) ([]Of[To, ID], bool) {
+	out := make([]Of[To, ID], len(events))
 	for i, evt := range events {
 		var ok bool
 		if out[i], ok = TryCast[To](evt); !ok {
@@ -287,25 +308,73 @@ func TryCastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) ([]Of[
 	return out, true
 }
 
+// AnyID returns the event with its id wrapped in a goes.AID.
+func AnyID[D any, ID goes.ID](evt Of[D, ID]) E[D, goes.AID] {
+	ex := Expand(evt)
+	return E[D, goes.AID]{
+		D: Data[D, goes.AID]{
+			ID:               goes.AnyID(ex.ID()),
+			Name:             ex.Name(),
+			Time:             ex.Time(),
+			Data:             ex.Data(),
+			AggregateName:    ex.D.AggregateName,
+			AggregateID:      goes.AnyID(ex.D.AggregateID),
+			AggregateVersion: ex.D.AggregateVersion,
+		},
+	}
+}
+
+func MapID[To, From goes.ID, D any](evt Of[D, From], mapper func(From) To) E[D, To] {
+	ex := Expand(evt)
+
+	var zero From
+	var id, aggregateID To
+
+	if eid := ex.ID(); eid != zero {
+		id = mapper(eid)
+	}
+
+	if ex.D.AggregateID != zero {
+		aggregateID = mapper(ex.D.AggregateID)
+	}
+
+	return E[D, To]{
+		D: Data[D, To]{
+			ID:               id,
+			Name:             ex.Name(),
+			Time:             ex.Time(),
+			Data:             ex.Data(),
+			AggregateName:    ex.D.AggregateName,
+			AggregateID:      aggregateID,
+			AggregateVersion: ex.D.AggregateVersion,
+		},
+	}
+}
+
 // Expand expands an interfaced event to a struct.
-func Expand[D any](evt Of[D]) E[D] {
-	return New(evt.Name(), evt.Data(), ID(evt.ID()), Time(evt.Time()), Aggregate(evt.Aggregate()))
+func Expand[D any, IDType goes.ID](evt Of[D, IDType]) E[D, IDType] {
+	if evt, ok := evt.(E[D, IDType]); ok {
+		return evt
+	}
+	return New(evt.ID(), evt.Name(), evt.Data(), Time(evt.Time()), Aggregate(evt.Aggregate()))
 }
 
 // Test tests the Event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
-func Test[D any](q Query, evt Of[D]) bool {
+func Test[D any, ID goes.ID](q QueryOf[ID], evt Of[D, ID]) bool {
 	if q == nil {
 		return true
 	}
+
+	var zeroID ID
 
 	if names := q.Names(); len(names) > 0 &&
 		!stringsContains(names, evt.Name()) {
 		return false
 	}
 
-	if ids := q.IDs(); len(ids) > 0 && !uuidsContains(ids, evt.ID()) {
+	if ids := q.IDs(); len(ids) > 0 && !idsContains(ids, evt.ID()) {
 		return false
 	}
 
@@ -334,7 +403,7 @@ func Test[D any](q Query, evt Of[D]) bool {
 	}
 
 	if ids := q.AggregateIDs(); len(ids) > 0 &&
-		!uuidsContains(ids, id) {
+		!idsContains(ids, id) {
 		return false
 	}
 
@@ -361,7 +430,7 @@ func Test[D any](q Query, evt Of[D]) bool {
 		var found bool
 		for _, aggregate := range aggregates {
 			if aggregate.Name == name &&
-				(aggregate.ID == uuid.Nil || aggregate.ID == id) {
+				(aggregate.ID == zeroID || aggregate.ID == id) {
 				found = true
 				break
 			}
@@ -383,7 +452,7 @@ func stringsContains(vals []string, val string) bool {
 	return false
 }
 
-func uuidsContains(ids []uuid.UUID, id uuid.UUID) bool {
+func idsContains[T comparable](ids []T, id T) bool {
 	for _, i := range ids {
 		if i == id {
 			return true

@@ -5,30 +5,31 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/internal/xtime"
 )
 
 // Handler can be used to subscribe to and handle commands.
-type Handler[P any] struct {
-	bus Bus
+type Handler[P any, ID goes.ID] struct {
+	bus Bus[ID]
 }
 
 // NewHandler returns a handler for commands that uses the provided Bus to
 // subscribe to commands.
-func NewHandler[P any](bus Bus) *Handler[P] {
-	return &Handler[P]{bus}
+func NewHandler[P any, ID goes.ID](bus Bus[ID]) *Handler[P, ID] {
+	return &Handler[P, ID]{bus}
 }
 
 // Handle is a shortcut for
 //	NewHandler(bus).Handle(ctx, name, handler)
-func Handle[P any](ctx context.Context, bus Bus, name string, handler func(ContextOf[P]) error) (<-chan error, error) {
+func Handle[P any, ID goes.ID](ctx context.Context, bus Bus[ID], name string, handler func(ContextOf[P, ID]) error) (<-chan error, error) {
 	return NewHandler[P](bus).Handle(ctx, name, handler)
 }
 
 // MustHandle is a shortcut for
 //	NewHandler(bus).MustHandle(ctx, name, handler)
-func MustHandle[P any](ctx context.Context, bus Bus, name string, handler func(ContextOf[P]) error) <-chan error {
+func MustHandle[P any, ID goes.ID](ctx context.Context, bus Bus[ID], name string, handler func(ContextOf[P, ID]) error) <-chan error {
 	return NewHandler[P](bus).MustHandle(ctx, name, handler)
 }
 
@@ -47,7 +48,7 @@ func MustHandle[P any](ctx context.Context, bus Bus, name string, handler func(C
 // channel to prevent the handler from blocking indefinitely.
 //
 // When ctx is canceled, the returned error channel is closed.
-func (h *Handler[P]) Handle(ctx context.Context, name string, handler func(ContextOf[P]) error) (<-chan error, error) {
+func (h *Handler[P, ID]) Handle(ctx context.Context, name string, handler func(ContextOf[P, ID]) error) (<-chan error, error) {
 	str, errs, err := h.bus.Subscribe(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to %v Command: %w", name, err)
@@ -60,7 +61,7 @@ func (h *Handler[P]) Handle(ctx context.Context, name string, handler func(Conte
 }
 
 // MustHandle does the same as Handle, but panics if the event subscription fails.
-func (h *Handler[P]) MustHandle(ctx context.Context, name string, handler func(ContextOf[P]) error) <-chan error {
+func (h *Handler[P, ID]) MustHandle(ctx context.Context, name string, handler func(ContextOf[P, ID]) error) <-chan error {
 	errs, err := h.Handle(ctx, name, handler)
 	if err != nil {
 		panic(err)
@@ -68,10 +69,10 @@ func (h *Handler[P]) MustHandle(ctx context.Context, name string, handler func(C
 	return errs
 }
 
-func (h *Handler[P]) handle(
+func (h *Handler[P, ID]) handle(
 	ctx context.Context,
-	handler func(ContextOf[P]) error,
-	str <-chan Context,
+	handler func(ContextOf[P, ID]) error,
+	str <-chan ContextOf[any, ID],
 	errs <-chan error,
 	out chan<- error,
 ) {

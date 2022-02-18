@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/cli/internal/clitest"
 	"github.com/modernice/goes/cli/internal/projectionrpc"
 	"github.com/modernice/goes/cli/internal/proto"
@@ -19,8 +20,8 @@ import (
 )
 
 func TestTrigger_unregisteredSchedule(t *testing.T) {
-	bus := eventbus.New()
-	svc := projection.NewService(bus, projection.TriggerTimeout(20*time.Millisecond))
+	bus := eventbus.New[uuid.UUID]()
+	svc := projection.NewService(uuid.New, bus, projection.TriggerTimeout[uuid.UUID](20*time.Millisecond))
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
 		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
@@ -51,11 +52,11 @@ func TestTrigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, bus, store := clitest.SetupEvents()
+	_, bus, store := clitest.SetupEvents[uuid.UUID]()
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	received := make(chan struct{})
-	scheduleErrors, err := schedule.Subscribe(ctx, func(projection.Job) error {
+	scheduleErrors, err := schedule.Subscribe(ctx, func(projection.Job[uuid.UUID]) error {
 		close(received)
 		return nil
 	})
@@ -63,14 +64,14 @@ func TestTrigger(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
+	svc := projection.NewService(uuid.New, bus, projection.RegisterSchedule[uuid.UUID]("example", schedule))
 	errs, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
 	}
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(uuid.New, bus)))
 	})
 	defer conn.Close()
 
@@ -104,12 +105,12 @@ func TestTrigger_reset(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, bus, store := clitest.SetupEvents()
+	_, bus, store := clitest.SetupEvents[uuid.UUID]()
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 
 	proj := projectiontest.NewMockResetProjection(5)
 	applied := make(chan struct{})
-	scheduleErrors, err := schedule.Subscribe(ctx, func(job projection.Job) error {
+	scheduleErrors, err := schedule.Subscribe(ctx, func(job projection.Job[uuid.UUID]) error {
 		defer close(applied)
 		return job.Apply(job, proj)
 	})
@@ -117,14 +118,14 @@ func TestTrigger_reset(t *testing.T) {
 		t.Fatalf("subscribe to schedule: %v", err)
 	}
 
-	svc := projection.NewService(bus, projection.RegisterSchedule("example", schedule))
+	svc := projection.NewService(uuid.New, bus, projection.RegisterSchedule[uuid.UUID]("example", schedule))
 	errs, err := svc.Run(ctx)
 	if err != nil {
 		t.Fatalf("run projection service: %v", err)
 	}
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
+		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(uuid.New, bus)))
 	})
 	defer conn.Close()
 

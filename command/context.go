@@ -4,13 +4,13 @@ import (
 	"context"
 	"sync"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/command/finish"
 )
 
-type cmdctx[P any] struct {
+type cmdctx[P any, ID goes.ID] struct {
 	context.Context
-	Of[P]
+	Of[P, ID]
 
 	mux sync.Mutex
 	options
@@ -33,8 +33,8 @@ func WhenDone(fn func(context.Context, finish.Config) error) ContextOption {
 }
 
 // NewContext returns a context for the given command.
-func NewContext[P any](base context.Context, cmd Of[P], opts ...ContextOption) ContextOf[P] {
-	ctx := cmdctx[P]{
+func NewContext[P any, ID goes.ID](base context.Context, cmd Of[P, ID], opts ...ContextOption) ContextOf[P, ID] {
+	ctx := cmdctx[P, ID]{
 		Context: base,
 		Of:      cmd,
 	}
@@ -44,17 +44,17 @@ func NewContext[P any](base context.Context, cmd Of[P], opts ...ContextOption) C
 	return &ctx
 }
 
-func (ctx *cmdctx[P]) AggregateID() uuid.UUID {
+func (ctx *cmdctx[P, ID]) AggregateID() ID {
 	id, _ := ctx.Aggregate()
 	return id
 }
 
-func (ctx *cmdctx[P]) AggregateName() string {
+func (ctx *cmdctx[P, ID]) AggregateName() string {
 	_, name := ctx.Aggregate()
 	return name
 }
 
-func (ctx *cmdctx[P]) Finish(c context.Context, opts ...finish.Option) error {
+func (ctx *cmdctx[P, ID]) Finish(c context.Context, opts ...finish.Option) error {
 	ctx.mux.Lock()
 	defer ctx.mux.Unlock()
 	if ctx.finished {
@@ -67,27 +67,27 @@ func (ctx *cmdctx[P]) Finish(c context.Context, opts ...finish.Option) error {
 	return nil
 }
 
-func TryCastContext[To, From any](ctx ContextOf[From]) (ContextOf[To], bool) {
-	cmd, ok := TryCast[To, From](ctx)
+func TryCastContext[To, From any, ID goes.ID](ctx ContextOf[From, ID]) (ContextOf[To, ID], bool) {
+	cmd, ok := TryCast[To, From, ID](ctx)
 	if !ok {
 		return nil, false
 	}
 
 	var opts []ContextOption
-	if ctx, ok := ctx.(*cmdctx[From]); ok {
+	if ctx, ok := ctx.(*cmdctx[From, ID]); ok {
 		opts = append(opts, WhenDone(ctx.whenDone))
 	}
 
-	return NewContext[To](ctx, cmd, opts...), true
+	return NewContext[To, ID](ctx, cmd, opts...), true
 }
 
-func CastContext[To, From any](ctx ContextOf[From]) ContextOf[To] {
-	cmd := Cast[To, From](ctx)
+func CastContext[To, From any, ID goes.ID](ctx ContextOf[From, ID]) ContextOf[To, ID] {
+	cmd := Cast[To, From, ID](ctx)
 
 	var opts []ContextOption
-	if ctx, ok := ctx.(*cmdctx[From]); ok {
+	if ctx, ok := ctx.(*cmdctx[From, ID]); ok {
 		opts = append(opts, WhenDone(ctx.whenDone))
 	}
 
-	return NewContext[To](ctx, cmd, opts...)
+	return NewContext[To, ID](ctx, cmd, opts...)
 }

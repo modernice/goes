@@ -8,7 +8,7 @@ import (
 	"sync"
 	stdtime "time"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/event/query/time"
@@ -24,10 +24,8 @@ var (
 )
 
 // Store is the MongoDB implementation of snapshot.Store.
-type Store struct {
-	url     string
-	dbname  string
-	colname string
+type Store[ID goes.ID] struct {
+	storeOptions
 
 	client *mongo.Client
 	db     *mongo.Database
@@ -37,11 +35,17 @@ type Store struct {
 }
 
 // Option is a Store option.
-type Option func(*Store)
+type Option func(*storeOptions)
 
-type entry struct {
+type storeOptions struct {
+	url     string
+	dbname  string
+	colname string
+}
+
+type entry[ID goes.ID] struct {
 	AggregateName    string       `bson:"aggregateName"`
-	AggregateID      uuid.UUID    `bson:"aggregateId"`
+	AggregateID      ID           `bson:"aggregateId"`
 	AggregateVersion int          `bson:"aggregateVersion"`
 	Time             stdtime.Time `bson:"time"`
 	TimeNano         int64        `bson:"timeNano"`
@@ -53,31 +57,31 @@ type entry struct {
 //
 // Defaults to the environment variable "MONGO_URL".
 func URL(url string) Option {
-	return func(s *Store) {
-		s.url = url
+	return func(opts *storeOptions) {
+		opts.url = url
 	}
 }
 
 // Database returns an Option that specifies the database name for Snapshots.
 func Database(name string) Option {
-	return func(s *Store) {
-		s.dbname = name
+	return func(opts *storeOptions) {
+		opts.dbname = name
 	}
 }
 
 // Collection returns an Option that specifies the collection name for
 // Snapshots.
 func Collection(name string) Option {
-	return func(s *Store) {
-		s.colname = name
+	return func(opts *storeOptions) {
+		opts.colname = name
 	}
 }
 
 // New returns a new Store.
-func New(opts ...Option) *Store {
-	var s Store
+func New[ID goes.ID](opts ...Option) *Store[ID] {
+	var s Store[ID]
 	for _, opt := range opts {
-		opt(&s)
+		opt(&s.storeOptions)
 	}
 	if s.dbname == "" {
 		s.dbname = "snapshot"
@@ -89,12 +93,12 @@ func New(opts ...Option) *Store {
 }
 
 // Save saves the given Snapshot into the database.
-func (s *Store) Save(ctx context.Context, snap snapshot.Snapshot) error {
+func (s *Store[ID]) Save(ctx context.Context, snap snapshot.Snapshot[ID]) error {
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
-	e := entry{
+	e := entry[ID]{
 		AggregateName:    snap.AggregateName(),
 		AggregateID:      snap.AggregateID(),
 		AggregateVersion: snap.AggregateVersion(),
@@ -116,7 +120,7 @@ func (s *Store) Save(ctx context.Context, snap snapshot.Snapshot) error {
 
 // Latest returns the latest Snapshot for the Aggregate with the given name and
 // UUID or ErrNotFound if no Snapshots for that Aggregate exist in the database.
-func (s *Store) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot.Snapshot, error) {
+func (s *Store[ID]) Latest(ctx context.Context, name string, id ID) (snapshot.Snapshot[ID], error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
@@ -128,7 +132,7 @@ func (s *Store) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot
 		{Key: "aggregateVersion", Value: -1},
 	}))
 
-	var e entry
+	var e entry[ID]
 	if err := res.Decode(&e); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
@@ -142,7 +146,7 @@ func (s *Store) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot
 // Version returns the Snapshot for the Aggregate with the given name, UUID and
 // version. If no Snapshot for the given version exists, Version returns
 // ErrNotFound.
-func (s *Store) Version(ctx context.Context, name string, id uuid.UUID, version int) (snapshot.Snapshot, error) {
+func (s *Store[ID]) Version(ctx context.Context, name string, id ID, version int) (snapshot.Snapshot[ID], error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
@@ -153,7 +157,7 @@ func (s *Store) Version(ctx context.Context, name string, id uuid.UUID, version 
 		{Key: "aggregateVersion", Value: version},
 	})
 
-	var e entry
+	var e entry[ID]
 	if err := res.Decode(&e); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
@@ -168,7 +172,7 @@ func (s *Store) Version(ctx context.Context, name string, id uuid.UUID, version 
 // than the given version.
 //
 // Limit returns ErrNotFound if no such Snapshot can be found in the database.
-func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
+func (s *Store[ID]) Limit(ctx context.Context, name string, id ID, v int) (snapshot.Snapshot[ID], error) {
 	res := s.col.FindOne(
 		ctx,
 		bson.D{
@@ -183,7 +187,7 @@ func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (sn
 		}),
 	)
 
-	var e entry
+	var e entry[ID]
 	if err := res.Decode(&e); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
@@ -194,7 +198,7 @@ func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (sn
 	return e.snapshot()
 }
 
-func (s *Store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
+func (s *Store[ID]) Query(ctx context.Context, q snapshot.Query[ID]) (<-chan snapshot.Snapshot[ID], <-chan error, error) {
 	filter := makeFilter(q)
 	opts := options.Find()
 	applySortings(opts, q.Sortings()...)
@@ -203,14 +207,14 @@ func (s *Store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Sn
 		return nil, nil, fmt.Errorf("mongo: %w", err)
 	}
 
-	out, outErrs := make(chan snapshot.Snapshot), make(chan error)
+	out, outErrs := make(chan snapshot.Snapshot[ID]), make(chan error)
 
 	go func() {
 		defer close(out)
 		defer close(outErrs)
 
 		for cur.Next(ctx) {
-			var e entry
+			var e entry[ID]
 			if err = cur.Decode(&e); err != nil {
 				outErrs <- fmt.Errorf("decode mongo result: %w", err)
 				continue
@@ -237,7 +241,7 @@ func (s *Store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Sn
 }
 
 // Delete deletes a Snapshot from the database.
-func (s *Store) Delete(ctx context.Context, snap snapshot.Snapshot) error {
+func (s *Store[ID]) Delete(ctx context.Context, snap snapshot.Snapshot[ID]) error {
 	if _, err := s.col.DeleteOne(ctx, bson.D{
 		{Key: "aggregateName", Value: snap.AggregateName()},
 		{Key: "aggregateId", Value: snap.AggregateID()},
@@ -253,14 +257,14 @@ func (s *Store) Delete(ctx context.Context, snap snapshot.Snapshot) error {
 // automatically on the first call to s.Save, s.Latest, s.Version, s.Query or
 // s.Delete. Use Connect if you want to explicitly control when to connect to
 // MongoDB.
-func (s *Store) Connect(ctx context.Context) (*mongo.Client, error) {
+func (s *Store[ID]) Connect(ctx context.Context) (*mongo.Client, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, err
 	}
 	return s.client, nil
 }
 
-func (s *Store) connectOnce(ctx context.Context) error {
+func (s *Store[ID]) connectOnce(ctx context.Context) error {
 	var err error
 	s.onceConnect.Do(func() {
 		if err = s.connect(ctx); err != nil {
@@ -274,7 +278,7 @@ func (s *Store) connectOnce(ctx context.Context) error {
 	return err
 }
 
-func (s *Store) connect(ctx context.Context) error {
+func (s *Store[ID]) connect(ctx context.Context) error {
 	uri := s.url
 	if uri == "" {
 		uri = os.Getenv("MONGO_URL")
@@ -294,7 +298,7 @@ func (s *Store) connect(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store) ensureIndexes(ctx context.Context) error {
+func (s *Store[ID]) ensureIndexes(ctx context.Context) error {
 	_, err := s.col.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
 			Keys:    bson.D{{Key: "time", Value: -1}},
@@ -318,7 +322,7 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 	return err
 }
 
-func makeFilter(q snapshot.Query) bson.D {
+func makeFilter[ID goes.ID](q snapshot.Query[ID]) bson.D {
 	filter := make(bson.D, 0)
 	filter = withNameFilter(filter, q.Names())
 	filter = withIDFilter(filter, q.IDs())
@@ -337,7 +341,7 @@ func withNameFilter(filter bson.D, names []string) bson.D {
 	})
 }
 
-func withIDFilter(filter bson.D, ids []uuid.UUID) bson.D {
+func withIDFilter[ID goes.ID](filter bson.D, ids []ID) bson.D {
 	if len(ids) == 0 {
 		return filter
 	}
@@ -442,8 +446,8 @@ func applySortings(opts *options.FindOptions, sortings ...aggregate.SortOptions)
 	return opts.SetSort(sorts)
 }
 
-func (e entry) snapshot() (snapshot.Snapshot, error) {
-	return snapshot.New(
+func (e entry[ID]) snapshot() (snapshot.Snapshot[ID], error) {
+	return snapshot.New[ID](
 		aggregate.New(
 			e.AggregateName,
 			e.AggregateID,

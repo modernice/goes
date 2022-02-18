@@ -6,43 +6,44 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 )
 
-// EventBusFactory creates an event.Bus from an codec.Encoding.
-type EventBusFactory func(codec.Encoding) event.Bus
+// EventBusFactory creates an event.Bus[ID]from an codec.Encoding.
+type EventBusFactory[ID goes.ID] func(codec.Encoding) event.Bus[ID]
 
 // Run tests all functions of the event bus.
-func Run(t *testing.T, newBus EventBusFactory) {
+func Run[ID goes.ID](t *testing.T, newBus EventBusFactory[ID], newID func() ID) {
 	t.Run("Basic", func(t *testing.T) {
-		Basic(t, newBus)
+		Basic[ID](t, newBus, newID)
 	})
 	t.Run("SubscribeMultipleEvents", func(t *testing.T) {
-		SubscribeMultipleEvents(t, newBus)
+		SubscribeMultipleEvents[ID](t, newBus, newID)
 	})
 	t.Run("SubscribeCanceledContext", func(t *testing.T) {
-		SubscribeCanceledContext(t, newBus)
+		SubscribeCanceledContext[ID](t, newBus, newID)
 	})
 	t.Run("CancelSubscription", func(t *testing.T) {
-		CancelSubscription(t, newBus)
+		CancelSubscription[ID](t, newBus, newID)
 	})
 	t.Run("PublishMultipleEvents", func(t *testing.T) {
-		PublishMultipleEvents(t, newBus)
+		PublishMultipleEvents[ID](t, newBus, newID)
 	})
 }
 
 // Basic tests the basic functionality of an event bus. The test is successful if
 // multiple subscribers of the same event receive the event when it is published.
-func Basic(t *testing.T, newBus EventBusFactory) {
+func Basic[ID goes.ID](t *testing.T, newBus EventBusFactory[ID], newID func() ID) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	bus := newBus(enc)
 
 	// Given 10 subscribers of "foo" events
-	subs := make([]Subscription, 10)
+	subs := make([]Subscription[ID], 10)
 	for i := range subs {
 		var err error
 		if subs[i].events, subs[i].errs, err = bus.Subscribe(ctx, "foo"); err != nil {
@@ -51,31 +52,31 @@ func Basic(t *testing.T, newBus EventBusFactory) {
 	}
 
 	// When publishing a "bar" event, nothing should be received by the subscribers.
-	ex := Expect(ctx)
+	ex := Expect[ID](ctx)
 	for _, sub := range subs {
 		ex.Nothing(sub, 50*time.Millisecond)
 	}
 
-	if err := bus.Publish(ctx, event.New("bar", test.BarEventData{}).Any()); err != nil {
+	if err := bus.Publish(ctx, event.New(newID(), "bar", test.BarEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "bar")
 	}
 
 	ex.Apply(t)
 
 	// When publishing a "foo" event, every subscriber should receive the event.
-	ex = Expect(ctx)
+	ex = Expect[ID](ctx)
 	for _, sub := range subs {
 		ex.Event(sub, 100*time.Millisecond, "foo")
 	}
 
-	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
+	if err := bus.Publish(ctx, event.New(newID(), "foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
 	}
 
 	ex.Apply(t)
 }
 
-func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
+func SubscribeMultipleEvents[ID goes.ID](t *testing.T, newBus EventBusFactory[ID], newID func() ID) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -86,15 +87,15 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	if err != nil {
 		t.Fatalf("subscribe: %v [events=%v]", err, []string{"foo", "bar", "baz"})
 	}
-	sub := Subscription{events, errs}
+	sub := Subscription[ID]{events, errs}
 
 	// When "foo" and "baz" events are published, the events should be received
-	ex := Expect(ctx)
+	ex := Expect[ID](ctx)
 	ex.Events(sub, 100*time.Millisecond, "foo", "baz")
 
-	evts := []event.Event{
-		event.New("foo", test.FooEventData{}).Any(),
-		event.New("baz", test.BazEventData{}).Any(),
+	evts := []event.Of[any, ID]{
+		event.New(newID(), "foo", test.FooEventData{}).Any(),
+		event.New(newID(), "baz", test.BazEventData{}).Any(),
 	}
 
 	for _, evt := range evts {
@@ -106,7 +107,7 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	ex.Apply(t)
 }
 
-func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
+func SubscribeCanceledContext[ID goes.ID](t *testing.T, newBus EventBusFactory[ID], newID func() ID) {
 	// Given a canceled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -121,17 +122,17 @@ func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 		return
 	}
 
-	sub := Subscription{events, errs}
+	sub := Subscription[ID]{events, errs}
 
 	exCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ex := Expect(exCtx)
+	ex := Expect[ID](exCtx)
 	ex.Closed(sub, 50*time.Millisecond)
 	ex.Apply(t)
 }
 
-func CancelSubscription(t *testing.T, newBus EventBusFactory) {
+func CancelSubscription[ID goes.ID](t *testing.T, newBus EventBusFactory[ID], newID func() ID) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -143,13 +144,13 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 		t.Fatalf("subscribe: %v [event=%v]", err, "foo")
 	}
 
-	sub := Subscription{events, errs}
+	sub := Subscription[ID]{events, errs}
 
 	// When publishing a "foo" event, the event should be received
-	ex := Expect(ctx)
+	ex := Expect[ID](ctx)
 	ex.Event(sub, 50*time.Millisecond, "foo")
 
-	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
+	if err := bus.Publish(ctx, event.New(newID(), "foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
 	}
 
@@ -162,34 +163,34 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 
-	ex = Expect(ctx)
+	ex = Expect[ID](ctx)
 	ex.Closed(sub, 50*time.Millisecond)
 
-	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
+	if err := bus.Publish(ctx, event.New(newID(), "foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
 	}
 
 	ex.Apply(t)
 }
 
-func PublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
+func PublishMultipleEvents[ID goes.ID](t *testing.T, newBus EventBusFactory[ID], newID func() ID) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	bus := newBus(enc)
 
 	// Given a "foo", "bar", "baz" subscriber
-	sub := MustSub(bus.Subscribe(ctx, "foo", "bar", "baz"))
+	sub := MustSub[ID](bus.Subscribe(ctx, "foo", "bar", "baz"))
 
 	// When publishing "foo", "baz" and "foobar" events, the "foo" and "baz"
 	// events should be received.
-	ex := Expect(ctx)
+	ex := Expect[ID](ctx)
 	ex.Events(sub, 500*time.Millisecond, "foo", "baz")
 
-	evts := []event.Event{
-		event.New("foo", test.FooEventData{}).Any(),
-		event.New("baz", test.BazEventData{}).Any(),
-		event.New("foobar", test.FoobarEventData{}).Any(),
+	evts := []event.Of[any, ID]{
+		event.New(newID(), "foo", test.FooEventData{}).Any(),
+		event.New(newID(), "baz", test.BazEventData{}).Any(),
+		event.New(newID(), "foobar", test.FoobarEventData{}).Any(),
 	}
 
 	if err := bus.Publish(ctx, evts...); err != nil {

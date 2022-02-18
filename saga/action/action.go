@@ -1,28 +1,30 @@
 package action
 
+import "github.com/modernice/goes"
+
 // Action is a SAGA action.
-type Action interface {
+type Action[ID goes.ID] interface {
 	// Name returns the name of the Action.
 	Name() string
 
 	// Run runs the Action.
-	Run(Context) error
+	Run(Context[ID]) error
 }
 
-type action struct {
+type action[ID goes.ID] struct {
 	name string
-	run  func(Context) error
+	run  func(Context[ID]) error
 }
 
 // New returns a new Action with the given name and runner.
-func New(name string, run func(Context) error) Action {
-	return &action{name, run}
+func New[ID goes.ID](name string, run func(Context[ID]) error) Action[ID] {
+	return &action[ID]{name, run}
 }
 
-func (a *action) Name() string {
+func (a *action[ID]) Name() string {
 	return a.name
 }
 
-func (a *action) Run(ctx Context) error {
+func (a *action[ID]) Run(ctx Context[ID]) error {
 	return a.run(ctx)
 }

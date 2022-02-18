@@ -10,7 +10,7 @@ projections from [events](../event).
 
 The basic interface that a projection type needs to implement is the
 `projection.EventApplier` interface, which defines a single
-`ApplyEvent(event.Event)` method. A projection only needs to be able to apply
+`ApplyEvent(event.Of[any, uuid.UUID])` method. A projection only needs to be able to apply
 events onto itself. Additional behavior can be added using [extensions](
 #extensions).
 
@@ -19,13 +19,13 @@ package projection
 
 // An EventApplier applies events onto itself to build the projection state.
 type EventApplier interface {
-	ApplyEvent(event.Event)
+	ApplyEvent(event.Of[any, uuid.UUID])
 }
 ```
 
 ### Apply Events
 
-Given a projection type that has an `ApplyEvent(event.Event)` method, you can
+Given a projection type that has an `ApplyEvent(event.Of[any, uuid.UUID])` method, you can
 use the `projection.Apply()` method to apply a given set of events onto the
 projection. Given a basic projection `p` that does not implement any
 [extensions](#extensions), this does the same as iterating over the given events
@@ -42,12 +42,12 @@ import (
 
 type Foo struct {}
 
-func (f *Foo) ApplyEvent(evt event.Event) {
+func (f *Foo) ApplyEvent(evt event.Of[any, uuid.UUID]) {
   log.Printf("Event applied: %v", evt.Name())
 }
 
 func example() {
-  var events []event.Event // e.g. fetched from event store
+  var events []event.Of[any, uuid.UUID] // e.g. fetched from event store
   var foo Foo // Instantiate your projection type
 
   err := projection.Apply(&foo, events)
@@ -90,9 +90,9 @@ import (
 
 type Foo struct {}
 
-func (f *Foo) ApplyEvent(evt event.Event) { ... }
+func (f *Foo) ApplyEvent(evt event.Of[any, uuid.UUID]) { ... }
 
-func example(bus event.Bus, store event.Store) {
+func example(bus event.Bus[ID] ,store event.Store[ID]) {
   eventNames := []string{"example.foo", "example.bar", "example.foobar"}
   s := schedule.Continuously(bus, store, eventNames)
 
@@ -140,7 +140,7 @@ import (
   "github.com/modernice/goes/projection/schedule"
 )
 
-func example(bus event.Bus, store event.Store) {
+func example(bus event.Bus[ID], store event.Store[ID]) {
   eventNames := []string{"example.foo", "example.bar"}
   s := schedule.Continuously(bus, store, eventNames, schedule.Debounce(time.Second))
   s.Subscribe(context.TODO(), func(ctx projection.Job) error {
@@ -150,8 +150,8 @@ func example(bus event.Bus, store event.Store) {
 
   // Two events published "at once" but only 1 projection job that provides
   // both events will be created & triggered.
-  bus.Publish(context.TODO(), event.New("example.foo", ...))
-  bus.Publish(context.TODO(), event.New("example.bar", ...))
+  bus.Publish(context.TODO(), event.New(uuid.New(), "example.foo", ...))
+  bus.Publish(context.TODO(), event.New(uuid.New(), "example.bar", ...))
 }
 ```
 
@@ -172,9 +172,9 @@ import (
 
 type Foo struct {}
 
-func (f *Foo) ApplyEvent(evt event.Event) { ... }
+func (f *Foo) ApplyEvent(evt event.Of[any, uuid.UUID]) { ... }
 
-func example(store event.Store) {
+func example(store event.Store[ID]) {
   eventNames := []string{"example.foo", "example.bar", "example.foobar"}
   s := schedule.Periodically(store, eventNames)
 
@@ -219,11 +219,11 @@ func example(s projection.Schedule) {
     // Query all events of the job that would be applied onto the given projection type.
     events, errs, err := ctx.EventsFor(ctx, &foo)
 
-    // Extract all aggregates from the job's events as aggregate.Refs.
+    // Extract all aggregates from the job's events as event.AggregateRefs.
     refs, errs, err := ctx.Aggregates(ctx)
 
     // Extract all aggregates with one of the given names from the job's events
-    // as aggregate.Refs.
+    // as event.AggregateRefs.
     refs, errs, err := ctx.Aggregates(ctx, "example.foobar")
 
     // Extract the first UUID of the aggregate with the given name from the events
@@ -281,7 +281,7 @@ was defined in.
 ```go
 package service1
 
-func example(reg *codec.Registry, bus event.Bus) {
+func example(reg *codec.Registry, bus event.Bus[ID] {
   // Register the events of the projection service into a registry.
   projection.RegisterService(reg)
 
@@ -298,7 +298,7 @@ func example(reg *codec.Registry, bus event.Bus) {
 
 package service2
 
-func example(bus event.Bus) {
+func example(bus event.Bus[ID]) {
   svc := projection.NewService(bus)
 
   // Another service that uses the same underlying event bus can

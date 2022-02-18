@@ -9,7 +9,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 	"github.com/nats-io/nats.go"
 )
@@ -27,24 +27,24 @@ import (
 // You can add custom options using the SubOpts option:
 //
 //	bus := NewEventBus(enc, Use(JetStream()), SubOpts(nats.DeliverAll(), nats.AckNone()))
-func JetStream() Driver {
-	return &jetStream{
-		subs: make(map[string]*subscription),
+func JetStream[ID goes.ID]() Driver[ID] {
+	return &jetStream[ID]{
+		subs: make(map[string]*subscription[ID]),
 	}
 }
 
 const jetStreamDriverName = "jetstream"
 
-type jetStream struct {
+type jetStream[ID goes.ID] struct {
 	sync.RWMutex
 
 	ctx  nats.JetStreamContext
-	subs map[string]*subscription
+	subs map[string]*subscription[ID]
 }
 
-func (js *jetStream) name() string { return jetStreamDriverName }
+func (js *jetStream[ID]) name() string { return jetStreamDriverName }
 
-func (js *jetStream) init(bus *EventBus) (err error) {
+func (js *jetStream[ID]) init(bus *EventBus[ID]) (err error) {
 	js.ctx, err = bus.conn.JetStream()
 	if err != nil {
 		err = fmt.Errorf("get JetStreamContext: %w", err)
@@ -52,7 +52,7 @@ func (js *jetStream) init(bus *EventBus) (err error) {
 	return
 }
 
-func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string) (recipient, error) {
+func (js *jetStream[ID]) subscribe(ctx context.Context, bus *EventBus[ID], event string) (recipient[ID], error) {
 	// If a subscription for that event already exists, return it.
 	if sub, ok := js.subscription(event); ok {
 		return sub.subscribe(ctx)
@@ -75,7 +75,7 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 	}
 
 	if err := js.ensureStream(ctx, stream, subject); err != nil {
-		return recipient{}, fmt.Errorf("ensure stream: %w", err)
+		return recipient[ID]{}, fmt.Errorf("ensure stream: %w", err)
 	}
 
 	opts := []nats.SubOpt{
@@ -96,13 +96,13 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 		var err error
 		nsub, err = js.ctx.QueueSubscribe(subject, queue, handleMsg, opts...)
 		if err != nil {
-			return recipient{}, fmt.Errorf("subscribe with queue group: %w [event=%v, subject=%v, queue=%v, consumer=%v]", err, event, subject, queue, durableName)
+			return recipient[ID]{}, fmt.Errorf("subscribe with queue group: %w [event=%v, subject=%v, queue=%v, consumer=%v]", err, event, subject, queue, durableName)
 		}
 	} else {
 		var err error
 		nsub, err = js.ctx.Subscribe(subject, handleMsg, opts...)
 		if err != nil {
-			return recipient{}, fmt.Errorf("subscribe: %w [event=%v, subject=%v, queue=%v, consumer=%v]", err, event, subject, queue, durableName)
+			return recipient[ID]{}, fmt.Errorf("subscribe: %w [event=%v, subject=%v, queue=%v, consumer=%v]", err, event, subject, queue, durableName)
 		}
 	}
 
@@ -126,7 +126,7 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 	return rcpt, nil
 }
 
-func (js *jetStream) ensureStream(ctx context.Context, streamName, subject string) error {
+func (js *jetStream[ID]) ensureStream(ctx context.Context, streamName, subject string) error {
 	_, err := js.ctx.StreamInfo(streamName)
 	if err == nil {
 		// TODO(bounoable): Validate the stream config and return an error if it
@@ -150,7 +150,7 @@ func (js *jetStream) ensureStream(ctx context.Context, streamName, subject strin
 	return nil
 }
 
-func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
+func (js *jetStream[ID]) publish(ctx context.Context, bus *EventBus[ID], evt event.Of[any, ID]) error {
 	var buf bytes.Buffer
 	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
 		return fmt.Errorf("encode event data: %w [event=%v, type(data)=%T]", err, evt.Name(), evt.Data())
@@ -160,7 +160,7 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 
 	id, name, v := evt.Aggregate()
 
-	env := envelope{
+	env := envelope[ID]{
 		ID:               evt.ID(),
 		Name:             evt.Name(),
 		Time:             evt.Time(),
@@ -184,7 +184,8 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 	}
 
 	var opts []nats.PubOpt
-	if id := evt.ID(); id != uuid.Nil {
+	var zero ID
+	if id := evt.ID(); id != zero {
 		opts = append(opts, nats.MsgId(id.String()))
 	}
 
@@ -195,7 +196,7 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 	return nil
 }
 
-func (js *jetStream) subscription(event string) (*subscription, bool) {
+func (js *jetStream[ID]) subscription(event string) (*subscription[ID], bool) {
 	js.RLock()
 	defer js.RUnlock()
 	sub, ok := js.subs[event]
@@ -203,7 +204,7 @@ func (js *jetStream) subscription(event string) (*subscription, bool) {
 }
 
 // replaces illegal stream name characters with "_".
-func streamName(bus *EventBus, event, subject, queue string) string {
+func streamName[ID goes.ID](bus *EventBus[ID], event, subject, queue string) string {
 	// bus.streamNameFunc uses either the user-provided StreamNameFunc option to
 	// generate the stream names or falls back to the defaultStreamNameFunc,
 	// which just returns the subject as it is.

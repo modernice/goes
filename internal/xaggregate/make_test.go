@@ -10,7 +10,7 @@ import (
 )
 
 func TestMake(t *testing.T) {
-	as, getAppliedEvents := xaggregate.Make(10)
+	as, getAppliedEvents := xaggregate.Make(uuid.New, 10)
 	if len(as) != 10 {
 		t.Errorf("Make(%d) should return %d aggregates; got %d", 10, 10, len(as))
 	}
@@ -32,15 +32,15 @@ func TestMake(t *testing.T) {
 			t.Errorf("aggregate should not have any events applied; got %d", l)
 		}
 
-		evt := event.New[any]("foo", test.FooEventData{}, event.Aggregate(id, name, v+1))
+		evt := event.New[any](uuid.New(), "foo", test.FooEventData{}, event.Aggregate(id, name, v+1))
 		a.ApplyEvent(evt)
 
-		test.AssertEqualEvents(t, getAppliedEvents(id), []event.Event{evt})
+		test.AssertEqualEvents(t, getAppliedEvents(id), []event.Of[any, uuid.UUID]{evt})
 	}
 }
 
 func TestName(t *testing.T) {
-	as, _ := xaggregate.Make(3, xaggregate.Name("bar"))
+	as, _ := xaggregate.Make(uuid.New, 3, xaggregate.Name("bar"))
 	for _, a := range as {
 		_, name, _ := a.Aggregate()
 		if name != "bar" {

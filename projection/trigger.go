@@ -1,28 +1,29 @@
 package projection
 
 import (
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 )
 
 // TriggerOption is a Trigger option.
-type TriggerOption func(*Trigger)
+type TriggerOption[ID goes.ID] func(*Trigger[ID])
 
 // A Trigger is used by Schedules to trigger a Job.
-type Trigger struct {
+type Trigger[ID goes.ID] struct {
 	// Reset projections before applying events.
 	Reset bool
 
 	// Override the Query that is used to query events from the event store.
-	Query event.Query
+	Query event.QueryOf[ID]
 
 	// Additional filters that are applied in-memory to the query result from
 	// the event store.
-	Filter []event.Query
+	Filter []event.QueryOf[ID]
 }
 
 // NewTrigger returns a Trigger.
-func NewTrigger(opts ...TriggerOption) Trigger {
-	var t Trigger
+func NewTrigger[ID goes.ID](opts ...TriggerOption[ID]) Trigger[ID] {
+	var t Trigger[ID]
 	for _, opt := range opts {
 		opt(&t)
 	}
@@ -33,8 +34,8 @@ func NewTrigger(opts ...TriggerOption) Trigger {
 // onto them. Resetting a projection is done by first resetting the progress of
 // the projection (if it implements progressor). Then, if the projection has a
 // `Reset()` method, that method is called to allow for custom reset logic.
-func Reset(reset bool) TriggerOption {
-	return func(t *Trigger) {
+func Reset[ID goes.ID](reset bool) TriggerOption[ID] {
+	return func(t *Trigger[ID]) {
 		t.Reset = reset
 	}
 }
@@ -52,8 +53,8 @@ func Reset(reset bool) TriggerOption {
 //		query.AggregateName("foo", "bar"),
 //		query.SortBy(event.SortTime, event.SortAsc), // to ensure correct sorting
 //	)))
-func Query(q event.Query) TriggerOption {
-	return func(t *Trigger) {
+func Query[ID goes.ID](q event.QueryOf[ID]) TriggerOption[ID] {
+	return func(t *Trigger[ID]) {
 		t.Query = q
 	}
 }
@@ -67,23 +68,23 @@ func Query(q event.Query) TriggerOption {
 //
 //	var s projection.Schedule
 //	err := s.Trigger(context.TODO(), projection.Filter(query.New(...), query.New(...)))
-func Filter(queries ...event.Query) TriggerOption {
-	return func(t *Trigger) {
+func Filter[ID goes.ID](queries ...event.QueryOf[ID]) TriggerOption[ID] {
+	return func(t *Trigger[ID]) {
 		t.Filter = append(t.Filter, queries...)
 	}
 }
 
 // Options returns the TriggerOptions to build t.
-func (t Trigger) Options() []TriggerOption {
-	var opts []TriggerOption
+func (t Trigger[ID]) Options() []TriggerOption[ID] {
+	var opts []TriggerOption[ID]
 	if t.Reset {
-		opts = append(opts, Reset(true))
+		opts = append(opts, Reset[ID](true))
 	}
 	if t.Query != nil {
-		opts = append(opts, Query(t.Query))
+		opts = append(opts, Query[ID](t.Query))
 	}
 	if len(t.Filter) > 0 {
-		opts = append(opts, Filter(t.Filter...))
+		opts = append(opts, Filter[ID](t.Filter...))
 	}
 	return opts
 }

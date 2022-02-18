@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/projection"
@@ -12,8 +13,8 @@ import (
 
 // Periodic is a projection schedule that creates projection Jobs in a defined
 // interval.
-type Periodic struct {
-	*schedule
+type Periodic[ID goes.ID] struct {
+	*schedule[ID]
 
 	interval time.Duration
 }
@@ -21,9 +22,9 @@ type Periodic struct {
 // Periodically returns a Periodic schedule that, when subscribed to, creates a
 // projection Job every interval Duration and passes that Job to every
 // subscriber of the schedule.
-func Periodically(store event.Store, interval time.Duration, eventNames []string) *Periodic {
-	return &Periodic{
-		schedule: newSchedule(store, eventNames),
+func Periodically[ID goes.ID](store event.Store[ID], interval time.Duration, eventNames []string) *Periodic[ID] {
+	return &Periodic[ID]{
+		schedule: newSchedule[ID](store, eventNames),
 		interval: interval,
 	}
 }
@@ -58,11 +59,11 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 //
 // When the schedule is triggered by calling schedule.Trigger, a projection Job
 // will be created and passed to apply.
-func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.Job) error) (<-chan error, error) {
+func (schedule *Periodic[ID]) Subscribe(ctx context.Context, apply func(projection.Job[ID]) error) (<-chan error, error) {
 	ticker := time.NewTicker(schedule.interval)
 
 	out := make(chan error)
-	jobs := make(chan projection.Job)
+	jobs := make(chan projection.Job[ID])
 	triggers := schedule.newTriggers()
 	done := make(chan struct{})
 
@@ -86,10 +87,10 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 	return out, nil
 }
 
-func (schedule *Periodic) handleTicker(
+func (schedule *Periodic[ID]) handleTicker(
 	ctx context.Context,
 	ticker *time.Ticker,
-	jobs chan<- projection.Job,
+	jobs chan<- projection.Job[ID],
 	out chan<- error,
 	wg *sync.WaitGroup,
 ) {
@@ -99,14 +100,14 @@ func (schedule *Periodic) handleTicker(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			job := projection.NewJob(
+			job := projection.NewJob[ID](
 				ctx,
 				schedule.store,
-				query.New(
+				query.New[ID](
 					query.Name(schedule.eventNames...),
 					query.SortByAggregate(),
 				),
-				projection.WithHistoryStore(schedule.store),
+				projection.WithHistoryStore[ID](schedule.store),
 			)
 
 			select {

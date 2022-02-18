@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/backend/testing/eventbustest"
 	"github.com/modernice/goes/codec"
@@ -15,25 +16,25 @@ import (
 	eventtest "github.com/modernice/goes/event/test"
 )
 
-func testEventBus(t *testing.T, newBus eventbustest.EventBusFactory) {
+func testEventBus(t *testing.T, newBus eventbustest.EventBusFactory[uuid.UUID]) {
 	t.Run("SubscribeConnect", func(t *testing.T) {
-		testSubscribeConnect(t, func(e codec.Encoding) event.Bus {
-			return nats.NewEventBus(e, nats.EatErrors())
+		testSubscribeConnect(t, func(e codec.Encoding) event.Bus[uuid.UUID] {
+			return nats.NewEventBus(uuid.New, e, nats.EatErrors())
 		})
 	})
 	t.Run("PublishConnect", func(t *testing.T) {
-		testPublishConnect(t, func(e codec.Encoding) event.Bus {
-			return nats.NewEventBus(e, nats.EatErrors())
+		testPublishConnect(t, func(e codec.Encoding) event.Bus[uuid.UUID] {
+			return nats.NewEventBus(uuid.New, e, nats.EatErrors())
 		})
 	})
 	t.Run("PublishEncodeError", func(t *testing.T) {
-		testPublishEncodeError(t, func(e codec.Encoding) event.Bus {
-			return nats.NewEventBus(e, nats.EatErrors())
+		testPublishEncodeError(t, func(e codec.Encoding) event.Bus[uuid.UUID] {
+			return nats.NewEventBus(uuid.New, e, nats.EatErrors())
 		})
 	})
 }
 
-func testSubscribeConnect(t *testing.T, newBus eventbustest.EventBusFactory) {
+func testSubscribeConnect(t *testing.T, newBus eventbustest.EventBusFactory[uuid.UUID]) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -65,7 +66,7 @@ func testSubscribeConnect(t *testing.T, newBus eventbustest.EventBusFactory) {
 	}
 }
 
-func testPublishConnect(t *testing.T, newBus eventbustest.EventBusFactory) {
+func testPublishConnect(t *testing.T, newBus eventbustest.EventBusFactory[uuid.UUID]) {
 	org := os.Getenv("NATS_URL")
 	if err := os.Setenv("NATS_URL", "what://abc:1234"); err != nil {
 		t.Fatal(fmt.Errorf("set environment variable %q: %w", "NATS_URL", err))
@@ -78,16 +79,16 @@ func testPublishConnect(t *testing.T, newBus eventbustest.EventBusFactory) {
 	}()
 
 	bus := newBus(eventtest.NewEncoder())
-	err := bus.Publish(context.Background(), event.New("foo", eventtest.FooEventData{}).Any())
+	err := bus.Publish(context.Background(), event.New(uuid.New(), "foo", eventtest.FooEventData{}).Any())
 
 	if err == nil {
 		t.Error(fmt.Errorf("err shouldn't be nil; got %#v", err))
 	}
 }
 
-func testPublishEncodeError(t *testing.T, newBus eventbustest.EventBusFactory) {
+func testPublishEncodeError(t *testing.T, newBus eventbustest.EventBusFactory[uuid.UUID]) {
 	bus := newBus(eventtest.NewEncoder())
-	err := bus.Publish(context.Background(), event.New("xyz", eventtest.UnregisteredEventData{}).Any())
+	err := bus.Publish(context.Background(), event.New(uuid.New(), "xyz", eventtest.UnregisteredEventData{}).Any())
 
 	if err == nil {
 		t.Fatal(fmt.Errorf("expected err not to be nil; got %v", err))

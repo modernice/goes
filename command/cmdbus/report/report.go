@@ -3,30 +3,30 @@ package report
 import (
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/modernice/goes"
 )
 
 // A Report provides information about the execution of a Command.
-type Report struct {
-	Command Command
+type Report[ID goes.ID] struct {
+	Command Command[ID]
 	Runtime time.Duration
 	Error   error
 }
 
-type Command struct {
-	ID            uuid.UUID
+type Command[ID goes.ID] struct {
+	ID            ID
 	Name          string
 	AggregateName string
-	AggregateID   uuid.UUID
+	AggregateID   ID
 	Payload       any
 }
 
 // Option is a Report option.
-type Option func(*Report)
+type Option[ID goes.ID] func(*Report[ID])
 
 // New returns a new Report that is filled with the information from opts.
-func New(cmd Command, opts ...Option) Report {
-	r := Report{Command: cmd}
+func New[ID goes.ID](cmd Command[ID], opts ...Option[ID]) Report[ID] {
+	r := Report[ID]{Command: cmd}
 	for _, opt := range opts {
 		opt(&r)
 	}
@@ -34,20 +34,20 @@ func New(cmd Command, opts ...Option) Report {
 }
 
 // Runtime returns an Option that specifies the runtime of a Command execution.
-func Runtime(d time.Duration) Option {
-	return func(r *Report) {
+func Runtime[ID goes.ID](d time.Duration) Option[ID] {
+	return func(r *Report[ID]) {
 		r.Runtime = d
 	}
 }
 
 // Error returns a ReportOption that adds the execution error of a Command to a
 // Report.
-func Error(err error) Option {
-	return func(r *Report) {
+func Error[ID goes.ID](err error) Option[ID] {
+	return func(r *Report[ID]) {
 		r.Error = err
 	}
 }
 
-func (r *Report) Report(rep Report) {
-	*r = New(rep.Command, Runtime(rep.Runtime), Error(rep.Error))
+func (r *Report[ID]) Report(rep Report[ID]) {
+	*r = New(rep.Command, Runtime[ID](rep.Runtime), Error[ID](rep.Error))
 }

@@ -3,11 +3,12 @@ package report
 import (
 	"time"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/saga/action"
 )
 
 // A Report gives information about the execution of a SAGA.
-type Report struct {
+type Report[ID goes.ID] struct {
 	// Start is the Time the SAGA started.
 	Start time.Time
 	// End is the Time the SAGA finished.
@@ -15,50 +16,50 @@ type Report struct {
 	// Runtime is the runtime of the SAGA.
 	Runtime time.Duration
 	// Actions are the Actions that have been run.
-	Actions []action.Report
+	Actions []action.Report[ID]
 	// Succeeded are the succeeded Actions.
-	Succeeded []action.Report
+	Succeeded []action.Report[ID]
 	// Failed are the failed Actions.
-	Failed []action.Report
+	Failed []action.Report[ID]
 	// Compensated are the compensated Actions.
-	Compensated []action.Report
+	Compensated []action.Report[ID]
 	// Error is the error that made the SAGA fail.
 	Error error
 }
 
 // An Option adds information to a Report.
-type Option func(*Report)
+type Option[ID goes.ID] func(*Report[ID])
 
 // Action returns an Option that adds an action.Report to a SAGA Report.
-func Action(
-	act action.Action,
+func Action[ID goes.ID](
+	act action.Action[ID],
 	start, end time.Time,
-	opts ...action.Option,
-) Option {
+	opts ...action.Option[ID],
+) Option[ID] {
 	return Add(action.NewReport(act, start, end, opts...))
 }
 
 // Add returns an Option that adds action.Reports to a SAGA Report.
-func Add(acts ...action.Report) Option {
-	return func(r *Report) {
+func Add[ID goes.ID](acts ...action.Report[ID]) Option[ID] {
+	return func(r *Report[ID]) {
 		r.Actions = append(r.Actions, acts...)
 	}
 }
 
 // Error returns an Option that adds an error to a Report.
-func Error(err error) Option {
-	return func(r *Report) {
+func Error[ID goes.ID](err error) Option[ID] {
+	return func(r *Report[ID]) {
 		r.Error = err
 	}
 }
 
 // New returns a Report that is filled by opts.
-func New(start, end time.Time, opts ...Option) Report {
-	return new(start, end, opts...)
+func New[ID goes.ID](start, end time.Time, opts ...Option[ID]) Report[ID] {
+	return newReport(start, end, opts...)
 }
 
-func new(start, end time.Time, opts ...Option) Report {
-	r := Report{
+func newReport[ID goes.ID](start, end time.Time, opts ...Option[ID]) Report[ID] {
+	r := Report[ID]{
 		Start:   start,
 		End:     end,
 		Runtime: end.Sub(start),
@@ -71,11 +72,11 @@ func new(start, end time.Time, opts ...Option) Report {
 }
 
 // Report overrides Report r with the contents of Report r2.
-func (r *Report) Report(r2 Report) {
+func (r *Report[ID]) Report(r2 Report[ID]) {
 	*r = r2
 }
 
-func (r *Report) groupActions() {
+func (r *Report[ID]) groupActions() {
 	for _, rep := range r.Actions {
 		if rep.Error != nil {
 			r.Failed = append(r.Failed, rep)

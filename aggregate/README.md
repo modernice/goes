@@ -19,10 +19,10 @@ type Aggregate interface {
 	Aggregate() (uuid.UUID, string, int)
 
 	// AggregateChanges returns the uncommited events of the aggregate.
-	AggregateChanges() []event.Event
+	AggregateChanges() []event.Of[any, uuid.UUID]
 
 	// ApplyEvent applies the event on the aggregate.
-	ApplyEvent(event.Event)
+	ApplyEvent(event.Of[any, uuid.UUID])
 }
 ```
 
@@ -106,14 +106,14 @@ func (u *User) Register(name, email string) error {
   return nil
 }
 
-func (u *User) register(evt event.Event) {
+func (u *User) register(evt event.Of[any, uuid.UUID]) {
   data := evt.Data().(UserRegisteredData)
   u.Name = data.Name
   u.Email = data.Email
 }
 
 // ApplyEvent overrides the ApplyEvent function of u.Base.
-func (u *User) ApplyEvent(evt event.Event) {
+func (u *User) ApplyEvent(evt event.Of[any, uuid.UUID]) {
   switch evt.Name() {
   case UserRegistered:
     u.register(evt)
@@ -124,7 +124,7 @@ func (u *User) ApplyEvent(evt event.Event) {
 ## Repository
 
 The [github.com/modernice/goes/aggregate/repository](
-../aggregate/repository) package implements the `aggregate.Repository` interface.
+../aggregate/repository) package implements the `aggregate.RepositoryOf[ID] interface.
 The aggregate repository uses the underlying event store to save and
 query aggregates from and to the event store.
 
@@ -143,12 +143,12 @@ type Repository interface {
 ### Fetch an Aggregate
 
 To fetch the current state of an aggregate, you need to pass the already
-instantiated aggregate to the `aggregate.Repository.Fetch` method.
+instantiated aggregate to the `aggregate.RepositoryOf[ID]Fetch` method.
 
 ```go
 package example
 
-func fetchAggregate(repo aggregate.Repository) {
+func fetchAggregate(repo aggregate.RepositoryOf[ID] {
   userID := uuid.New() // Get this from somewhere
   u := NewUser(userID) // Instantiate the aggregate
   
@@ -159,7 +159,7 @@ func fetchAggregate(repo aggregate.Repository) {
 
 ### Query Aggregates
 
-You can query multiple aggregates with the `aggregate.Repository.Query` method,
+You can query multiple aggregates with the `aggregate.RepositoryOf[ID]Query` method,
 which accepts a [query](../aggregate/query) to filter aggregate events from the
 event store.
 
@@ -176,7 +176,7 @@ import (
   "github.com/modernice/goes/aggregate/query"
 )
 
-func queryAggregates(repo aggregate.Repository) {
+func queryAggregates(repo aggregate.RepositoryOf[ID] {
   str, errs, err := repo.Query(context.TODO(), query.New(
     query.Name("auth.user"), // Query "auth.user" aggregates
   ))
@@ -199,7 +199,7 @@ Deleting an aggregate means deleting all its events from the event store.
 ```go
 package example
 
-func deleteAggregate(repo aggregate.Repository) {
+func deleteAggregate(repo aggregate.RepositoryOf[ID] {
   userID := uuid.New() // Get this from somewhere
   u := NewUser(userID)
 

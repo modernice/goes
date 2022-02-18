@@ -1,6 +1,9 @@
 package dispatch
 
-import "github.com/modernice/goes/command"
+import (
+	"github.com/modernice/goes"
+	"github.com/modernice/goes/command"
+)
 
 // Configure returns a Config from Options.
 func Configure(opts ...command.DispatchOption) command.DispatchConfig {
@@ -36,7 +39,7 @@ func Async() command.DispatchOption {
 
 // Report returns an Option that makes the Command Bus report the executon
 // result of a Command to the Reporter r.
-func Report(r command.Reporter) command.DispatchOption {
+func Report[ID goes.ID](r command.Reporter[ID]) command.DispatchOption {
 	return func(cfg *command.DispatchConfig) {
 		cfg.Reporter = r
 	}

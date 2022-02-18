@@ -4,25 +4,26 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/modernice/goes"
 	"github.com/modernice/goes/event"
 )
 
-type storeWithBus struct {
-	event.Store
+type storeWithBus[ID goes.ID] struct {
+	event.Store[ID]
 
-	b event.Bus
+	b event.Bus[ID]
 }
 
 // WithBus returns a Store that publishes Events over the given Bus after
 // inserting them into the provided Store.
-func WithBus(s event.Store, b event.Bus) event.Store {
-	return &storeWithBus{
+func WithBus[ID goes.ID](s event.Store[ID], b event.Bus[ID]) event.Store[ID] {
+	return &storeWithBus[ID]{
 		Store: s,
 		b:     b,
 	}
 }
 
-func (s *storeWithBus) Insert(ctx context.Context, events ...event.Event) error {
+func (s *storeWithBus[ID]) Insert(ctx context.Context, events ...event.Of[any, ID]) error {
 	if err := s.Store.Insert(ctx, events...); err != nil {
 		return err
 	}
