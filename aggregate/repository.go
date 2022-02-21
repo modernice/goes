@@ -6,8 +6,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/persistence/model"
 )
 
 const (
@@ -81,8 +81,11 @@ type Repository interface {
 //
 //	var repo aggregate.Repository
 //	typed := repository.Typed(repo, NewFoo)
-type TypedRepository[A Aggregate] interface {
-	goes.TypedRepository[uuid.UUID, A]
+type TypedRepository[A interface {
+	model.Model[uuid.UUID]
+	Aggregate
+}] interface {
+	model.Repository[A, uuid.UUID]
 
 	// FetchVersion fetches all events for the given aggregate up to the given
 	// version from the event store and applies them onto the aggregate.

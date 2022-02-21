@@ -29,8 +29,8 @@ import (
 )
 
 var (
-	_ aggregate.Repository                           = (*repository.Repository)(nil)
-	_ aggregate.TypedRepository[aggregate.Aggregate] = (*repository.TypedRepository[aggregate.Aggregate])(nil)
+	_ aggregate.Repository                       = (*repository.Repository)(nil)
+	_ aggregate.TypedRepository[*aggregate.Base] = (*repository.TypedRepository[*aggregate.Base])(nil)
 )
 
 func TestRepository_Save(t *testing.T) {

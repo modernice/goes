@@ -60,6 +60,10 @@ func (b *Base) RegisterHandler(eventName string, handle func(event.Event)) {
 	b.handlers[eventName] = handle
 }
 
+func (b *Base) ModelID() uuid.UUID {
+	return b.ID
+}
+
 func (b *Base) Aggregate() (uuid.UUID, string, int) {
 	return b.ID, b.Name, b.Version
 }
