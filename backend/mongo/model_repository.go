@@ -63,6 +63,11 @@ func NewModelRepository[Model model.Model[ID], ID model.ID](col *mongo.Collectio
 	}
 }
 
+// Collection returns the MongoDB collection of the model.
+func (r *ModelRepository[Model, ID]) Collection() *mongo.Collection {
+	return r.col
+}
+
 // Save saves the given model to the database using the MongoDB "ReplaceOne"
 // command with the upsert option set to true.
 func (r *ModelRepository[Model, ID]) Save(ctx context.Context, m Model) error {
