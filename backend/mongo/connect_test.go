@@ -1,4 +1,4 @@
-//go:build mongostore
+//go:build mongo
 
 package mongo_test
 

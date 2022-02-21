@@ -57,7 +57,7 @@ services:
       context: ..
       dockerfile: .docker/coverage.Dockerfile
       args:
-        TAGS: nats,mongostore,mongosnap,mongotag
+        TAGS: nats,mongo
     environment:
       - NATS_URL=nats://nats:4222
       - STAN_URL=nats://stan:4222

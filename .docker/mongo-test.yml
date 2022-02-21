@@ -32,6 +32,18 @@ services:
     volumes:
       - "${PWD}/.docker/init-mongo.sh:/entrypoint.sh"
 
+  mongomodel:
+    image: mongo
+    command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs0", "--bind_ip_all"]
+
+  mongomodel_init:
+    image: mongo
+    entrypoint: /entrypoint.sh
+    environment:
+      REPLICA_HOST: mongomodel
+    volumes:
+      - "${PWD}/.docker/init-mongo.sh:/entrypoint.sh"
+
   test:
     depends_on:
       - mongostore
@@ -40,13 +52,16 @@ services:
       - mongosnap
       - mongotag
       - mongotag_init
+      - mongomodel
+      - mongomodel_init
     build:
       context: ..
       dockerfile: .docker/tag-test.Dockerfile
       args:
-        TAGS: mongostore,mongosnap,mongotag
+        TAGS: mongo
     environment:
       - MONGOSTORE_URL=mongodb://mongostore:27017
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
       - MONGOSNAP_URL=mongodb://mongosnap:27017
       - MONGOTAG_URL=mongodb://mongotag:27017
+      - MONGOMODEL_URL=mongodb://mongomodel:27017

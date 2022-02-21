@@ -1,4 +1,4 @@
-//go:build mongosnap
+//go:build mongo
 
 package mongosnap
 
