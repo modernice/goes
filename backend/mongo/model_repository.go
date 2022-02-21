@@ -92,12 +92,29 @@ func (r *ModelRepository[Model, ID]) Fetch(ctx context.Context, id ID) (Model, e
 // a MongoDB transaction (must be supported by your MongoDB cluster).
 func (r *ModelRepository[Model, ID]) Use(ctx context.Context, id ID, fn func(Model) error) error {
 	return r.col.Database().Client().UseSession(ctx, func(ctx mongo.SessionContext) error {
-		if err := ctx.StartTransaction(); err != nil {
-			return fmt.Errorf("start transaction: %w", err)
+		abort := func(txError error) error {
+			if r.transactions {
+				if err := ctx.AbortTransaction(ctx); err != nil {
+					return fmt.Errorf("failed to abort transaction after error %q: %w", txError, err)
+				}
+			}
+			return txError
+		}
+
+		if r.transactions {
+			if err := ctx.StartTransaction(); err != nil {
+				return fmt.Errorf("start transaction: %w", err)
+			}
 		}
 
 		m, err := r.Fetch(ctx, id)
 		if err != nil {
+			if r.transactions {
+				if err := abort(err); err != nil {
+					return err
+				}
+			}
+
 			return fmt.Errorf("fetch model: %w", err)
 		}
 
@@ -106,11 +123,17 @@ func (r *ModelRepository[Model, ID]) Use(ctx context.Context, id ID, fn func(Mod
 		}
 
 		if err := r.Save(ctx, m); err != nil {
+			if err := abort(err); err != nil {
+				return err
+			}
+
 			return fmt.Errorf("save model: %w", err)
 		}
 
-		if err := ctx.CommitTransaction(ctx); err != nil {
-			return fmt.Errorf("commit transaction: %w", err)
+		if r.transactions {
+			if err := ctx.CommitTransaction(ctx); err != nil {
+				return fmt.Errorf("commit transaction: %w", err)
+			}
 		}
 
 		return nil
