@@ -49,7 +49,7 @@ func ModelTransactions(tx bool) ModelRepositoryOption {
 }
 
 // ModelFactory returns a ModelRepositoryOption that provides a factory function
-// for the models to a model repository. The repository will the function to
+// for the models to a model repository. The repository will use the function to
 // create the model before decoding the MongoDB document into it. Without a
 // model factory, the repository will just use the zero value of the provided
 // model type. If `createIfNotFound` is true, the repository will create and

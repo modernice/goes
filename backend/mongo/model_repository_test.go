@@ -196,7 +196,7 @@ func TestModelRepository_Fetch_ModelFactory_ErrNotFound(t *testing.T) {
 	}
 }
 
-func TestModelRepository_Fetch_ModelFactory_WithMake(t *testing.T) {
+func TestModelRepository_Fetch_ModelFactory_CreateIfNotFound(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
