@@ -24,8 +24,10 @@ type ModelRepository[Model model.Model[ID], ID model.ID] struct {
 type ModelRepositoryOption func(*modelRepositoryOptions)
 
 type modelRepositoryOptions struct {
-	key          string
-	transactions bool
+	key              string
+	transactions     bool
+	factory          func(any) any
+	createIfNotFound bool
 }
 
 // ModelIDKey returns a ModelRepositoryOption that specifies which field of the
@@ -43,6 +45,22 @@ func ModelIDKey(key string) ModelRepositoryOption {
 func ModelTransactions(tx bool) ModelRepositoryOption {
 	return func(o *modelRepositoryOptions) {
 		o.transactions = tx
+	}
+}
+
+// ModelFactory returns a ModelRepositoryOption that provides a factory function
+// for the models to a model repository. The repository will the function to
+// create the model before decoding the MongoDB document into it. Without a
+// model factory, the repository will just use the zero value of the provided
+// model type. If `createIfNotFound` is true, the repository will create and
+// return the model using the factory function instead of returning a
+// model.ErrNotFound error.
+func ModelFactory[Model model.Model[ID], ID model.ID](factory func(ID) Model, createIfNotFound bool) ModelRepositoryOption {
+	return func(o *modelRepositoryOptions) {
+		o.createIfNotFound = createIfNotFound
+		o.factory = func(id any) any {
+			return factory(id.(ID))
+		}
 	}
 }
 
@@ -81,11 +99,21 @@ func (r *ModelRepository[Model, ID]) Fetch(ctx context.Context, id ID) (Model, e
 	res := r.col.FindOne(ctx, bson.D{{Key: r.key, Value: id}})
 
 	var m Model
+
+	if r.factory != nil {
+		m = r.factory(id).(Model)
+	}
+
 	if err := res.Decode(&m); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return m, fmt.Errorf("%w: %v", model.ErrNotFound, err)
+		if !errors.Is(err, mongo.ErrNoDocuments) {
+			return m, fmt.Errorf("decode model: %w", err)
 		}
-		return m, fmt.Errorf("decode model: %w", err)
+
+		if r.createIfNotFound && r.factory != nil {
+			return m, nil
+		}
+
+		return m, fmt.Errorf("%w: %v", model.ErrNotFound, err)
 	}
 
 	return m, nil

@@ -177,6 +177,53 @@ func TestModelRepository_CustomID_InvalidKey(t *testing.T) {
 	}
 }
 
+func TestModelRepository_Fetch_ModelFactory_ErrNotFound(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	col := connect(t)
+	r := mongo.NewModelRepository[*uuidModel, uuid.UUID](col, mongo.ModelFactory(func(id uuid.UUID) *uuidModel {
+		return &uuidModel{
+			ID:  id,
+			Foo: "baz",
+		}
+	}, false))
+
+	id := uuid.New()
+
+	if _, err := r.Fetch(ctx, id); !errors.Is(err, model.ErrNotFound) {
+		t.Fatalf("Fetch() should fail with %q; got %q", model.ErrNotFound, err)
+	}
+}
+
+func TestModelRepository_Fetch_ModelFactory_WithMake(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	col := connect(t)
+	r := mongo.NewModelRepository[*uuidModel, uuid.UUID](col, mongo.ModelFactory(func(id uuid.UUID) *uuidModel {
+		return &uuidModel{
+			ID:  id,
+			Foo: "baz",
+		}
+	}, true))
+
+	id := uuid.New()
+
+	m, err := r.Fetch(ctx, id)
+	if err != nil {
+		t.Fatalf("Fetch() failed with %q", err)
+	}
+
+	if m.ModelID() != id {
+		t.Fatalf("ModelID() should return %q; got %q", id, m.ModelID())
+	}
+
+	if m.Foo != "baz" {
+		t.Fatalf("Foo should be %q; is %q", "baz", m.Foo)
+	}
+}
+
 func connect(t *testing.T) *gomongo.Collection {
 	client, err := gomongo.Connect(context.Background(), options.Client().ApplyURI(os.Getenv("MONGOMODEL_URL")))
 	if err != nil {
