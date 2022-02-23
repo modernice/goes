@@ -14,11 +14,6 @@ func New() *Base {
 	}
 }
 
-// ApplyWith is an alias for event.RegisterHandler.
-func ApplyWith[Data any](proj event.Handler, eventName string, apply func(event.Of[Data])) {
-	event.RegisterHandler(proj, eventName, apply)
-}
-
 // RegisterHandler implements event.Handler.
 func (a *Base) RegisterHandler(eventName string, handler func(event.Event)) {
 	a.appliers[eventName] = handler

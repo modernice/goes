@@ -46,11 +46,6 @@ func New(name string, id uuid.UUID, opts ...Option) *Base {
 	return b
 }
 
-// ApplyWith is an alias for event.RegisterHandler.
-func ApplyWith[Data any](a event.Handler, eventName string, apply func(event.Of[Data])) {
-	event.RegisterHandler(a, eventName, apply)
-}
-
 // RegisterHandler registers an event handler for the given event name.
 // When b.ApplyEvent is called and a handler is registered for the given event,
 // the provided handler is called.

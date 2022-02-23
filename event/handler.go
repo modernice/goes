@@ -70,3 +70,8 @@ func RegisterHandler[D any](eh Handler, eventName string, handler func(Of[D])) {
 		}
 	})
 }
+
+// ApplyWith is an alias for RegisterHandler.
+func ApplyWith[Data any](eh Handler, eventName string, handler func(Of[Data])) {
+	RegisterHandler(eh, eventName, handler)
+}
