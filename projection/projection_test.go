@@ -21,7 +21,7 @@ func TestApply(t *testing.T) {
 		event.New[any]("baz", test.FooEventData{}),
 	}
 
-	if err := projection.Apply[any](proj, events); err != nil {
+	if err := projection.Apply(proj, events); err != nil {
 		t.Fatalf("Apply failed with %q", err)
 	}
 
@@ -38,7 +38,7 @@ func TestApply_Progressor(t *testing.T) {
 		event.New[any]("baz", test.FooEventData{}, event.Time(now.Add(time.Hour))),
 	}
 
-	if err := projection.Apply[any](proj, events); err != nil {
+	if err := projection.Apply(proj, events); err != nil {
 		t.Fatalf("Apply failed with %q", err)
 	}
 
@@ -54,7 +54,7 @@ func TestApply_Progressor_ErrProgressed(t *testing.T) {
 
 	events := []event.Event{event.New[any]("foo", test.FooEventData{}, event.Time(now))}
 
-	if err := projection.Apply[any](proj, events); !errors.Is(err, projection.ErrProgressed) {
+	if err := projection.Apply(proj, events); !errors.Is(err, projection.ErrProgressed) {
 		t.Fatalf("Apply should fail with %q if Event time is before progress time; got %q", projection.ErrProgressed, err)
 	}
 
@@ -73,7 +73,7 @@ func TestApply_Progressor_IgnoreProgress(t *testing.T) {
 		event.New[any]("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
 	}
 
-	if err := projection.Apply[any](proj, events, projection.IgnoreProgress()); err != nil {
+	if err := projection.Apply(proj, events, projection.IgnoreProgress()); err != nil {
 		t.Fatalf("Apply shouldn't fail when using IgnoreProgress; got %q", err)
 	}
 
@@ -93,7 +93,7 @@ func TestApply_Guard(t *testing.T) {
 		event.New[any]("foobar", test.FooEventData{}),
 	}
 
-	if err := projection.Apply[any](proj, events); err != nil {
+	if err := projection.Apply(proj, events); err != nil {
 		t.Fatalf("Apply failed with %q", err)
 	}
 

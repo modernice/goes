@@ -367,7 +367,7 @@ func TestWithReset(t *testing.T) {
 
 	proj := projectiontest.NewMockResetProjection(3)
 
-	if err := projection.Apply[any](proj, storeEvents); err != nil {
+	if err := projection.Apply(proj, storeEvents); err != nil {
 		t.Fatalf("Apply failed with %q", err)
 	}
 
