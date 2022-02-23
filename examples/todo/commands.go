@@ -41,21 +41,21 @@ func RegisterCommands(r *codec.GobRegistry) {
 // errors that happen during the command handling are reported to the returned
 // error channel.
 func HandleCommands(ctx context.Context, bus command.Bus, lists ListRepository) <-chan error {
-	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.ContextOf[string]) error {
+	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.Ctx[string]) error {
 		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
 			defer list.print()
 			return list.Add(ctx.Payload())
 		})
 	})
 
-	removeErrors := command.MustHandle(ctx, bus, RemoveTaskCmd, func(ctx command.ContextOf[string]) error {
+	removeErrors := command.MustHandle(ctx, bus, RemoveTaskCmd, func(ctx command.Ctx[string]) error {
 		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
 			defer list.print()
 			return list.Remove(ctx.Payload())
 		})
 	})
 
-	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.ContextOf[[]string]) error {
+	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.Ctx[[]string]) error {
 		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
 			defer list.print()
 			return list.Done(ctx.Payload()...)

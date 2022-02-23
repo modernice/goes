@@ -43,7 +43,7 @@ type Bus interface {
 	// Subscribe subscribes to Commands with the given names and returns a
 	// channel of Contexts. Implementations of Bus must ensure that Commands
 	// aren't received by multiple subscribers.
-	Subscribe(ctx context.Context, names ...string) (<-chan ContextOf[any], <-chan error, error)
+	Subscribe(ctx context.Context, names ...string) (<-chan Ctx[any], <-chan error, error)
 }
 
 // Config is the configuration for dispatching a Command.
@@ -69,10 +69,10 @@ type Reporter interface {
 	Report(report.Report)
 }
 
-type Context = ContextOf[any]
+type Context = Ctx[any]
 
 // Context is the context for handling Commands.
-type ContextOf[P any] interface {
+type Ctx[P any] interface {
 	context.Context
 	Of[P]
 

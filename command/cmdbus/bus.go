@@ -446,13 +446,13 @@ func (b *Bus) assignCommand(ctx context.Context, cmd command.Command, data Comma
 // are pushed into the Context channel before it is closed. Use the DrainTimeout
 // Option to specify the timeout after which the remaining Commands are being
 // discarded.
-func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.ContextOf[any], <-chan error, error) {
+func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Ctx[any], <-chan error, error) {
 	events, errs, err := b.subscribeSubscribe(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	out, outErrs := make(chan command.ContextOf[any]), make(chan error)
+	out, outErrs := make(chan command.Ctx[any]), make(chan error)
 
 	go b.workSubscription(ctx, events, errs, out, outErrs, names)
 
@@ -479,7 +479,7 @@ func (b *Bus) workSubscription(
 	parentCtx context.Context,
 	events <-chan event.Event,
 	errs <-chan error,
-	out chan<- command.ContextOf[any],
+	out chan<- command.Ctx[any],
 	outErrs chan<- error,
 	names []string,
 ) {
