@@ -91,6 +91,7 @@ type Handler struct {
 	bus        Bus
 	handlers   map[string]func(Event)
 	eventNames map[string]struct{}
+	ctx        context.Context
 }
 
 // NewHandler returns an event handler for published events.
@@ -110,8 +111,16 @@ func (h *Handler) RegisterHandler(name string, fn func(Event)) {
 	h.eventNames[name] = struct{}{}
 }
 
+// Context returns the context that was passed to h.Run(). If h.Run() has not
+// been called yet, nil is returned.
+func (h *Handler) Context() context.Context {
+	return h.ctx
+}
+
 // Run runs the handler until ctx is canceled.
 func (h *Handler) Run(ctx context.Context) (<-chan error, error) {
+	h.ctx = ctx
+
 	eventNames := make([]string, len(h.eventNames))
 	for name := range h.eventNames {
 		eventNames = append(eventNames, name)
