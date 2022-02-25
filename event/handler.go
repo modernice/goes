@@ -1,13 +1,17 @@
 package event
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal/concurrent"
 )
 
-// A Handler is an object that can register handlers for different events.
-type Handler interface {
+// A Registerer is an object that can register handlers for different events.
+type Registerer interface {
 	// RegisterHandler registers an event handler for the given event name.
 	RegisterHandler(eventName string, handler func(Event))
 }
@@ -51,16 +55,16 @@ type Handler interface {
 //	func (f *Foo) foo(e event.Of[BazEvent]) {
 //		f.Baz = e.Data().Baz
 //	}
-func RegisterHandler[D any](eh Handler, eventName string, handler func(Of[D])) {
-	eh.RegisterHandler(eventName, func(evt Event) {
-		if casted, ok := TryCast[D](evt); ok {
+func RegisterHandler[Data any](r Registerer, eventName string, handler func(Of[Data])) {
+	r.RegisterHandler(eventName, func(evt Event) {
+		if casted, ok := TryCast[Data](evt); ok {
 			handler(casted)
 		} else {
 			aggregateName := "<unknown>"
-			if a, ok := eh.(pick.AggregateProvider); ok {
+			if a, ok := r.(pick.AggregateProvider); ok {
 				aggregateName = pick.AggregateName(a)
 			}
-			var zero D
+			var zero Data
 			panic(fmt.Errorf(
 				"[goes/event.RegisterHandler] Cannot cast %T to %T. "+
 					"You probably provided the wrong event name for this handler. "+
@@ -72,6 +76,64 @@ func RegisterHandler[D any](eh Handler, eventName string, handler func(Of[D])) {
 }
 
 // ApplyWith is an alias for RegisterHandler.
-func ApplyWith[Data any](eh Handler, eventName string, handler func(Of[Data])) {
-	RegisterHandler(eh, eventName, handler)
+func ApplyWith[Data any](r Registerer, eventName string, handler func(Of[Data])) {
+	RegisterHandler(r, eventName, handler)
+}
+
+// HandleWith is an alias for RegisterHandler.
+func HandleWith[Data any](r Registerer, eventName string, handler func(Of[Data])) {
+	RegisterHandler(r, eventName, handler)
+}
+
+// A Handler asynchronously handles published events.
+// Use NewHandler to create a Handler.
+type Handler struct {
+	bus        Bus
+	handlers   map[string]func(Event)
+	eventNames map[string]struct{}
+}
+
+// NewHandler returns an event handler for published events.
+func NewHandler(bus Bus) *Handler {
+	return &Handler{
+		bus:        bus,
+		handlers:   make(map[string]func(Event)),
+		eventNames: make(map[string]struct{}),
+	}
+}
+
+// RegisterHandler registers the handler for the given event.
+// Events must be registered before h.Run() is called. Events that are
+// registered after h.Run() has been called, won't be handled.
+func (h *Handler) RegisterHandler(name string, fn func(Event)) {
+	h.handlers[name] = fn
+	h.eventNames[name] = struct{}{}
+}
+
+// Run runs the handler until ctx is canceled.
+func (h *Handler) Run(ctx context.Context) (<-chan error, error) {
+	eventNames := make([]string, len(h.eventNames))
+	for name := range h.eventNames {
+		eventNames = append(eventNames, name)
+	}
+
+	events, errs, err := h.bus.Subscribe(ctx, eventNames...)
+	if err != nil {
+		return nil, fmt.Errorf("subscribe to events: %w [events=%v]", err, eventNames)
+	}
+
+	out, fail := concurrent.Errors(ctx)
+
+	go func() {
+		if err := streams.Walk(ctx, func(evt Event) error {
+			if fn, ok := h.handlers[evt.Name()]; ok {
+				fn(evt)
+			}
+			return nil
+		}, events, errs); !errors.Is(err, context.Canceled) {
+			fail(err)
+		}
+	}()
+
+	return out, nil
 }
