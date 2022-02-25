@@ -26,9 +26,9 @@ func NewCounter() *Counter {
 	c := &Counter{Base: projection.New()}
 
 	// Register event appliers for each of the projection events.
-	event.ApplyWith(c, TaskAdded, c.taskAdded)
-	event.ApplyWith(c, TaskRemoved, c.taskRemoved)
-	event.ApplyWith(c, TasksDone, c.tasksDone)
+	event.ApplyWith(c, c.taskAdded, TaskAdded)
+	event.ApplyWith(c, c.taskRemoved, TaskRemoved)
+	event.ApplyWith(c, c.tasksDone, TasksDone)
 
 	return c
 }

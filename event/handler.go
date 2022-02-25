@@ -76,13 +76,23 @@ func RegisterHandler[Data any](r Registerer, eventName string, handler func(Of[D
 }
 
 // ApplyWith is an alias for RegisterHandler.
-func ApplyWith[Data any](r Registerer, eventName string, handler func(Of[Data])) {
-	RegisterHandler(r, eventName, handler)
+func ApplyWith[Data any](r Registerer, handler func(Of[Data]), eventNames ...string) {
+	if len(eventNames) == 0 {
+		panic("event.ApplyWith: no event names provided")
+	}
+	for _, name := range eventNames {
+		RegisterHandler(r, name, handler)
+	}
 }
 
 // HandleWith is an alias for RegisterHandler.
-func HandleWith[Data any](r Registerer, eventName string, handler func(Of[Data])) {
-	RegisterHandler(r, eventName, handler)
+func HandleWith[Data any](r Registerer, handler func(Of[Data]), eventNames ...string) {
+	if len(eventNames) == 0 {
+		panic("event.HandleWith: no event names provided")
+	}
+	for _, name := range eventNames {
+		RegisterHandler(r, name, handler)
+	}
 }
 
 // A Handler asynchronously handles published events.

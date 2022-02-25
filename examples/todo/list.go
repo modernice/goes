@@ -25,9 +25,9 @@ func New(id uuid.UUID) *List {
 	list := &List{Base: aggregate.New(ListAggregate, id)}
 
 	// Register the event appliers for each of the aggregate events.
-	event.ApplyWith(list, TaskAdded, list.add)
-	event.ApplyWith(list, TaskRemoved, list.remove)
-	event.ApplyWith(list, TasksDone, list.done)
+	event.ApplyWith(list, list.add, TaskAdded)
+	event.ApplyWith(list, list.remove, TaskRemoved)
+	event.ApplyWith(list, list.done, TasksDone)
 
 	return list
 }
