@@ -223,22 +223,13 @@ func (evt Evt[D]) Event() Of[D] {
 	return evt
 }
 
-// Any casts the type parameter of the given event to `any` and returns the
-// re-typed event.
-func Any[D any](evt Of[D]) Evt[any] {
+// Any casts the event data of the given event to `any`.
+func Any[Data any](evt Of[Data]) Evt[any] {
 	return Cast[any](evt)
 }
 
-func Many[D any, Events ~[]Of[D]](events Events) []Evt[any] {
-	out := make([]Evt[any], len(events))
-	for i, evt := range events {
-		out[i] = Any(evt)
-	}
-	return out
-}
-
-// Cast casts the type paramater of given event to the type `To` and returns
-// the re-typed event. Cast panics if the event data cannot be casted to `To`.
+// Cast casts the type paramater of given event to the type `To`. Cast panics if
+// the event data is not a `To`.
 //
 // Use TryCast to test if the event data can be casted to `To`.
 func Cast[To, From any](evt Of[From]) Evt[To] {
@@ -251,9 +242,8 @@ func Cast[To, From any](evt Of[From]) Evt[To] {
 	)
 }
 
-// TryCast casts the type paramater of given event to the type `To` and returns
-// the re-typed event. Cast returns false if the event data cannot be casted to
-// `To`.
+// TryCast casts the type paramater of given event to the type `To`. Cast
+// returns false if the event data cannot be casted to `To`.
 func TryCast[To, From any](evt Of[From]) (Evt[To], bool) {
 	data, ok := any(evt.Data()).(To)
 	if !ok {
@@ -268,34 +258,18 @@ func TryCast[To, From any](evt Of[From]) (Evt[To], bool) {
 	), true
 }
 
-func CastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) []Evt[To] {
-	out := make([]Evt[To], len(events))
-	for i, evt := range events {
-		out[i] = Cast[To](evt)
-	}
-	return out
-}
-
-func TryCastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) ([]Of[To], bool) {
-	out := make([]Of[To], len(events))
-	for i, evt := range events {
-		var ok bool
-		if out[i], ok = TryCast[To](evt); !ok {
-			return out, ok
-		}
-	}
-	return out, true
-}
-
-// Expand expands an interfaced event to a struct.
+// Expand returns an Evt struct from an event interface.
 func Expand[D any](evt Of[D]) Evt[D] {
+	if evt, ok := evt.(Evt[D]); ok {
+		return evt
+	}
 	return New(evt.Name(), evt.Data(), ID(evt.ID()), Time(evt.Time()), Aggregate(evt.Aggregate()))
 }
 
 // Test tests the Event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
-func Test[D any](q Query, evt Of[D]) bool {
+func Test[Data any](q Query, evt Of[Data]) bool {
 	if q == nil {
 		return true
 	}
