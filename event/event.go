@@ -54,10 +54,10 @@ type Of[Data any] interface {
 }
 
 // Option is an event option.
-type Option func(*E[any])
+type Option func(*Evt[any])
 
-// E implements Event.
-type E[D any] struct {
+// Evt is the event implementation.
+type Evt[D any] struct {
 	D Data[D]
 }
 
@@ -82,8 +82,8 @@ type Data[D any] struct {
 //	Time(time.Time): Use a custom Time
 //	Aggregate(string, uuid.UUID, int): Add Aggregate data
 //	Previous(event.Event): Set Aggregate data based on previous Event
-func New[D any](name string, data D, opts ...Option) E[D] {
-	evt := E[any]{D: Data[any]{
+func New[D any](name string, data D, opts ...Option) Evt[D] {
+	evt := Evt[any]{D: Data[any]{
 		ID:   uuid.New(),
 		Name: name,
 		Time: xtime.Now(),
@@ -93,7 +93,7 @@ func New[D any](name string, data D, opts ...Option) E[D] {
 		opt(&evt)
 	}
 
-	return E[D]{
+	return Evt[D]{
 		D: Data[D]{
 			ID:               evt.D.ID,
 			Name:             evt.D.Name,
@@ -108,21 +108,21 @@ func New[D any](name string, data D, opts ...Option) E[D] {
 
 // ID returns an Option that overrides the auto-generated UUID of an event.
 func ID(id uuid.UUID) Option {
-	return func(evt *E[any]) {
+	return func(evt *Evt[any]) {
 		evt.D.ID = id
 	}
 }
 
 // Time returns an Option that overrides the auto-generated timestamp of an Event.
 func Time(t stdtime.Time) Option {
-	return func(evt *E[any]) {
+	return func(evt *Evt[any]) {
 		evt.D.Time = t
 	}
 }
 
 // Aggregate returns an Option that links an Event to an Aggregate.
 func Aggregate(id uuid.UUID, name string, version int) Option {
-	return func(evt *E[any]) {
+	return func(evt *Evt[any]) {
 		evt.D.AggregateName = name
 		evt.D.AggregateID = id
 		evt.D.AggregateVersion = version
@@ -193,44 +193,44 @@ func SortMulti[D any, Events ~[]Of[D]](events Events, sorts ...SortOptions) Even
 	return sorted
 }
 
-func (evt E[D]) ID() uuid.UUID {
+func (evt Evt[D]) ID() uuid.UUID {
 	return evt.D.ID
 }
 
-func (evt E[D]) Name() string {
+func (evt Evt[D]) Name() string {
 	return evt.D.Name
 }
 
-func (evt E[D]) Time() stdtime.Time {
+func (evt Evt[D]) Time() stdtime.Time {
 	return evt.D.Time
 }
 
-func (evt E[D]) Data() D {
+func (evt Evt[D]) Data() D {
 	return evt.D.Data
 }
 
-func (evt E[D]) Aggregate() (uuid.UUID, string, int) {
+func (evt Evt[D]) Aggregate() (uuid.UUID, string, int) {
 	return evt.D.AggregateID, evt.D.AggregateName, evt.D.AggregateVersion
 }
 
 // Any returns the event with its type paramter set to `any`.
-func (evt E[D]) Any() E[any] {
+func (evt Evt[D]) Any() Evt[any] {
 	return Any[D](evt)
 }
 
 // Event returns the event as an interface.
-func (evt E[D]) Event() Of[D] {
+func (evt Evt[D]) Event() Of[D] {
 	return evt
 }
 
 // Any casts the type parameter of the given event to `any` and returns the
 // re-typed event.
-func Any[D any](evt Of[D]) E[any] {
+func Any[D any](evt Of[D]) Evt[any] {
 	return Cast[any](evt)
 }
 
-func Many[D any, Events ~[]Of[D]](events Events) []E[any] {
-	out := make([]E[any], len(events))
+func Many[D any, Events ~[]Of[D]](events Events) []Evt[any] {
+	out := make([]Evt[any], len(events))
 	for i, evt := range events {
 		out[i] = Any(evt)
 	}
@@ -241,7 +241,7 @@ func Many[D any, Events ~[]Of[D]](events Events) []E[any] {
 // the re-typed event. Cast panics if the event data cannot be casted to `To`.
 //
 // Use TryCast to test if the event data can be casted to `To`.
-func Cast[To, From any](evt Of[From]) E[To] {
+func Cast[To, From any](evt Of[From]) Evt[To] {
 	return New(
 		evt.Name(),
 		any(evt.Data()).(To),
@@ -254,10 +254,10 @@ func Cast[To, From any](evt Of[From]) E[To] {
 // TryCast casts the type paramater of given event to the type `To` and returns
 // the re-typed event. Cast returns false if the event data cannot be casted to
 // `To`.
-func TryCast[To, From any](evt Of[From]) (E[To], bool) {
+func TryCast[To, From any](evt Of[From]) (Evt[To], bool) {
 	data, ok := any(evt.Data()).(To)
 	if !ok {
-		return E[To]{}, false
+		return Evt[To]{}, false
 	}
 	return New(
 		evt.Name(),
@@ -268,8 +268,8 @@ func TryCast[To, From any](evt Of[From]) (E[To], bool) {
 	), true
 }
 
-func CastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) []E[To] {
-	out := make([]E[To], len(events))
+func CastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) []Evt[To] {
+	out := make([]Evt[To], len(events))
 	for i, evt := range events {
 		out[i] = Cast[To](evt)
 	}
@@ -288,7 +288,7 @@ func TryCastMany[To, From any, FromEvents ~[]Of[From]](events FromEvents) ([]Of[
 }
 
 // Expand expands an interfaced event to a struct.
-func Expand[D any](evt Of[D]) E[D] {
+func Expand[D any](evt Of[D]) Evt[D] {
 	return New(evt.Name(), evt.Data(), ID(evt.ID()), Time(evt.Time()), Aggregate(evt.Aggregate()))
 }
 

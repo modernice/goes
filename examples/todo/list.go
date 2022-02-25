@@ -61,7 +61,7 @@ func (list *List) Add(task string) error {
 		}
 	}
 
-	aggregate.NextEvent(list, TaskAdded, task)
+	aggregate.Next(list, TaskAdded, task)
 
 	return nil
 }
@@ -75,7 +75,7 @@ func (list *List) Remove(task string) error {
 	if !list.Contains(task) {
 		return nil
 	}
-	aggregate.NextEvent(list, TaskRemoved, TaskRemovedEvent{task})
+	aggregate.Next(list, TaskRemoved, TaskRemovedEvent{task})
 	return nil
 }
 
@@ -106,7 +106,7 @@ func (list *List) Done(tasks ...string) error {
 	}
 
 	if len(done) > 0 {
-		aggregate.NextEvent(list, TasksDone, done)
+		aggregate.Next(list, TasksDone, done)
 	}
 
 	return nil

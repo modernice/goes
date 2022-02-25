@@ -159,12 +159,16 @@ func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 	return sorted
 }
 
-// NextEvent makes and returns the next Event e for the aggregate a. NextEvent
-// calls a.ApplyEvent(e) and a.TrackChange(e) before returning the Event.
+// Deprecated: Use Next instead.
+func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option) event.Evt[D] {
+	return Next(a, name, data, opts...)
+}
+
+// Next creates, applies and returns the provided event for the given aggregate.
 //
 //	var foo aggregate.Aggregate
-//	evt := aggregate.NextEvent(foo, "event-name", ...)
-func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option) event.E[D] {
+//	evt := aggregate.Next(foo, "event-name", ...)
+func Next[Data any](a Aggregate, name string, data Data, opts ...event.Option) event.Evt[Data] {
 	aid, aname, _ := a.Aggregate()
 
 	opts = append([]event.Option{

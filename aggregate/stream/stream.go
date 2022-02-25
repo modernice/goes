@@ -24,7 +24,7 @@ type options struct {
 type stream struct {
 	options
 
-	stream     <-chan event.E[any]
+	stream     <-chan event.Evt[any]
 	inErrors   <-chan error
 	stopErrors func()
 
@@ -182,7 +182,7 @@ func NewOf[D any, Event event.Of[D]](ctx context.Context, events <-chan Event, o
 
 	aes := stream{
 		options:    options{validateConsistency: true},
-		stream:     streams.Map(ctx, events, func(e Event) event.E[any] { return event.Any[D](e) }),
+		stream:     streams.Map(ctx, events, func(e Event) event.Evt[any] { return event.Any[D](e) }),
 		acceptDone: make(chan struct{}),
 		events:     make(chan event.Event),
 		complete:   make(chan job),
