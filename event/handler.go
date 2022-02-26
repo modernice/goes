@@ -131,7 +131,7 @@ func (h *Handler) Context() context.Context {
 func (h *Handler) Run(ctx context.Context) (<-chan error, error) {
 	h.ctx = ctx
 
-	eventNames := make([]string, len(h.eventNames))
+	eventNames := make([]string, 0, len(h.eventNames))
 	for name := range h.eventNames {
 		eventNames = append(eventNames, name)
 	}
