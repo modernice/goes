@@ -130,18 +130,12 @@ func (bus *EventBus) connect(ctx context.Context) error {
 		return nil
 	}
 
-	connectError := make(chan error)
-	go func() {
-		url := bus.natsURL()
-		var err error
-		if bus.conn, err = nats.Connect(url, bus.natsOpts...); err != nil {
-			connectError <- fmt.Errorf("connect: %w [url=%v]", err, url)
-			return
-		}
-		connectError <- nil
-	}()
+	var err error
+	if bus.conn, err = nats.Connect(bus.natsURL(), bus.natsOpts...); err != nil {
+		return fmt.Errorf("connect: %w [url=%v]", err, bus.natsURL())
+	}
 
-	return <-connectError
+	return nil
 }
 
 // Disconnect closes the underlying *nats.Conn. Should ctx be canceled before
