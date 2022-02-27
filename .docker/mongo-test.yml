@@ -20,18 +20,6 @@ services:
     image: mongo
     command: ["--quiet", "--logpath", "/dev/null", "--bind_ip_all"]
 
-  mongotag:
-    image: mongo
-    command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs0", "--bind_ip_all"]
-
-  mongotag_init:
-    image: mongo
-    entrypoint: /entrypoint.sh
-    environment:
-      REPLICA_HOST: mongotag
-    volumes:
-      - "${PWD}/.docker/init-mongo.sh:/entrypoint.sh"
-
   mongomodel:
     image: mongo
     command: ["--quiet", "--logpath", "/dev/null", "--replSet", "rs0", "--bind_ip_all"]
@@ -50,8 +38,6 @@ services:
       - mongostore_replicaset
       - mongostore_replicaset_init
       - mongosnap
-      - mongotag
-      - mongotag_init
       - mongomodel
       - mongomodel_init
     build:
@@ -63,5 +49,4 @@ services:
       - MONGOSTORE_URL=mongodb://mongostore:27017
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
       - MONGOSNAP_URL=mongodb://mongosnap:27017
-      - MONGOTAG_URL=mongodb://mongotag:27017
       - MONGOMODEL_URL=mongodb://mongomodel:27017
