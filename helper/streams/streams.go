@@ -84,11 +84,11 @@ func Walk[T any](
 // ForEach iterates over the provided channels and for every element e calls
 // calls fn(e) and for every error e calls errFn(e) until all channels are
 // closed or ctx is canceled.
-func ForEach[T any, Chan ~<-chan T](
+func ForEach[T any](
 	ctx context.Context,
 	fn func(el T),
 	errFn func(error),
-	in Chan,
+	in <-chan T,
 	errs ...<-chan error,
 ) {
 	errChan, stop := FanIn(errs...)
@@ -122,7 +122,7 @@ func ForEach[T any, Chan ~<-chan T](
 // fills it with the elements from the input channel. The provided filter
 // functions are called for every element. If any of the filters returns false
 // for an element, that element is not pushed into the returned channel.
-func Filter[T any, Chan ~<-chan T](in Chan, filters ...func(T) bool) Chan {
+func Filter[T any](in <-chan T, filters ...func(T) bool) <-chan T {
 	out := make(chan T)
 	go func() {
 		defer close(out)
@@ -142,7 +142,7 @@ func Filter[T any, Chan ~<-chan T](in Chan, filters ...func(T) bool) Chan {
 // Await awaits the next element or error (whatever happens first) from the
 // provided channels. Await returns either an element OR an error, never both.
 // If ctx is canceled before an element is received, ctx.Err() is returned.
-func Await[T any, Chan ~<-chan T](ctx context.Context, in Chan, errs <-chan error) (T, error) {
+func Await[T any](ctx context.Context, in <-chan T, errs <-chan error) (T, error) {
 	var zero T
 	select {
 	case <-ctx.Done():
