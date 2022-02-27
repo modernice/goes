@@ -25,7 +25,7 @@ func New[T any](in ...T) <-chan T {
 //
 // Drain returns when the input channel is closed or if it encounters an error
 // and does not wait for the error channels to be closed.
-func Drain[T any, Chan ~<-chan T](ctx context.Context, in Chan, errs ...<-chan error) ([]T, error) {
+func Drain[T any](ctx context.Context, in <-chan T, errs ...<-chan error) ([]T, error) {
 	out := make([]T, 0, len(in))
 	err := Walk(ctx, func(v T) error { out = append(out, v); return nil }, in, errs...)
 	return out, err
@@ -47,10 +47,10 @@ func Drain[T any, Chan ~<-chan T](ctx context.Context, in Chan, errs ...<-chan e
 //		log.Println(fmt.Sprintf("Received %q Event: %v", e.Name(), e))
 //	}, in, errs)
 //	// handle err
-func Walk[T any, Chan ~<-chan T](
+func Walk[T any](
 	ctx context.Context,
 	walkFn func(T) error,
-	in Chan,
+	in <-chan T,
 	errs ...<-chan error,
 ) error {
 	errChan, stop := FanIn(errs...)
