@@ -19,4 +19,4 @@ jobs:
         stable: false
 
     - name: Test
-      run: go test ./...
+      run: make github-coverage
