@@ -41,6 +41,15 @@ coverage:
 	docker-compose -f .docker/coverage.yml down; \
 	go tool cover -html=out/coverage.out
 
+.PHONY: github-coverage
+github-coverage:
+	docker-compose \
+		-f .docker/mongo-test.yml \
+		-f .docker/nats-test.yml \
+		-f .docker/coverage.yml up \
+		--build --abort-on-container-exit --remove-orphans; \
+	docker-compose -f .docker/coverage.yml down; \
+
 .PHONY: bench
 bench:
 	go test -bench=${bench} -run=${run} -count=${count} ./...
