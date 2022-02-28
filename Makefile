@@ -19,17 +19,17 @@ test:
 .PHONY: nats-test
 nats-test:
 	docker-compose -f .docker/nats-test.yml up --build --abort-on-container-exit --remove-orphans; \
-	docker-compose -f .docker/nats-test.yml down
+	docker-compose -f .docker/nats-test.yml down --remove-orphans
 
 .PHONY: nats-bench
 nats-bench:
 	docker-compose -f .docker/nats-bench.yml up --build --abort-on-container-exit --remove-orphans; \
-	docker-compose -f .docker/nats-bench.yml down
+	docker-compose -f .docker/nats-bench.yml down --remove-orphans
 
 .PHONY: mongo-test
 mongo-test:
 	docker-compose -f .docker/mongo-test.yml up --build --abort-on-container-exit --remove-orphans; \
-	docker-compose -f .docker/mongo-test.yml down
+	docker-compose -f .docker/mongo-test.yml down --remove-orphans
 
 .PHONY: coverage
 coverage:
@@ -38,7 +38,7 @@ coverage:
 		-f .docker/nats-test.yml \
 		-f .docker/coverage.yml up \
 		--build --abort-on-container-exit --remove-orphans; \
-	docker-compose -f .docker/coverage.yml down; \
+	docker-compose -f .docker/coverage.yml down --remove-orphans; \
 	go tool cover -html=out/coverage.out
 
 .PHONY: github-coverage

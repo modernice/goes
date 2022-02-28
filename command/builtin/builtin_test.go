@@ -21,6 +21,9 @@ import (
 )
 
 func TestDeleteAggregate(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	aggregateName := "foo"
 	aggregateID := uuid.New()
 
@@ -39,9 +42,6 @@ func TestDeleteAggregate(t *testing.T) {
 	if id != aggregateID {
 		t.Fatalf("AggregateID() should return %q; got %q", aggregateID, id)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	ebus := eventbus.New()
 	estore := eventstore.WithBus(eventstore.New(), ebus)
