@@ -21,7 +21,7 @@ import (
 )
 
 func TestDeleteAggregate(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	aggregateName := "foo"
@@ -91,7 +91,7 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Foo should be %d; is %d", 14, foo.Foo)
 	}
 
-	awaitCtx, cancel := context.WithTimeout(ctx, time.Second)
+	awaitCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	str, errs := event.Must(eventbus.Await[any](awaitCtx, ebus, builtin.AggregateDeleted))
