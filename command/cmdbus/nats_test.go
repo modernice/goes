@@ -15,7 +15,12 @@ import (
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 )
 
-func TestBus_NATS_Core(t *testing.T) {
+func TestBus(t *testing.T) {
+	testCore(t)
+	testJetstream(t)
+}
+
+func testCore(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
@@ -28,7 +33,7 @@ func TestBus_NATS_Core(t *testing.T) {
 	testNATSBus(t, bus)
 }
 
-func TestBus_NATS_JetStream(t *testing.T) {
+func testJetstream(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())

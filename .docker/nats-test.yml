@@ -2,9 +2,6 @@ version: '3.8'
 services:
   nats:
     image: nats
-  
-  stan:
-    image: nats-streaming
 
   jetstream:
     image: nats
@@ -13,7 +10,6 @@ services:
   test:
     depends_on:
       - nats
-      - stan
       - jetstream
     build:
       context: ..
@@ -22,5 +18,4 @@ services:
         TAGS: nats
     environment:
       - NATS_URL=nats://nats:4222
-      - STAN_URL=nats://stan:4222
       - JETSTREAM_URL=nats://jetstream:4222
