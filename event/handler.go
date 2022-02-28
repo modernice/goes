@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/concurrent"
 )
+
+// ErrRunning is returned when trying to run a *Handler that is already running.
+var ErrRunning = errors.New("event handler is already running")
 
 // A Registerer is an object that can register handlers for different events.
 type Registerer interface {
@@ -101,7 +105,9 @@ type Handler struct {
 	bus        Bus
 	handlers   map[string]func(Event)
 	eventNames map[string]struct{}
-	ctx        context.Context
+
+	mux sync.RWMutex
+	ctx context.Context
 }
 
 // NewHandler returns an event handler for published events.
@@ -124,11 +130,27 @@ func (h *Handler) RegisterHandler(name string, fn func(Event)) {
 // Context returns the context that was passed to h.Run(). If h.Run() has not
 // been called yet, nil is returned.
 func (h *Handler) Context() context.Context {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
 	return h.ctx
+}
+
+// Running returns whether the handler is currently running.
+func (h *Handler) Running() bool {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+	return h.ctx != nil
 }
 
 // Run runs the handler until ctx is canceled.
 func (h *Handler) Run(ctx context.Context) (<-chan error, error) {
+	h.mux.Lock()
+	defer h.mux.Unlock()
+
+	if h.ctx != nil {
+		return nil, ErrRunning
+	}
+
 	h.ctx = ctx
 
 	eventNames := make([]string, 0, len(h.eventNames))

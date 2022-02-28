@@ -38,6 +38,7 @@ type subscribeJob struct {
 	done chan struct{}
 }
 
+// New returns a new in-memory event bus.
 func New() event.Bus {
 	bus := &chanbus{
 		events: make(map[string]*eventSubscription),

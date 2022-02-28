@@ -24,8 +24,8 @@ type options struct {
 	whenDone func(context.Context, finish.Config) error
 }
 
-// WhenDone returns an Option that makes the delegates calls to ctx.Done() to
-// fn.
+// WhenDone returns an Option that calls the provided function when the Finish()
+// method of the context is called.
 func WhenDone(fn func(context.Context, finish.Config) error) ContextOption {
 	return func(opts *options) {
 		opts.whenDone = fn

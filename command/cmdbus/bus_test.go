@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
@@ -17,7 +18,6 @@ import (
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
-	"github.com/modernice/goes/internal/xtime"
 )
 
 type mockPayload struct {
@@ -28,7 +28,7 @@ func TestBus_Dispatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	bus, _, _ := newBus()
+	bus, _, _ := newBus(ctx)
 
 	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
 	if err != nil {
@@ -40,7 +40,7 @@ func TestBus_Dispatch(t *testing.T) {
 
 	dispatchErr := make(chan error)
 	go func() {
-		if err = bus.Dispatch(ctx, cmd.Any()); err != nil {
+		if err := bus.Dispatch(ctx, cmd.Any()); err != nil {
 			dispatchErr <- fmt.Errorf("failed to dispatch: %w", err)
 		}
 	}()
@@ -75,7 +75,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	bus, _, _ := newBus()
+	bus, _, _ := newBus(ctx)
 
 	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
 
@@ -113,8 +113,8 @@ func TestBus_Dispatch_Report(t *testing.T) {
 
 	var dispatchError error
 	select {
-	case <-time.After(300 * time.Millisecond):
-		t.Fatalf("Dispatch not done after %s", 300*time.Millisecond)
+	case <-time.After(time.Second):
+		t.Fatalf("Dispatch not done after %s", time.Second)
 	case dispatchError = <-dispatchErr:
 	}
 
@@ -141,12 +141,12 @@ func TestBus_Dispatch_Report(t *testing.T) {
 }
 
 func TestBus_Dispatch_cancel(t *testing.T) {
-	bus, _, _ := newBus()
-
-	cmd := command.New("foo-cmd", mockPayload{})
+	bus, _, _ := newBus(context.Background())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
+
+	cmd := command.New("foo-cmd", mockPayload{})
 
 	err := bus.Dispatch(ctx, cmd.Any())
 
@@ -156,7 +156,10 @@ func TestBus_Dispatch_cancel(t *testing.T) {
 }
 
 func TestSynchronous(t *testing.T) {
-	bus, _, _ := newBus()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus, _, _ := newBus(ctx, cmdbus.AssignTimeout(0))
 
 	commands, errs, err := bus.Subscribe(context.Background(), "foo-cmd")
 	if err != nil {
@@ -166,13 +169,13 @@ func TestSynchronous(t *testing.T) {
 	cmd := command.New("foo-cmd", mockPayload{A: "foo"})
 
 	dispatchErr := make(chan error)
-	dispatchTime := make(chan time.Time)
+	dispatchDoneTime := make(chan time.Time)
 	go func() {
 		dispatchErr <- bus.Dispatch(context.Background(), cmd.Any(), dispatch.Sync())
-		dispatchTime <- xtime.Now()
+		dispatchDoneTime <- time.Now()
 	}()
 
-	var ctx command.Context
+	var cmdCtx command.Context
 	var ok bool
 L:
 	for {
@@ -182,7 +185,7 @@ L:
 				errs = nil
 			}
 			t.Fatal(err)
-		case ctx, ok = <-commands:
+		case cmdCtx, ok = <-commands:
 			if !ok {
 				t.Fatal("Context channel shouldn't be closed!")
 			}
@@ -191,16 +194,16 @@ L:
 	}
 
 	mockError := errors.New("mock error")
-	now := xtime.Now()
-	if err = ctx.Finish(ctx, finish.WithRuntime(3*time.Second), finish.WithError(mockError)); err != nil {
+	beforeFinish := time.Now()
+	if err = cmdCtx.Finish(ctx, finish.WithRuntime(3*time.Second), finish.WithError(mockError)); err != nil {
 		t.Fatalf("mark as done: %v", err)
 	}
 
 	dispatchError := <-dispatchErr
-	dispatchedAt := <-dispatchTime
+	dispatchedAt := <-dispatchDoneTime
 
-	if dispatchedAt.Before(now) || dispatchedAt.After(now.Add(3*time.Second)) {
-		t.Fatalf("Dispatch should return at ~%s; returned at %s", now, dispatchedAt)
+	if dispatchedAt.Before(beforeFinish) {
+		t.Fatalf("Dispatch should return after %v; returned at %v", beforeFinish, dispatchedAt)
 	}
 
 	if dispatchError == nil {
@@ -208,12 +211,15 @@ L:
 	}
 
 	if !strings.Contains(dispatchError.Error(), mockError.Error()) {
-		t.Errorf("Dispatch should return an error that contains %q", mockError.Error())
+		t.Errorf("Dispatch should return an error that contains %q\n%s", mockError.Error(), cmp.Diff(mockError.Error(), dispatchError.Error()))
 	}
 }
 
 func TestAssignTimeout(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.AssignTimeout[any](500 * time.Millisecond))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus, _, _ := newBus(ctx, cmdbus.AssignTimeout(500*time.Millisecond))
 
 	cmd := command.New("foo-cmd", mockPayload{})
 
@@ -233,7 +239,10 @@ func TestAssignTimeout(t *testing.T) {
 }
 
 func TestAssignTimeout_0(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.AssignTimeout[any](0))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus, _, _ := newBus(ctx, cmdbus.AssignTimeout(0))
 
 	cmd := command.New("foo-cmd", mockPayload{})
 
@@ -247,24 +256,21 @@ func TestAssignTimeout_0(t *testing.T) {
 	}
 }
 
-func TestDrainTimeout(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.DrainTimeout[any](100 * time.Millisecond))
-
-	subCtx, cancel := context.WithCancel(context.Background())
+func TestReceiveTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	commands, errs, err := bus.Subscribe(subCtx, "foo-cmd")
+	bus, _, _ := newBus(ctx, cmdbus.ReceiveTimeout(100*time.Millisecond))
+
+	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
 	if err != nil {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	newCmd := func() command.Command {
-		return command.New[any]("foo-cmd", mockPayload{})
-	}
+	newCmd := func() command.Command { return command.New("foo-cmd", mockPayload{}).Any() }
 	dispatchErrc := make(chan error)
 
 	go func() {
-		defer cancel()
 		for i := 0; i < 3; i++ {
 			if err := bus.Dispatch(context.Background(), newCmd()); err != nil {
 				dispatchErrc <- err
@@ -281,25 +287,38 @@ L:
 				errs = nil
 				break
 			}
-			if !errors.Is(err, cmdbus.ErrDrainTimeout) {
+			if !errors.Is(err, cmdbus.ErrReceiveTimeout) {
 				t.Fatal(err)
 			}
 		case _, ok := <-commands:
 			if !ok {
-				break L
+				t.Fatalf("command channel should not be closed")
 			}
+
 			<-time.After(200 * time.Millisecond)
 			count++
+			if count == 2 {
+				break L
+			}
 		}
 	}
 
-	if count != 2 {
-		t.Errorf("only %d Contexts should be received; got %d", 2, count)
+	select {
+	case _, ok := <-commands:
+		if !ok {
+			t.Fatalf("command channel should not be closed")
+		}
+		count++
+		t.Fatalf("command channel should only send 2 commands; got %d", count)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
-func TestDrainTimeout_0(t *testing.T) {
-	bus, _, _ := newBus(cmdbus.DrainTimeout[any](0))
+func TestReceiveTimeout_0(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus, _, _ := newBus(ctx, cmdbus.ReceiveTimeout(0))
 
 	subCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -309,13 +328,10 @@ func TestDrainTimeout_0(t *testing.T) {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
 
-	newCmd := func() command.Command {
-		return command.New[any]("foo-cmd", mockPayload{})
-	}
+	newCmd := func() command.Command { return command.New("foo-cmd", mockPayload{}).Any() }
 	dispatchErrc := make(chan error)
 
 	go func() {
-		defer cancel()
 		if err := bus.Dispatch(context.Background(), newCmd()); err != nil {
 			dispatchErrc <- err
 		}
@@ -338,25 +354,57 @@ L:
 			errs = nil
 		case _, ok := <-commands:
 			if !ok {
-				break L
+				t.Fatalf("command channel should no be closed")
 			}
 			<-time.After(100 * time.Millisecond)
 			count++
+			if count == 3 {
+				break L
+			}
 		}
 	}
 
-	if count != 3 {
-		t.Errorf("all %d Contexts should be received; got %d", 3, count)
+	select {
+	case _, ok := <-commands:
+		if !ok {
+			t.Fatalf("command channel should not be closed")
+		}
+		count++
+		t.Fatalf("command channel should only send 3 commands; got %d", count)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
-func newBus(opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
+func newBus(ctx context.Context, opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() any {
 		return mockPayload{}
 	})
 	ebus := eventbus.New()
-	return cmdbus.New(enc, ebus, opts...), ebus, enc.Registry
+	bus := cmdbus.New(enc, ebus, opts...)
+	reg := enc.Registry
+
+	running := make(chan struct{})
+	go func() {
+		errs, err := bus.Run(ctx)
+		if err != nil {
+			panic(err)
+		}
+
+		close(running)
+
+		for err := range errs {
+			panic(err)
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		panic(ctx.Err())
+	case <-running:
+	}
+
+	return bus, ebus, reg
 }
 
 func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {

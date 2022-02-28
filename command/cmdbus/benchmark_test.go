@@ -1,52 +1,41 @@
 package cmdbus_test
 
-import (
-	"context"
-	"log"
-	"testing"
-	"time"
+// func BenchmarkBus_Dispatch_Synchronous(t *testing.B) {
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
 
-	"github.com/modernice/goes/codec"
-	"github.com/modernice/goes/command"
-	"github.com/modernice/goes/command/cmdbus/dispatch"
-)
+// 	bus, _, enc := newBus(ctx)
+// 	codec.Gob(enc).GobRegister("foo", func() any { return struct{}{} })
 
-func BenchmarkBus_Dispatch_Synchronous(t *testing.B) {
-	bus, _, enc := newBus()
-	codec.Gob(enc).GobRegister("foo", func() any { return struct{}{} })
+// 	h := command.NewHandler[any](bus)
+// 	errs, err := h.Handle(ctx, "foo", func(command.Context) error {
+// 		return nil
+// 	})
+// 	if err != nil {
+// 		t.Fatalf("handle commands: %v", err)
+// 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+// 	go func() {
+// 		for err := range errs {
+// 			log.Println(err)
+// 			panic(err)
+// 		}
+// 	}()
 
-	h := command.NewHandler[any](bus)
-	errs, err := h.Handle(ctx, "foo", func(command.Context) error {
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("handle commands: %v", err)
-	}
+// 	cmd := command.New("foo", struct{}{})
 
-	go func() {
-		for err := range errs {
-			log.Println(err)
-			panic(err)
-		}
-	}()
+// 	t.ReportAllocs()
+// 	t.ResetTimer()
 
-	cmd := command.New("foo", struct{}{})
+// 	for i := 0; i < t.N; i++ {
+// 		start := time.Now()
+// 		if err := bus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+// 			t.Fatalf("dispatch command: %v", err)
+// 		}
+// 		dur := time.Since(start)
 
-	t.ReportAllocs()
-	t.ResetTimer()
+// 		nanos := float64(dur) / float64(t.N)
 
-	for i := 0; i < t.N; i++ {
-		start := time.Now()
-		if err := bus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
-			t.Fatalf("dispatch command: %v", err)
-		}
-		dur := time.Since(start)
-
-		nanos := float64(dur) / float64(t.N)
-
-		t.ReportMetric(nanos, "ns/op")
-	}
-}
+// 		t.ReportMetric(nanos, "ns/op")
+// 	}
+// }

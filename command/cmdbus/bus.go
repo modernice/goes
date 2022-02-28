@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,19 +17,22 @@ import (
 	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/internal/xtime"
 )
 
 var _ command.Bus = (*Bus)(nil)
 
 const (
-	// DefaultAssignTimeout is the default timeout when assigning a Command to a
-	// Handler.
+	// DefaultAssignTimeout is the default timeout for assigning a command to a
+	// handler. If a command is not assigned to a handler within this timeout,
+	// the command bus returns an error that unwraps to ErrAssignTimeout.
+	// The default timeout is 5s. A zero Duration means no timeout.
 	DefaultAssignTimeout = 5 * time.Second
 
-	// DefaultDrainTimeout is the default timeout for accepting Commands after
-	// the used context is canceled.
-	DefaultDrainTimeout = 10 * time.Second
+	// DefaultReceiveTimeout is the default timeout for receiving commands from
+	// the command bus. If the command is not received within this timeout, the
+	// command bus returns an error that unwraps to ErrReceiveTimeout.
+	// The default timeout is 10s. A zero Duration means no timeout.
+	DefaultReceiveTimeout = 10 * time.Second
 )
 
 var (
@@ -37,87 +40,122 @@ var (
 	// to a Handler before a given deadline.
 	ErrAssignTimeout = errors.New("failed to assign command because of timeout")
 
-	// ErrDrainTimeout is emitted by a Bus when the DrainTimeout is exceeded
+	// ErrReceiveTimeout is emitted by a Bus when the DrainTimeout is exceeded
 	// when receiving remaining Commands from a canceled Command subscription.
-	ErrDrainTimeout = errors.New("dropped command because of timeout")
+	ErrReceiveTimeout = errors.New("command dropped because of receive timeout")
+
+	// Deprecated: Use ErrReceiveTimeout instead.
+	ErrDrainTimeout = ErrReceiveTimeout
 
 	// ErrDispatchCanceled is returned by a Bus when the dispatch was canceled
 	// by the provided Context.
 	ErrDispatchCanceled = errors.New("dispatch canceled")
+
+	// // ErrNotRunning is returned when trying to dispatch or subscribe to a
+	// // command before the command bus has been started.
+	// ErrNotRunning = errors.New("command bus is not running")
+
+	// ErrAlreadySubscribed is returned when trying to subscribe to the same
+	// commands more than once within a single command bus.
+	ErrSubscribed = errors.New("already subscribed to command")
 )
 
 // Bus is an event-driven Command Bus.
 type Bus struct {
-	assignTimeout time.Duration
-	drainTimeout  time.Duration
+	*event.Handler
 
-	enc codec.Encoding
-	bus event.Bus
+	mux           sync.RWMutex
+	subscriptions map[string]*subscription
+	requested     map[uuid.UUID]command.Cmd[any]
+	dispatched    map[uuid.UUID]dispatcher
+	assigned      map[uuid.UUID]dispatcher
+	pending       map[uuid.UUID]dispatcher
 
+	assignTimeout  time.Duration
+	receiveTimeout time.Duration
+
+	enc       codec.Encoding
+	bus       event.Bus
 	handlerID uuid.UUID
+}
 
-	debug   bool
-	debugID string
-	logger  *log.Logger
+type subscription struct {
+	commands chan command.Context
+	errs     chan error
+}
+
+type dispatcher struct {
+	cmd      command.Command
+	cfg      command.DispatchConfig
+	accepted chan struct{}
+	received chan struct{}
+	out      chan error
 }
 
 // Option is a Command Bus option.
 type Option func(*Bus)
 
-// Debug enables verbose logging for debugging purposes. Optional id may be
-// specified to annotate debug output.
-func Debug[E any](id string) Option {
-	return func(b *Bus) {
-		b.debug = true
-		b.debugID = id
-	}
-}
+// // Debug enables verbose logging for debugging purposes. Optional id may be
+// // specified to annotate debug output.
+// func Debug(id string) Option {
+// 	return func(b *Bus) {
+// 		b.debug = true
+// 		b.debugID = id
+// 	}
+// }
 
 // AssignTimeout returns an Option that configures the timeout when assigning a
 // Command to a Handler. A zero Duration means no timeout.
 //
 // A zero Duration means no timeout. The default timeout is 5s.
-func AssignTimeout[E any](dur time.Duration) Option {
+func AssignTimeout(dur time.Duration) Option {
 	return func(b *Bus) {
 		b.assignTimeout = dur
 	}
 }
 
-// DrainTimeout returns an Option that configures the timeout when accepting the
-// remaining Commands after the Context that's used to subscribe to Commands is
-// canceled.
+// ReceiveTimeout returns an Option that configures the timeout for receiving a
+// command context from the command bus. If the command is not received from the
+// returned channel within the configured timeout, the command is dropped.
 //
 // A zero Duration means no timeout. The default timeout is 10s.
-func DrainTimeout[E any](dur time.Duration) Option {
+func ReceiveTimeout(dur time.Duration) Option {
 	return func(b *Bus) {
-		b.drainTimeout = dur
+		b.receiveTimeout = dur
 	}
+}
+
+// Deprecated: Use ReceiveTimeout instead.
+func DrainTimeout(dur time.Duration) Option {
+	return ReceiveTimeout(dur)
 }
 
 // New returns an event-driven command bus.
 func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
-	b := Bus{
-		assignTimeout: DefaultAssignTimeout,
-		drainTimeout:  DefaultDrainTimeout,
-		enc:           enc,
-		bus:           events,
-		handlerID:     uuid.New(),
+	b := &Bus{
+		Handler:        event.NewHandler(events),
+		subscriptions:  make(map[string]*subscription),
+		requested:      make(map[uuid.UUID]command.Cmd[any]),
+		dispatched:     make(map[uuid.UUID]dispatcher),
+		assigned:       make(map[uuid.UUID]dispatcher),
+		pending:        make(map[uuid.UUID]dispatcher),
+		assignTimeout:  DefaultAssignTimeout,
+		receiveTimeout: DefaultReceiveTimeout,
+		enc:            enc,
+		bus:            events,
+		handlerID:      uuid.New(),
 	}
 	for _, opt := range opts {
-		opt(&b)
+		opt(b)
 	}
 
-	if b.debug {
-		prefix := "[goes/command/cmdbus.Bus:"
-		if b.debugID != "" {
-			prefix += b.debugID + "] "
-		} else {
-			prefix += b.handlerID.String() + "] "
-		}
-		b.logger = log.New(os.Stderr, prefix, log.LstdFlags)
-	}
+	event.HandleWith(b, b.commandDispatched, CommandDispatched)
+	event.HandleWith(b, b.commandRequested, CommandRequested)
+	event.HandleWith(b, b.commandAssigned, CommandAssigned)
+	event.HandleWith(b, b.commandAccepted, CommandAccepted)
+	event.HandleWith(b, b.commandExecuted, CommandExecuted)
 
-	return &b
+	return b
 }
 
 // Dispatch dispatches a Command to the appropriate handler (Command Bus) using
@@ -180,82 +218,24 @@ func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
 // 	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
 // 	log.Println(fmt.Sprintf("Error: %v", err))
-func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) error {
-	var err error
-	b.debugMeasure(fmt.Sprintf("[dispatch] Dispatching %q command", cmd.Name()), func() {
-		cfg := dispatch.Configure(opts...)
-
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		var (
-			events <-chan event.Event
-			errs   <-chan error
-		)
-
-		events, errs, err = b.subscribeDispatch(ctx, cfg.Synchronous)
+func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) (err error) {
+	if !b.Running() {
+		errs, err := b.Run(context.Background())
 		if err != nil {
-			err = b.dispatchError(err)
-			return
+			return err
 		}
 
-		if err = b.dispatch(ctx, cmd); err != nil {
-			err = b.dispatchError(err)
-			return
+		go logErrors(errs)
+	}
+
+	defer func() {
+		if err != nil && errors.Is(err, context.Canceled) {
+			err = fmt.Errorf("%w: %v", ErrDispatchCanceled, err)
 		}
+	}()
 
-		var assignTimeout <-chan time.Time
-		if b.assignTimeout > 0 {
-			timer := time.NewTimer(b.assignTimeout)
-			defer timer.Stop()
-			assignTimeout = timer.C
-		}
+	cfg := dispatch.Configure(opts...)
 
-		err = b.dispatchError(b.workDispatch(
-			ctx,
-			cfg,
-			cmd,
-			events,
-			errs,
-			assignTimeout,
-		))
-	})
-
-	return err
-}
-
-func (b *Bus) dispatchError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	if errors.Is(err, context.Canceled) {
-		return ErrDispatchCanceled
-	}
-
-	return err
-}
-
-func (b *Bus) subscribeDispatch(ctx context.Context, sync bool) (<-chan event.Event, <-chan error, error) {
-	// ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	// defer cancel()
-
-	names := []string{CommandRequested, CommandAccepted}
-	if sync {
-		names = append(names, CommandExecuted)
-	}
-
-	b.debugLog("[dispatch] Subscribing to %v events...", names)
-
-	events, errs, err := b.bus.Subscribe(ctx, names...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("subscribe to %v events: %w", names, err)
-	}
-
-	return events, errs, nil
-}
-
-func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 	var load bytes.Buffer
 	if err := b.enc.Encode(&load, cmd.Name(), cmd.Payload()); err != nil {
 		return fmt.Errorf("encode payload: %w", err)
@@ -271,156 +251,46 @@ func (b *Bus) dispatch(ctx context.Context, cmd command.Command) error {
 		Payload:       load.Bytes(),
 	})
 
-	b.debugLog("[dispatch] Publishing %q event...", evt.Name())
-
-	var err error
-	b.debugMeasure(fmt.Sprintf("[dispatch] Publishing %q event", evt.Name()), func() {
-		// ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		// defer cancel()
-		err = b.bus.Publish(ctx, evt.Any())
-	})
-
-	if err != nil {
+	if err := b.bus.Publish(ctx, evt.Any()); err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
 	}
 
-	return nil
-}
+	out := make(chan error)
+	assigned := make(chan struct{})
+	received := make(chan struct{})
 
-func (b *Bus) workDispatch(
-	ctx context.Context,
-	cfg command.DispatchConfig,
-	cmd command.Command,
-	events <-chan event.Event,
-	errs <-chan error,
-	assignTimeout <-chan time.Time,
-) error {
-	var status dispatchStatus
-
-	for {
-		select {
-		case <-ctx.Done():
-			b.debugLog("[dispatch] Dispatch of %q command canceled because of canceled Context.")
-			return ErrDispatchCanceled
-		case <-assignTimeout:
-			b.debugLog("[dispatch] Dispatch of %q command canceled because of AssignTimeout (%v).", cmd.Name(), b.assignTimeout)
-			return fmt.Errorf("assign %q Command: %w", cmd.Name(), ErrAssignTimeout)
-		case err, ok := <-errs:
-			if ok {
-				return fmt.Errorf("event stream: %w", err)
-			}
-			errs = nil
-		case evt, ok := <-events:
-			if !ok {
-				events = nil
-				break
-			}
-
-			var err error
-			status, err = b.handleDispatchEvent(ctx, cfg, cmd, evt, status)
-
-			if status.executed || (!cfg.Synchronous && status.accepted) {
-				return err
-			}
-
-			if status.accepted {
-				assignTimeout = nil
-			}
-		}
+	b.mux.Lock()
+	b.dispatched[cmd.ID()] = dispatcher{
+		cmd:      cmd,
+		cfg:      cfg,
+		accepted: assigned,
+		received: received,
+		out:      out,
 	}
-}
+	b.mux.Unlock()
 
-type dispatchStatus struct {
-	assigned bool
-	accepted bool
-	executed bool
-}
-
-func (b *Bus) handleDispatchEvent(
-	ctx context.Context,
-	cfg command.DispatchConfig,
-	cmd command.Command,
-	evt event.Event,
-	status dispatchStatus,
-) (dispatchStatus, error) {
-	b.debugLog("[dispatch] Handling %q event (%s)...", evt.Name(), evt.ID())
-
-	// log.Printf("EVENT %v", evt.Name())
-
-	switch evt.Name() {
-	case CommandRequested:
-		data := evt.Data().(CommandRequestedData)
-		if data.ID != cmd.ID() {
-			return status, nil
-		}
-
-		if err := b.assignCommand(ctx, cmd, data); err != nil {
-			return status, fmt.Errorf("assign command: %w", err)
-		}
-
-		status.assigned = true
-		b.debugLog("[dispatch] %q command assigned.", cmd.Name())
-
-		return status, nil
-
-	case CommandAccepted:
-		data := evt.Data().(CommandAcceptedData)
-		if data.ID != cmd.ID() {
-			return status, nil
-		}
-		status.accepted = true
-		b.debugLog("[dispatch] %q command accepted.", cmd.Name())
-		return status, nil
-
-	case CommandExecuted:
-		data := evt.Data().(CommandExecutedData)
-		if data.ID != cmd.ID() {
-			return status, nil
-		}
-
-		var err error
-		if data.Error != "" {
-			err = &ExecutionError[any]{
-				Cmd: cmd,
-				Err: errors.New(data.Error),
-			}
-		}
-
-		if cfg.Reporter != nil {
-			id, name := cmd.Aggregate()
-			rep := report.New(
-				report.Command{
-					Name:          cmd.Name(),
-					ID:            cmd.ID(),
-					AggregateName: name,
-					AggregateID:   id,
-					Payload:       cmd.Payload(),
-				},
-				report.Error(err),
-				report.Runtime(data.Runtime),
-			)
-
-			b.debugLog("[dispatch] Reporting %q command: %v", cmd.Name(), rep)
-
-			cfg.Reporter.Report(rep)
-		}
-
-		status.executed = true
-		return status, err
-	default:
-		return status, nil
+	var timeout <-chan time.Time
+	if b.assignTimeout > 0 {
+		timer := time.NewTimer(b.assignTimeout)
+		defer timer.Stop()
+		timeout = timer.C
 	}
-}
 
-func (b *Bus) assignCommand(ctx context.Context, cmd command.Command, data CommandRequestedData) error {
-	evt := event.New(CommandAssigned, CommandAssignedData(data))
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timeout:
+		return ErrAssignTimeout
+	case <-assigned:
+	}
 
-	var err error
-	b.debugMeasure(fmt.Sprintf("[dispatch] Publishing %q event", evt.Name()), func() {
-		err = b.bus.Publish(ctx, evt.Any())
-	})
-	if err != nil {
-		return fmt.Errorf("publish %q event: %w", CommandAssigned, err)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err, failed := <-out:
+		if failed {
+			return err
+		}
 	}
 
 	return nil
@@ -447,236 +317,267 @@ func (b *Bus) assignCommand(ctx context.Context, cmd command.Command, data Comma
 // Option to specify the timeout after which the remaining Commands are being
 // discarded.
 func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Ctx[any], <-chan error, error) {
-	events, errs, err := b.subscribeSubscribe(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	out, outErrs := make(chan command.Ctx[any]), make(chan error)
-
-	go b.workSubscription(ctx, events, errs, out, outErrs, names)
-
-	return out, outErrs, nil
-}
-
-func (b *Bus) subscribeSubscribe(ctx context.Context) (events <-chan event.Event, errs <-chan error, err error) {
-	names := []string{CommandDispatched, CommandAssigned}
-	b.debugMeasure(fmt.Sprintf("[subscribe] Subscribing to %q events", names), func() {
-		events, errs, err = b.bus.Subscribe(ctx, names...)
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("subscribe to %v events: %w", names, err)
-	}
-	return events, errs, nil
-}
-
-type commandRequest struct {
-	cmd  command.Command
-	time time.Time
-}
-
-func (b *Bus) workSubscription(
-	parentCtx context.Context,
-	events <-chan event.Event,
-	errs <-chan error,
-	out chan<- command.Ctx[any],
-	outErrs chan<- error,
-	names []string,
-) {
-	isDone := make(chan struct{})
-	defer close(isDone)
-
-	defer close(out)
-	defer close(outErrs)
-
-	ctx := b.newSubscriptionContext(parentCtx, isDone)
-
-	requested := make(map[uuid.UUID]commandRequest)
-
-	for {
-		if events == nil && errs == nil {
-			return
+	if !b.Running() {
+		errs, err := b.Run(context.Background())
+		if err != nil {
+			return nil, nil, err
 		}
 
-		select {
-		case err, ok := <-errs:
-			if !ok {
-				errs = nil
-				break
-			}
-			outErrs <- fmt.Errorf("event stream: %w", err)
-		case evt, ok := <-events:
-			if !ok {
-				events = nil
-				break
-			}
+		go logErrors(errs)
+	}
 
-			b.debugLog("[subscribe] Handling %q event (%s)...", evt.Name(), evt.ID())
+	out, errs := make(chan command.Context), make(chan error)
 
-			switch evt.Name() {
-			case CommandDispatched:
-				data := evt.Data().(CommandDispatchedData)
+	if len(names) == 0 {
+		return out, errs, nil
+	}
 
-				if !containsName(names, data.Name) {
-					break
-				}
+	b.mux.Lock()
+	defer b.mux.Unlock()
 
-				load, err := b.enc.Decode(bytes.NewReader(data.Payload), data.Name)
-				if err != nil {
-					outErrs <- fmt.Errorf("decode payload: %w", err)
-					break
-				}
-
-				cmd := command.New(
-					data.Name,
-					load,
-					command.ID(data.ID),
-					command.Aggregate(data.AggregateName, data.AggregateID),
-				)
-
-				if err := b.requestCommand(ctx, cmd); err != nil {
-					outErrs <- fmt.Errorf("request command: %w", err)
-					break
-				}
-
-				requested[cmd.ID()] = commandRequest{
-					cmd:  cmd,
-					time: xtime.Now(),
-				}
-
-			case CommandAssigned:
-				data := evt.Data().(CommandAssignedData)
-
-				if data.HandlerID != b.handlerID {
-					delete(requested, data.ID)
-					break
-				}
-
-				req, ok := requested[data.ID]
-				if !ok {
-					break
-				}
-				delete(requested, data.ID)
-
-				if err := b.acceptCommand(ctx, req.cmd); err != nil {
-					outErrs <- fmt.Errorf("accept command: %w", err)
-					break
-				}
-
-				select {
-				case <-ctx.Done():
-					outErrs <- fmt.Errorf("drop %q command: %w", req.cmd.Name(), ErrDrainTimeout)
-				case out <- command.NewContext(
-					context.Background(),
-					req.cmd,
-					command.WhenDone(func(ctx context.Context, cfg finish.Config) error {
-						return b.markDone(ctx, req.cmd, cfg)
-					}),
-				):
-				}
-			}
+	for _, name := range names {
+		if _, ok := b.subscriptions[name]; ok {
+			return nil, nil, fmt.Errorf("%w: %s", ErrSubscribed, name)
 		}
 	}
-}
 
-func (b *Bus) newSubscriptionContext(parent context.Context, done <-chan struct{}) context.Context {
-	if b.drainTimeout == 0 {
-		return context.Background()
+	for _, name := range names {
+		sub := &subscription{
+			commands: out,
+			errs:     errs,
+		}
+		b.subscriptions[name] = sub
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// unsubscribe when the context is canceled
 	go func() {
-		defer cancel()
-		select {
-		case <-done:
-			return
-		case <-parent.Done():
-		}
+		<-ctx.Done()
+		b.mux.Lock()
+		defer b.mux.Unlock()
 
-		timer := time.NewTimer(b.drainTimeout)
-		defer timer.Stop()
-
-		select {
-		case <-done:
-		case <-timer.C:
+		for _, name := range names {
+			if sub, ok := b.subscriptions[name]; ok {
+				close(sub.commands)
+				close(sub.errs)
+			}
+			delete(b.subscriptions, name)
 		}
 	}()
 
-	return ctx
+	return out, errs, nil
 }
 
-func (b *Bus) requestCommand(ctx context.Context, cmd command.Command) error {
-	evt := event.New(CommandRequested, CommandRequestedData{
-		ID:        cmd.ID(),
+func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
+	data := evt.Data()
+
+	// if the bus does not handle the dispatched command, return
+	if !b.handles(data.Name) {
+		return
+	}
+
+	// otherwise request to become the handler of the command
+	requestEvent := event.New(CommandRequested, CommandRequestedData{
+		ID:        data.ID,
 		HandlerID: b.handlerID,
 	})
-	var err error
-	b.debugMeasure(fmt.Sprintf("[subscribe] Publishing %q event", evt.Name()), func() {
-		err = b.bus.Publish(ctx, evt.Any())
-	})
-	if err != nil {
-		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
+
+	if err := b.bus.Publish(b.Context(), requestEvent.Any()); err != nil {
+		log.Printf("[goes/command/cmdbus.Bus@commandDispatched] Failed to request %q command: %v", data.Name, err)
+		return
 	}
-	return nil
+
+	load, err := b.enc.Decode(bytes.NewReader(data.Payload), data.Name)
+	if err != nil {
+		log.Printf("[goes/command/cmdbus.Bus@commandDispatched] Failed to decode %q command: %v", data.Name, err)
+		return
+	}
+
+	b.requested[data.ID] = command.New(data.Name, load, command.ID(data.ID), command.Aggregate(data.AggregateName, data.AggregateID))
 }
 
-func (b *Bus) acceptCommand(ctx context.Context, cmd command.Command) error {
-	evt := event.New(CommandAccepted, CommandAcceptedData{
-		ID:        cmd.ID(),
-		HandlerID: b.handlerID,
-	})
-	var err error
-	b.debugMeasure(fmt.Sprintf("[subscribe] Publishing %q event", evt.Name()), func() {
-		err = b.bus.Publish(ctx, evt.Any())
-	})
-	if err != nil {
-		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
+func (b *Bus) handles(name string) bool {
+	b.mux.RLock()
+	defer b.mux.RUnlock()
+	_, ok := b.subscriptions[name]
+	return ok
+}
+
+func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
+	data := evt.Data()
+
+	// if the bus did not dispatch the command, return
+	b.mux.RLock()
+	cmd, ok := b.dispatched[data.ID]
+	b.mux.RUnlock()
+	if !ok {
+		return
 	}
-	return nil
+
+	// otherwise assign the command to the handler that requested to handle it
+	assignEvent := event.New(CommandAssigned, CommandAssignedData{
+		ID:        data.ID,
+		HandlerID: data.HandlerID,
+	})
+
+	if err := b.bus.Publish(b.Context(), assignEvent.Any()); err != nil {
+		log.Printf("[goes/command/cmdbus.Bus@commandRequested] Failed to assign %q command to handler %q: %v", cmd.cmd.Name(), data.HandlerID, err)
+		return
+	}
+
+	b.assigned[data.ID] = cmd
+}
+
+func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
+	data := evt.Data()
+
+	cmd := b.requested[data.ID]
+
+	// otherwise remove the command from the requested commands
+	delete(b.requested, data.ID)
+
+	// and accept the command
+	acceptEvt := event.New(CommandAccepted, CommandAcceptedData{
+		ID:        data.ID,
+		HandlerID: data.HandlerID,
+	})
+
+	if err := b.bus.Publish(b.Context(), acceptEvt.Any()); err != nil {
+		log.Printf("[goes/command/cmdbus.Bus@commandAssigned] Failed to accept %q command: %v", cmd.Name(), err)
+		return
+	}
+
+	// then pass the command to the subscription
+	b.mux.RLock()
+	defer b.mux.RUnlock()
+	sub, ok := b.subscriptions[cmd.Name()]
+	if !ok {
+		return
+	}
+
+	var timeout <-chan time.Time
+	if b.receiveTimeout > 0 {
+		timer := time.NewTimer(b.receiveTimeout)
+		defer timer.Stop()
+		timeout = timer.C
+	}
+
+	select {
+	case <-b.Context().Done():
+		return
+	case <-timeout:
+		select {
+		case <-b.Context().Done():
+		case sub.errs <- fmt.Errorf("dropping %q command: %w", cmd.Name(), ErrReceiveTimeout):
+		}
+	case sub.commands <- command.NewContext[any](
+		b.Context(),
+		cmd,
+		command.WhenDone(func(ctx context.Context, cfg finish.Config) error {
+			return b.markDone(ctx, cmd, cfg)
+		}),
+	):
+	}
 }
 
 func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg finish.Config) error {
 	var errmsg string
+
 	if cfg.Err != nil {
 		errmsg = cfg.Err.Error()
 	}
+
 	evt := event.New(CommandExecuted, CommandExecutedData{
 		ID:      cmd.ID(),
 		Runtime: cfg.Runtime,
 		Error:   errmsg,
 	})
-	var err error
-	b.debugMeasure(fmt.Sprintf("[subscribe] Publishing %q event", evt.Name()), func() {
-		err = b.bus.Publish(ctx, evt.Any())
-	})
-	if err != nil {
+
+	if err := b.bus.Publish(ctx, evt.Any()); err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
 	}
+
 	return nil
 }
 
-func (b *Bus) debugLog(format string, v ...any) {
-	if b.logger != nil {
-		b.logger.Printf(format+"\n", v...)
+func (b *Bus) commandAccepted(evt event.Of[CommandAcceptedData]) {
+	data := evt.Data()
+
+	// if the bus did not assign the command, return
+	cmd, ok := b.assigned[data.ID]
+	if !ok {
+		return
 	}
+
+	// otherwise mark the command as accepted and remove it from the assigned commands
+	close(cmd.accepted)
+	delete(b.assigned, data.ID)
+
+	// if the dispatch was made synchronously, add the command to pending
+	// commands, return and let b.commandExecuted do the rest
+	if cmd.cfg.Synchronous || cmd.cfg.Reporter != nil {
+		b.pending[data.ID] = cmd
+		return
+	}
+
+	// otherwise close the error channel of the dispatcher
+	close(cmd.out)
 }
 
-func (b *Bus) debugMeasure(action string, fn func()) {
-	start := time.Now()
-	fn()
+func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
+	data := evt.Data()
 
-	if b.debug {
-		end := time.Now()
-		dur := end.Sub(start)
-		b.debugLog("%s took %v (%v - %v).", action, dur, start, end)
-	}
-}
-
-func containsName(names []string, name string) bool {
-	for _, n := range names {
-		if n == name {
-			return true
+	// if the bus is not waiting for the execution of the command, return
+	cmd, ok := b.pending[data.ID]
+	if !ok {
+		if cmd, ok = b.assigned[data.ID]; !ok {
+			return
 		}
 	}
-	return false
+
+	// otherwise remove the command from pending and assigned commands
+	delete(b.pending, data.ID)
+	delete(b.assigned, data.ID)
+
+	// if the dispatch requested a report, report the execution result
+	if cmd.cfg.Reporter != nil {
+		id, name := cmd.cmd.Aggregate()
+
+		var err error
+		if data.Error != "" {
+			err = errors.New(data.Error)
+		}
+
+		cmd.cfg.Reporter.Report(report.New(report.Command{
+			ID:            cmd.cmd.ID(),
+			Name:          cmd.cmd.Name(),
+			Payload:       cmd.cmd.Payload(),
+			AggregateName: name,
+			AggregateID:   id,
+		}, report.Runtime(data.Runtime), report.Error(&ExecutionError[any]{
+			Cmd: cmd.cmd,
+			Err: err,
+		})))
+	}
+
+	// if command execution failed, send the error to the dispatcher error channel and return
+	if data.Error != "" {
+		select {
+		case <-b.Context().Done():
+			return
+		case cmd.out <- &ExecutionError[any]{
+			Cmd: cmd.cmd,
+			Err: errors.New(data.Error),
+		}:
+		}
+		return
+	}
+
+	// otherwise close the error channel of the dispatcher
+	close(cmd.out)
+}
+
+func logErrors(errs <-chan error) {
+	for err := range errs {
+		log.Printf("[goes/command/cmdbus.logErrors] %v", err)
+	}
 }
