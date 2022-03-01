@@ -90,11 +90,12 @@ type subscription struct {
 }
 
 type dispatcher struct {
-	cmd      command.Command
-	cfg      command.DispatchConfig
-	accepted chan struct{}
-	received chan struct{}
-	out      chan error
+	cmd             command.Command
+	cfg             command.DispatchConfig
+	accepted        chan struct{}
+	received        chan struct{}
+	dispatchAborted chan struct{}
+	out             chan error
 }
 
 // Option is a Command Bus option.
@@ -277,13 +278,16 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 
 	out := make(chan error)
 	accepted := make(chan struct{})
+	aborted := make(chan struct{})
+	defer close(aborted)
 
 	b.mux.Lock()
 	b.dispatched[cmd.ID()] = dispatcher{
-		cmd:      cmd,
-		cfg:      cfg,
-		accepted: accepted,
-		out:      out,
+		cmd:             cmd,
+		cfg:             cfg,
+		accepted:        accepted,
+		out:             out,
+		dispatchAborted: aborted,
 	}
 	b.mux.Unlock()
 
@@ -451,7 +455,11 @@ func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 	data := evt.Data()
 
-	cmd := b.requested[data.ID]
+	// if the bus did not request the command, return
+	cmd, ok := b.requested[data.ID]
+	if !ok {
+		return
+	}
 
 	// otherwise remove the command from the requested commands
 	delete(b.requested, data.ID)
@@ -585,6 +593,7 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 		select {
 		case <-b.Context().Done():
 			return
+		case <-cmd.dispatchAborted:
 		case cmd.out <- &ExecutionError[any]{
 			Cmd: cmd.cmd,
 			Err: errors.New(data.Error),
