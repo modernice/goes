@@ -173,8 +173,9 @@ func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 	}
 
 	b.errs, b.fail = concurrent.Errors(ctx)
+	out, _ := streams.FanIn(b.errs, errs)
 
-	return streams.FanInContext(ctx, b.errs, errs), nil
+	return out, nil
 }
 
 // Dispatch dispatches a Command to the appropriate handler (Command Bus) using
@@ -468,8 +469,8 @@ func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 
 	// then pass the command to the subscription
 	b.mux.RLock()
-	defer b.mux.RUnlock()
 	sub, ok := b.subscriptions[cmd.Name()]
+	b.mux.RUnlock()
 	if !ok {
 		return
 	}
