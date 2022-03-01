@@ -17,6 +17,8 @@ import (
 	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal/concurrent"
 )
 
 var _ command.Bus = (*Bus)(nil)
@@ -77,6 +79,9 @@ type Bus struct {
 	enc       codec.Encoding
 	bus       event.Bus
 	handlerID uuid.UUID
+
+	errs chan error
+	fail func(error)
 }
 
 type subscription struct {
@@ -156,6 +161,20 @@ func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
 	event.HandleWith(b, b.commandExecuted, CommandExecuted)
 
 	return b
+}
+
+// Run runs the command bus until ctx is canceled. If the bus is used before Run
+// has been called, Run will be called automtically and the errors are logged to
+// stderr.
+func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
+	errs, err := b.Handler.Run(ctx)
+	if err != nil {
+		return errs, err
+	}
+
+	b.errs, b.fail = concurrent.Errors(ctx)
+
+	return streams.FanInContext(ctx, b.errs, errs), nil
 }
 
 // Dispatch dispatches a Command to the appropriate handler (Command Bus) using
@@ -256,15 +275,13 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 	}
 
 	out := make(chan error)
-	assigned := make(chan struct{})
-	received := make(chan struct{})
+	accepted := make(chan struct{})
 
 	b.mux.Lock()
 	b.dispatched[cmd.ID()] = dispatcher{
 		cmd:      cmd,
 		cfg:      cfg,
-		accepted: assigned,
-		received: received,
+		accepted: accepted,
 		out:      out,
 	}
 	b.mux.Unlock()
@@ -281,7 +298,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 		return ctx.Err()
 	case <-timeout:
 		return ErrAssignTimeout
-	case <-assigned:
+	case <-accepted:
 	}
 
 	select {
@@ -382,13 +399,13 @@ func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 	})
 
 	if err := b.bus.Publish(b.Context(), requestEvent.Any()); err != nil {
-		log.Printf("[goes/command/cmdbus.Bus@commandDispatched] Failed to request %q command: %v", data.Name, err)
+		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandDispatched] Failed to request %q command: %w", data.Name, err))
 		return
 	}
 
 	load, err := b.enc.Decode(bytes.NewReader(data.Payload), data.Name)
 	if err != nil {
-		log.Printf("[goes/command/cmdbus.Bus@commandDispatched] Failed to decode %q command: %v", data.Name, err)
+		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandDispatched] Failed to decode %q command: %w", data.Name, err))
 		return
 	}
 
@@ -423,7 +440,7 @@ func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 	})
 
 	if err := b.bus.Publish(b.Context(), assignEvent.Any()); err != nil {
-		log.Printf("[goes/command/cmdbus.Bus@commandRequested] Failed to assign %q command to handler %q: %v", cmd.cmd.Name(), data.HandlerID, err)
+		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandRequested] Failed to assign %q command to handler %q: %w", cmd.cmd.Name(), data.HandlerID, err))
 		return
 	}
 
@@ -445,7 +462,7 @@ func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 	})
 
 	if err := b.bus.Publish(b.Context(), acceptEvt.Any()); err != nil {
-		log.Printf("[goes/command/cmdbus.Bus@commandAssigned] Failed to accept %q command: %v", cmd.Name(), err)
+		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandAssigned] Failed to accept %q command: %w", cmd.Name(), err))
 		return
 	}
 
