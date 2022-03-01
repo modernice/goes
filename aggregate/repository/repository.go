@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/modernice/goes/aggregate"
@@ -161,6 +162,40 @@ func RetryEvery(interval time.Duration, maxTries int) RetryTrigger {
 		}
 
 		timer := time.NewTimer(interval)
+		defer timer.Stop()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			tries++
+			return nil
+		}
+	})
+}
+
+// RetryApprox returns a RetryTrigger that retries approximately every interval
+// up to maxTries. The provided deviation percentage is used to randomize the
+// interval. If the interval is 1s and deviation is 100ms, then the retry is
+// triggered after somewhere between 900ms to 1100ms.
+func RetryApprox(interval, deviation time.Duration, maxTries int) RetryTrigger {
+	tries := 1
+	return RetryTriggerFunc(func(ctx context.Context) error {
+		if tries >= maxTries {
+			return fmt.Errorf("tried %d times", tries)
+		}
+
+		sign := 1
+		if rand.Intn(2) == 0 {
+			sign = -1
+		}
+
+		perc := rand.Intn(101)
+
+		dev := deviation * time.Duration(perc) * time.Duration(sign) / 100
+		iv := interval + dev
+
+		timer := time.NewTimer(iv)
 		defer timer.Stop()
 
 		select {
