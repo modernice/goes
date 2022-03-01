@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
@@ -103,21 +102,8 @@ func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Quer
 
 // Use implements aggregate.TypedRepository.Use.
 func (r *TypedRepository[Aggregate]) Use(ctx context.Context, id uuid.UUID, fn func(Aggregate) error) error {
-	a, err := r.Fetch(ctx, id)
-	if err != nil {
-		return fmt.Errorf("fetch: %w [id=%v, type=%T]", err, id, a)
-	}
-
-	if err := fn(a); err != nil {
-		return err
-	}
-
-	if err := r.repo.Save(ctx, a); err != nil {
-		id, name, _ := a.Aggregate()
-		return fmt.Errorf("save: %w [id=%v, name=%v, type=%T]", err, id, name, a)
-	}
-
-	return nil
+	a := r.make(id)
+	return r.repo.Use(ctx, a, func() error { return fn(a) })
 }
 
 // Delete implements aggregate.TypedRepository.Delete.
