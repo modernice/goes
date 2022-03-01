@@ -159,9 +159,10 @@ func TestSynchronous(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus, _, _ := newBus(ctx, cmdbus.AssignTimeout(0))
+	subBus, ebus, ereg := newBus(ctx)
+	pubBus, _, _ := newBusWith(ctx, ereg, ebus)
 
-	commands, errs, err := bus.Subscribe(context.Background(), "foo-cmd")
+	commands, errs, err := subBus.Subscribe(context.Background(), "foo-cmd")
 	if err != nil {
 		t.Fatalf("failed to subscribe: %v", err)
 	}
@@ -171,7 +172,7 @@ func TestSynchronous(t *testing.T) {
 	dispatchErr := make(chan error)
 	dispatchDoneTime := make(chan time.Time)
 	go func() {
-		dispatchErr <- bus.Dispatch(context.Background(), cmd.Any(), dispatch.Sync())
+		dispatchErr <- pubBus.Dispatch(context.Background(), cmd.Any(), dispatch.Sync())
 		dispatchDoneTime <- time.Now()
 	}()
 
@@ -381,8 +382,12 @@ func newBus(ctx context.Context, opts ...cmdbus.Option) (command.Bus, event.Bus,
 		return mockPayload{}
 	})
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, ebus, opts...)
-	reg := enc.Registry
+
+	return newBusWith(ctx, enc.Registry, ebus, opts...)
+}
+
+func newBusWith(ctx context.Context, reg *codec.Registry, ebus event.Bus, opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
+	bus := cmdbus.New(reg, ebus, opts...)
 
 	running := make(chan struct{})
 	go func() {

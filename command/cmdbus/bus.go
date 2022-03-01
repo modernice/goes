@@ -413,7 +413,10 @@ func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 		return
 	}
 
-	// otherwise assign the command to the handler that requested to handle it
+	// otherwise remove the command from the dispatched commands
+	delete(b.dispatched, data.ID)
+
+	// and assign the command to the handler that requested to handle it
 	assignEvent := event.New(CommandAssigned, CommandAssignedData{
 		ID:        data.ID,
 		HandlerID: data.HandlerID,
@@ -576,6 +579,7 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 	close(cmd.out)
 }
 
+// logging errors to stderr if the command bus was started by Dispatch() or Subscribe().
 func logErrors(errs <-chan error) {
 	for err := range errs {
 		log.Printf("[goes/command/cmdbus.logErrors] %v", err)

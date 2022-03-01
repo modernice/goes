@@ -16,24 +16,6 @@ import (
 )
 
 func TestBus(t *testing.T) {
-	testCore(t)
-	testJetstream(t)
-}
-
-func testCore(t *testing.T) {
-	ereg := codec.New()
-	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
-	bus := nats.NewEventBus(
-		ereg,
-		nats.Use(nats.Core()),
-		nats.URL(os.Getenv("NATS_URL")),
-	)
-	testNATSBus(t, bus)
-}
-
-func testJetstream(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
