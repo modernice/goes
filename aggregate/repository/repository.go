@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
@@ -35,6 +36,13 @@ type Repository struct {
 	afterInsert    []func(context.Context, aggregate.Aggregate) error
 	onFailedInsert []func(context.Context, aggregate.Aggregate, error) error
 	onDelete       []func(context.Context, aggregate.Aggregate) error
+	retryUse       retryUse
+}
+
+type retryUse struct {
+	max      int
+	interval time.Duration
+	matcher  func(error) bool
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
@@ -131,6 +139,25 @@ type onDelete func(context.Context, aggregate.Aggregate) error
 
 func (opt onDelete) Apply(r *Repository) {
 	r.onDelete = append(r.onDelete, opt)
+}
+
+// RetryUse returns an Option that sets the retry policy for Repository.Use().
+// If Repository.Use() fails because of an error, it will retry up to maxTries
+// times, waiting for the specified interval between tries. The provided
+// isRetryable function is used to determine if a given error is retryable.
+func RetryUse(maxTries int, interval time.Duration, isRetryable func(error) bool) Option {
+	if isRetryable == nil {
+		isRetryable = func(err error) bool { return false }
+	}
+	return retryUse{
+		max:      maxTries,
+		interval: interval,
+		matcher:  isRetryable,
+	}
+}
+
+func (opt retryUse) Apply(r *Repository) {
+	r.retryUse = opt
 }
 
 // New returns an event-sourced Aggregate Repository. It uses the provided Event
@@ -432,19 +459,37 @@ func (r *Repository) makeQuery(ctx context.Context, aq aggregate.Query) (event.Q
 	return q, nil
 }
 
-// Use first fetches the Aggregate a, then calls fn(a) and finally saves the aggregate.
+// Use first fetches the Aggregate a, then calls fn(a) and finally saves the
+// aggregate. If the RetryUse() option is used, Use() is retried up to the
+// configured maxTries option.
 func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() error) error {
-	if err := r.Fetch(ctx, a); err != nil {
-		return fmt.Errorf("fetch aggregate: %w", err)
-	}
+	var err error
+	var tries int
+	for {
+		if err != nil {
+			if r.retryUse.max <= 0 {
+				return err
+			}
 
-	if err := fn(); err != nil {
-		return err
-	}
+			if tries >= r.retryUse.max || !r.retryUse.matcher(err) {
+				return fmt.Errorf("tried %d times: %w", tries, err)
+			}
+		}
 
-	if err := r.Save(ctx, a); err != nil {
-		return fmt.Errorf("save aggregate: %w", err)
-	}
+		tries++
 
-	return nil
+		if err = r.Fetch(ctx, a); err != nil {
+			err = fmt.Errorf("fetch aggregate: %w", err)
+			continue
+		}
+
+		if err = fn(); err != nil {
+			continue
+		}
+
+		if err = r.Save(ctx, a); err != nil {
+			err = fmt.Errorf("save aggregate: %w", err)
+			continue
+		}
+	}
 }

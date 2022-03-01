@@ -58,6 +58,12 @@ type VersionError struct {
 	Event event.Event
 }
 
+// IsVersionError returns whether err unwraps to a *VersionError.
+func IsVersionError(err error) bool {
+	var t *VersionError
+	return errors.As(err, &t)
+}
+
 type state struct {
 	AggregateName string    `bson:"aggregateName"`
 	AggregageID   uuid.UUID `bson:"aggregateId"`
