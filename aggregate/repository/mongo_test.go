@@ -24,7 +24,8 @@ func TestRetryUse(t *testing.T) {
 	enc := etest.NewEncoder()
 	estore := mongo.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
 
-	r := repository.New(estore, repository.RetryUse(3, 50*time.Millisecond, mongo.IsVersionError))
+	// First try has no delay, the remainining 3 tries are delayed by 50ms
+	r := repository.New(estore, repository.RetryUse(repository.RetryEvery(50*time.Millisecond, 4), mongo.IsVersionError))
 
 	foo := test.NewFoo(uuid.New())
 
@@ -51,8 +52,8 @@ func TestRetryUse(t *testing.T) {
 		t.Fatalf("Use() should fail with a %T; got %q", &mongo.VersionError{}, err)
 	}
 
-	if tries != 3 {
-		t.Fatalf("Use() should have tried 3 times; tried %d times", tries)
+	if tries != 4 {
+		t.Fatalf("Use() should have tried 4 times; tried %d times", tries)
 	}
 
 	dur := time.Since(start)
@@ -63,5 +64,4 @@ func TestRetryUse(t *testing.T) {
 	if dur.Milliseconds() > 250 {
 		t.Fatalf("Use() should have taken ~%v; took %v", 150*time.Millisecond, dur)
 	}
-
 }

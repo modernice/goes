@@ -40,9 +40,8 @@ type Repository struct {
 }
 
 type retryUse struct {
-	max      int
-	interval time.Duration
-	matcher  func(error) bool
+	trigger     RetryTrigger
+	isRetryable func(error) bool
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
@@ -141,18 +140,53 @@ func (opt onDelete) Apply(r *Repository) {
 	r.onDelete = append(r.onDelete, opt)
 }
 
+// A RetryTrigger triggers a retry of Repository.Use().
+type RetryTrigger interface {
+	next(context.Context) error
+}
+
+// RetryTriggerFunc allows a function to be used as a RetryTrigger.
+type RetryTriggerFunc func(context.Context) error
+
+func (fn RetryTriggerFunc) next(ctx context.Context) error {
+	return fn(ctx)
+}
+
+// RetryEvery returns a RetryTrigger that retries every interval up to maxTries.
+func RetryEvery(interval time.Duration, maxTries int) RetryTrigger {
+	tries := 1
+	return RetryTriggerFunc(func(ctx context.Context) error {
+		if tries >= maxTries {
+			return fmt.Errorf("tried %d times", tries)
+		}
+
+		timer := time.NewTimer(interval)
+		defer timer.Stop()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			tries++
+			return nil
+		}
+	})
+}
+
 // RetryUse returns an Option that sets the retry policy for Repository.Use().
-// If Repository.Use() fails because of an error, it will retry up to maxTries
-// times, waiting for the specified interval between tries. The provided
-// isRetryable function is used to determine if a given error is retryable.
-func RetryUse(maxTries int, interval time.Duration, isRetryable func(error) bool) Option {
+// If Repository.Use() fails because of an error, it will ask the provided
+// RetryTrigger if the operation should be retried. If the trigger returns a
+// nil-error, the operation is retried. Otherwise the error is returned.
+// The provided isRetryable function is used to determine if an error is
+// retryable. An error that is not retryable is directly returned back to the
+// caller.
+func RetryUse(trigger RetryTrigger, isRetryable func(error) bool) Option {
 	if isRetryable == nil {
 		isRetryable = func(err error) bool { return false }
 	}
 	return retryUse{
-		max:      maxTries,
-		interval: interval,
-		matcher:  isRetryable,
+		trigger:     trigger,
+		isRetryable: isRetryable,
 	}
 }
 
@@ -464,19 +498,17 @@ func (r *Repository) makeQuery(ctx context.Context, aq aggregate.Query) (event.Q
 // configured maxTries option.
 func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() error) error {
 	var err error
-	var tries int
+
 	for {
 		if err != nil {
-			if r.retryUse.max <= 0 {
+			if r.retryUse.trigger == nil {
 				return err
 			}
 
-			if tries >= r.retryUse.max || !r.retryUse.matcher(err) {
-				return fmt.Errorf("tried %d times: %w", tries, err)
+			if triggerError := r.retryUse.trigger.next(ctx); triggerError != nil {
+				return fmt.Errorf("%v: %w", triggerError, err)
 			}
 		}
-
-		tries++
 
 		if err = r.Fetch(ctx, a); err != nil {
 			err = fmt.Errorf("fetch aggregate: %w", err)
