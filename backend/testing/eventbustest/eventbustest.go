@@ -163,7 +163,7 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 	defer cancel()
 
 	ex = Expect(ctx)
-	ex.Closed(sub, 50*time.Millisecond)
+	ex.Closed(sub, 200*time.Millisecond)
 
 	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
