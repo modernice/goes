@@ -476,9 +476,9 @@ func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 	}
 
 	// then pass the command to the subscription
-	b.mux.RLock()
+	b.mux.Lock()
+	defer b.mux.Unlock()
 	sub, ok := b.subscriptions[cmd.Name()]
-	b.mux.RUnlock()
 	if !ok {
 		return
 	}
@@ -492,7 +492,6 @@ func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 
 	select {
 	case <-b.Context().Done():
-		return
 	case <-timeout:
 		select {
 		case <-b.Context().Done():

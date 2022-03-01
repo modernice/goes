@@ -36,9 +36,10 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
-	bus := cmdbus.New(enc.Registry, ebus, cmdbus.AssignTimeout(0))
+	subBus := cmdbus.New(enc.Registry, ebus, cmdbus.AssignTimeout(0))
+	pubBus := cmdbus.New(enc.Registry, ebus, cmdbus.AssignTimeout(0))
 
-	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
+	commands, errs, err := subBus.Subscribe(ctx, "foo-cmd")
 	if err != nil {
 		t.Fatalf("subscribe: %v", err)
 	}
@@ -72,7 +73,7 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 		defer close(done)
 		for i := 0; i < 10; i++ {
 			cmd := command.New("foo-cmd", mockPayload{})
-			if err := bus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+			if err := pubBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 				dispatchErrors <- fmt.Errorf("[%d] Dispatch shouldn't fail; failed with %q", i, err)
 				return
 			}
