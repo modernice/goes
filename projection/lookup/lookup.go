@@ -119,6 +119,11 @@ func (l *Lookup) Ready() <-chan struct{} {
 	return l.ready
 }
 
+// Schedule returns the projection schedule for the lookup table.
+func (l *Lookup) Schedule() *schedule.Continuous {
+	return l.schedule
+}
+
 // Provider returns the Provider for the given aggregate. The returned Provider
 // is is thread-safe.
 func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider {
