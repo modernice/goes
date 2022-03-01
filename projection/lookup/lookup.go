@@ -189,12 +189,7 @@ func (l *Lookup) Reverse(ctx context.Context, aggregateName, key string, value a
 // Run runs the projection of the lookup table until ctx is canceled. Any
 // asynchronous errors are sent into the returned channel.
 func (l *Lookup) Run(ctx context.Context) (<-chan error, error) {
-	errs, err := l.schedule.Subscribe(ctx, func(ctx projection.Job) error {
-		defer l.once.Do(func() { close(l.ready) })
-		l.mux.Lock()
-		defer l.mux.Unlock()
-		return ctx.Apply(ctx, l)
-	})
+	errs, err := l.schedule.Subscribe(ctx, l.ApplyJob)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to projection schedule: %w", err)
 	}
@@ -202,6 +197,14 @@ func (l *Lookup) Run(ctx context.Context) (<-chan error, error) {
 	go l.schedule.Trigger(ctx)
 
 	return errs, nil
+}
+
+// ApplyJob applies the given projection job on the lookup table.
+func (l *Lookup) ApplyJob(ctx projection.Job) error {
+	defer l.once.Do(func() { close(l.ready) })
+	l.mux.Lock()
+	defer l.mux.Unlock()
+	return ctx.Apply(ctx, l)
 }
 
 // ApplyEvent implements projection.EventApplier.
