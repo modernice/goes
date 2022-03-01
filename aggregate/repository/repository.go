@@ -543,9 +543,7 @@ func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() e
 			if triggerError := r.retryUse.trigger.next(ctx); triggerError != nil {
 				return fmt.Errorf("%v: %w", triggerError, err)
 			}
-		}
 
-		if r.retryUse.trigger != nil {
 			if discarder, ok := a.(aggregate.ChangeDiscarder); ok {
 				discarder.DiscardChanges()
 			}
@@ -564,5 +562,7 @@ func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() e
 			err = fmt.Errorf("save aggregate: %w", err)
 			continue
 		}
+
+		return nil
 	}
 }
