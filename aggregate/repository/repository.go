@@ -545,6 +545,12 @@ func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() e
 			}
 		}
 
+		if r.retryUse.trigger != nil {
+			if discarder, ok := a.(aggregate.ChangeDiscarder); ok {
+				discarder.DiscardChanges()
+			}
+		}
+
 		if err = r.Fetch(ctx, a); err != nil {
 			err = fmt.Errorf("fetch aggregate: %w", err)
 			continue

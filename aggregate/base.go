@@ -99,6 +99,11 @@ func (b *Base) Commit() {
 	b.Changes = b.Changes[:0]
 }
 
+// DiscardChanges discard the changes to the aggregate.
+func (b *Base) DiscardChanges() {
+	b.Changes = b.Changes[:0]
+}
+
 // ApplyEvent implements aggregate. Aggregates that embed *Base should override
 // ApplyEvent.
 func (b *Base) ApplyEvent(evt event.Event) {
