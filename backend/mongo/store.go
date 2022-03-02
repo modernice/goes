@@ -19,6 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/mongo/driver"
 )
 
 // EventStore is the MongoDB event.Store.
@@ -58,8 +59,22 @@ type VersionError struct {
 	Event event.Event
 }
 
-// IsVersionError returns whether err unwraps to a *VersionError.
-func IsVersionError(err error) bool {
+// IsConsistencyError returns whether err was caused by an unconsistency of an
+// aggregate. An error is a consistency error if it either unwraps to a
+// *VersionError or if it unwraps to a mongo.CommandError with either the
+// "TransientTransactionError" or "UnknownTransactionCommitResult" error label.
+// These two error labels means that a transaction was aborted and should be
+// caused by multiple writers who are trying to write the same aggregate at the
+// same time. IsConsistencyError can be used in the
+// aggregate/repository.RetryUse() option to retry an operation caused by a
+// consistency error.
+func IsConsistencyError(err error) bool {
+	var cmdError mongo.CommandError
+	if errors.As(err, &cmdError) {
+		return cmdError.HasErrorLabel(driver.TransientTransactionError) ||
+			cmdError.HasErrorLabel(driver.UnknownTransactionCommitResult)
+	}
+
 	var t *VersionError
 	return errors.As(err, &t)
 }
