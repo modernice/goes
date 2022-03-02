@@ -23,6 +23,19 @@ var (
 	ErrVersionNotFound = errors.New("version not found")
 )
 
+// A ChangeDiscarder discards changes to the aggregate.
+type ChangeDiscarder interface {
+	DiscardChanges()
+}
+
+// Retryer is an aggregate that can retry a failing operation within a
+// Repository.Use() call. If the RetryUse() method of the aggregate returns
+// a non-nil RetryTrigger and IsRetryable function, the operation will be
+// retried according to the RetryTrigger.
+type Retryer interface {
+	RetryUse() (RetryTrigger, IsRetryable)
+}
+
 // Option is a repository option.
 type Option interface {
 	Apply(*Repository)
@@ -42,7 +55,7 @@ type Repository struct {
 
 type retryUse struct {
 	trigger     RetryTrigger
-	isRetryable func(error) bool
+	isRetryable IsRetryable
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
@@ -146,6 +159,8 @@ type RetryTrigger interface {
 	next(context.Context) error
 }
 
+type IsRetryable func(error) bool
+
 // RetryTriggerFunc allows a function to be used as a RetryTrigger.
 type RetryTriggerFunc func(context.Context) error
 
@@ -175,9 +190,9 @@ func RetryEvery(interval time.Duration, maxTries int) RetryTrigger {
 }
 
 // RetryApprox returns a RetryTrigger that retries approximately every interval
-// up to maxTries. The provided deviation percentage is used to randomize the
-// interval. If the interval is 1s and deviation is 100ms, then the retry is
-// triggered after somewhere between 900ms to 1100ms.
+// up to maxTries. The provided deviation is used to randomize the interval. If
+// the interval is 1s and deviation is 100ms, then the retry is triggered after
+// somewhere between 900ms to 1100ms.
 func RetryApprox(interval, deviation time.Duration, maxTries int) RetryTrigger {
 	tries := 1
 	return RetryTriggerFunc(func(ctx context.Context) error {
@@ -215,7 +230,7 @@ func RetryApprox(interval, deviation time.Duration, maxTries int) RetryTrigger {
 // The provided isRetryable function is used to determine if an error is
 // retryable. An error that is not retryable is directly returned back to the
 // caller.
-func RetryUse(trigger RetryTrigger, isRetryable func(error) bool) Option {
+func RetryUse(trigger RetryTrigger, isRetryable IsRetryable) Option {
 	if isRetryable == nil {
 		isRetryable = func(err error) bool { return false }
 	}
@@ -534,17 +549,30 @@ func (r *Repository) makeQuery(ctx context.Context, aq aggregate.Query) (event.Q
 func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() error) error {
 	var err error
 
+	trigger := r.retryUse.trigger
+	isRetryable := r.retryUse.isRetryable
+
+	if rp, ok := a.(Retryer); ok {
+		if t, ir := rp.RetryUse(); t != nil {
+			trigger = t
+			isRetryable = ir
+		}
+	}
+
+	hasTrigger := trigger != nil && trigger != RetryTrigger(nil)
+
 	for {
 		if err != nil {
-			if r.retryUse.trigger == nil {
+
+			if !hasTrigger || isRetryable == nil || !isRetryable(err) {
 				return err
 			}
 
-			if triggerError := r.retryUse.trigger.next(ctx); triggerError != nil {
+			if triggerError := trigger.next(ctx); triggerError != nil {
 				return fmt.Errorf("%v: %w", triggerError, err)
 			}
 
-			if discarder, ok := a.(aggregate.ChangeDiscarder); ok {
+			if discarder, ok := a.(ChangeDiscarder); ok {
 				discarder.DiscardChanges()
 			}
 		}

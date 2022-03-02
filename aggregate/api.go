@@ -36,10 +36,5 @@ type Committer interface {
 	Commit()
 }
 
-// A ChangeDiscarder discards changes to the aggregate.
-type ChangeDiscarder interface {
-	DiscardChanges()
-}
-
 // Ref is a reference to a specific aggregate, identified by its name and id.
 type Ref = event.AggregateRef
