@@ -4,8 +4,9 @@ build:
 
 .PHONY: up
 up:
-	docker compose -f .docker/compose.yml up --remove-orphans 
+	docker compose -f .docker/compose.yml up --remove-orphans; \
+	docker compose -f .docker/compose.yml down --remove-orphans
 
 .PHONY: down
 down:
-	docker compose -f .docker/compose.yml down
+	docker compose -f .docker/compose.yml down --remove-orphans

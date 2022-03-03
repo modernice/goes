@@ -2,7 +2,7 @@ version: '3.8'
 services:
   nats:
     image: nats
-
+  
   jetstream:
     image: nats
     command: ["-js"]
@@ -38,7 +38,7 @@ services:
       - mongosnap
     build:
       context: ..
-      dockerfile: .docker/coverage.Dockerfile
+      dockerfile: .docker/github.Dockerfile
       args:
         TAGS: nats,mongo
     environment:
