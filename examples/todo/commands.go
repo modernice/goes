@@ -2,6 +2,7 @@ package todo
 
 import (
 	"context"
+	"log"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/codec"
@@ -43,6 +44,7 @@ func RegisterCommands(r *codec.GobRegistry) {
 func HandleCommands(ctx context.Context, bus command.Bus, lists ListRepository) <-chan error {
 	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.Ctx[string]) error {
 		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
+			log.Printf("Handling %q command ...", ctx.Name())
 			defer list.print()
 			return list.Add(ctx.Payload())
 		})
@@ -50,6 +52,7 @@ func HandleCommands(ctx context.Context, bus command.Bus, lists ListRepository) 
 
 	removeErrors := command.MustHandle(ctx, bus, RemoveTaskCmd, func(ctx command.Ctx[string]) error {
 		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
+			log.Printf("Handling %q command ...", ctx.Name())
 			defer list.print()
 			return list.Remove(ctx.Payload())
 		})
@@ -57,6 +60,7 @@ func HandleCommands(ctx context.Context, bus command.Bus, lists ListRepository) 
 
 	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.Ctx[[]string]) error {
 		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
+			log.Printf("Handling %q command ...", ctx.Name())
 			defer list.print()
 			return list.Done(ctx.Payload()...)
 		})
