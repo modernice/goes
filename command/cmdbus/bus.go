@@ -608,6 +608,8 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 // logging errors to stderr if the command bus was started by Dispatch() or Subscribe().
 func logErrors(errs <-chan error) {
 	for err := range errs {
-		log.Printf("[goes/command/cmdbus.logErrors] %v", err)
+		if err != nil {
+			log.Printf("[goes/command/cmdbus.logErrors] %v", err)
+		}
 	}
 }
