@@ -43,11 +43,7 @@ coverage:
 
 .PHONY: github-test
 github-test:
-	docker-compose \
-		-f .docker/mongo-test.yml \
-		-f .docker/nats-test.yml \
-		-f .docker/coverage.yml up \
-		--build --abort-on-container-exit --remove-orphans && \
+	docker-compose -f .docker/github.yml up --build --abort-on-container-exit --remove-orphans && \
 	docker-compose -f .docker/github.yml down --remove-orphans; \
 
 .PHONY: bench
