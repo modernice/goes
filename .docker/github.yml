@@ -46,5 +46,6 @@ services:
       - MONGOSTORE_URL=mongodb://mongostore:27017
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
       - MONGOSNAP_URL=mongodb://mongosnap:27017
+      - MONGOMODEL_URL=mongodb://mongostore_replicaset:27017
     volumes:
       - ../out:/coverage/out

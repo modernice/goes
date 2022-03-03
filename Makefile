@@ -33,11 +33,7 @@ mongo-test:
 
 .PHONY: coverage
 coverage:
-	docker-compose \
-		-f .docker/mongo-test.yml \
-		-f .docker/nats-test.yml \
-		-f .docker/coverage.yml up \
-		--build --abort-on-container-exit --remove-orphans; \
+	docker-compose -f .docker/coverage.yml up --build --abort-on-container-exit --remove-orphans; \
 	docker-compose -f .docker/coverage.yml down --remove-orphans; \
 	go tool cover -html=out/coverage.out
 
