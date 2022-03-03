@@ -72,7 +72,7 @@ L:
 }
 
 func TestBus_Dispatch_Report(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	subBus, ebus, ereg := newBus(ctx)
