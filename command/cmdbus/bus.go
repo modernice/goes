@@ -71,7 +71,6 @@ type Bus struct {
 	requested     map[uuid.UUID]command.Cmd[any]
 	dispatched    map[uuid.UUID]dispatcher
 	assigned      map[uuid.UUID]dispatcher
-	pending       map[uuid.UUID]dispatcher
 
 	assignTimeout  time.Duration
 	receiveTimeout time.Duration
@@ -144,7 +143,6 @@ func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
 		requested:      make(map[uuid.UUID]command.Cmd[any]),
 		dispatched:     make(map[uuid.UUID]dispatcher),
 		assigned:       make(map[uuid.UUID]dispatcher),
-		pending:        make(map[uuid.UUID]dispatcher),
 		assignTimeout:  DefaultAssignTimeout,
 		receiveTimeout: DefaultReceiveTimeout,
 		enc:            enc,
@@ -536,34 +534,28 @@ func (b *Bus) commandAccepted(evt event.Of[CommandAcceptedData]) {
 		return
 	}
 
-	// otherwise mark the command as accepted and remove it from the assigned commands
+	// otherwise mark the command as accepted
 	close(cmd.accepted)
-	delete(b.assigned, data.ID)
 
-	// if the dispatch was made synchronously, add the command to pending
-	// commands, return and let b.commandExecuted do the rest
-	if cmd.cfg.Synchronous || cmd.cfg.Reporter != nil {
-		b.pending[data.ID] = cmd
+	// if the dispatch was not made synchronously, remove the command from
+	// assigned commands, close the out channel and return
+	if !cmd.cfg.Synchronous && cmd.cfg.Reporter == nil {
+		delete(b.assigned, data.ID)
+		close(cmd.out)
 		return
 	}
-
-	// otherwise close the error channel of the dispatcher
-	close(cmd.out)
 }
 
 func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 	data := evt.Data()
 
 	// if the bus is not waiting for the execution of the command, return
-	cmd, ok := b.pending[data.ID]
+	cmd, ok := b.assigned[data.ID]
 	if !ok {
-		if cmd, ok = b.assigned[data.ID]; !ok {
-			return
-		}
+		return
 	}
 
-	// otherwise remove the command from pending and assigned commands
-	delete(b.pending, data.ID)
+	// otherwise remove the command from assigned commands
 	delete(b.assigned, data.ID)
 
 	// if the dispatch requested a report, report the execution result
