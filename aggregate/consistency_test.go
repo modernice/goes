@@ -227,7 +227,7 @@ func TestValidate_time(t *testing.T) {
 	}
 }
 
-func TestError_Event(t *testing.T) {
+func TestConsistencyError_Event(t *testing.T) {
 	a := aggregate.New("foo", uuid.New())
 	err := &aggregate.ConsistencyError{
 		Kind:      aggregate.ConsistencyKind(0),
@@ -260,7 +260,7 @@ func TestError_Event(t *testing.T) {
 	}
 }
 
-func TestError_Error(t *testing.T) {
+func TestConsistencyError_Error(t *testing.T) {
 	id := uuid.New()
 	name := "foo"
 	invalidID := uuid.New()
@@ -316,5 +316,17 @@ func TestError_Error(t *testing.T) {
 		if msg := give.Error(); msg != want {
 			t.Errorf("expected error message %q; got %q", want, msg)
 		}
+	}
+}
+
+func TestConsistencyError_IsConsistencyError(t *testing.T) {
+	var err *aggregate.ConsistencyError
+
+	if got := err.IsConsistencyError(); got != true {
+		t.Fatalf("err.IsConsistencyError() should return %v; got %v", true, got)
+	}
+
+	if got := aggregate.IsConsistencyError(err); got != true {
+		t.Fatalf("aggregate.IsConsistencyError() should return %v; got %v", true, got)
 	}
 }

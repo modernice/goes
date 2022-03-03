@@ -64,7 +64,7 @@ func TestStore_Insert_versionError(t *testing.T) {
 
 	err := s.Insert(context.Background(), events...)
 
-	var versionError *mongo.VersionError
+	var versionError mongo.VersionError
 	if !errors.As(err, &versionError) {
 		t.Fatalf("Insert should fail a %T error; got %T", versionError, err)
 	}

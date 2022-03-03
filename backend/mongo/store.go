@@ -57,26 +57,40 @@ type VersionError struct {
 
 	// Event is the event with the invalid version.
 	Event event.Event
+
+	err error
 }
 
-// IsConsistencyError returns whether err was caused by an unconsistency of an
-// aggregate. An error is a consistency error if it either unwraps to a
-// *VersionError or if it unwraps to a mongo.CommandError with either the
-// "TransientTransactionError" or "UnknownTransactionCommitResult" error label.
-// These two error labels means that a transaction was aborted and should be
-// caused by multiple writers who are trying to write the same aggregate at the
-// same time. IsConsistencyError can be used in the
-// aggregate/repository.RetryUse() option to retry an operation caused by a
-// consistency error.
-func IsConsistencyError(err error) bool {
-	var cmdError mongo.CommandError
-	if errors.As(err, &cmdError) {
-		return cmdError.HasErrorLabel(driver.TransientTransactionError) ||
-			cmdError.HasErrorLabel(driver.UnknownTransactionCommitResult)
+func (err VersionError) Error() string {
+	if err.err != nil {
+		return fmt.Sprintf("version error: %s", err.err)
 	}
 
-	var t *VersionError
-	return errors.As(err, &t)
+	return fmt.Sprintf(
+		"event should have version %d, but has version %d",
+		err.CurrentVersion+1,
+		pick.AggregateVersion(err.Event),
+	)
+}
+
+func (err VersionError) IsConsistencyError() bool {
+	return true
+}
+
+// CommandError is a mongo.CommandError that satisfies aggregate.IsConsistencyError(err).
+type CommandError mongo.CommandError
+
+// CommandError returns the error as a mongo.CommandError.
+func (err CommandError) CommandError() mongo.CommandError {
+	return mongo.CommandError(err)
+}
+
+func (err CommandError) Error() string {
+	return mongo.CommandError(err).Error()
+}
+
+func (err CommandError) IsConsistencyError() bool {
+	return true
 }
 
 type state struct {
@@ -217,7 +231,19 @@ func (s *EventStore) Insert(ctx context.Context, events ...event.Event) error {
 		return fmt.Errorf("connect: %w", err)
 	}
 
-	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) error {
+	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) (out error) {
+		defer func() {
+			if out == nil {
+				return
+			}
+
+			var cmdError mongo.CommandError
+			if errors.As(out, &cmdError) && (cmdError.HasErrorLabel(driver.TransientTransactionError) ||
+				cmdError.HasErrorLabel(driver.UnknownTransactionCommitResult)) {
+				out = CommandError(cmdError)
+			}
+		}()
+
 		if s.transactions {
 			if err := ctx.StartTransaction(); err != nil {
 				return fmt.Errorf("start transaction: %w", err)
@@ -289,7 +315,7 @@ func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []ev
 	}
 
 	if st.Version >= aggregateVersion {
-		return st, &VersionError{
+		return st, VersionError{
 			AggregateName:  aggregateName,
 			AggregateID:    aggregateID,
 			CurrentVersion: st.Version,
@@ -612,14 +638,6 @@ func (e entry) event(enc codec.Encoding) (event.Event, error) {
 		event.Time(stdtime.Unix(0, e.TimeNano)),
 		event.Aggregate(e.AggregateID, e.AggregateName, e.AggregateVersion),
 	), nil
-}
-
-func (err *VersionError) Error() string {
-	return fmt.Sprintf(
-		"event should have version %d, but has version %d",
-		err.CurrentVersion+1,
-		pick.AggregateVersion(err.Event),
-	)
 }
 
 func makeFilter(q event.Query) bson.D {

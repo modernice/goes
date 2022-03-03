@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
-	"time"
 
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
@@ -23,23 +21,8 @@ var (
 	ErrVersionNotFound = errors.New("version not found")
 )
 
-// A ChangeDiscarder discards changes to the aggregate.
-type ChangeDiscarder interface {
-	DiscardChanges()
-}
-
-// Retryer is an aggregate that can retry a failing operation within a
-// Repository.Use() call. If the RetryUse() method of the aggregate returns
-// a non-nil RetryTrigger and IsRetryable function, the operation will be
-// retried according to the RetryTrigger.
-type Retryer interface {
-	RetryUse() (RetryTrigger, IsRetryable)
-}
-
 // Option is a repository option.
-type Option interface {
-	Apply(*Repository)
-}
+type Option func(*Repository)
 
 type Repository struct {
 	store          event.Store
@@ -50,12 +33,6 @@ type Repository struct {
 	afterInsert    []func(context.Context, aggregate.Aggregate) error
 	onFailedInsert []func(context.Context, aggregate.Aggregate, error) error
 	onDelete       []func(context.Context, aggregate.Aggregate) error
-	retryUse       retryUse
-}
-
-type retryUse struct {
-	trigger     RetryTrigger
-	isRetryable IsRetryable
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
@@ -79,169 +56,52 @@ func WithSnapshots(store snapshot.Store, s snapshot.Schedule) Option {
 	if store == nil {
 		panic("nil Store")
 	}
-	return withSnapshots{store, s}
-}
-
-type withSnapshots struct {
-	store    snapshot.Store
-	schedule snapshot.Schedule
-}
-
-func (opt withSnapshots) Apply(r *Repository) {
-	r.snapshots = opt.store
-	r.snapSchedule = opt.schedule
+	return func(r *Repository) {
+		r.snapshots = store
+		r.snapSchedule = s
+	}
 }
 
 // ModifyQueries returns an Option that adds mods as Query modifiers to a
 // Repository. When the Repository builds a Query, it is passed to every
 // modifier before the event store is queried.
 func ModifyQueries(mods ...func(ctx context.Context, q aggregate.Query, prev event.Query) (event.Query, error)) Option {
-	return modifyQueries(mods)
-}
-
-type modifyQueries []func(context.Context, aggregate.Query, event.Query) (event.Query, error)
-
-func (opt modifyQueries) Apply(r *Repository) {
-	r.queryModifiers = append(r.queryModifiers, opt...)
+	return func(r *Repository) {
+		r.queryModifiers = append(r.queryModifiers, mods...)
+	}
 }
 
 // BeforeInsert returns an Option that adds fn as a hook to a Repository. fn is
 // called before the changes to an aggregate are inserted into the event store.
 func BeforeInsert(fn func(context.Context, aggregate.Aggregate) error) Option {
-	return beforeInsert(fn)
-}
-
-type beforeInsert func(context.Context, aggregate.Aggregate) error
-
-func (opt beforeInsert) Apply(r *Repository) {
-	r.beforeInsert = append(r.beforeInsert, opt)
+	return func(r *Repository) {
+		r.beforeInsert = append(r.beforeInsert, fn)
+	}
 }
 
 // AfterInsert returns an Option that adds fn as a hook to a Repository. fn is
 // called after the changes to an aggregate are inserted into the event store.
 func AfterInsert(fn func(context.Context, aggregate.Aggregate) error) Option {
-	return afterInsert(fn)
-}
-
-type afterInsert func(context.Context, aggregate.Aggregate) error
-
-func (opt afterInsert) Apply(r *Repository) {
-	r.afterInsert = append(r.afterInsert, opt)
+	return func(r *Repository) {
+		r.afterInsert = append(r.afterInsert, fn)
+	}
 }
 
 // OnFailedInsert returns an Option that adds fn as a hook to a Repository. fn
 // is called when the Repository fails to insert the changes to an aggregate
 // into the event store.
 func OnFailedInsert(fn func(context.Context, aggregate.Aggregate, error) error) Option {
-	return onFailedInsert(fn)
-}
-
-type onFailedInsert func(context.Context, aggregate.Aggregate, error) error
-
-func (opt onFailedInsert) Apply(r *Repository) {
-	r.onFailedInsert = append(r.onFailedInsert, opt)
+	return func(r *Repository) {
+		r.onFailedInsert = append(r.onFailedInsert, fn)
+	}
 }
 
 // OnDelete returns an Option that adds fn as a hook to a Repository. fn is
 // called after an aggregate has been deleted.
 func OnDelete(fn func(context.Context, aggregate.Aggregate) error) Option {
-	return onDelete(fn)
-}
-
-type onDelete func(context.Context, aggregate.Aggregate) error
-
-func (opt onDelete) Apply(r *Repository) {
-	r.onDelete = append(r.onDelete, opt)
-}
-
-// A RetryTrigger triggers a retry of Repository.Use().
-type RetryTrigger interface {
-	next(context.Context) error
-}
-
-type IsRetryable func(error) bool
-
-// RetryTriggerFunc allows a function to be used as a RetryTrigger.
-type RetryTriggerFunc func(context.Context) error
-
-func (fn RetryTriggerFunc) next(ctx context.Context) error {
-	return fn(ctx)
-}
-
-// RetryEvery returns a RetryTrigger that retries every interval up to maxTries.
-func RetryEvery(interval time.Duration, maxTries int) RetryTrigger {
-	tries := 1
-	return RetryTriggerFunc(func(ctx context.Context) error {
-		if tries >= maxTries {
-			return fmt.Errorf("tried %d times", tries)
-		}
-
-		timer := time.NewTimer(interval)
-		defer timer.Stop()
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			tries++
-			return nil
-		}
-	})
-}
-
-// RetryApprox returns a RetryTrigger that retries approximately every interval
-// up to maxTries. The provided deviation is used to randomize the interval. If
-// the interval is 1s and deviation is 100ms, then the retry is triggered after
-// somewhere between 900ms to 1100ms.
-func RetryApprox(interval, deviation time.Duration, maxTries int) RetryTrigger {
-	tries := 1
-	return RetryTriggerFunc(func(ctx context.Context) error {
-		if tries >= maxTries {
-			return fmt.Errorf("tried %d times", tries)
-		}
-
-		sign := 1
-		if rand.Intn(2) == 0 {
-			sign = -1
-		}
-
-		perc := rand.Intn(101)
-
-		dev := deviation * time.Duration(perc) * time.Duration(sign) / 100
-		iv := interval + dev
-
-		timer := time.NewTimer(iv)
-		defer timer.Stop()
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			tries++
-			return nil
-		}
-	})
-}
-
-// RetryUse returns an Option that sets the retry policy for Repository.Use().
-// If Repository.Use() fails because of an error, it will ask the provided
-// RetryTrigger if the operation should be retried. If the trigger returns a
-// nil-error, the operation is retried. Otherwise the error is returned.
-// The provided isRetryable function is used to determine if an error is
-// retryable. An error that is not retryable is directly returned back to the
-// caller.
-func RetryUse(trigger RetryTrigger, isRetryable IsRetryable) Option {
-	if isRetryable == nil {
-		isRetryable = func(err error) bool { return false }
+	return func(r *Repository) {
+		r.onDelete = append(r.onDelete, fn)
 	}
-	return retryUse{
-		trigger:     trigger,
-		isRetryable: isRetryable,
-	}
-}
-
-func (opt retryUse) Apply(r *Repository) {
-	r.retryUse = opt
 }
 
 // New returns an event-sourced Aggregate Repository. It uses the provided Event
@@ -251,11 +111,11 @@ func New(store event.Store, opts ...Option) *Repository {
 }
 
 func newRepository(store event.Store, opts ...Option) *Repository {
-	r := Repository{store: store}
+	r := &Repository{store: store}
 	for _, opt := range opts {
-		opt.Apply(&r)
+		opt(r)
 	}
-	return &r
+	return r
 }
 
 // Save saves the changes to an Aggregate into the underlying event store and
@@ -549,27 +409,20 @@ func (r *Repository) makeQuery(ctx context.Context, aq aggregate.Query) (event.Q
 func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() error) error {
 	var err error
 
-	trigger := r.retryUse.trigger
-	isRetryable := r.retryUse.isRetryable
+	var trigger RetryTrigger
 
 	if rp, ok := a.(Retryer); ok {
-		if t, ir := rp.RetryUse(); t != nil {
-			trigger = t
-			isRetryable = ir
-		}
+		trigger = rp.RetryUse()
 	}
-
-	hasTrigger := trigger != nil && trigger != RetryTrigger(nil)
 
 	for {
 		if err != nil {
-
-			if !hasTrigger || isRetryable == nil || !isRetryable(err) {
+			if trigger == nil || !aggregate.IsConsistencyError(err) {
 				return err
 			}
 
-			if triggerError := trigger.next(ctx); triggerError != nil {
-				return fmt.Errorf("%v: %w", triggerError, err)
+			if done := trigger.next(ctx); done != nil {
+				return fmt.Errorf("%v: %w", done, err)
 			}
 
 			if discarder, ok := a.(ChangeDiscarder); ok {

@@ -1,6 +1,7 @@
 package aggregate
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -37,6 +38,24 @@ type ConsistencyError struct {
 
 // ConsistencyKind is the kind of inconsistency.
 type ConsistencyKind int
+
+// IsConsistencyError returns whether an error was caused by an inconsistency in
+// the events of an aggregate. An error is considered a consistency error if it
+// either unwraps to a *ConsistencyError or if it has an IsConsistencyError() bool
+// method that return true for the given error.
+func IsConsistencyError(err error) bool {
+	var cerr *ConsistencyError
+	if errors.As(err, &cerr) {
+		return true
+	}
+
+	var ierr interface{ IsConsistencyError() bool }
+	if errors.As(err, &ierr) {
+		return ierr.IsConsistencyError()
+	}
+
+	return false
+}
 
 // Validate tests the consistency of the given events against the given aggregate.
 //
@@ -161,6 +180,11 @@ func (err *ConsistencyError) Error() string {
 	default:
 		return fmt.Sprintf("consistency: invalid inconsistency kind=%d", err.Kind)
 	}
+}
+
+// IsConsistencyError implements error.Is.
+func (err *ConsistencyError) IsConsistencyError() bool {
+	return true
 }
 
 func (k ConsistencyKind) String() string {
