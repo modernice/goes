@@ -148,6 +148,156 @@ func TestDeleteAggregate(t *testing.T) {
 	}
 }
 
+func TestDeleteAggregate_CustomEvent(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	aggregateName := "foo"
+	aggregateID := uuid.New()
+
+	cmd := builtin.DeleteAggregate(aggregateName, aggregateID)
+
+	ebus := eventbus.New()
+	estore := eventstore.WithBus(eventstore.New(), ebus)
+	repo := repository.New(estore)
+	reg := codec.New()
+	builtin.RegisterCommands(reg)
+
+	subBus := cmdbus.New(reg, ebus)
+	pubBus := cmdbus.New(reg, ebus)
+
+	runErrs, err := subBus.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go panicOn(runErrs)
+	go panicOn(builtin.MustHandle(
+		ctx,
+		subBus,
+		repo,
+		builtin.PublishEvents(ebus, nil),
+		builtin.DeleteEvent("foo", func(ref aggregate.Ref) event.Event {
+			return event.New("custom.deleted", customDeletedEvent{Foo: "foo"}, event.Aggregate(ref.ID, ref.Name, 173)).Any()
+		}),
+	))
+
+	awaitCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	str, errs := event.Must(eventbus.Await[any](awaitCtx, ebus, "custom.deleted"))
+
+	if err := pubBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+		t.Fatalf("dispatch command: %v", err)
+	}
+
+	// A "custom.deleted" event should be published
+	evt, err := streams.Await(ctx, str, errs)
+	if err != nil {
+		t.Fatalf("await event: %v", err)
+	}
+
+	if evt.Name() != "custom.deleted" {
+		t.Fatalf("Event name should b %q; is %q", "custom.deleted", evt.Name())
+	}
+
+	data, ok := evt.Data().(customDeletedEvent)
+	if !ok {
+		t.Fatalf("Data() should return type %T; got %T", data, evt.Data())
+	}
+
+	if pick.AggregateName(evt) != aggregateName {
+		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, pick.AggregateName(evt))
+	}
+
+	if pick.AggregateID(evt) != aggregateID {
+		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, pick.AggregateID(evt))
+	}
+
+	if pick.AggregateVersion(evt) != 173 {
+		t.Fatalf("evt.AggregateVersion() should return 173; got %v", pick.AggregateVersion(evt))
+	}
+
+	if data.Foo != "foo" {
+		t.Fatalf("Foo should be %v; is %v", "foo", data.Foo)
+	}
+}
+
+func TestDeleteAggregate_CustomEvent_MatchAll(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	aggregateName := "foo"
+	aggregateID := uuid.New()
+
+	cmd := builtin.DeleteAggregate(aggregateName, aggregateID)
+
+	ebus := eventbus.New()
+	estore := eventstore.WithBus(eventstore.New(), ebus)
+	repo := repository.New(estore)
+	reg := codec.New()
+	builtin.RegisterCommands(reg)
+
+	subBus := cmdbus.New(reg, ebus)
+	pubBus := cmdbus.New(reg, ebus)
+
+	runErrs, err := subBus.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go panicOn(runErrs)
+	go panicOn(builtin.MustHandle(
+		ctx,
+		subBus,
+		repo,
+		builtin.PublishEvents(ebus, nil),
+		builtin.DeleteEvent("", func(ref aggregate.Ref) event.Event {
+			return event.New("custom.deleted", customDeletedEvent{Foo: "foo"}, event.Aggregate(ref.ID, ref.Name, 173)).Any()
+		}),
+	))
+
+	awaitCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	str, errs := event.Must(eventbus.Await[any](awaitCtx, ebus, "custom.deleted"))
+
+	if err := pubBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+		t.Fatalf("dispatch command: %v", err)
+	}
+
+	// A "custom.deleted" event should be published
+	evt, err := streams.Await(ctx, str, errs)
+	if err != nil {
+		t.Fatalf("await event: %v", err)
+	}
+
+	if evt.Name() != "custom.deleted" {
+		t.Fatalf("Event name should b %q; is %q", "custom.deleted", evt.Name())
+	}
+
+	data, ok := evt.Data().(customDeletedEvent)
+	if !ok {
+		t.Fatalf("Data() should return type %T; got %T", data, evt.Data())
+	}
+
+	if pick.AggregateName(evt) != aggregateName {
+		t.Fatalf("evt.AggregateName() should be %q; is %q", aggregateName, pick.AggregateName(evt))
+	}
+
+	if pick.AggregateID(evt) != aggregateID {
+		t.Fatalf("evt.AggregateID() should return %q; is %q", aggregateID, pick.AggregateID(evt))
+	}
+
+	if pick.AggregateVersion(evt) != 173 {
+		t.Fatalf("evt.AggregateVersion() should return 173; got %v", pick.AggregateVersion(evt))
+	}
+
+	if data.Foo != "foo" {
+		t.Fatalf("Foo should be %v; is %v", "foo", data.Foo)
+	}
+}
+
 func panicOn(errs <-chan error) {
 	for err := range errs {
 		panic(err)
@@ -173,4 +323,8 @@ func (ma *mockAggregate) ApplyEvent(evt event.Event) {
 
 func newMockEvent(a aggregate.Aggregate, foo int) event.Event {
 	return aggregate.NextEvent[any](a, "foobar", test.FoobarEventData{A: foo})
+}
+
+type customDeletedEvent struct {
+	Foo string
 }
