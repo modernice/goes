@@ -30,7 +30,6 @@ services:
   test:
     depends_on:
       - nats
-      - stan
       - jetstream
       - mongostore
       - mongostore_replicaset
@@ -43,7 +42,6 @@ services:
         TAGS: nats,mongo
     environment:
       - NATS_URL=nats://nats:4222
-      - STAN_URL=nats://stan:4222
       - JETSTREAM_URL=nats://jetstream:4222
       - MONGOSTORE_URL=mongodb://mongostore:27017
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
