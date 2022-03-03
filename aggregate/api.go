@@ -36,5 +36,16 @@ type Committer interface {
 	Commit()
 }
 
+// SoftDeleter can be implemented by aggregate events to soft-delete an
+// aggregate. A soft-deletes aggregate is excluded from query results of the
+// aggregate repository. When trying to fetch a soft-deleted aggregate through
+// the aggregate repository, a repository.ErrDeleted error will be returned.
+// Soft-deleted aggregates may be restored by a SoftRestorer event.
+type SoftDeleter interface{ SoftDelete() bool }
+
+// SoftRestorer can be implemented by aggregate eevntw to restore a soft-deleted
+// aggregate (see SoftDeleter).
+type SoftRestorer interface{ SoftRestore() bool }
+
 // Ref is a reference to a specific aggregate, identified by its name and id.
 type Ref = event.AggregateRef

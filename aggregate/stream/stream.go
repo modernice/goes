@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/aggregate/internal/softdelete"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
 )
@@ -17,6 +18,7 @@ type options struct {
 	isSorted            bool
 	isGrouped           bool
 	validateConsistency bool
+	withSoftDeleted     bool
 	filters             []func(event.Event) bool
 	streamErrors        []<-chan error
 }
@@ -138,6 +140,15 @@ func ValidateConsistency(v bool) Option {
 func Filter(fns ...func(event.Event) bool) Option {
 	return func(opts *options) {
 		opts.filters = append(opts.filters, fns...)
+	}
+}
+
+// WithSoftDeletes returns an Option that specifies if the stream should return
+// soft-deleted aggregates in the returned History stream. Soft-deleted aggregates
+// are by default excluded from the result.
+func WithSoftDeleted(v bool) Option {
+	return func(opts *options) {
+		opts.withSoftDeleted = v
 	}
 }
 
@@ -317,6 +328,10 @@ func (s *stream) sortEvents() {
 				s.outErrors <- err
 				continue
 			}
+		}
+
+		if !s.withSoftDeleted && softdelete.SoftDeleted(events) {
+			continue
 		}
 
 		s.out <- applier{

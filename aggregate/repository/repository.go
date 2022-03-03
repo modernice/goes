@@ -19,6 +19,9 @@ var (
 	// ErrVersionNotFound is returned when trying to fetch an Aggregate with a
 	// version higher than the current version of the Aggregate.
 	ErrVersionNotFound = errors.New("version not found")
+
+	// ErrDeleted is returned when trying to fetch an Aggregate that has been soft-deleted.
+	ErrDeleted = errors.New("aggregate was soft-deleted")
 )
 
 // Option is a repository option.
@@ -241,12 +244,31 @@ func (r *Repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 		return nil, fmt.Errorf("query events: %w", err)
 	}
 
-	events, err := streams.Drain(ctx, str, errs)
-	if err != nil {
-		return events, fmt.Errorf("stream: %w", err)
+	out := make([]event.Event, 0, len(str))
+	var softDeleted bool
+	if err := streams.Walk(ctx, func(evt event.Event) error {
+		data := evt.Data()
+
+		if data, ok := data.(aggregate.SoftDeleter); ok && data.SoftDelete() {
+			softDeleted = true
+		}
+
+		if data, ok := data.(aggregate.SoftRestorer); ok && data.SoftRestore() {
+			softDeleted = false
+		}
+
+		out = append(out, evt)
+
+		return nil
+	}, str, errs); err != nil {
+		return out, err
 	}
 
-	return events, nil
+	if softDeleted {
+		return out, ErrDeleted
+	}
+
+	return out, nil
 }
 
 // FetchVersion does the same as r.Fetch, but only fetches events up until the

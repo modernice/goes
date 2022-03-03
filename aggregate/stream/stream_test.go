@@ -11,8 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/stream"
+	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/event/test"
+	etest "github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/xaggregate"
@@ -30,7 +31,7 @@ type makeEventsConfig struct {
 func TestStream_singleAggregate_sorted(t *testing.T) {
 	as, getAppliedEvents := xaggregate.Make(1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 	es := streams.New(events...)
 
@@ -42,7 +43,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 	}
 
 	applied := getAppliedEvents(pick.AggregateID(as[0]))
-	test.AssertEqualEvents(t, xevent.FilterAggregate(events, as[0]), applied)
+	etest.AssertEqualEvents(t, xevent.FilterAggregate(events, as[0]), applied)
 
 	if len(res) != 1 {
 		t.Fatalf("stream should return 1 aggregate; got %d", len(res))
@@ -64,7 +65,7 @@ func TestStream_singleAggregate_sorted(t *testing.T) {
 func TestStream_singleAggregate_unsorted(t *testing.T) {
 	as, getAppliedEvents := xaggregate.Make(1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
 	es := streams.New(events...)
 
@@ -76,7 +77,7 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 	}
 
 	applied := getAppliedEvents(pick.AggregateID(as[0]))
-	test.AssertEqualEvents(t, event.Sort(events, event.SortAggregateVersion, event.SortAsc), applied)
+	etest.AssertEqualEvents(t, event.Sort(events, event.SortAggregateVersion, event.SortAsc), applied)
 
 	if len(res) != 1 {
 		t.Fatalf("stream should return 1 aggregate; got %d", len(res))
@@ -90,7 +91,7 @@ func TestStream_singleAggregate_unsorted(t *testing.T) {
 func TestStream_multipleAggregates_unsorted(t *testing.T) {
 	as, getAppliedEvents := xaggregate.Make(10)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
 	es := streams.New(events...)
 
@@ -108,7 +109,7 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 	for _, a := range as {
 		id, _, _ := a.Aggregate()
 		applied := getAppliedEvents(id)
-		test.AssertEqualEvents(t, event.Sort(
+		etest.AssertEqualEvents(t, event.Sort(
 			xevent.FilterAggregate(events, a),
 			event.SortAggregateVersion,
 			event.SortAsc,
@@ -131,7 +132,7 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 func TestStream_inconsistent(t *testing.T) {
 	as, _ := xaggregate.Make(1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion(3))
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion(3))
 
 	es := streams.New(events...)
 	str, errs := stream.New(context.Background(), es)
@@ -159,7 +160,7 @@ func TestStream_inconsistent(t *testing.T) {
 func TestSorted(t *testing.T) {
 	as, _ := xaggregate.Make(1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 
 	// swap first and last event, so they're unordered
@@ -195,7 +196,7 @@ func TestGrouped(t *testing.T) {
 		aggregate.SortOptions{Sort: aggregate.SortName, Dir: aggregate.SortAsc},
 		aggregate.SortOptions{Sort: aggregate.SortID, Dir: aggregate.SortAsc},
 	)
-	events := xevent.Make("foo", test.FooEventData{}, 3, xevent.ForAggregate(as...))
+	events := xevent.Make("foo", etest.FooEventData{}, 3, xevent.ForAggregate(as...))
 	events = event.SortMulti(
 		events,
 		event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
@@ -235,7 +236,7 @@ func TestGrouped(t *testing.T) {
 func TestValidateConsistency(t *testing.T) {
 	as, _ := xaggregate.Make(1)
 	am := xaggregate.Map(as)
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 
 	// swap first and last event, so they're unordered
@@ -271,7 +272,7 @@ func TestFilter(t *testing.T) {
 	as := append(foos, foobars...)
 	am := xaggregate.Map(as)
 
-	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(as...))
+	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...))
 	events = xevent.Shuffle(events)
 
 	es := streams.New(events...)
@@ -298,6 +299,44 @@ func TestFilter(t *testing.T) {
 
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("stream returned the wrong aggregates\n\nwant: %#v\n\ngot: %#v\n\n", want, got)
+	}
+}
+
+func TestWithSoftDeleted(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	foo := test.NewFoo(uuid.New())
+	bar := test.NewFoo(uuid.New())
+	other := []aggregate.Aggregate{
+		test.NewFoo(uuid.New()),
+		test.NewFoo(uuid.New()),
+		test.NewFoo(uuid.New()),
+	}
+
+	aggregate.Next(foo, "soft_deleted", softDeletedEvent{})
+	aggregate.Next(bar, "soft_deleted", softDeletedEvent{})
+
+	for _, other := range other {
+		aggregate.NextEvent(other, "foo", etest.FooEventData{})
+	}
+
+	var events []event.Event
+	for _, a := range append(other, foo, bar) {
+		events = append(events, a.AggregateChanges()...)
+	}
+
+	es := streams.New(events...)
+
+	str, errs := stream.New(context.Background(), es, stream.WithSoftDeleted(true))
+
+	histories, err := streams.Drain(ctx, str, errs)
+	if err != nil {
+		t.Fatalf("drain histories: %v", err)
+	}
+
+	if len(histories) != 5 {
+		t.Fatalf("stream should also return soft-deleted aggregates")
 	}
 }
 
@@ -337,3 +376,7 @@ func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) a
 		return am[id]
 	}
 }
+
+type softDeletedEvent struct{}
+
+func (softDeletedEvent) SoftDelete() bool { return true }
