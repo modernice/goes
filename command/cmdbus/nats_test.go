@@ -15,7 +15,20 @@ import (
 	"github.com/modernice/goes/command/cmdbus/dispatch"
 )
 
-func TestBus(t *testing.T) {
+func TestBus_NATS_Core(t *testing.T) {
+	ereg := codec.New()
+	cmdbus.RegisterEvents(ereg)
+	enc := codec.Gob(codec.New())
+	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
+	bus := nats.NewEventBus(
+		ereg,
+		nats.Use(nats.Core()),
+		nats.URL(os.Getenv("NATS_URL")),
+	)
+	testNATSBus(t, bus)
+}
+
+func TestBus_NATS_JetStream(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
