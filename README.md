@@ -1,4 +1,4 @@
-# goes - Event-Sourcing Toolkit
+# goes - Event-Sourcing Framework
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/modernice/goes.svg)](https://pkg.go.dev/github.com/modernice/goes)
 
@@ -67,7 +67,7 @@ go get github.com/modernice/goes
 ## Components
 
 goes consists of multiple components that, when used together, provide a CQRS
-and Event-Sourcing framework/toolkit. Read a component's README for usage guides.
+and Event-Sourcing framework. Read a component's README for usage guides.
 
 ### Event System
 
