@@ -555,7 +555,14 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 		return
 	}
 
-	// otherwise remove the command from assigned commands
+	// otherwise mark the command as accepted if it wasn't already
+	select {
+	case <-cmd.accepted:
+	default:
+		close(cmd.accepted)
+	}
+
+	// and remove the command from assigned commands
 	delete(b.assigned, data.ID)
 
 	// if the dispatch requested a report, report the execution result

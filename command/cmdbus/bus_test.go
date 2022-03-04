@@ -75,10 +75,10 @@ func TestBus_Dispatch_Report(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	subBus, ebus, ereg := newBus(ctx)
-	pubBus, _, _ := newBusWith(ctx, ereg, ebus, cmdbus.AssignTimeout(0))
+	bus, _, _ := newBus(ctx, cmdbus.AssignTimeout(0))
+	// pubBus, _, _ := newBusWith(ctx, ereg, ebus, cmdbus.AssignTimeout(0))
 
-	commands, errs, err := subBus.Subscribe(ctx, "foo-cmd")
+	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
 
 	if err != nil {
 		t.Fatalf("failed to subscribe: %v", err)
@@ -88,7 +88,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 	var rep report.Report
 
 	dispatchErr := make(chan error)
-	go func() { dispatchErr <- pubBus.Dispatch(ctx, cmd.Any(), dispatch.Report(&rep)) }()
+	go func() { dispatchErr <- bus.Dispatch(ctx, cmd.Any(), dispatch.Report(&rep)) }()
 
 	var cmdCtx command.Context
 	var ok bool
@@ -114,8 +114,8 @@ func TestBus_Dispatch_Report(t *testing.T) {
 
 	var dispatchError error
 	select {
-	case <-time.After(3 * time.Second):
-		t.Fatalf("Dispatch not done after %s", 3*time.Second)
+	case <-time.After(time.Second):
+		t.Fatalf("Dispatch not done after %s", time.Second)
 	case dispatchError = <-dispatchErr:
 	}
 

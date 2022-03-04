@@ -167,6 +167,9 @@ func (h *Handler) Run(ctx context.Context) (<-chan error, error) {
 
 	go func() {
 		if err := streams.Walk(ctx, func(evt Event) error {
+			// log.Printf("Handling %q event", evt.Name())
+			// defer log.Printf("Handled %q event", evt.Name())
+
 			if fn, ok := h.handlers[evt.Name()]; ok {
 				fn(evt)
 			}
