@@ -15,7 +15,6 @@ import (
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/aggregate/snapshot"
-	"github.com/modernice/goes/aggregate/snapshot/memsnap"
 	squery "github.com/modernice/goes/aggregate/snapshot/query"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
@@ -67,7 +66,7 @@ func TestRepository_Save(t *testing.T) {
 
 func TestRepository_Save_Snapshot(t *testing.T) {
 	store := eventstore.New()
-	snapstore := memsnap.New()
+	snapstore := snapshot.NewStore()
 	r := repository.New(
 		store,
 		repository.WithSnapshots(snapstore, snapshot.Every(3)),
@@ -466,7 +465,7 @@ func TestRepository_Query_version(t *testing.T) {
 
 // 	eventStore := eventstore.New()
 // 	mockEventStore := mock_event.NewMockStore(ctrl)
-// 	snapStore := memsnap.New()
+// 	snapStore := snapshot.NewStore()
 // 	mockStore := mock_snapshot.NewMockStore(ctrl)
 // 	r := repository.New(
 // 		mockEventStore,
@@ -522,7 +521,7 @@ func TestRepository_Query_version(t *testing.T) {
 
 // 	eventStore := eventstore.New()
 // 	mockEventStore := mock_event.NewMockStore(ctrl)
-// 	snapStore := memsnap.New()
+// 	snapStore := snapshot.NewStore()
 // 	mockStore := mock_snapshot.NewMockStore(ctrl)
 // 	r := repository.New(
 // 		mockEventStore,

@@ -19,7 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func TestStore(t *testing.T) {
+func TestSnapshotStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
 		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
 			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))

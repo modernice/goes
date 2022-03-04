@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	aquery "github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/event/query/time"
 )
 
@@ -34,13 +35,13 @@ type Store interface {
 	//
 	// Example:
 	//
-	//	var store snapshot.Store
+	//	var store Store
 	//	snaps, errs, err := store.Query(context.TODO(), query.New())
 	//	// handle err
-	//	err := streams.Walk(context.TODO(), func(snap snapshot.Snapshot) {
+	//	err := streams.Walk(context.TODO(), func(snap Snapshot) {
 	//		log.Println(fmt.Sprintf("Queried Snapshot: %v", snap))
 	//		foo := newFoo(snap.AggregateID())
-	//		err := snapshot.Unmarshal(snap, foo)
+	//		err := Unmarshal(snap, foo)
 	//		// handle err
 	//	}, snaps, errs)
 	//	// handle err
@@ -55,4 +56,36 @@ type Query interface {
 	aggregate.Query
 
 	Times() time.Constraints
+}
+
+// Test tests the Snapshot s against the Query q and returns true if q should
+// include s in its results. Test can be used by Store implementations
+// to filter events based on the query.
+func Test(q Query, s Snapshot) bool {
+	if !aquery.Test[any](q, aggregate.New(
+		s.AggregateName(),
+		s.AggregateID(),
+		aggregate.Version(s.AggregateVersion()),
+	)) {
+		return false
+	}
+
+	if times := q.Times(); times != nil {
+		if exact := times.Exact(); len(exact) > 0 &&
+			!timesContains(exact, s.Time()) {
+			return false
+		}
+		if ranges := times.Ranges(); len(ranges) > 0 &&
+			!testTimeRanges(ranges, s.Time()) {
+			return false
+		}
+		if min := times.Min(); !min.IsZero() && !testMinTimes(min, s.Time()) {
+			return false
+		}
+		if max := times.Max(); !max.IsZero() && !testMaxTimes(max, s.Time()) {
+			return false
+		}
+	}
+
+	return true
 }

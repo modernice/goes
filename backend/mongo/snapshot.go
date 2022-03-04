@@ -1,4 +1,4 @@
-package mongosnap
+package mongo
 
 import (
 	"context"
@@ -19,12 +19,12 @@ import (
 )
 
 var (
-	// ErrNotFound is returned when a Snapshot can't be found in the database.
+	// ErrNotFound is returned when a snapshot can't be found in the database.
 	ErrNotFound = errors.New("snapshot not found")
 )
 
-// Store is the MongoDB implementation of snapshot.Store.
-type Store struct {
+// SnapshotStore is the MongoDB implementation of a snapshot store.
+type SnapshotStore struct {
 	url     string
 	dbname  string
 	colname string
@@ -37,9 +37,9 @@ type Store struct {
 }
 
 // Option is a Store option.
-type Option func(*Store)
+type Option func(*SnapshotStore)
 
-type entry struct {
+type snapshotEntry struct {
 	AggregateName    string       `bson:"aggregateName"`
 	AggregateID      uuid.UUID    `bson:"aggregateId"`
 	AggregateVersion int          `bson:"aggregateVersion"`
@@ -48,34 +48,34 @@ type entry struct {
 	Data             []byte       `bson:"data"`
 }
 
-// URL returns an Option that specifies the URL to the MongoDB instance. An
-// empty URL means "use the default".
+// SnapshotURL returns an Option that specifies the URL to the MongoDB instance. An
+// empty SnapshotURL means "use the default".
 //
 // Defaults to the environment variable "MONGO_URL".
-func URL(url string) Option {
-	return func(s *Store) {
+func SnapshotURL(url string) Option {
+	return func(s *SnapshotStore) {
 		s.url = url
 	}
 }
 
-// Database returns an Option that specifies the database name for Snapshots.
-func Database(name string) Option {
-	return func(s *Store) {
+// SnapshotDatabase returns an Option that specifies the database name for snapshots.
+func SnapshotDatabase(name string) Option {
+	return func(s *SnapshotStore) {
 		s.dbname = name
 	}
 }
 
-// Collection returns an Option that specifies the collection name for
+// SnapshotCollection returns an Option that specifies the collection name for
 // Snapshots.
-func Collection(name string) Option {
-	return func(s *Store) {
+func SnapshotCollection(name string) Option {
+	return func(s *SnapshotStore) {
 		s.colname = name
 	}
 }
 
-// New returns a new Store.
-func New(opts ...Option) *Store {
-	var s Store
+// NewSnapshotStore returns a new Store.
+func NewSnapshotStore(opts ...Option) *SnapshotStore {
+	var s SnapshotStore
 	for _, opt := range opts {
 		opt(&s)
 	}
@@ -89,12 +89,12 @@ func New(opts ...Option) *Store {
 }
 
 // Save saves the given Snapshot into the database.
-func (s *Store) Save(ctx context.Context, snap snapshot.Snapshot) error {
+func (s *SnapshotStore) Save(ctx context.Context, snap snapshot.Snapshot) error {
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
-	e := entry{
+	e := snapshotEntry{
 		AggregateName:    snap.AggregateName(),
 		AggregateID:      snap.AggregateID(),
 		AggregateVersion: snap.AggregateVersion(),
@@ -116,7 +116,7 @@ func (s *Store) Save(ctx context.Context, snap snapshot.Snapshot) error {
 
 // Latest returns the latest Snapshot for the Aggregate with the given name and
 // UUID or ErrNotFound if no Snapshots for that Aggregate exist in the database.
-func (s *Store) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot.Snapshot, error) {
+func (s *SnapshotStore) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot.Snapshot, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
@@ -128,7 +128,7 @@ func (s *Store) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot
 		{Key: "aggregateVersion", Value: -1},
 	}))
 
-	var e entry
+	var e snapshotEntry
 	if err := res.Decode(&e); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
@@ -142,7 +142,7 @@ func (s *Store) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot
 // Version returns the Snapshot for the Aggregate with the given name, UUID and
 // version. If no Snapshot for the given version exists, Version returns
 // ErrNotFound.
-func (s *Store) Version(ctx context.Context, name string, id uuid.UUID, version int) (snapshot.Snapshot, error) {
+func (s *SnapshotStore) Version(ctx context.Context, name string, id uuid.UUID, version int) (snapshot.Snapshot, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
@@ -153,7 +153,7 @@ func (s *Store) Version(ctx context.Context, name string, id uuid.UUID, version 
 		{Key: "aggregateVersion", Value: version},
 	})
 
-	var e entry
+	var e snapshotEntry
 	if err := res.Decode(&e); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
@@ -168,7 +168,7 @@ func (s *Store) Version(ctx context.Context, name string, id uuid.UUID, version 
 // than the given version.
 //
 // Limit returns ErrNotFound if no such Snapshot can be found in the database.
-func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
+func (s *SnapshotStore) Limit(ctx context.Context, name string, id uuid.UUID, v int) (snapshot.Snapshot, error) {
 	res := s.col.FindOne(
 		ctx,
 		bson.D{
@@ -183,7 +183,7 @@ func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (sn
 		}),
 	)
 
-	var e entry
+	var e snapshotEntry
 	if err := res.Decode(&e); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
@@ -194,10 +194,10 @@ func (s *Store) Limit(ctx context.Context, name string, id uuid.UUID, v int) (sn
 	return e.snapshot()
 }
 
-func (s *Store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
-	filter := makeFilter(q)
+func (s *SnapshotStore) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
+	filter := makeSnapshotFilter(q)
 	opts := options.Find()
-	applySortings(opts, q.Sortings()...)
+	applySnapshotSortings(opts, q.Sortings()...)
 	cur, err := s.col.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("mongo: %w", err)
@@ -210,7 +210,7 @@ func (s *Store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Sn
 		defer close(outErrs)
 
 		for cur.Next(ctx) {
-			var e entry
+			var e snapshotEntry
 			if err = cur.Decode(&e); err != nil {
 				outErrs <- fmt.Errorf("decode mongo result: %w", err)
 				continue
@@ -237,7 +237,7 @@ func (s *Store) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Sn
 }
 
 // Delete deletes a Snapshot from the database.
-func (s *Store) Delete(ctx context.Context, snap snapshot.Snapshot) error {
+func (s *SnapshotStore) Delete(ctx context.Context, snap snapshot.Snapshot) error {
 	if _, err := s.col.DeleteOne(ctx, bson.D{
 		{Key: "aggregateName", Value: snap.AggregateName()},
 		{Key: "aggregateId", Value: snap.AggregateID()},
@@ -253,14 +253,14 @@ func (s *Store) Delete(ctx context.Context, snap snapshot.Snapshot) error {
 // automatically on the first call to s.Save, s.Latest, s.Version, s.Query or
 // s.Delete. Use Connect if you want to explicitly control when to connect to
 // MongoDB.
-func (s *Store) Connect(ctx context.Context) (*mongo.Client, error) {
+func (s *SnapshotStore) Connect(ctx context.Context) (*mongo.Client, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, err
 	}
 	return s.client, nil
 }
 
-func (s *Store) connectOnce(ctx context.Context) error {
+func (s *SnapshotStore) connectOnce(ctx context.Context) error {
 	var err error
 	s.onceConnect.Do(func() {
 		if err = s.connect(ctx); err != nil {
@@ -274,7 +274,7 @@ func (s *Store) connectOnce(ctx context.Context) error {
 	return err
 }
 
-func (s *Store) connect(ctx context.Context) error {
+func (s *SnapshotStore) connect(ctx context.Context) error {
 	uri := s.url
 	if uri == "" {
 		uri = os.Getenv("MONGO_URL")
@@ -294,7 +294,7 @@ func (s *Store) connect(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store) ensureIndexes(ctx context.Context) error {
+func (s *SnapshotStore) ensureIndexes(ctx context.Context) error {
 	_, err := s.col.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
 			Keys:    bson.D{{Key: "time", Value: -1}},
@@ -318,16 +318,16 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 	return err
 }
 
-func makeFilter(q snapshot.Query) bson.D {
+func makeSnapshotFilter(q snapshot.Query) bson.D {
 	filter := make(bson.D, 0)
-	filter = withNameFilter(filter, q.Names())
-	filter = withIDFilter(filter, q.IDs())
-	filter = withVersionFilter(filter, q.Versions())
-	filter = withTimeFilter(filter, q.Times())
+	filter = withSnapshotNameFilter(filter, q.Names())
+	filter = withSnapshotIDFilter(filter, q.IDs())
+	filter = withSnapshotVersionFilter(filter, q.Versions())
+	filter = withSnapshotTimeFilter(filter, q.Times())
 	return filter
 }
 
-func withNameFilter(filter bson.D, names []string) bson.D {
+func withSnapshotNameFilter(filter bson.D, names []string) bson.D {
 	if len(names) == 0 {
 		return filter
 	}
@@ -337,7 +337,7 @@ func withNameFilter(filter bson.D, names []string) bson.D {
 	})
 }
 
-func withIDFilter(filter bson.D, ids []uuid.UUID) bson.D {
+func withSnapshotIDFilter(filter bson.D, ids []uuid.UUID) bson.D {
 	if len(ids) == 0 {
 		return filter
 	}
@@ -347,7 +347,7 @@ func withIDFilter(filter bson.D, ids []uuid.UUID) bson.D {
 	})
 }
 
-func withVersionFilter(filter bson.D, versions version.Constraints) bson.D {
+func withSnapshotVersionFilter(filter bson.D, versions version.Constraints) bson.D {
 	if exact := versions.Exact(); len(exact) > 0 {
 		filter = append(filter, bson.E{Key: "aggregateVersion", Value: bson.D{
 			{Key: "$in", Value: exact},
@@ -376,7 +376,7 @@ func withVersionFilter(filter bson.D, versions version.Constraints) bson.D {
 	return filter
 }
 
-func withTimeFilter(filter bson.D, times time.Constraints) bson.D {
+func withSnapshotTimeFilter(filter bson.D, times time.Constraints) bson.D {
 	if times == nil {
 		return filter
 	}
@@ -414,15 +414,7 @@ func withTimeFilter(filter bson.D, times time.Constraints) bson.D {
 	return filter
 }
 
-func nanoTimes(ts ...stdtime.Time) []int64 {
-	nano := make([]int64, len(ts))
-	for i, t := range ts {
-		nano[i] = t.UnixNano()
-	}
-	return nano
-}
-
-func applySortings(opts *options.FindOptions, sortings ...aggregate.SortOptions) *options.FindOptions {
+func applySnapshotSortings(opts *options.FindOptions, sortings ...aggregate.SortOptions) *options.FindOptions {
 	sorts := make(bson.D, len(sortings))
 	for i, opts := range sortings {
 		v := 1
@@ -442,7 +434,7 @@ func applySortings(opts *options.FindOptions, sortings ...aggregate.SortOptions)
 	return opts.SetSort(sorts)
 }
 
-func (e entry) snapshot() (snapshot.Snapshot, error) {
+func (e snapshotEntry) snapshot() (snapshot.Snapshot, error) {
 	return snapshot.New(
 		aggregate.New(
 			e.AggregateName,

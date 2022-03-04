@@ -13,7 +13,6 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/cleanup"
-	"github.com/modernice/goes/aggregate/snapshot/memsnap"
 	"github.com/modernice/goes/aggregate/snapshot/query"
 	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/xtime"
@@ -31,7 +30,7 @@ type mockState struct {
 }
 
 func TestService(t *testing.T) {
-	store := memsnap.New()
+	store := snapshot.NewStore()
 
 	foo1 := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
 	foo2 := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
@@ -95,7 +94,7 @@ func TestService(t *testing.T) {
 
 func TestService_Start_errStarted(t *testing.T) {
 	svc := cleanup.NewService(time.Minute, time.Minute)
-	store := memsnap.New()
+	store := snapshot.NewStore()
 
 	if _, err := svc.Start(store); err != nil {
 		t.Fatalf("Start shouldn't fail; failed with %q", err)
@@ -115,7 +114,7 @@ func TestService_Start_nilStore(t *testing.T) {
 
 func TestService_Stop(t *testing.T) {
 	svc := cleanup.NewService(time.Minute, time.Minute)
-	store := memsnap.New()
+	store := snapshot.NewStore()
 
 	if _, err := svc.Start(store); err != nil {
 		t.Fatalf("Start shouldn't fail; failed with %q", err)

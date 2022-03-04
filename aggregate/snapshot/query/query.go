@@ -1,12 +1,9 @@
 package query
 
 import (
-	stdtime "time"
-
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
-	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 )
@@ -75,38 +72,6 @@ func New(opts ...Option) Query {
 	return b.build(opts...)
 }
 
-// Test tests the Snapshot s against the Query q and returns true if q should
-// include s in its results. Test can be used by snapshot.Store implementations
-// to filter events based on the query.
-func Test(q snapshot.Query, s snapshot.Snapshot) bool {
-	if !query.Test[any](q, aggregate.New(
-		s.AggregateName(),
-		s.AggregateID(),
-		aggregate.Version(s.AggregateVersion()),
-	)) {
-		return false
-	}
-
-	if times := q.Times(); times != nil {
-		if exact := times.Exact(); len(exact) > 0 &&
-			!timesContains(exact, s.Time()) {
-			return false
-		}
-		if ranges := times.Ranges(); len(ranges) > 0 &&
-			!testTimeRanges(ranges, s.Time()) {
-			return false
-		}
-		if min := times.Min(); !min.IsZero() && !testMinTimes(min, s.Time()) {
-			return false
-		}
-		if max := times.Max(); !max.IsZero() && !testMaxTimes(max, s.Time()) {
-			return false
-		}
-	}
-
-	return true
-}
-
 // Times returns the time.Constraints of the Query.
 func (q Query) Times() time.Constraints {
 	return q.times
@@ -119,36 +84,4 @@ func (b *builder) build(opts ...Option) Query {
 	b.Query.Query = query.New(b.opts...)
 	b.times = time.Filter(b.timeConstraints...)
 	return b.Query
-}
-
-func timesContains(times []stdtime.Time, t stdtime.Time) bool {
-	for _, v := range times {
-		if v.Equal(t) {
-			return true
-		}
-	}
-	return false
-}
-
-func testTimeRanges(ranges []time.Range, t stdtime.Time) bool {
-	for _, r := range ranges {
-		if r.Includes(t) {
-			return true
-		}
-	}
-	return false
-}
-
-func testMinTimes(min stdtime.Time, t stdtime.Time) bool {
-	if t.Equal(min) || t.After(min) {
-		return true
-	}
-	return false
-}
-
-func testMaxTimes(max stdtime.Time, t stdtime.Time) bool {
-	if t.Equal(max) || t.Before(max) {
-		return true
-	}
-	return false
 }

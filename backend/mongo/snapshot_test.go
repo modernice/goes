@@ -1,6 +1,6 @@
 //go:build mongo
 
-package mongosnap_test
+package mongo_test
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/modernice/goes/aggregate/snapshot"
-	"github.com/modernice/goes/aggregate/snapshot/mongosnap"
 	"github.com/modernice/goes/aggregate/snapshot/storetest"
+	"github.com/modernice/goes/backend/mongo"
 )
 
 var (
@@ -26,7 +26,7 @@ func TestStore(t *testing.T) {
 
 func TestStore_Connect(t *testing.T) {
 	url := os.Getenv("MONGOSNAP_URL")
-	s := mongosnap.New(mongosnap.URL(url))
+	s := mongo.NewSnapshotStore(mongo.SnapshotURL(url))
 	client, err := s.Connect(context.Background())
 	if err != nil {
 		t.Errorf("Connect shouldn't fail; failed with %q", err)
@@ -38,8 +38,8 @@ func TestStore_Connect(t *testing.T) {
 
 func newStore() snapshot.Store {
 	id := atomic.AddInt64(&storeID, 1)
-	return mongosnap.New(
-		mongosnap.Database(fmt.Sprintf("snapshot_%d", id)),
-		mongosnap.URL(os.Getenv("MONGOSNAP_URL")),
+	return mongo.NewSnapshotStore(
+		mongo.SnapshotDatabase(fmt.Sprintf("snapshot_%d", id)),
+		mongo.SnapshotURL(os.Getenv("MONGOSNAP_URL")),
 	)
 }

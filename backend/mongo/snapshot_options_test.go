@@ -1,6 +1,6 @@
 //go:build mongo
 
-package mongosnap
+package mongo
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-func TestDatabase(t *testing.T) {
-	s := newStore(Database("foo"))
+func TestSnapshotDatabase(t *testing.T) {
+	s := newSnapshotStore(SnapshotDatabase("foo"))
 	if _, err := s.Connect(context.Background()); err != nil {
 		t.Fatalf("Connect shouldn't fail; failed with %q", err)
 	}
@@ -19,8 +19,8 @@ func TestDatabase(t *testing.T) {
 	}
 }
 
-func TestCollection(t *testing.T) {
-	s := newStore(Collection("foo"))
+func TestSnapshotCollection(t *testing.T) {
+	s := newSnapshotStore(SnapshotCollection("foo"))
 	if _, err := s.Connect(context.Background()); err != nil {
 		t.Fatalf("Connect shouldn't fail; failed with %q", err)
 	}
@@ -30,8 +30,8 @@ func TestCollection(t *testing.T) {
 	}
 }
 
-func newStore(opts ...Option) *Store {
+func newSnapshotStore(opts ...Option) *SnapshotStore {
 	url := os.Getenv("MONGOSNAP_URL")
-	opts = append([]Option{URL(url)}, opts...)
-	return New(opts...)
+	opts = append([]Option{SnapshotURL(url)}, opts...)
+	return NewSnapshotStore(opts...)
 }

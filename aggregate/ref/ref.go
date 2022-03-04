@@ -6,8 +6,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 )
 
-// Names extracts the Names of the given Tuples. Empty names are not included
-// and duplicates are removed.
+// Names returns the names of the given aggregates.
 func Names(refs ...aggregate.Ref) []string {
 	var names []string
 	found := make(map[string]bool)
@@ -24,8 +23,7 @@ func Names(refs ...aggregate.Ref) []string {
 	return names
 }
 
-// IDs extracts the IDs of the given Tuples. Nil-UUIDs are not included and
-// duplicates are removed.
+// IDs returns the UUIDs of the given aggregates.
 func IDs(refs ...aggregate.Ref) []uuid.UUID {
 	var ids []uuid.UUID
 	found := make(map[uuid.UUID]bool)
@@ -42,8 +40,7 @@ func IDs(refs ...aggregate.Ref) []uuid.UUID {
 	return ids
 }
 
-// Aggregates extracts the IDs of the given Tuples that have the Name name.
-// Nil-UUIDs are not included and duplicates are removed.
+// Aggregates returne the UUIDs of the given aggregates that have the given name.
 func Aggregates(name string, refs ...aggregate.Ref) []uuid.UUID {
 	var ids []uuid.UUID
 	found := make(map[uuid.UUID]bool)
