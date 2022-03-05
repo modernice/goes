@@ -49,10 +49,6 @@ var (
 	// Deprecated: Use ErrReceiveTimeout instead.
 	ErrDrainTimeout = ErrReceiveTimeout
 
-	// ErrDispatchCanceled is returned by a Bus when the dispatch was canceled
-	// by the provided Context.
-	ErrDispatchCanceled = errors.New("dispatch canceled")
-
 	// // ErrNotRunning is returned when trying to dispatch or subscribe to a
 	// // command before the command bus has been started.
 	// ErrNotRunning = errors.New("command bus is not running")
@@ -246,12 +242,6 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 
 		go logErrors(errs)
 	}
-
-	defer func() {
-		if err != nil && errors.Is(err, context.Canceled) {
-			err = fmt.Errorf("%w: %v", ErrDispatchCanceled, err)
-		}
-	}()
 
 	cfg := dispatch.Configure(opts...)
 

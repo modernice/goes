@@ -141,21 +141,6 @@ func TestBus_Dispatch_Report(t *testing.T) {
 	}
 }
 
-func TestBus_Dispatch_cancel(t *testing.T) {
-	bus, _, _ := newBus(context.Background())
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	cmd := command.New("foo-cmd", mockPayload{})
-
-	err := bus.Dispatch(ctx, cmd.Any())
-
-	if !errors.Is(err, cmdbus.ErrDispatchCanceled) {
-		t.Fatalf("Dispatch should fail with %q; got %q", cmdbus.ErrDispatchCanceled, err)
-	}
-}
-
 func TestSynchronous(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
