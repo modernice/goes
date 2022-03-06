@@ -62,11 +62,13 @@ var (
 type Bus struct {
 	*event.Handler
 
-	mux           sync.RWMutex
+	subMux        sync.RWMutex
 	subscriptions map[string]*subscription
 	requested     map[uuid.UUID]command.Cmd[any]
-	dispatched    map[uuid.UUID]dispatcher
-	assigned      map[uuid.UUID]dispatcher
+
+	dispatchMux sync.RWMutex
+	dispatched  map[uuid.UUID]dispatcher
+	assigned    map[uuid.UUID]dispatcher
 
 	assignTimeout  time.Duration
 	receiveTimeout time.Duration
@@ -269,7 +271,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 	aborted := make(chan struct{})
 	defer close(aborted)
 
-	b.mux.Lock()
+	b.dispatchMux.Lock()
 	b.dispatched[cmd.ID()] = dispatcher{
 		cmd:             cmd,
 		cfg:             cfg,
@@ -277,7 +279,9 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 		out:             out,
 		dispatchAborted: aborted,
 	}
-	b.mux.Unlock()
+	b.dispatchMux.Unlock()
+
+	defer b.cleanupDispatch(cmd.ID())
 
 	var timeout <-chan time.Time
 	if b.assignTimeout > 0 {
@@ -304,6 +308,13 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 	}
 
 	return nil
+}
+
+func (b *Bus) cleanupDispatch(cmdID uuid.UUID) {
+	b.dispatchMux.Lock()
+	defer b.dispatchMux.Unlock()
+	delete(b.dispatched, cmdID)
+	delete(b.assigned, cmdID)
 }
 
 // Subscribe returns a channel of Command Contexts and an error channel. The
@@ -342,8 +353,8 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Ct
 		return out, errs, nil
 	}
 
-	b.mux.Lock()
-	defer b.mux.Unlock()
+	b.subMux.Lock()
+	defer b.subMux.Unlock()
 
 	for _, name := range names {
 		if _, ok := b.subscriptions[name]; ok {
@@ -362,8 +373,8 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Ct
 	// unsubscribe when the context is canceled
 	go func() {
 		<-ctx.Done()
-		b.mux.Lock()
-		defer b.mux.Unlock()
+		b.subMux.Lock()
+		defer b.subMux.Unlock()
 
 		for _, name := range names {
 			if sub, ok := b.subscriptions[name]; ok {
@@ -406,8 +417,8 @@ func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 }
 
 func (b *Bus) handles(name string) bool {
-	b.mux.RLock()
-	defer b.mux.RUnlock()
+	b.subMux.RLock()
+	defer b.subMux.RUnlock()
 	_, ok := b.subscriptions[name]
 	return ok
 }
@@ -416,12 +427,15 @@ func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 	data := evt.Data()
 
 	// if the bus did not dispatch the command, return
-	b.mux.RLock()
+	b.dispatchMux.RLock()
 	cmd, ok := b.dispatched[data.ID]
-	b.mux.RUnlock()
+	b.dispatchMux.RUnlock()
 	if !ok {
 		return
 	}
+
+	b.dispatchMux.Lock()
+	defer b.dispatchMux.Unlock()
 
 	// otherwise remove the command from the dispatched commands
 	delete(b.dispatched, data.ID)
@@ -437,6 +451,7 @@ func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 		return
 	}
 
+	// and add the command to the assigned commands
 	b.assigned[data.ID] = cmd
 }
 
@@ -464,8 +479,8 @@ func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 	}
 
 	// then pass the command to the subscription
-	b.mux.Lock()
-	defer b.mux.Unlock()
+	b.subMux.Lock()
+	defer b.subMux.Unlock()
 	sub, ok := b.subscriptions[cmd.Name()]
 	if !ok {
 		return
@@ -519,7 +534,9 @@ func (b *Bus) commandAccepted(evt event.Of[CommandAcceptedData]) {
 	data := evt.Data()
 
 	// if the bus did not assign the command, return
+	b.dispatchMux.RLock()
 	cmd, ok := b.assigned[data.ID]
+	b.dispatchMux.RUnlock()
 	if !ok {
 		return
 	}
@@ -530,9 +547,10 @@ func (b *Bus) commandAccepted(evt event.Of[CommandAcceptedData]) {
 	// if the dispatch was not made synchronously, remove the command from
 	// assigned commands, close the out channel and return
 	if !cmd.cfg.Synchronous && cmd.cfg.Reporter == nil {
+		b.dispatchMux.Lock()
+		defer b.dispatchMux.Unlock()
 		delete(b.assigned, data.ID)
 		close(cmd.out)
-		return
 	}
 }
 
@@ -540,7 +558,9 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 	data := evt.Data()
 
 	// if the bus is not waiting for the execution of the command, return
+	b.subMux.RLock()
 	cmd, ok := b.assigned[data.ID]
+	b.subMux.RUnlock()
 	if !ok {
 		return
 	}
@@ -551,6 +571,9 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 	default:
 		close(cmd.accepted)
 	}
+
+	b.subMux.Lock()
+	defer b.subMux.Unlock()
 
 	// and remove the command from assigned commands
 	delete(b.assigned, data.ID)
