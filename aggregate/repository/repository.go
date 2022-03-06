@@ -432,14 +432,15 @@ func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() e
 	var err error
 
 	var trigger RetryTrigger
+	var isRetryable IsRetryable
 
 	if rp, ok := a.(Retryer); ok {
-		trigger = rp.RetryUse()
+		trigger, isRetryable = rp.RetryUse()
 	}
 
 	for {
 		if err != nil {
-			if trigger == nil || !aggregate.IsConsistencyError(err) {
+			if trigger == nil || isRetryable == nil || !isRetryable(err) {
 				return err
 			}
 

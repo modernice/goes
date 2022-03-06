@@ -65,6 +65,6 @@ func newRetryer() *retryer {
 	}
 }
 
-func (r *retryer) RetryUse() repository.RetryTrigger {
-	return repository.RetryEvery(50*time.Millisecond, 4)
+func (r *retryer) RetryUse() (repository.RetryTrigger, repository.IsRetryable) {
+	return repository.RetryEvery(50*time.Millisecond, 4), aggregate.IsConsistencyError
 }
