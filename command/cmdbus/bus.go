@@ -542,7 +542,11 @@ func (b *Bus) commandAccepted(evt event.Of[CommandAcceptedData]) {
 	}
 
 	// otherwise mark the command as accepted
-	close(cmd.accepted)
+	select {
+	case <-cmd.accepted:
+	default:
+		close(cmd.accepted)
+	}
 
 	// if the dispatch was not made synchronously, remove the command from
 	// assigned commands, close the out channel and return
