@@ -320,7 +320,7 @@ func isKeyable(val any) bool {
 		rt = rt.Elem()
 	}
 
-	if rtk := rt.Kind(); rtk <= reflect.Array || rtk == reflect.Pointer || rtk == reflect.String {
+	if rtk := rt.Kind(); rtk <= reflect.Array || rtk == reflect.Pointer || rtk == reflect.String || rt.Comparable() {
 		return true
 	}
 
