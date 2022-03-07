@@ -124,6 +124,24 @@ func (l *Lookup) Schedule() *schedule.Continuous {
 	return l.schedule
 }
 
+// Map returns the all values in the lookup table as a nested map, structured as follows:
+//	map[AGGREGATE_NAME]map[AGGREGATE_ID]map[LOOKUP_KEY]LOOKUP_VALUE
+func (l *Lookup) Map() map[string]map[uuid.UUID]map[any]any {
+	l.mux.RLock()
+	defer l.mux.RUnlock()
+	out := make(map[string]map[uuid.UUID]map[any]any)
+	for name, p := range l.providers {
+		out[name] = make(map[uuid.UUID]map[any]any)
+		for id, store := range p.stores {
+			out[name][id] = make(map[any]any)
+			for k, v := range store.values {
+				out[name][id][k] = v
+			}
+		}
+	}
+	return out
+}
+
 // Provider returns the Provider for the given aggregate. The returned Provider
 // is is thread-safe.
 func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider {
