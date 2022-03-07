@@ -142,8 +142,8 @@ func (l *Lookup) Map() map[string]map[uuid.UUID]map[any]any {
 	return out
 }
 
-// Provider returns the Provider for the given aggregate. The returned Provider
-// is is thread-safe.
+// Provider returns the lookup provider for the given aggregate. The returned Provider
+// is thread-safe.
 func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider {
 	l.mux.RLock()
 	if prov, ok := l.providers[aggregateName]; ok {
