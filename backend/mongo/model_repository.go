@@ -86,6 +86,20 @@ func (r *ModelRepository[Model, ID]) Collection() *mongo.Collection {
 	return r.col
 }
 
+// CreateIndexes creates the index for the configured "id" field of the model.
+// If no custom "id" field has been configured, no index is created because
+// MongoDB automatically creates an index for the "_id" field.
+func (r *ModelRepository[Model, ID]) CreateIndexes(ctx context.Context) error {
+	if r.key != "_id" {
+		_, err := r.col.Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys:    bson.D{{Key: r.key, Value: 1}},
+			Options: options.Index().SetUnique(true),
+		})
+		return err
+	}
+	return nil
+}
+
 // Save saves the given model to the database using the MongoDB "ReplaceOne"
 // command with the upsert option set to true.
 func (r *ModelRepository[Model, ID]) Save(ctx context.Context, m Model) error {
