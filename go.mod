@@ -11,7 +11,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/nats-io/nats.go v1.13.1-0.20220121202836-972a071d373d
-	github.com/spf13/cobra v1.3.0
+	github.com/spf13/cobra v1.4.0
 	go.mongodb.org/mongo-driver v1.8.4
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/grpc v1.45.0
