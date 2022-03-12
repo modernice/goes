@@ -4,6 +4,7 @@ package event
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event/query/time"
@@ -162,4 +163,14 @@ func boolToCmp(b, same bool) int8 {
 		return -1
 	}
 	return 1
+}
+
+var zeroRef AggregateRef
+
+// IsZero returns whether the ref has an empty name and a nil-UUID.
+func (ref AggregateRef) IsZero() bool { return ref == zeroRef }
+
+// String returns the string representation of the aggregate: NAME(ID)
+func (ref AggregateRef) String() string {
+	return fmt.Sprintf("%s(%s)", ref.Name, ref.ID)
 }
