@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -9,7 +10,9 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/backend/memory"
+	"github.com/modernice/goes/backend/mongo"
 	"github.com/modernice/goes/persistence/model"
+	gomongo "go.mongodb.org/mongo-driver/mongo"
 )
 
 var _ ActorRepositories = (*ActorRepositoryRegistry)(nil)
@@ -57,6 +60,25 @@ func InMemoryPermissionRepository() PermissionRepository {
 	return memory.NewModelRepository[*Permissions, uuid.UUID](memory.ModelFactory(PermissionsOf))
 }
 
+// MongoPermissionRepository returns a MongoDB repository for the permission read-models.
+// An index for the "actorId" field is automatically created if it does not exist yet.
+//
+// TODO(bounoable): This should move somewhere else to not pollute this package
+// with backend implementations.
+func MongoPermissionRepository(ctx context.Context, col *gomongo.Collection) (PermissionRepository, error) {
+	repo := mongo.NewModelRepository[*Permissions, uuid.UUID](
+		col,
+		mongo.ModelFactory(PermissionsOf, true),
+		mongo.ModelIDKey("actorId"),
+	)
+
+	if err := repo.CreateIndexes(ctx); err != nil {
+		return repo, fmt.Errorf("create indexes: %w", err)
+	}
+
+	return repo, nil
+}
+
 // ActorRepositoryRegistry is a registry for Actor repositories of different kinds.
 type ActorRepositoryRegistry struct {
 	sync.RWMutex
@@ -83,7 +105,7 @@ func ParseKind(v any) (string, error) {
 }
 
 // NewActorRepositories returns an ActorRepositoryRegistry that provides
-// repositories for builtin actor kinds (StringActor and UUIDActor).
+// repositories for builtin actor kinds (UUIDActor and StringActor).
 func NewActorRepositories(repo aggregate.Repository, parseKind func(any) (string, error)) *ActorRepositoryRegistry {
 	out := NewEmptyActorRepositories(parseKind)
 	out.Add(StringActor, NewStringActorRepository(repo))
@@ -92,8 +114,8 @@ func NewActorRepositories(repo aggregate.Repository, parseKind func(any) (string
 }
 
 // NewEmptyActorRepositories returns a fresh ActorRepositoryRegistry.
-// The provided parseKind function is used to implement
-// ActorRepositories.ParseKind. If parseKind is nil, it is set to ParseKind.
+// If provided, the parseKind function is used to parse actor kinds from
+// formatted actor ids.
 func NewEmptyActorRepositories(parseKind func(any) (string, error)) *ActorRepositoryRegistry {
 	return &ActorRepositoryRegistry{
 		repos: make(map[string]ActorRepository),
