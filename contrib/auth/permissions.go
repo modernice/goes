@@ -39,9 +39,9 @@ type Permissions struct {
 
 // PermissionsDTO is the DTO of Permissions.
 type PermissionsDTO struct {
-	ActorID uuid.UUID `json:"actorId"`
-	OfActor Actions   `json:"ofActor"`
-	OfRoles Actions   `json:"ofRoles"`
+	ActorID uuid.UUID `json:"actorId" bson:"actorId"`
+	OfActor Actions   `json:"ofActor" bson:"ofActor"`
+	OfRoles Actions   `json:"ofRoles" bson:"ofRoles"`
 }
 
 // PermissionsOf returns the permissions read-model of the given actor.
