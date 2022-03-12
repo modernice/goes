@@ -63,3 +63,9 @@ func FanInContext[T any](ctx context.Context, in ...<-chan T) <-chan T {
 	}()
 	return out
 }
+
+// FanInAll returns FanIn(in...) but without the stop function.
+func FanInAll[T any](in ...<-chan T) <-chan T {
+	out, _ := FanIn(in...)
+	return out
+}
