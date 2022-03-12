@@ -30,6 +30,7 @@ https://github.com/heynickc/awesome-ddd) before reading further.
   [MongoDB](./backend/mongo))
 - Projections
 - SAGAs
+- [Authorization Module](./contrib/auth)
 
 ### To-Do
 
