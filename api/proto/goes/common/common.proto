@@ -2,6 +2,7 @@ syntax = "proto3";
 package goes.common;
 option go_package = "github.com/modernice/goes/api/proto/gen/common;commonpb";
 
+// UUID represents a UUID as implemented by github.com/google/uuid.
 message UUID {
 	bytes bytes = 1;
 }

@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// UUID represents a UUID as implemented by github.com/google/uuid.
 type UUID struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

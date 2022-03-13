@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
+	aggregatepb "github.com/modernice/goes/api/proto/gen/aggregate"
 	authpb "github.com/modernice/goes/api/proto/gen/auth"
 	commonpb "github.com/modernice/goes/api/proto/gen/common"
 	"github.com/modernice/goes/contrib/auth"
@@ -47,6 +49,23 @@ func (s *Server) GetPermissions(ctx context.Context, req *commonpb.UUID) (*authp
 	return authpb.NewPermissions(perms.PermissionsDTO), nil
 }
 
+// Allows returns whether the an actor is allowed to perform a given action.
+func (s *Server) Allows(ctx context.Context, req *authpb.AllowsReq) (*authpb.AllowsResp, error) {
+	actorID := req.GetActorId().AsUUID()
+	ref := req.GetAggregate().AsRef()
+	action := req.GetAction()
+
+	perms, err := s.perms.Fetch(ctx, actorID)
+	if err != nil {
+		return nil, grpcstatus.New(codes.NotFound, err.Error(), &errdetails.LocalizedMessage{
+			Locale:  "en",
+			Message: fmt.Sprintf("Permissions of actor %q not found.", actorID),
+		}).Err()
+	}
+
+	return &authpb.AllowsResp{Allowed: perms.Allows(action, ref)}, nil
+}
+
 // LookupActor returns the aggregate id of the actor with the given string-formatted actor id.
 func (s *Server) LookupActor(ctx context.Context, req *authpb.LookupActorReq) (*commonpb.UUID, error) {
 	sid := req.GetStringId()
@@ -72,6 +91,16 @@ func NewClient(conn grpc.ClientConnInterface) *Client {
 func (c *Client) Permissions(ctx context.Context, actorID uuid.UUID) (auth.PermissionsDTO, error) {
 	perms, err := c.client.GetPermissions(ctx, commonpb.NewUUID(actorID))
 	return perms.AsDTO(), err
+}
+
+// Allows implements auth.Client.
+func (c *Client) Allows(ctx context.Context, actorID uuid.UUID, ref aggregate.Ref, action string) (bool, error) {
+	resp, err := c.client.Allows(ctx, &authpb.AllowsReq{
+		ActorId:   commonpb.NewUUID(actorID),
+		Aggregate: aggregatepb.NewRef(ref),
+		Action:    action,
+	})
+	return resp.GetAllowed(), err
 }
 
 // LookupActor implements auth.Client.

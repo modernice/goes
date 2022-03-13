@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 type AuthServiceClient interface {
 	// GetPermissions returns the permissions read-model of the given actor.
 	GetPermissions(ctx context.Context, in *common.UUID, opts ...grpc.CallOption) (*Permissions, error)
+	Allows(ctx context.Context, in *AllowsReq, opts ...grpc.CallOption) (*AllowsResp, error)
 	// LookupActor returns the aggregate id of the actor with the given
 	// string-formatted actor id.
 	LookupActor(ctx context.Context, in *LookupActorReq, opts ...grpc.CallOption) (*common.UUID, error)
@@ -43,6 +44,15 @@ func (c *authServiceClient) GetPermissions(ctx context.Context, in *common.UUID,
 	return out, nil
 }
 
+func (c *authServiceClient) Allows(ctx context.Context, in *AllowsReq, opts ...grpc.CallOption) (*AllowsResp, error) {
+	out := new(AllowsResp)
+	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/Allows", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *authServiceClient) LookupActor(ctx context.Context, in *LookupActorReq, opts ...grpc.CallOption) (*common.UUID, error) {
 	out := new(common.UUID)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/LookupActor", in, out, opts...)
@@ -58,6 +68,7 @@ func (c *authServiceClient) LookupActor(ctx context.Context, in *LookupActorReq,
 type AuthServiceServer interface {
 	// GetPermissions returns the permissions read-model of the given actor.
 	GetPermissions(context.Context, *common.UUID) (*Permissions, error)
+	Allows(context.Context, *AllowsReq) (*AllowsResp, error)
 	// LookupActor returns the aggregate id of the actor with the given
 	// string-formatted actor id.
 	LookupActor(context.Context, *LookupActorReq) (*common.UUID, error)
@@ -70,6 +81,9 @@ type UnimplementedAuthServiceServer struct {
 
 func (UnimplementedAuthServiceServer) GetPermissions(context.Context, *common.UUID) (*Permissions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPermissions not implemented")
+}
+func (UnimplementedAuthServiceServer) Allows(context.Context, *AllowsReq) (*AllowsResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Allows not implemented")
 }
 func (UnimplementedAuthServiceServer) LookupActor(context.Context, *LookupActorReq) (*common.UUID, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LookupActor not implemented")
@@ -105,6 +119,24 @@ func _AuthService_GetPermissions_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_Allows_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AllowsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).Allows(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/goes.contrib.auth.AuthService/Allows",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).Allows(ctx, req.(*AllowsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AuthService_LookupActor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LookupActorReq)
 	if err := dec(in); err != nil {
@@ -133,6 +165,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPermissions",
 			Handler:    _AuthService_GetPermissions_Handler,
+		},
+		{
+			MethodName: "Allows",
+			Handler:    _AuthService_Allows_Handler,
 		},
 		{
 			MethodName: "LookupActor",

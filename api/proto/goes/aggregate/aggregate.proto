@@ -1,0 +1,11 @@
+syntax = "proto3";
+package goes.aggregate;
+option go_package = "github.com/modernice/goes/api/proto/gen/aggregate;aggregatepb";
+
+import "goes/common/common.proto";
+
+// Ref is a reference to an aggregate.
+message Ref {
+	goes.common.UUID id = 1;
+	string name = 2;
+}

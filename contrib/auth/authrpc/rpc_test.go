@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
+	aggregatepb "github.com/modernice/goes/api/proto/gen/aggregate"
 	authpb "github.com/modernice/goes/api/proto/gen/auth"
 	commonpb "github.com/modernice/goes/api/proto/gen/common"
 	"github.com/modernice/goes/contrib/auth"
@@ -24,6 +25,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+var testRef = aggregate.Ref{
+	Name: "foo",
+	ID:   uuid.New(),
+}
 
 func TestServer_GetPermissions(t *testing.T) {
 	actor, perms, repo := givenAnActorWithViewPermission(t)
@@ -66,6 +72,58 @@ func TestServer_GetPermissions(t *testing.T) {
 			got := resp.AsDTO()
 			if !got.Equal(tt.want) {
 				t.Fatalf("GetPermissions() returned wrong permissions.\n\n%s", cmp.Diff(tt.want, got))
+			}
+		})
+	}
+}
+
+func TestServer_Allows(t *testing.T) {
+	actor, _, repo := givenAnActorWithViewPermission(t)
+
+	nonExistentActorID := uuid.New()
+
+	tests := []struct {
+		name    string
+		actorID uuid.UUID
+		want    bool
+	}{
+		{
+			name:    "non existent actor",
+			actorID: nonExistentActorID,
+			want:    false,
+		},
+		{
+			name:    "existing actor",
+			actorID: actor.AggregateID(),
+			want:    true,
+		},
+	}
+
+	srv := authrpc.NewServer(repo, nil)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			resp, err := srv.Allows(ctx, &authpb.AllowsReq{
+				ActorId:   commonpb.NewUUID(tt.actorID),
+				Aggregate: aggregatepb.NewRef(testRef),
+				Action:    "view",
+			})
+			if err != nil {
+				t.Fatalf("Allows() failed with %q", err)
+			}
+
+			if !tt.want {
+				if resp.GetAllowed() {
+					t.Fatalf("%q action should be disallowed", "view")
+				}
+				return
+			}
+
+			if !resp.GetAllowed() {
+				t.Fatalf("%q action should be allowed", "view")
 			}
 		})
 	}
@@ -144,11 +202,7 @@ func givenAnActorWithViewPermission(t *testing.T) (*auth.Actor, *auth.Permission
 	repo := auth.InMemoryPermissionRepository()
 
 	actor := auth.NewUUIDActor(uuid.New())
-	ref := aggregate.Ref{
-		Name: "foo",
-		ID:   uuid.New(),
-	}
-	actor.Grant(ref, "view")
+	actor.Grant(testRef, "view")
 
 	perms := auth.PermissionsOf(actor.AggregateID())
 	projection.Apply(perms, actor.AggregateChanges())
