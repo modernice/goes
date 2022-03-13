@@ -198,7 +198,7 @@ func newPermissionTest(ctx context.Context, t *testing.T, actors []uuid.UUID) *P
 	repo := repository.New(store)
 	actorRepo := auth.NewUUIDActorRepository(repo)
 	perms := auth.InMemoryPermissionRepository()
-	fetcher := middleware.PermissionRepositoryFetcher(perms)
+	fetcher := middleware.RepositoryPermissionFetcher(perms)
 	proj := auth.NewPermissionProjector(perms, bus, store, schedule.Debounce(50*time.Millisecond))
 
 	errs, err := look.Run(ctx)
