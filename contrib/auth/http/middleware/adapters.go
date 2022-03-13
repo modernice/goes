@@ -7,9 +7,9 @@ import (
 	"github.com/modernice/goes/contrib/auth"
 )
 
-// PermissionRepositoryFetcher returns a PermissionFetcher that fetches
+// RepositoryPermissionFetcher returns a PermissionFetcher that fetches
 // permissions using the provided PermissionRepository.
-func PermissionRepositoryFetcher(repo auth.PermissionRepository) PermissionFetcherFunc {
+func RepositoryPermissionFetcher(repo auth.PermissionRepository) PermissionFetcherFunc {
 	return func(ctx context.Context, actorID uuid.UUID) (auth.PermissionsDTO, error) {
 		perms, err := repo.Fetch(ctx, actorID)
 		if err != nil {
@@ -19,9 +19,9 @@ func PermissionRepositoryFetcher(repo auth.PermissionRepository) PermissionFetch
 	}
 }
 
-// PermissionClientFetcher returns a PermissionFetcher that fetches permissions
+// ClientPermissionFetcher returns a PermissionFetcher that fetches permissions
 // using the provided client.
-func PermissionClientFetcher(client auth.Client) PermissionFetcherFunc {
+func ClientPermissionFetcher(client auth.Client) PermissionFetcherFunc {
 	return client.Permissions
 }
 
