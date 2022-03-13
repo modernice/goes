@@ -7,7 +7,7 @@ concepts of **actors and roles,** and builds on top of goes' aggregate,
 event, and command system.
 
 User management is explicitly **not** provided by this module. Instead, it
-allows you to integrate your own or third-party user management as custom *actors.*
+allows you to integrate your own or third-party user management using *custom actors.*
 
 ## Features
 
@@ -17,8 +17,6 @@ allows you to integrate your own or third-party user management as custom *actor
 - Wildcard support
 
 ## To-Do
-
-### Standalone Service Implementation
 
 - Standalone auth service with gRPC server for querying permissions
 
@@ -32,11 +30,11 @@ default, are simply identified by their aggregate ids (UUID).
 
 Another actor kind provided by this module is the string-Actor, which is not
 only identified by its aggregate id but also by some arbitrary `string`. For
-example, an API key can be given permission to perform an action against a
-specific aggregate.
+example, the user of an API key can be granted permission to perform actions
+through the string-Actor aggregate.
 
-Actors can be granted permissions to perform specific actions on specific
-aggregates.
+An actor can be granted an arbitrary amount of permissions. All permissions can
+be revoked from actors after they were granted.
 
 #### Example
 

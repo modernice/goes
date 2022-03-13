@@ -128,7 +128,7 @@ func Permission(perms PermissionFetcher, action string, extractRef func(*http.Re
 
 			ref := extractRef(cloned)
 			if ref.IsZero() {
-				next.ServeHTTP(w, r)
+				forbidden(w)
 				return
 			}
 
@@ -176,6 +176,11 @@ func PermissionField(perms PermissionFetcher, action, aggregateName, field strin
 			ref := aggregate.Ref{
 				Name: aggregateName,
 				ID:   id,
+			}
+
+			if ref.IsZero() {
+				forbidden(w)
+				return
 			}
 
 			if !allowed(r.Context(), perms, ref, action) {
