@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/logrusorgru/aurora"
+	protoprojection "github.com/modernice/goes/api/proto/gen/projection"
 	"github.com/modernice/goes/cli"
 	"github.com/modernice/goes/cli/internal/clifactory"
 	"github.com/modernice/goes/cli/internal/clitest"
 	"github.com/modernice/goes/cli/internal/cmd/projectioncmd"
 	"github.com/modernice/goes/cli/internal/cmdtest"
 	"github.com/modernice/goes/cli/internal/projectionrpc"
-	"github.com/modernice/goes/cli/internal/proto"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
@@ -27,7 +27,7 @@ func TestCommand_Trigger_unhandledTrigger(t *testing.T) {
 	_, bus, _ := clitest.SetupEvents()
 	svc := projection.NewService(bus, projection.TriggerTimeout(20*time.Millisecond))
 	_, conn, lis := clitest.NewServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
+		protoprojection.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
 	})
 	defer conn.Close()
 

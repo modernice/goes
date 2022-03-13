@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	protoprojection "github.com/modernice/goes/api/proto/gen/projection"
 	"github.com/modernice/goes/cli"
 	"github.com/modernice/goes/cli/internal/clitest"
-	"github.com/modernice/goes/cli/internal/proto"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
 	"google.golang.org/grpc"
@@ -40,9 +40,9 @@ func TestConnector_Serve(t *testing.T) {
 	_, lis, serveError, closed := serve(t, ctx, c)
 
 	conn := clitest.ClientConn(t, lis)
-	client := proto.NewProjectionServiceClient(conn)
+	client := protoprojection.NewProjectionServiceClient(conn)
 
-	resp, err := client.Trigger(ctx, &proto.TriggerRequest{Schedule: "example"})
+	resp, err := client.Trigger(ctx, &protoprojection.TriggerReq{Schedule: "example"})
 	if err != nil {
 		t.Fatalf("Trigger failed with %q", err)
 	}

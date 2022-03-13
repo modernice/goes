@@ -1,0 +1,29 @@
+syntax = "proto3";
+package goes.contrib.auth;
+option go_package = "github.com/modernice/goes/api/proto/gen/auth;authpb";
+
+import "goes/common/common.proto";
+
+// AuthService is the authorization service.
+service AuthService {
+	// GetPermissions returns the permissions read-model of the given actor.
+	rpc GetPermissions(common.UUID) returns (Permissions);
+}
+
+// Permissions is the read-model for an actor's permissions.
+message Permissions {
+	goes.common.UUID actor_id = 1;
+	Actions of_actor = 2;
+	Actions of_roles = 3;
+}
+
+// Actions maps aggregate names to permitted actions on these aggregates.
+message Actions {
+	map<string, ActionGrants> actions = 1;
+}
+
+// ActionGrants holds granted actions as the amount of times they were granted
+// to the actor or role.
+message ActionGrants {
+	map<string, uint64> actions = 1;
+}

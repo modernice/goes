@@ -3,13 +3,13 @@ package projectioncmd
 import (
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/logrusorgru/aurora"
+	protoprojection "github.com/modernice/goes/api/proto/gen/projection"
 	"github.com/modernice/goes/cli/internal/cliargs"
 	"github.com/modernice/goes/cli/internal/clifactory"
-	"github.com/modernice/goes/cli/internal/proto"
 	"github.com/spf13/cobra"
 )
 
-var client proto.ProjectionServiceClient
+var client protoprojection.ProjectionServiceClient
 
 // New returns the projection command.
 func New(f *clifactory.Factory) *cobra.Command {
@@ -21,7 +21,7 @@ func New(f *clifactory.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client = proto.NewProjectionServiceClient(conn)
+			client = protoprojection.NewProjectionServiceClient(conn)
 			return nil
 		},
 	}
@@ -62,7 +62,7 @@ func triggerCmd(f *clifactory.Factory) *cobra.Command {
 		Args: cliargs.MinimumN(1, "Must provide at least one schedule name."),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, schedule := range args {
-				if _, err := client.Trigger(f.Context, &proto.TriggerRequest{
+				if _, err := client.Trigger(f.Context, &protoprojection.TriggerReq{
 					Schedule: schedule,
 					Reset_:   cfg.reset,
 				}); err != nil {

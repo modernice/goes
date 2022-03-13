@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net"
 
+	protoprojection "github.com/modernice/goes/api/proto/gen/projection"
 	"github.com/modernice/goes/cli/internal/projectionrpc"
-	"github.com/modernice/goes/cli/internal/proto"
 	"github.com/modernice/goes/projection"
 	"google.golang.org/grpc"
 )
@@ -100,7 +100,7 @@ func (c *Connector) newServeConfig(opts ...ServeOption) (serveConfig, error) {
 }
 
 func (c *Connector) register(srv *grpc.Server) {
-	proto.RegisterProjectionServiceServer(srv, projectionrpc.NewServer(c.projectionService))
+	protoprojection.RegisterProjectionServiceServer(srv, projectionrpc.NewServer(c.projectionService))
 }
 
 func (c *Connector) serve(ctx context.Context, srv *grpc.Server, lis net.Listener) <-chan error {

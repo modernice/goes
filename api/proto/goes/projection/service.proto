@@ -1,0 +1,16 @@
+syntax = "proto3";
+package goes.projection;
+option go_package = "github.com/modernice/goes/api/proto/gen/projection;projectionpb";
+
+service ProjectionService {
+	rpc Trigger(TriggerReq) returns (TriggerResp);
+}
+
+message TriggerReq {
+	string schedule = 1;
+	bool reset = 2;
+}
+
+message TriggerResp {
+	bool accepted = 1;
+}

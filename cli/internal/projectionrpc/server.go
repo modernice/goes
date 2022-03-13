@@ -4,26 +4,26 @@ import (
 	"context"
 	"errors"
 
-	"github.com/modernice/goes/cli/internal/proto"
+	protoprojection "github.com/modernice/goes/api/proto/gen/projection"
 	"github.com/modernice/goes/projection"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type server struct {
-	proto.UnimplementedProjectionServiceServer
+	protoprojection.UnimplementedProjectionServiceServer
 
 	svc *projection.Service
 }
 
 // NewServer returns the projection gRPC server.
-func NewServer(svc *projection.Service) proto.ProjectionServiceServer {
+func NewServer(svc *projection.Service) protoprojection.ProjectionServiceServer {
 	return &server{
 		svc: svc,
 	}
 }
 
-func (s *server) Trigger(ctx context.Context, req *proto.TriggerRequest) (*proto.TriggerResponse, error) {
+func (s *server) Trigger(ctx context.Context, req *protoprojection.TriggerReq) (*protoprojection.TriggerResp, error) {
 	var opts []projection.TriggerOption
 	if req.GetReset_() {
 		opts = append(opts, projection.Reset(true))
@@ -31,7 +31,7 @@ func (s *server) Trigger(ctx context.Context, req *proto.TriggerRequest) (*proto
 
 	err := s.svc.Trigger(ctx, req.GetSchedule(), opts...)
 	if err == nil {
-		return &proto.TriggerResponse{Accepted: true}, nil
+		return &protoprojection.TriggerResp{Accepted: true}, nil
 	}
 
 	if errors.Is(err, projection.ErrUnhandledTrigger) {

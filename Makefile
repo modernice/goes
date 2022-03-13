@@ -10,6 +10,10 @@ ifeq "${bench}" ""
 	bench=.
 endif
 
+.PHONY: generate
+generate:
+	./scripts/generate
+
 # `make test count=50` to run `go test -race -count=50 ./...`
 # `make test run=TestXXX` to run `go test -race -run=TestXXX ./...`
 .PHONY: test

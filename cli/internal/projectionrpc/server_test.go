@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	protoprojection "github.com/modernice/goes/api/proto/gen/projection"
 	"github.com/modernice/goes/cli/internal/clitest"
 	"github.com/modernice/goes/cli/internal/projectionrpc"
-	"github.com/modernice/goes/cli/internal/proto"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
@@ -23,13 +23,13 @@ func TestTrigger_unregisteredSchedule(t *testing.T) {
 	svc := projection.NewService(bus, projection.TriggerTimeout(20*time.Millisecond))
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
+		protoprojection.RegisterProjectionServiceServer(s, projectionrpc.NewServer(svc))
 	})
 	defer conn.Close()
 
-	client := proto.NewProjectionServiceClient(conn)
+	client := protoprojection.NewProjectionServiceClient(conn)
 
-	_, err := client.Trigger(context.Background(), &proto.TriggerRequest{
+	_, err := client.Trigger(context.Background(), &protoprojection.TriggerReq{
 		Schedule: "example",
 	})
 
@@ -70,13 +70,13 @@ func TestTrigger(t *testing.T) {
 	}
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
+		protoprojection.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
 	})
 	defer conn.Close()
 
-	client := proto.NewProjectionServiceClient(conn)
+	client := protoprojection.NewProjectionServiceClient(conn)
 
-	resp, err := client.Trigger(context.Background(), &proto.TriggerRequest{
+	resp, err := client.Trigger(context.Background(), &protoprojection.TriggerReq{
 		Schedule: "example",
 	})
 	if err != nil {
@@ -124,13 +124,13 @@ func TestTrigger_reset(t *testing.T) {
 	}
 
 	_, conn, _ := clitest.NewRunningServer(t, func(s *grpc.Server) {
-		proto.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
+		protoprojection.RegisterProjectionServiceServer(s, projectionrpc.NewServer(projection.NewService(bus)))
 	})
 	defer conn.Close()
 
-	client := proto.NewProjectionServiceClient(conn)
+	client := protoprojection.NewProjectionServiceClient(conn)
 
-	resp, err := client.Trigger(context.Background(), &proto.TriggerRequest{
+	resp, err := client.Trigger(context.Background(), &protoprojection.TriggerReq{
 		Schedule: "example",
 		Reset_:   true,
 	})

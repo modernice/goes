@@ -1,5 +1,8 @@
 {
   "go.buildFlags": [
     "-tags=nats,mongo"
-  ]
+  ],
+  "protoc": {
+    "options": ["-I ./api/proto"]
+  }
 }

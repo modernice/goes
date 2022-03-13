@@ -5,6 +5,7 @@ package event
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event/query/time"
@@ -173,4 +174,24 @@ func (ref AggregateRef) IsZero() bool { return ref == zeroRef }
 // String returns the string representation of the aggregate: NAME(ID)
 func (ref AggregateRef) String() string {
 	return fmt.Sprintf("%s(%s)", ref.Name, ref.ID)
+}
+
+var refStringRE = regexp.MustCompile(`([^()]+?)(\([a-z0-9-]+?\))`)
+
+// Parse parses the string-representation of an AggregateRef into ref.
+// Parse accepts values that are returned by ref.String().
+func (ref *AggregateRef) Parse(v string) error {
+	matches := refStringRE.FindStringSubmatch(v)
+	if len(matches) != 3 {
+		return fmt.Errorf("invalid ref string: %q", v)
+	}
+
+	id, err := uuid.Parse(matches[2])
+	if err != nil {
+		return fmt.Errorf("invalid ref string: %q", v)
+	}
+	ref.Name = matches[1]
+	ref.ID = id
+
+	return nil
 }
