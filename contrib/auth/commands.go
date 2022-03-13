@@ -43,29 +43,44 @@ func RemoveRoleFrom(roleID uuid.UUID, actors ...uuid.UUID) command.Cmd[[]uuid.UU
 	return command.New(RemoveRoleFromCmd, actors, command.Aggregate(RoleAggregate, roleID))
 }
 
-type grantRevokePayload struct {
+type grantActorPayload struct {
+	Ref     aggregate.Ref
+	Actions []string
+}
+
+type revokeActorPayload struct {
 	Ref     aggregate.Ref
 	Actions []string
 }
 
 // GrantToActor returns the command to grant the the given actions to the given actor.
-func GrantToActor(actorID uuid.UUID, ref aggregate.Ref, actions ...string) command.Cmd[grantRevokePayload] {
-	return command.New(GrantToActorCmd, grantRevokePayload{Ref: ref, Actions: actions}, command.Aggregate(ActorAggregate, actorID))
+func GrantToActor(actorID uuid.UUID, ref aggregate.Ref, actions ...string) command.Cmd[grantActorPayload] {
+	return command.New(GrantToActorCmd, grantActorPayload{Ref: ref, Actions: actions}, command.Aggregate(ActorAggregate, actorID))
 }
 
 // RevokeFromActor returns the command to revoke the given actions from the given actor.
-func RevokeFromActor(actorID uuid.UUID, ref aggregate.Ref, actions ...string) command.Cmd[grantRevokePayload] {
-	return command.New(RevokeFromActorCmd, grantRevokePayload{Ref: ref, Actions: actions}, command.Aggregate(ActorAggregate, actorID))
+func RevokeFromActor(actorID uuid.UUID, ref aggregate.Ref, actions ...string) command.Cmd[revokeActorPayload] {
+	return command.New(RevokeFromActorCmd, revokeActorPayload{Ref: ref, Actions: actions}, command.Aggregate(ActorAggregate, actorID))
+}
+
+type grantRolePayload struct {
+	Ref     aggregate.Ref
+	Actions []string
+}
+
+type revokeRolePayload struct {
+	Ref     aggregate.Ref
+	Actions []string
 }
 
 // GrantToRole returns the command to grant the the given actions to the given role.
-func GrantToRole(roleID uuid.UUID, ref aggregate.Ref, actions ...string) command.Cmd[grantRevokePayload] {
-	return command.New(GrantToRoleCmd, grantRevokePayload{Ref: ref, Actions: actions}, command.Aggregate(RoleAggregate, roleID))
+func GrantToRole(roleID uuid.UUID, ref aggregate.Ref, actions ...string) command.Cmd[grantRolePayload] {
+	return command.New(GrantToRoleCmd, grantRolePayload{Ref: ref, Actions: actions}, command.Aggregate(RoleAggregate, roleID))
 }
 
 // RevokeFromRole returns the command to revoke the the given actions from the given role.
-func RevokeFromRole(roleID uuid.UUID, ref aggregate.Ref, actions ...string) command.Cmd[grantRevokePayload] {
-	return command.New(RevokeFromRoleCmd, grantRevokePayload{Ref: ref, Actions: actions}, command.Aggregate(RoleAggregate, roleID))
+func RevokeFromRole(roleID uuid.UUID, ref aggregate.Ref, actions ...string) command.Cmd[revokeRolePayload] {
+	return command.New(RevokeFromRoleCmd, revokeRolePayload{Ref: ref, Actions: actions}, command.Aggregate(RoleAggregate, roleID))
 }
 
 // RegisterCommands registers the commands of the auth package into a registry.
@@ -75,10 +90,10 @@ func RegisterCommands(r *codec.Registry) {
 	codec.GobRegister[string](gr, IdentifyRoleCmd)
 	codec.GobRegister[[]uuid.UUID](gr, GiveRoleToCmd)
 	codec.GobRegister[[]uuid.UUID](gr, RemoveRoleFromCmd)
-	codec.GobRegister[grantRevokePayload](gr, GrantToActorCmd)
-	codec.GobRegister[grantRevokePayload](gr, RevokeFromActorCmd)
-	codec.GobRegister[grantRevokePayload](gr, GrantToRoleCmd)
-	codec.GobRegister[grantRevokePayload](gr, RevokeFromRoleCmd)
+	codec.GobRegister[grantActorPayload](gr, GrantToActorCmd)
+	codec.GobRegister[revokeActorPayload](gr, RevokeFromActorCmd)
+	codec.GobRegister[grantRolePayload](gr, GrantToRoleCmd)
+	codec.GobRegister[revokeRolePayload](gr, RevokeFromRoleCmd)
 }
 
 // HandleCommands handles commands until ctx is canceled.
@@ -124,7 +139,7 @@ func HandleCommands(
 		})
 	})
 
-	grantActorErrors := command.MustHandle(ctx, bus, GrantToActorCmd, func(ctx command.Ctx[grantRevokePayload]) error {
+	grantActorErrors := command.MustHandle(ctx, bus, GrantToActorCmd, func(ctx command.Ctx[grantActorPayload]) error {
 		load := ctx.Payload()
 
 		actors, err := actorRepos.Repository(UUIDActor)
@@ -137,7 +152,7 @@ func HandleCommands(
 		})
 	})
 
-	revokeActorErrors := command.MustHandle(ctx, bus, RevokeFromActorCmd, func(ctx command.Ctx[grantRevokePayload]) error {
+	revokeActorErrors := command.MustHandle(ctx, bus, RevokeFromActorCmd, func(ctx command.Ctx[revokeActorPayload]) error {
 		load := ctx.Payload()
 
 		actors, err := actorRepos.Repository(UUIDActor)
@@ -150,14 +165,14 @@ func HandleCommands(
 		})
 	})
 
-	grantRoleErrors := command.MustHandle(ctx, bus, GrantToRoleCmd, func(ctx command.Ctx[grantRevokePayload]) error {
+	grantRoleErrors := command.MustHandle(ctx, bus, GrantToRoleCmd, func(ctx command.Ctx[grantRolePayload]) error {
 		load := ctx.Payload()
 		return roles.Use(ctx, ctx.AggregateID(), func(r *Role) error {
 			return r.Grant(load.Ref, load.Actions...)
 		})
 	})
 
-	revokeRoleErrors := command.MustHandle(ctx, bus, RevokeFromRoleCmd, func(ctx command.Ctx[grantRevokePayload]) error {
+	revokeRoleErrors := command.MustHandle(ctx, bus, RevokeFromRoleCmd, func(ctx command.Ctx[grantRolePayload]) error {
 		load := ctx.Payload()
 		return roles.Use(ctx, ctx.AggregateID(), func(r *Role) error {
 			return r.Revoke(load.Ref, load.Actions...)
