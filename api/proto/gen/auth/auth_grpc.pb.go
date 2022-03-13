@@ -21,6 +21,9 @@ const _ = grpc.SupportPackageIsVersion7
 type AuthServiceClient interface {
 	// GetPermissions returns the permissions read-model of the given actor.
 	GetPermissions(ctx context.Context, in *common.UUID, opts ...grpc.CallOption) (*Permissions, error)
+	// LookupActor returns the aggregate id of the actor with the given
+	// string-formatted actor id.
+	LookupActor(ctx context.Context, in *LookupActorReq, opts ...grpc.CallOption) (*common.UUID, error)
 }
 
 type authServiceClient struct {
@@ -40,12 +43,24 @@ func (c *authServiceClient) GetPermissions(ctx context.Context, in *common.UUID,
 	return out, nil
 }
 
+func (c *authServiceClient) LookupActor(ctx context.Context, in *LookupActorReq, opts ...grpc.CallOption) (*common.UUID, error) {
+	out := new(common.UUID)
+	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/LookupActor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility
 type AuthServiceServer interface {
 	// GetPermissions returns the permissions read-model of the given actor.
 	GetPermissions(context.Context, *common.UUID) (*Permissions, error)
+	// LookupActor returns the aggregate id of the actor with the given
+	// string-formatted actor id.
+	LookupActor(context.Context, *LookupActorReq) (*common.UUID, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -55,6 +70,9 @@ type UnimplementedAuthServiceServer struct {
 
 func (UnimplementedAuthServiceServer) GetPermissions(context.Context, *common.UUID) (*Permissions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPermissions not implemented")
+}
+func (UnimplementedAuthServiceServer) LookupActor(context.Context, *LookupActorReq) (*common.UUID, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LookupActor not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 
@@ -87,6 +105,24 @@ func _AuthService_GetPermissions_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_LookupActor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LookupActorReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).LookupActor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/goes.contrib.auth.AuthService/LookupActor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).LookupActor(ctx, req.(*LookupActorReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -97,6 +133,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPermissions",
 			Handler:    _AuthService_GetPermissions_Handler,
+		},
+		{
+			MethodName: "LookupActor",
+			Handler:    _AuthService_LookupActor_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

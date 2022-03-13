@@ -11,7 +11,6 @@ generate() {
 
 	echo "Generate $file ..."
 
-	rm -rf $out_dir/*.pb.go
 	mkdir -p $out_dir
 	protoc -I $root/api/proto \
 		--go_out=module=github.com/modernice/goes/api/proto/gen/$short_dir_name:$out_dir $file \
@@ -21,7 +20,8 @@ generate() {
 root=$(git rev-parse --show-toplevel)
 proto_files=$(find $root/api/proto -name '*.proto')
 
-proto_root=$(go list -f "{{ .Dir }}" -m github.com/modernice/goes/api/proto)
+echo "Remove old generated files ..."
+rm -rf $root/api/proto/**/*.pb.go
 
 for file in $proto_files; do
 	generate $file

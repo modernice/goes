@@ -78,3 +78,28 @@ func validateRef(ref aggregate.Ref) error {
 	}
 	return nil
 }
+
+// Equal returns whether a and other contain exactly the same values.
+func (a Actions) Equal(other Actions) bool {
+	if len(a) != len(other) {
+		return false
+	}
+	for ref, counts := range a {
+		otherCounts, ok := other[ref]
+		if !ok {
+			return false
+		}
+
+		if len(counts) != len(otherCounts) {
+			return false
+		}
+
+		for action, count := range counts {
+			otherCount := otherCounts[action]
+			if count != otherCount {
+				return false
+			}
+		}
+	}
+	return true
+}

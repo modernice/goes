@@ -316,7 +316,7 @@ func NewCustomActor(id uuid.UUID) *auth.Actor {
 			if len(parts) != 2 {
 				return ActorID{}, errors.New("invalid id")
 			}
-
+ 
 			bar, err := strconv.Atoi(parts[1])
 			if err != nil {
 				return ActorID{}, fmt.Errorf("parse Bar: %w", err)
@@ -415,5 +415,39 @@ func example(actor *auth.Actor) {
 		Name: "*",
 		ID: uuid.Nil,
 	}, "*")
+}
+```
+
+### gRPC Server
+
+The `authrpc` package implements a gRPC server and client that can be used to
+implement an authorization service. Other services can query the auth service
+to check permissions of actors and to lookup actor ids.
+
+Protobufs are defined in the [github.com/modernice/goes/api/proto](/api/proto) package.
+
+```go
+package example
+
+import (
+	authpb "github.com/modernice/goes/api/proto/gen/auth"
+)
+
+func server(perms auth.PermissionRepository) {
+	s := grpc.NewServer()
+	authpb.RegisterAuthServiceServer(s, authrpc.NewServer(perms))
+}
+
+func client(actorID uuid.UUID) {
+	conn, err := grpc.Dial(...)
+	// handle err
+
+	client := authrpc.NewClient(conn)
+
+	perms, err := client.Permissions(context.TODO(), actorID)
+	// handle err
+
+	perms.Allows(...)
+	perms.Disallows(...)
 }
 ```

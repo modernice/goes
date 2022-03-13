@@ -124,3 +124,10 @@ func (perms *Permissions) revoked(evt event.Of[PermissionRevokedData]) {
 		perms.OfRoles.revoked(evt)
 	}
 }
+
+// Equal returns whether perms and other contain exactly the same values.
+func (perms PermissionsDTO) Equal(other PermissionsDTO) bool {
+	return perms.ActorID == other.ActorID &&
+		perms.OfActor.Equal(other.OfActor) &&
+		perms.OfRoles.Equal(other.OfRoles)
+}

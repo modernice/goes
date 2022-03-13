@@ -48,6 +48,9 @@ func NewPermissions(perms auth.PermissionsDTO) *Permissions {
 
 // AsDTO converts *Permissions to auth.PermissionsDTO.
 func (perms *Permissions) AsDTO() auth.PermissionsDTO {
+	if perms == nil {
+		return auth.PermissionsDTO{}
+	}
 	return auth.PermissionsDTO{
 		ActorID: perms.GetActorId().AsUUID(),
 		OfActor: perms.GetOfActor().AsMap(),
