@@ -16,10 +16,6 @@ allows you to integrate your own or third-party user management using *custom ac
 - Aggregate-specific authorization
 - Wildcard support
 
-## To-Do
-
-- Standalone auth service with gRPC server for querying permissions
-
 ## Design
 
 ### Actors
