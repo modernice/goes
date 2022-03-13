@@ -10,6 +10,7 @@ service AuthService {
 	// GetPermissions returns the permissions read-model of the given actor.
 	rpc GetPermissions(common.UUID) returns (Permissions);
 
+	// Allows returns whether an actor is allowed to perform an action.
 	rpc Allows(AllowsReq) returns (AllowsResp);
 
 	// LookupActor returns the aggregate id of the actor with the given
