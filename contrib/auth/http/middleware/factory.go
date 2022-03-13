@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/modernice/goes/aggregate"
-	"github.com/modernice/goes/contrib/auth"
 )
 
 // Factory is the middleware factory. It is not required to be used but it
@@ -12,11 +11,11 @@ import (
 // and Lookup.
 type Factory struct {
 	perms  PermissionFetcher
-	lookup *auth.Lookup
+	lookup Lookup
 }
 
 // NewFactory returns a new middleware factory.
-func NewFactory(perms PermissionFetcher, lookup *auth.Lookup) Factory {
+func NewFactory(perms PermissionFetcher, lookup Lookup) Factory {
 	return Factory{
 		perms:  perms,
 		lookup: lookup,

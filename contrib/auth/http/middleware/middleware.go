@@ -28,6 +28,11 @@ type Authorizer interface {
 	Authorize(actorID uuid.UUID)
 }
 
+// Lookup is used to lookup aggregate ids of actors from string-formatted ids.
+type Lookup interface {
+	Actor(context.Context, string) (uuid.UUID, bool)
+}
+
 // AuthorizedActors returns the ids of the currently authorized actors.
 func AuthorizedActors(ctx context.Context) []uuid.UUID {
 	actors, _ := ctx.Value(authorizedActorsCtxKey).([]uuid.UUID)
@@ -43,7 +48,7 @@ func AuthorizedActors(ctx context.Context) []uuid.UUID {
 // middleware must be added to actually protect the routes. AuthorizeXXX()
 // middleware must be called before PermissionXXX middleware is called.
 // Otherwise the PermissionXXX middleware will always return 403 Forbidden.
-func Authorize(lookup *auth.Lookup, authorize func(Authorizer, *http.Request)) func(http.Handler) http.Handler {
+func Authorize(lookup Lookup, authorize func(Authorizer, *http.Request)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cloned, err := cloneRequest(r)
@@ -208,7 +213,7 @@ func cloneRequest(req *http.Request) (*http.Request, error) {
 
 type authorizer struct {
 	sync.Mutex
-	lookup         *auth.Lookup
+	lookup         Lookup
 	requestContext context.Context
 }
 
