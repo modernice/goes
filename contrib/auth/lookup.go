@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	// LookupActor lookups the aggregate id of an actor from a given actor id.
+	// LookupActor looks up the aggregate id of an actor from a given actor id.
 	LookupActor = "actor"
 
-	// LookupRole lookups the aggregate id of a role from a given role name.
+	// LookupRole looks up the aggregate id of a role from a given role name.
 	LookupRole = "role"
 )
 
