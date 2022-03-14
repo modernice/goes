@@ -21,6 +21,9 @@ const (
 // ActorIdentifiedData is the event data for ActorIdentified.
 type ActorIdentifiedData string
 
+// RoleIdentifiedData is the event data for RoleIdentified.
+type RoleIdentifiedData string
+
 // PermissionGrantedData is the event data for PermissionGranted.
 type PermissionGrantedData struct {
 	Aggregate aggregate.Ref
@@ -37,7 +40,7 @@ type PermissionRevokedData struct {
 func RegisterEvents(r *codec.Registry) {
 	gr := codec.Gob(r)
 	codec.GobRegister[ActorIdentifiedData](gr, ActorIdentified)
-	codec.GobRegister[string](gr, RoleIdentified)
+	codec.GobRegister[RoleIdentifiedData](gr, RoleIdentified)
 	codec.GobRegister[uuid.UUID](gr, RoleGiven)
 	codec.GobRegister[uuid.UUID](gr, RoleRemoved)
 	codec.GobRegister[PermissionGrantedData](gr, PermissionGranted)

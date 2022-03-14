@@ -66,12 +66,12 @@ func (r *Role) Identify(name string) error {
 	if name == "" {
 		return ErrEmptyName
 	}
-	aggregate.Next(r, RoleIdentified, name)
+	aggregate.Next(r, RoleIdentified, RoleIdentifiedData(name))
 	return nil
 }
 
-func (r *Role) identify(evt event.Of[string]) {
-	r.name = evt.Data()
+func (r *Role) identify(evt event.Of[RoleIdentifiedData]) {
+	r.name = string(evt.Data())
 }
 
 // Allows returns whether the role has the permission to perform the given action.

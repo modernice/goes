@@ -25,7 +25,7 @@ func TestRole_Identify(t *testing.T) {
 		t.Fatalf("Name() should return the role name %q; got %q", "admin", r.Name())
 	}
 
-	test.Change(t, r, auth.RoleIdentified, test.EventData("admin"))
+	test.Change(t, r, auth.RoleIdentified, test.EventData(auth.RoleIdentifiedData("admin")))
 }
 
 func TestRole_Identify_ErrEmptyName(t *testing.T) {
