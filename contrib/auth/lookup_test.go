@@ -10,6 +10,7 @@ import (
 	"github.com/modernice/goes/contrib/auth"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/modernice/goes/internal/testutil"
 )
 
 func TestLookup(t *testing.T) {
@@ -30,7 +31,7 @@ func TestLookup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run lookup: %v", err)
 	}
-	go panicOn(errs)
+	go testutil.PanicOn(errs)
 
 	if err := actors.Save(ctx, actor); err != nil {
 		t.Fatalf("save actor: %v", err)
@@ -54,5 +55,8 @@ func TestLookup(t *testing.T) {
 
 	if id != actor.AggregateID() {
 		t.Fatalf("Reverse() returned wrong actor id. %s != %s", id, actor.AggregateID())
+
 	}
+
+	// TODO(bounoable): Test lookup of roles.
 }
