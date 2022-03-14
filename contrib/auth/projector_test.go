@@ -11,6 +11,7 @@ import (
 	"github.com/modernice/goes/contrib/auth"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/modernice/goes/internal/testutil"
 	"github.com/modernice/goes/projection/schedule"
 )
 
@@ -31,7 +32,7 @@ func TestProjector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run projector: %v", err)
 	}
-	go panicOn(errs)
+	go testutil.PanicOn(errs)
 
 	order := aggregate.Ref{
 		Name: "order",
@@ -86,11 +87,5 @@ func TestProjector(t *testing.T) {
 
 	if !perms.Allows("update", order) {
 		t.Fatalf("admin should have permission to update the order")
-	}
-}
-
-func panicOn(errs <-chan error) {
-	for err := range errs {
-		panic(err)
 	}
 }
