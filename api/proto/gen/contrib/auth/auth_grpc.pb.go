@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 type AuthServiceClient interface {
 	// GetPermissions returns the permissions read-model of the given actor.
 	GetPermissions(ctx context.Context, in *common.UUID, opts ...grpc.CallOption) (*Permissions, error)
+	// Allows returns whether an actor is allowed to perform an action.
 	Allows(ctx context.Context, in *AllowsReq, opts ...grpc.CallOption) (*AllowsResp, error)
 	// LookupActor returns the aggregate id of the actor with the given
 	// string-formatted actor id.
@@ -68,6 +69,7 @@ func (c *authServiceClient) LookupActor(ctx context.Context, in *LookupActorReq,
 type AuthServiceServer interface {
 	// GetPermissions returns the permissions read-model of the given actor.
 	GetPermissions(context.Context, *common.UUID) (*Permissions, error)
+	// Allows returns whether an actor is allowed to perform an action.
 	Allows(context.Context, *AllowsReq) (*AllowsResp, error)
 	// LookupActor returns the aggregate id of the actor with the given
 	// string-formatted actor id.
@@ -176,5 +178,5 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "goes/auth/auth.proto",
+	Metadata: "goes/contrib/auth/auth.proto",
 }
