@@ -18,7 +18,6 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
-	"github.com/modernice/goes/projection/schedule"
 )
 
 func TestAuthorize(t *testing.T) {
@@ -152,17 +151,20 @@ func TestPermission_granted(t *testing.T) {
 		ID:   uuid.New(),
 	}
 
-	actor := auth.NewUUIDActor(actors[0])
+	actor := auth.NewUUIDActor(actors[1])
 	actor.Grant(ref, "view")
 
 	if err := test.actors.Save(ctx, actor); err != nil {
 		t.Fatalf("save actor: %v", err)
 	}
 
-	<-time.After(200 * time.Millisecond)
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+
+	timeout := time.NewTimer(3 * time.Second)
+	defer timeout.Stop()
 
 	permission := middleware.Permission(test.fetcher, "view", func(*http.Request) aggregate.Ref { return ref })
-
 	h := test.authorizeMiddleware(permission(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})))
@@ -170,13 +172,22 @@ func TestPermission_granted(t *testing.T) {
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
-	req := httptest.NewRequest("GET", srv.URL, nil)
-	rec := httptest.NewRecorder()
+	var lastStatusCode int
+	for {
+		select {
+		case <-timeout.C:
+			t.Fatalf("StatusCode should be %v; is %v", http.StatusNoContent, lastStatusCode)
+		case <-ticker.C:
+		}
 
-	h.ServeHTTP(rec, req)
+		req := httptest.NewRequest("GET", srv.URL, nil)
+		rec := httptest.NewRecorder()
 
-	if rec.Result().StatusCode != http.StatusNoContent {
-		t.Fatalf("StatusCode should be %v; is %v", http.StatusNoContent, rec.Result().StatusCode)
+		h.ServeHTTP(rec, req)
+
+		if lastStatusCode = rec.Result().StatusCode; lastStatusCode == http.StatusNoContent {
+			return
+		}
 	}
 }
 
@@ -193,13 +204,14 @@ type PermissionTest struct {
 
 func newPermissionTest(ctx context.Context, t *testing.T, actors []uuid.UUID) *PermissionTest {
 	bus := eventbus.New()
-	store := eventstore.New()
+	store := eventstore.WithBus(eventstore.New(), bus)
 	look := auth.NewLookup(store, bus)
 	repo := repository.New(store)
 	actorRepo := auth.NewUUIDActorRepository(repo)
 	perms := auth.InMemoryPermissionRepository()
+	roles := auth.NewRoleRepository(repo)
 	fetcher := middleware.RepositoryPermissionFetcher(perms)
-	proj := auth.NewPermissionProjector(perms, bus, store, schedule.Debounce(50*time.Millisecond))
+	proj := auth.NewPermissionProjector(perms, roles, bus, store)
 
 	errs, err := look.Run(ctx)
 	if err != nil {
