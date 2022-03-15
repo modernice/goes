@@ -2,8 +2,8 @@ syntax = "proto3";
 package goes.contrib.auth;
 option go_package = "github.com/modernice/goes/api/proto/gen/contrib/auth;authpb";
 
-import "goes/common/common.proto";
-import "goes/aggregate/aggregate.proto";
+import "goes/common/uuid.proto";
+import "goes/aggregate/ref.proto";
 
 // AuthService is the authorization service.
 service AuthService {
