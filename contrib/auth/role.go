@@ -106,16 +106,18 @@ func (r *Role) Disallows(action string, ref aggregate.Ref) bool {
 // Example – Grant all permissions on all aggregates:
 //	role.Grant(aggregate.Ref{Name: "*", ID: uuid.Nil}, "*")
 func (r *Role) Grant(ref aggregate.Ref, actions ...string) error {
-	if len(actions) == 0 {
-		return nil
-	}
-
 	if err := r.checkName(); err != nil {
 		return err
 	}
 
 	if err := validateRef(ref); err != nil {
 		return err
+	}
+
+	actions = r.missingActions(ref, actions)
+
+	if len(actions) == 0 {
+		return nil
 	}
 
 	aggregate.Next(r, PermissionGranted, PermissionGrantedData{
@@ -154,16 +156,18 @@ func (r *Role) checkName() error {
 // Example – Revoke all permissions on all aggregates:
 //	role.Revoke(aggregate.Ref{Name: "*", ID: uuid.Nil}, "*")
 func (r *Role) Revoke(ref aggregate.Ref, actions ...string) error {
-	if len(actions) == 0 {
-		return nil
-	}
-
 	if err := r.checkName(); err != nil {
 		return err
 	}
 
 	if err := validateRef(ref); err != nil {
 		return err
+	}
+
+	actions = r.grantedActions(ref, actions)
+
+	if len(actions) == 0 {
+		return nil
 	}
 
 	aggregate.Next(r, PermissionRevoked, PermissionRevokedData{

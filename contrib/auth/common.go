@@ -103,3 +103,23 @@ func (a Actions) Equal(other Actions) bool {
 	}
 	return true
 }
+
+func (a Actions) missingActions(ref aggregate.Ref, actions []string) []string {
+	missing := make([]string, 0, len(actions))
+	for _, action := range actions {
+		if !a.allows(action, ref) {
+			missing = append(missing, action)
+		}
+	}
+	return missing
+}
+
+func (a Actions) grantedActions(ref aggregate.Ref, actions []string) []string {
+	granted := make([]string, 0, len(actions))
+	for _, action := range actions {
+		if a.allows(action, ref) {
+			granted = append(granted, action)
+		}
+	}
+	return granted
+}

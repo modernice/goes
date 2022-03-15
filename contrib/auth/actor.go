@@ -242,16 +242,18 @@ func (a *Actor) Disallows(action string, ref aggregate.Ref) bool {
 // Example – Grant all permissions on all aggregates:
 //	actor.Grant(aggregate.Ref{Name: "*", ID: uuid.Nil}, "*")
 func (a *Actor) Grant(ref aggregate.Ref, actions ...string) error {
-	if len(actions) == 0 {
-		return nil
-	}
-
 	if err := a.checkID(); err != nil {
 		return err
 	}
 
 	if err := validateRef(ref); err != nil {
 		return err
+	}
+
+	actions = a.missingActions(ref, actions)
+
+	if len(actions) == 0 {
+		return nil
 	}
 
 	aggregate.Next(a, PermissionGranted, PermissionGrantedData{
@@ -292,16 +294,18 @@ func (a *Actor) checkID() error {
 // Example – Revoke all permissions on all aggregates:
 //	actor.Revoke(aggregate.Ref{Name: "*", ID: uuid.Nil}, "*")
 func (a *Actor) Revoke(ref aggregate.Ref, actions ...string) error {
-	if len(actions) == 0 {
-		return nil
-	}
-
 	if err := a.checkID(); err != nil {
 		return err
 	}
 
 	if err := validateRef(ref); err != nil {
 		return err
+	}
+
+	actions = a.grantedActions(ref, actions)
+
+	if len(actions) == 0 {
+		return nil
 	}
 
 	aggregate.Next(a, PermissionRevoked, PermissionRevokedData{
