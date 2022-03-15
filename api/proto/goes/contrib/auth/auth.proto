@@ -21,8 +21,9 @@ service AuthService {
 // Permissions is the read-model for an actor's permissions.
 message Permissions {
 	goes.common.UUID actor_id = 1;
-	Actions of_actor = 2;
-	Actions of_roles = 3;
+	repeated goes.common.UUID roles = 2;
+	Actions of_actor = 3;
+	Actions of_roles = 4;
 }
 
 // Actions maps aggregate names to permitted actions on these aggregates.

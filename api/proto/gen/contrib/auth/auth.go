@@ -3,9 +3,11 @@ package authpb
 import (
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	commonpb "github.com/modernice/goes/api/proto/gen/common"
 	"github.com/modernice/goes/contrib/auth"
+	"github.com/modernice/goes/internal/slice"
 )
 
 // NewActions converts auth.Actions to *Actions.
@@ -41,6 +43,7 @@ func (a *Actions) ToMap() (auth.Actions, error) {
 func NewPermissions(perms auth.PermissionsDTO) *Permissions {
 	return &Permissions{
 		ActorId: commonpb.NewUUID(perms.ActorID),
+		Roles:   slice.Map(perms.Roles, commonpb.NewUUID),
 		OfActor: NewActions(perms.OfActor),
 		OfRoles: NewActions(perms.OfRoles),
 	}
@@ -53,6 +56,7 @@ func (perms *Permissions) AsDTO() auth.PermissionsDTO {
 	}
 	return auth.PermissionsDTO{
 		ActorID: perms.GetActorId().AsUUID(),
+		Roles:   slice.Map(perms.GetRoles(), func(id *commonpb.UUID) uuid.UUID { return id.AsUUID() }),
 		OfActor: perms.GetOfActor().AsMap(),
 		OfRoles: perms.GetOfRoles().AsMap(),
 	}

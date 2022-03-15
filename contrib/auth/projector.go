@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/slice"
 	"github.com/modernice/goes/projection"
@@ -16,6 +17,7 @@ import (
 type PermissionProjector struct {
 	schedule    *schedule.Continuous
 	permissions PermissionRepository
+	roles       RoleRepository
 }
 
 var projectorEvents = [...]string{
@@ -26,10 +28,17 @@ var projectorEvents = [...]string{
 }
 
 // NewPermissionProjector returns a new permission projector.
-func NewPermissionProjector(perms PermissionRepository, bus event.Bus, store event.Store, opts ...schedule.ContinuousOption) *PermissionProjector {
+func NewPermissionProjector(
+	perms PermissionRepository,
+	roles RoleRepository,
+	bus event.Bus,
+	store event.Store,
+	opts ...schedule.ContinuousOption,
+) *PermissionProjector {
 	return &PermissionProjector{
 		schedule:    schedule.Continuously(bus, store, projectorEvents[:], opts...),
 		permissions: perms,
+		roles:       roles,
 	}
 }
 
@@ -53,7 +62,15 @@ func (proj *PermissionProjector) applyJob(ctx projection.Job) error {
 
 	for _, actorID := range actors {
 		if err := proj.permissions.Use(ctx, actorID, func(perms *Permissions) error {
-			return ctx.Apply(ctx, perms)
+			if err := ctx.Apply(ctx, perms); err != nil {
+				return err
+			}
+
+			if err := perms.finalize(ctx, proj.roles); err != nil {
+				return fmt.Errorf("finalize permissions: %w", err)
+			}
+
+			return nil
 		}); err != nil {
 			return fmt.Errorf("apply permissions: %w [actor=%v]", err, actorID)
 		}
@@ -63,9 +80,9 @@ func (proj *PermissionProjector) applyJob(ctx projection.Job) error {
 }
 
 func (proj *PermissionProjector) extractActorsFromJob(ctx projection.Job) ([]uuid.UUID, error) {
-	events, errs, err := ctx.EventsOf(ctx, ActorAggregate, RoleAggregate)
+	events, errs, err := ctx.Events(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("extract events of %v aggregates: %w", []string{ActorAggregate, RoleAggregate}, err)
+		return nil, fmt.Errorf("extract events from job: %w", err)
 	}
 
 	var out []uuid.UUID
@@ -78,6 +95,14 @@ func (proj *PermissionProjector) extractActorsFromJob(ctx projection.Job) ([]uui
 			switch evt.Name() {
 			case RoleGiven, RoleRemoved:
 				out = append(out, evt.Data().([]uuid.UUID)...)
+
+			// Slowest path. We need to fetch each role and extract its members.
+			case PermissionGranted, PermissionRevoked:
+				actors, err := proj.getActorsOfRole(ctx, pick.AggregateID(evt))
+				if err != nil {
+					return fmt.Errorf("get actors of role: %w [roleId=%v]", err, pick.AggregateID(evt))
+				}
+				out = append(out, actors...)
 			}
 		}
 		return nil
@@ -86,4 +111,12 @@ func (proj *PermissionProjector) extractActorsFromJob(ctx projection.Job) ([]uui
 	}
 
 	return slice.Unique(out), nil
+}
+
+func (proj *PermissionProjector) getActorsOfRole(ctx context.Context, roleID uuid.UUID) ([]uuid.UUID, error) {
+	role, err := proj.roles.Fetch(ctx, roleID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch role: %w [id=%v]", err, roleID)
+	}
+	return role.members, nil
 }

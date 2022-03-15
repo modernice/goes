@@ -26,7 +26,7 @@ func TestProjector(t *testing.T) {
 	actors := auth.NewUUIDActorRepository(repo)
 	roles := auth.NewRoleRepository(repo)
 
-	proj := auth.NewPermissionProjector(permissions, bus, store, schedule.Debounce(50*time.Millisecond))
+	proj := auth.NewPermissionProjector(permissions, roles, bus, store, schedule.Debounce(50*time.Millisecond))
 
 	errs, err := proj.Run(ctx)
 	if err != nil {

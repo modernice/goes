@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
@@ -35,13 +38,16 @@ type Permissions struct {
 	*projection.Base
 	*projection.Progressor
 	PermissionsDTO
+
+	rolesHaveChanged bool
 }
 
 // PermissionsDTO is the DTO of Permissions.
 type PermissionsDTO struct {
-	ActorID uuid.UUID `json:"actorId" bson:"actorId"`
-	OfActor Actions   `json:"ofActor" bson:"ofActor"`
-	OfRoles Actions   `json:"ofRoles" bson:"ofRoles"`
+	ActorID uuid.UUID   `json:"actorId" bson:"actorId"`
+	Roles   []uuid.UUID `json:"roles" bson:"roles"`
+	OfActor Actions     `json:"ofActor" bson:"ofActor"`
+	OfRoles Actions     `json:"ofRoles" bson:"ofRoles"`
 }
 
 // PermissionsOf returns the permissions read-model of the given actor.
@@ -67,6 +73,8 @@ func PermissionsOf(actorID uuid.UUID) *Permissions {
 
 	event.ApplyWith(perms, perms.granted, PermissionGranted)
 	event.ApplyWith(perms, perms.revoked, PermissionRevoked)
+	event.ApplyWith(perms, perms.roleGiven, RoleGiven)
+	event.ApplyWith(perms, perms.roleRemoved, RoleRemoved)
 
 	return perms
 }
@@ -107,6 +115,13 @@ func (perms PermissionsDTO) Disallows(action string, ref aggregate.Ref) bool {
 	return !perms.Allows(action, ref)
 }
 
+// Equal returns whether perms and other contain exactly the same values.
+func (perms PermissionsDTO) Equal(other PermissionsDTO) bool {
+	return perms.ActorID == other.ActorID &&
+		perms.OfActor.Equal(other.OfActor) &&
+		perms.OfRoles.Equal(other.OfRoles)
+}
+
 func (perms *Permissions) granted(evt event.Of[PermissionGrantedData]) {
 	switch pick.AggregateName(evt) {
 	case ActorAggregate:
@@ -125,9 +140,46 @@ func (perms *Permissions) revoked(evt event.Of[PermissionRevokedData]) {
 	}
 }
 
-// Equal returns whether perms and other contain exactly the same values.
-func (perms PermissionsDTO) Equal(other PermissionsDTO) bool {
-	return perms.ActorID == other.ActorID &&
-		perms.OfActor.Equal(other.OfActor) &&
-		perms.OfRoles.Equal(other.OfRoles)
+func (perms *Permissions) roleGiven(evt event.Of[[]uuid.UUID]) {
+	perms.Roles = append(perms.Roles, pick.AggregateID(evt))
+	perms.rolesHaveChanged = true
+}
+
+func (perms *Permissions) roleRemoved(evt event.Of[[]uuid.UUID]) {
+	roleID := pick.AggregateID(evt)
+	for i, role := range perms.Roles {
+		if roleID == role {
+			perms.Roles = append(perms.Roles[:i], perms.Roles[i+1:]...)
+			perms.rolesHaveChanged = true
+			return
+		}
+	}
+}
+
+func (perms *Permissions) finalize(ctx context.Context, roles RoleRepository) error {
+	if !perms.rolesHaveChanged {
+		return nil
+	}
+	perms.rolesHaveChanged = false
+	perms.OfRoles = make(Actions)
+
+	for _, roleID := range perms.Roles {
+		role, err := roles.Fetch(ctx, roleID)
+		if err != nil {
+			return fmt.Errorf("fetch role: %w [id=%v]", err, roleID)
+		}
+
+		for target, actions := range role.Actions {
+			for action := range actions {
+				tactions, ok := perms.OfRoles[target]
+				if !ok {
+					tactions = make(map[string]int)
+					perms.OfRoles[target] = tactions
+				}
+				tactions[action]++
+			}
+		}
+	}
+
+	return nil
 }
