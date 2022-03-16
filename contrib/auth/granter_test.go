@@ -13,6 +13,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal/testutil"
 )
 
@@ -128,6 +129,38 @@ func TestStartupGrant(t *testing.T) {
 	gt.ExpectPermissions(ctx, actor.AggregateID(), ref, actions)
 }
 
+func TestGrantOn(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gt := NewGrantTest(t)
+
+	actors, _ := gt.actors.Repository(auth.UUIDActor)
+	actor := auth.NewUUIDActor(uuid.New())
+	actors.Save(ctx, actor)
+
+	actions := []string{"foo", "bar", "baz"}
+
+	gt.Run(ctx, auth.GrantOn("foo", func(g auth.TargetedGranter, evt event.Of[test.FooEventData]) error {
+		return g.GrantToActor(g.Context(), actor.AggregateID(), actions...)
+	}))
+
+	target := aggregate.Ref{
+		Name: "foo",
+		ID:   uuid.New(),
+	}
+
+	if err := gt.bus.Publish(ctx, event.New(
+		"foo",
+		test.FooEventData{},
+		event.Aggregate(target.ID, target.Name, 1),
+	).Any()); err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+
+	gt.ExpectPermissions(ctx, actor.AggregateID(), target, actions)
+}
+
 type GrantTest struct {
 	GrantTestOptions
 
@@ -169,7 +202,7 @@ func NewGrantTest(t *testing.T) *GrantTest {
 	}
 }
 
-func (gt *GrantTest) Run(ctx context.Context) {
+func (gt *GrantTest) Run(ctx context.Context, opts ...auth.GranterOption) {
 	errs, err := gt.lookup.Run(ctx)
 	if err != nil {
 		gt.t.Fatalf("run lookup: %v", err)
@@ -183,7 +216,7 @@ func (gt *GrantTest) Run(ctx context.Context) {
 
 	client := auth.RepositoryCommandClient(gt.actors, gt.roles)
 
-	gt.granter = auth.NewGranter([]string{"granted"}, client, gt.lookup, gt.bus, gt.store)
+	gt.granter = auth.NewGranter([]string{"granted"}, client, gt.lookup, gt.bus, gt.store, opts...)
 	if errs, err = gt.granter.Run(ctx); err != nil {
 		gt.t.Fatalf("run granter: %v", err)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal/slice"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
 )
@@ -25,6 +26,8 @@ type Granter struct {
 	client   CommandClient
 	lookup   Lookup
 	schedule *schedule.Continuous
+	mux      sync.RWMutex
+	handlers map[string]func(TargetedGranter, event.Event) error
 	once     sync.Once
 	ready    chan struct{}
 }
@@ -75,6 +78,33 @@ type PermissionGranterEvent interface {
 	GrantPermissions(TargetedGranter) error
 }
 
+// GranterOption is a permission granter option.
+type GranterOption func(*Granter)
+
+// GrantOn returns a GranterOption that registers a manual handler for the given
+// event. Instead of checking if the event data implements PermissionGranterEvent,
+// the handler is called directly with the same TargetedGranter that would be
+// passed to a PermissionGranterEvent.
+//
+// Alternatively, if you already have an exisiting *Granter g, calll g.GrantOn()
+// to register additional handlers.
+func GrantOn[Data any](eventName string, handler func(TargetedGranter, event.Of[Data]) error) GranterOption {
+	return func(g *Granter) {
+		g.handlers[eventName] = func(tg TargetedGranter, evt event.Event) error {
+			casted, ok := event.TryCast[Data](evt)
+			if !ok {
+				var zero Data
+				return fmt.Errorf(
+					"Cannot cast %T to %T. "+
+						"You probably provided the wrong event name for this handler.",
+					evt.Data(), zero,
+				)
+			}
+			return handler(tg, casted)
+		}
+	}
+}
+
 // NewGranter returns a new permission granter background task.
 //
 //	var events []string
@@ -91,12 +121,32 @@ func NewGranter(
 	lookup Lookup,
 	bus event.Bus,
 	store event.Store,
+	opts ...GranterOption,
 ) *Granter {
-	return &Granter{
+	g := &Granter{
 		client:   client,
 		lookup:   lookup,
 		schedule: schedule.Continuously(bus, store, events),
+		handlers: make(map[string]func(TargetedGranter, event.Of[any]) error),
 	}
+	for _, opt := range opts {
+		opt(g)
+	}
+
+	for eventName := range g.handlers {
+		events = append(events, eventName)
+	}
+	g.schedule = schedule.Continuously(bus, store, slice.Unique(events))
+
+	return g
+}
+
+// GrantOn registers a manual handler for the given event. See the package-level
+// GrantOn function for more details and type parameterized handler registration.
+func (g *Granter) GrantOn(eventName string, handler func(TargetedGranter, event.Event) error) {
+	g.mux.Lock()
+	defer g.mux.Unlock()
+	g.handlers[eventName] = handler
 }
 
 // Ready returns a channel that blocks until the granter applied a projection
@@ -139,6 +189,19 @@ func (g *Granter) applyJob(ctx projection.Job) error {
 }
 
 func (g *Granter) applyEvent(ctx context.Context, evt event.Event) error {
+	if h, ok := g.handler(evt.Name()); ok {
+		id, name, _ := evt.Aggregate()
+		return h(targetedGranter{
+			ctx:    ctx,
+			client: g.client,
+			lookup: g.lookup,
+			target: aggregate.Ref{
+				Name: name,
+				ID:   id,
+			},
+		}, evt)
+	}
+
 	pge, ok := evt.Data().(PermissionGranterEvent)
 	if !ok {
 		return fmt.Errorf("%q event does not implement PermissionGranterEvent", evt.Name())
@@ -161,6 +224,13 @@ func (g *Granter) applyEvent(ctx context.Context, evt event.Event) error {
 	}
 
 	return nil
+}
+
+func (g *Granter) handler(event string) (func(TargetedGranter, event.Event) error, bool) {
+	g.mux.RLock()
+	defer g.mux.RUnlock()
+	h, ok := g.handlers[event]
+	return h, ok
 }
 
 type targetedGranter struct {
