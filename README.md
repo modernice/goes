@@ -48,8 +48,11 @@ https://github.com/heynickc/awesome-ddd) before reading further.
 
 ### Installation
 
+goes is not yet versioned because the API still changes too often. Install using
+a specific commit hash and make sure to install nested modules with `/...`
+
 ```sh
-go get github.com/modernice/goes
+go get github.com/modernice/goes/...@<commit-hash>
 ```
 
 ### Examples
