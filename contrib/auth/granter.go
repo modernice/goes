@@ -22,9 +22,8 @@ import (
 // startup to ensure that new permissions are applied to existing actors and
 // roles.
 type Granter struct {
-	lookup   *LookupTable
-	actors   ActorRepositories
-	roles    RoleRepository
+	client   CommandClient
+	lookup   Lookup
 	schedule *schedule.Continuous
 	once     sync.Once
 	ready    chan struct{}
@@ -46,7 +45,7 @@ type TargetedGranter interface {
 	Target() aggregate.Ref
 
 	// Lookup returns the lookup that can be used to resolve actor and role ids.
-	Lookup() *LookupTable
+	Lookup() Lookup
 
 	// GrantToActor grants the given actor the permission to perform the given
 	// actions on the aggregate referenced by Target().
@@ -88,15 +87,13 @@ type PermissionGranterEvent interface {
 //	errs, err := g.Run(context.TODO())
 func NewGranter(
 	events []string,
-	actors ActorRepositories,
-	roles RoleRepository,
-	lookup *LookupTable,
+	client CommandClient,
+	lookup Lookup,
 	bus event.Bus,
 	store event.Store,
 ) *Granter {
 	return &Granter{
-		actors:   actors,
-		roles:    roles,
+		client:   client,
 		lookup:   lookup,
 		schedule: schedule.Continuously(bus, store, events),
 	}
@@ -149,20 +146,14 @@ func (g *Granter) applyEvent(ctx context.Context, evt event.Event) error {
 
 	id, name, _ := evt.Aggregate()
 
-	actors, err := g.actors.Repository(UUIDActor)
-	if err != nil {
-		return fmt.Errorf("missing UUIDActor repository: %w", err)
-	}
-
 	granter := targetedGranter{
 		ctx:    ctx,
+		client: g.client,
 		lookup: g.lookup,
 		target: aggregate.Ref{
 			Name: name,
 			ID:   id,
 		},
-		actors: actors,
-		roles:  g.roles,
 	}
 
 	if err := pge.GrantPermissions(granter); err != nil {
@@ -174,50 +165,29 @@ func (g *Granter) applyEvent(ctx context.Context, evt event.Event) error {
 
 type targetedGranter struct {
 	ctx    context.Context
-	lookup *LookupTable
+	client CommandClient
+	lookup Lookup
 	target aggregate.Ref
-	actors ActorRepository
-	roles  RoleRepository
 }
 
 func (tg targetedGranter) Context() context.Context { return tg.ctx }
 
 func (tg targetedGranter) Target() aggregate.Ref { return tg.target }
 
-func (tg targetedGranter) Lookup() *LookupTable { return tg.lookup }
+func (tg targetedGranter) Lookup() Lookup { return tg.lookup }
 
 func (tg targetedGranter) GrantToActor(ctx context.Context, actorID uuid.UUID, actions ...string) error {
-	if len(actions) == 0 {
-		return nil
-	}
-	return tg.actors.Use(ctx, actorID, func(a *Actor) error {
-		return a.Grant(tg.target, actions...)
-	})
-}
-
-func (tg targetedGranter) RevokeFromActor(ctx context.Context, actorID uuid.UUID, actions ...string) error {
-	if len(actions) == 0 {
-		return nil
-	}
-	return tg.actors.Use(ctx, actorID, func(a *Actor) error {
-		return a.Revoke(tg.target, actions...)
-	})
+	return tg.client.GrantToActor(ctx, actorID, tg.target, actions...)
 }
 
 func (tg targetedGranter) GrantToRole(ctx context.Context, roleID uuid.UUID, actions ...string) error {
-	if len(actions) == 0 {
-		return nil
-	}
-	return tg.roles.Use(ctx, roleID, func(r *Role) error {
-		return r.Grant(tg.target, actions...)
-	})
+	return tg.client.GrantToRole(ctx, roleID, tg.target, actions...)
+}
+
+func (tg targetedGranter) RevokeFromActor(ctx context.Context, actorID uuid.UUID, actions ...string) error {
+	return tg.client.RevokeFromActor(ctx, actorID, tg.target, actions...)
 }
 
 func (tg targetedGranter) RevokeFromRole(ctx context.Context, roleID uuid.UUID, actions ...string) error {
-	if len(actions) == 0 {
-		return nil
-	}
-	return tg.roles.Use(ctx, roleID, func(r *Role) error {
-		return r.Revoke(tg.target, actions...)
-	})
+	return tg.client.RevokeFromRole(ctx, roleID, tg.target, actions...)
 }

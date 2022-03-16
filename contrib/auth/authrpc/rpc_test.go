@@ -198,6 +198,74 @@ func TestServer_LookupActor(t *testing.T) {
 	}
 }
 
+func TestServer_LookupRole(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus := eventbus.New()
+	store := eventstore.WithBus(eventstore.New(), bus)
+	lookup := auth.NewLookup(store, bus)
+	repo := repository.New(store)
+	roles := auth.NewRoleRepository(repo)
+
+	errs, err := lookup.Run(ctx)
+	if err != nil {
+		t.Fatalf("run lookup: %v", err)
+	}
+	go testutil.PanicOn(errs)
+
+	role := auth.NewRole(uuid.New())
+	role.Identify("foo")
+
+	if err := roles.Save(ctx, role); err != nil {
+		t.Fatalf("save role: %v", err)
+	}
+
+	<-time.After(100 * time.Millisecond)
+
+	tests := []struct {
+		name      string
+		want      uuid.UUID
+		wantError *status.Status
+	}{
+		{
+			name: "bar",
+			wantError: grpcstatus.New(codes.NotFound, fmt.Sprintf("role %q not found", "bar"), &errdetails.LocalizedMessage{
+				Locale:  "en",
+				Message: fmt.Sprintf("Role %q not found.", "bar"),
+			}),
+		},
+		{
+			name: "foo",
+			want: role.AggregateID(),
+		},
+	}
+
+	srv := authrpc.NewServer(nil, lookup)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := srv.LookupRole(ctx, &authpb.LookupRoleReq{Name: tt.name})
+
+			if tt.wantError != nil {
+				st := status.Convert(err)
+
+				if !proto.Equal(st.Proto(), tt.wantError.Proto()) {
+					t.Fatalf("LookupRole() returned wrong error.\n\t%v != %v", tt.wantError, st)
+				}
+
+				return
+			}
+
+			roleID := resp.AsUUID()
+
+			if tt.want != roleID {
+				t.Fatalf("LookupRole() returned wrong role id. want=%v got=%v", tt.want, roleID)
+			}
+		})
+	}
+}
+
 func givenAnActorWithViewPermission(t *testing.T) (*auth.Actor, *auth.Permissions, auth.PermissionRepository) {
 	repo := auth.InMemoryPermissionRepository()
 

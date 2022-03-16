@@ -8,6 +8,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -26,6 +27,16 @@ type AuthServiceClient interface {
 	// LookupActor returns the aggregate id of the actor with the given
 	// string-formatted actor id.
 	LookupActor(ctx context.Context, in *LookupActorReq, opts ...grpc.CallOption) (*common.UUID, error)
+	// LookupRole returns the aggregate id of the role with the given name.
+	LookupRole(ctx context.Context, in *LookupRoleReq, opts ...grpc.CallOption) (*common.UUID, error)
+	// GrantToActor grants the given actor permission to perform the given actions.
+	GrantToActor(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// GrantToRole grants the given role permission to perform the given actions.
+	GrantToRole(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// RevokeFromActor revokes from the given actor the permission to perform the given actions.
+	RevokeFromActor(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// RevokeFromRole revokes from the given role the permission to perform the given actions.
+	RevokeFromRole(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type authServiceClient struct {
@@ -63,6 +74,51 @@ func (c *authServiceClient) LookupActor(ctx context.Context, in *LookupActorReq,
 	return out, nil
 }
 
+func (c *authServiceClient) LookupRole(ctx context.Context, in *LookupRoleReq, opts ...grpc.CallOption) (*common.UUID, error) {
+	out := new(common.UUID)
+	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/LookupRole", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GrantToActor(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/GrantToActor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GrantToRole(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/GrantToRole", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RevokeFromActor(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/RevokeFromActor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RevokeFromRole(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/RevokeFromRole", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility
@@ -74,6 +130,16 @@ type AuthServiceServer interface {
 	// LookupActor returns the aggregate id of the actor with the given
 	// string-formatted actor id.
 	LookupActor(context.Context, *LookupActorReq) (*common.UUID, error)
+	// LookupRole returns the aggregate id of the role with the given name.
+	LookupRole(context.Context, *LookupRoleReq) (*common.UUID, error)
+	// GrantToActor grants the given actor permission to perform the given actions.
+	GrantToActor(context.Context, *GrantRevokeReq) (*emptypb.Empty, error)
+	// GrantToRole grants the given role permission to perform the given actions.
+	GrantToRole(context.Context, *GrantRevokeReq) (*emptypb.Empty, error)
+	// RevokeFromActor revokes from the given actor the permission to perform the given actions.
+	RevokeFromActor(context.Context, *GrantRevokeReq) (*emptypb.Empty, error)
+	// RevokeFromRole revokes from the given role the permission to perform the given actions.
+	RevokeFromRole(context.Context, *GrantRevokeReq) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -89,6 +155,21 @@ func (UnimplementedAuthServiceServer) Allows(context.Context, *AllowsReq) (*Allo
 }
 func (UnimplementedAuthServiceServer) LookupActor(context.Context, *LookupActorReq) (*common.UUID, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LookupActor not implemented")
+}
+func (UnimplementedAuthServiceServer) LookupRole(context.Context, *LookupRoleReq) (*common.UUID, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LookupRole not implemented")
+}
+func (UnimplementedAuthServiceServer) GrantToActor(context.Context, *GrantRevokeReq) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GrantToActor not implemented")
+}
+func (UnimplementedAuthServiceServer) GrantToRole(context.Context, *GrantRevokeReq) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GrantToRole not implemented")
+}
+func (UnimplementedAuthServiceServer) RevokeFromActor(context.Context, *GrantRevokeReq) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeFromActor not implemented")
+}
+func (UnimplementedAuthServiceServer) RevokeFromRole(context.Context, *GrantRevokeReq) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeFromRole not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 
@@ -157,6 +238,96 @@ func _AuthService_LookupActor_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_LookupRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LookupRoleReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).LookupRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/goes.contrib.auth.AuthService/LookupRole",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).LookupRole(ctx, req.(*LookupRoleReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GrantToActor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GrantRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GrantToActor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/goes.contrib.auth.AuthService/GrantToActor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GrantToActor(ctx, req.(*GrantRevokeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GrantToRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GrantRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GrantToRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/goes.contrib.auth.AuthService/GrantToRole",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GrantToRole(ctx, req.(*GrantRevokeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RevokeFromActor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GrantRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RevokeFromActor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/goes.contrib.auth.AuthService/RevokeFromActor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RevokeFromActor(ctx, req.(*GrantRevokeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RevokeFromRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GrantRevokeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RevokeFromRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/goes.contrib.auth.AuthService/RevokeFromRole",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RevokeFromRole(ctx, req.(*GrantRevokeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -175,6 +346,26 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LookupActor",
 			Handler:    _AuthService_LookupActor_Handler,
+		},
+		{
+			MethodName: "LookupRole",
+			Handler:    _AuthService_LookupRole_Handler,
+		},
+		{
+			MethodName: "GrantToActor",
+			Handler:    _AuthService_GrantToActor_Handler,
+		},
+		{
+			MethodName: "GrantToRole",
+			Handler:    _AuthService_GrantToRole_Handler,
+		},
+		{
+			MethodName: "RevokeFromActor",
+			Handler:    _AuthService_RevokeFromActor_Handler,
+		},
+		{
+			MethodName: "RevokeFromRole",
+			Handler:    _AuthService_RevokeFromRole_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

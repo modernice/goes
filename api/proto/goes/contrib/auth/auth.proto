@@ -4,6 +4,7 @@ option go_package = "github.com/modernice/goes/api/proto/gen/contrib/auth;authpb
 
 import "goes/common/uuid.proto";
 import "goes/aggregate/ref.proto";
+import "google/protobuf/empty.proto";
 
 // AuthService is the authorization service.
 service AuthService {
@@ -16,6 +17,21 @@ service AuthService {
 	// LookupActor returns the aggregate id of the actor with the given
 	// string-formatted actor id.
 	rpc LookupActor(LookupActorReq) returns (goes.common.UUID);
+
+	// LookupRole returns the aggregate id of the role with the given name.
+	rpc LookupRole(LookupRoleReq) returns (goes.common.UUID);
+
+	// GrantToActor grants the given actor permission to perform the given actions.
+	rpc GrantToActor(GrantRevokeReq) returns (google.protobuf.Empty);
+
+	// GrantToRole grants the given role permission to perform the given actions.
+	rpc GrantToRole(GrantRevokeReq) returns (google.protobuf.Empty);
+
+	// RevokeFromActor revokes from the given actor the permission to perform the given actions.
+	rpc RevokeFromActor(GrantRevokeReq) returns (google.protobuf.Empty);
+
+	// RevokeFromRole revokes from the given role the permission to perform the given actions.
+	rpc RevokeFromRole(GrantRevokeReq) returns (google.protobuf.Empty);
 }
 
 // Permissions is the read-model for an actor's permissions.
@@ -52,4 +68,16 @@ message AllowsResp {
 // LookupActorReq is the request for LookupActor.
 message LookupActorReq {
 	string string_id = 1;
+}
+
+// LookupRoleReq is the request for LookupRole.
+message LookupRoleReq {
+	string name = 1;
+}
+
+// GrantRevokeReq is the request for GrantToXXX and RevokeFromXXX.
+message GrantRevokeReq {
+	goes.common.UUID role_or_actor = 1;
+	goes.aggregate.Ref target = 2;
+	repeated string actions = 3;
 }

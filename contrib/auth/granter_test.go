@@ -181,7 +181,9 @@ func (gt *GrantTest) Run(ctx context.Context) {
 	}
 	go testutil.PanicOn(errs)
 
-	gt.granter = auth.NewGranter([]string{"granted"}, gt.actors, gt.roles, gt.lookup, gt.bus, gt.store)
+	client := auth.RepositoryCommandClient(gt.actors, gt.roles)
+
+	gt.granter = auth.NewGranter([]string{"granted"}, client, gt.lookup, gt.bus, gt.store)
 	if errs, err = gt.granter.Run(ctx); err != nil {
 		gt.t.Fatalf("run granter: %v", err)
 	}
