@@ -14,8 +14,8 @@ func New() *Base {
 	}
 }
 
-// RegisterHandler implements event.Handler.
-func (a *Base) RegisterHandler(eventName string, handler func(event.Event)) {
+// RegisterEventHandler implements event.Handler.
+func (a *Base) RegisterEventHandler(eventName string, handler func(event.Event)) {
 	a.appliers[eventName] = handler
 }
 

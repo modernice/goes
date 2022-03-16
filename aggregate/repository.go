@@ -73,6 +73,12 @@ type Repository interface {
 	Delete(ctx context.Context, a Aggregate) error
 }
 
+// TypedAggregate is a type constraint for aggregates of a TypedRepository.
+type TypedAggregate interface {
+	model.Model[uuid.UUID]
+	Aggregate
+}
+
 // TypedRepository is a repository for a specific aggregate type.
 // Use the github.com/modernnice/aggregate/repository.Typed function to create
 // a TypedRepository.
@@ -81,10 +87,7 @@ type Repository interface {
 //
 //	var repo aggregate.Repository
 //	typed := repository.Typed(repo, NewFoo)
-type TypedRepository[A interface {
-	model.Model[uuid.UUID]
-	Aggregate
-}] interface {
+type TypedRepository[A TypedAggregate] interface {
 	model.Repository[A, uuid.UUID]
 
 	// FetchVersion fetches all events for the given aggregate up to the given

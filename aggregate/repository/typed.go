@@ -25,7 +25,7 @@ import (
 //
 //	var foo Foo
 //	err := repo.Fetch(context.TODO(), &foo)
-type TypedRepository[Aggregate aggregate.Aggregate] struct {
+type TypedRepository[Aggregate aggregate.TypedAggregate] struct {
 	repo aggregate.Repository
 	make func(uuid.UUID) Aggregate
 }
@@ -39,8 +39,24 @@ type TypedRepository[Aggregate aggregate.Aggregate] struct {
 //
 //	var repo aggregate.Repository
 //	typed := repository.Typed(repo, NewFoo)
-func Typed[Aggregate aggregate.Aggregate](r aggregate.Repository, makeFunc func(uuid.UUID) Aggregate) *TypedRepository[Aggregate] {
+func Typed[Aggregate aggregate.TypedAggregate](r aggregate.Repository, makeFunc func(uuid.UUID) Aggregate) *TypedRepository[Aggregate] {
 	return &TypedRepository[Aggregate]{repo: r, make: makeFunc}
+}
+
+// NewOf is an alias for Typed.
+func NewOf[Aggregate aggregate.TypedAggregate](r aggregate.Repository, makeFunc func(uuid.UUID) Aggregate) *TypedRepository[Aggregate] {
+	return Typed(r, makeFunc)
+}
+
+// Repository returns the underlying, untyped aggregate.Repository.
+func (r *TypedRepository[Aggregate]) Repository() aggregate.Repository {
+	return r.repo
+}
+
+// NewFunc returns the underlying constructor function for the aggregate of
+// this repository.
+func (r *TypedRepository[Aggregate]) NewFunc() func(uuid.UUID) Aggregate {
+	return r.make
 }
 
 // Save implements aggregate.TypedRepository.Save.

@@ -16,7 +16,9 @@ import (
 // Option is an Aggregate option.
 type Option func(*Base)
 
-// Base can be embedded into structs to make them implement Aggregate.
+// Base can be embedded into structs to implement the Aggregate interface.
+// Base additional implements the Committer interface, which is used by the
+// ApplyHistory() function to "commit" changes to the aggregate.
 type Base struct {
 	ID      uuid.UUID
 	Name    string
@@ -46,12 +48,12 @@ func New(name string, id uuid.UUID, opts ...Option) *Base {
 	return b
 }
 
-// RegisterHandler registers an event handler for the given event name.
+// RegisterEventHandler registers an event handler for the given event name.
 // When b.ApplyEvent is called and a handler is registered for the given event,
 // the provided handler is called.
 //
-// This method implements event.Handler.
-func (b *Base) RegisterHandler(eventName string, handle func(event.Event)) {
+// This method implements event.Registerer.
+func (b *Base) RegisterEventHandler(eventName string, handle func(event.Event)) {
 	b.handlers[eventName] = handle
 }
 

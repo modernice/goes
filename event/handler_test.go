@@ -20,8 +20,8 @@ func TestHandler(t *testing.T) {
 	fooHandled := make(chan event.Of[test.FooEventData])
 	barHandled := make(chan event.Of[test.BarEventData])
 
-	h.RegisterHandler("foo", func(evt event.Event) { fooHandled <- event.Cast[test.FooEventData](evt) })
-	h.RegisterHandler("bar", func(evt event.Event) { barHandled <- event.Cast[test.BarEventData](evt) })
+	h.RegisterEventHandler("foo", func(evt event.Event) { fooHandled <- event.Cast[test.FooEventData](evt) })
+	h.RegisterEventHandler("bar", func(evt event.Event) { barHandled <- event.Cast[test.BarEventData](evt) })
 
 	errs, err := h.Run(ctx)
 	if err != nil {

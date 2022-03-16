@@ -16,17 +16,17 @@ var ErrRunning = errors.New("event handler is already running")
 
 // A Registerer is an object that can register handlers for different events.
 type Registerer interface {
-	// RegisterHandler registers an event handler for the given event name.
-	RegisterHandler(eventName string, handler func(Event))
+	// RegisterEventHandler registers an event handler for the given event name.
+	RegisterEventHandler(eventName string, handler func(Event))
 }
 
 // RegisterHandler registers an event handler for the given event name.
-// The provided Handler should usually be an aggregate or projection that uses
-// the registered handler to apply the events onto itself.
+// The provided Registerer should usually be an aggregate or projection that
+// uses the registered handlers to apply events onto itself.
 //
-// Handler is implemented by
-//  - aggregate.Base
-//  - projection.Base
+// Registerer is implemented by
+//  - *aggregate.Base
+//  - *projection.Base
 //
 //	type Foo struct {
 //		*aggregate.Base
@@ -42,9 +42,9 @@ type Registerer interface {
 //
 //	func NewFoo(id uuid.UUID) *Foo  {
 //		foo := &Foo{Base: aggregate.New("foo", id)}
-//		aggregate.Register(foo, "foo", foo.foo)
-//		aggregate.Register(foo, "bar", foo.bar)
-//		aggregate.Register(foo, "baz", foo.baz)
+//		event.ApplyWith(foo, foo.foo, "foo")
+//		event.ApplyWith(foo, foo.bar, "bar")
+//		event.ApplyWith(foo, foo.baz, "baz")
 //		return foo
 //	}
 //
@@ -52,30 +52,31 @@ type Registerer interface {
 //		f.Foo = e.Data().Foo
 //	}
 //
-//	func (f *Foo) foo(e event.Of[BarEvent]) {
+//	func (f *Foo) bar(e event.Of[BarEvent]) {
 //		f.Bar = e.Data().Bar
 //	}
 //
-//	func (f *Foo) foo(e event.Of[BazEvent]) {
+//	func (f *Foo) baz(e event.Of[BazEvent]) {
 //		f.Baz = e.Data().Baz
 //	}
 func RegisterHandler[Data any](r Registerer, eventName string, handler func(Of[Data])) {
-	r.RegisterHandler(eventName, func(evt Event) {
+	r.RegisterEventHandler(eventName, func(evt Event) {
 		if casted, ok := TryCast[Data](evt); ok {
 			handler(casted)
-		} else {
-			aggregateName := "<unknown>"
-			if a, ok := r.(pick.AggregateProvider); ok {
-				aggregateName = pick.AggregateName(a)
-			}
-			var zero Data
-			panic(fmt.Errorf(
-				"[goes/event.RegisterHandler] Cannot cast %T to %T. "+
-					"You probably provided the wrong event name for this handler. "+
-					"[event=%v, aggregate=%v]",
-				evt.Data(), zero, eventName, aggregateName,
-			))
+			return
 		}
+
+		aggregateName := "<unknown>"
+		if a, ok := r.(pick.AggregateProvider); ok {
+			aggregateName = pick.AggregateName(a)
+		}
+		var zero Data
+		panic(fmt.Errorf(
+			"[goes/event.RegisterHandler] Cannot cast %T to %T. "+
+				"You probably provided the wrong event name for this handler. "+
+				"[event=%v, aggregate=%v]",
+			evt.Data(), zero, eventName, aggregateName,
+		))
 	})
 }
 
@@ -119,10 +120,10 @@ func NewHandler(bus Bus) *Handler {
 	}
 }
 
-// RegisterHandler registers the handler for the given event.
+// RegisterEventHandler registers the handler for the given event.
 // Events must be registered before h.Run() is called. Events that are
 // registered after h.Run() has been called, won't be handled.
-func (h *Handler) RegisterHandler(name string, fn func(Event)) {
+func (h *Handler) RegisterEventHandler(name string, fn func(Event)) {
 	h.handlers[name] = fn
 	h.eventNames[name] = struct{}{}
 }
