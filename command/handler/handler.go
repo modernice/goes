@@ -101,6 +101,8 @@ type Of[A Aggregate] struct {
 // aggregate itself, using the HandleCommand() method of the aggregate.
 // The provided newFunc is used to instantiate the aggregates and to initially
 // extract from the aggregate which commands it handles.
+//
+// Under the hood, a generic *command.Handler is used.
 func New[A Aggregate](newFunc func(uuid.UUID) A, repo aggregate.Repository, bus command.Bus) *Of[A] {
 	if newFunc == nil {
 		panic("[goes/command.NewHandlerOf] newFunc is nil")
