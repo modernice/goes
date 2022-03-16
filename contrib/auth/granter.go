@@ -86,7 +86,14 @@ type GranterOption func(*Granter)
 // the handler is called directly with the same TargetedGranter that would be
 // passed to a PermissionGranterEvent.
 //
-// Alternatively, if you already have an exisiting *Granter g, calll g.GrantOn()
+// Event names that are registered using the GrantOn() option do not have to be
+// provided to NewGranter(); they are automatically added to the list of events
+// that are subscribed to:
+//
+//	// <nil> events provided, but "foo" event is subscribed to
+//	g := auth.NewGranter(nil, ..., auth.GrantOn("foo", ...))
+//
+// Alternatively, if you already have an exisiting *Granter g, call g.GrantOn()
 // to register additional handlers.
 func GrantOn[Data any](eventName string, handler func(TargetedGranter, event.Of[Data]) error) GranterOption {
 	return func(g *Granter) {
