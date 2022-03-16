@@ -108,8 +108,8 @@ func TestEqual(t *testing.T) {
 	id := uuid.New()
 	now := xtime.Now()
 	tests := []struct {
-		a    event.Of[mockData]
-		b    event.Of[mockData]
+		a    event.Evt[mockData]
+		b    event.Evt[mockData]
 		want bool
 	}{
 		{
@@ -156,7 +156,7 @@ func TestEqual(t *testing.T) {
 
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			if event.Equal(tt.a, tt.b) != tt.want {
+			if event.Equal(tt.a.Any(), tt.b.Any()) != tt.want {
 				if tt.want {
 					t.Errorf("expected events to be equal but they aren't\nevent a: %#v\n\nevent b: %#v", tt.a, tt.b)
 					return
@@ -170,17 +170,17 @@ func TestEqual(t *testing.T) {
 func TestEqual_variadic(t *testing.T) {
 	id := uuid.New()
 	now := xtime.Now()
-	events := []event.Of[mockData]{
-		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
-		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
-		event.New("foo", newMockData(), event.ID(id), event.Time(now)),
+	events := []event.Event{
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)).Any(),
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)).Any(),
+		event.New("foo", newMockData(), event.ID(id), event.Time(now)).Any(),
 	}
 
 	if !event.Equal(events...) {
 		t.Error(fmt.Errorf("expected events to be equal but they aren't\n%#v", events))
 	}
 
-	events = append(events, event.New("bar", newMockData(), event.ID(id), event.Time(now)))
+	events = append(events, event.New("bar", newMockData(), event.ID(id), event.Time(now)).Any())
 
 	if event.Equal(events...) {
 		t.Error(fmt.Errorf("expected events not to be equal but they are\n%#v", events))

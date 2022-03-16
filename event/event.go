@@ -144,7 +144,7 @@ func Previous[Data any](prev Of[Data]) Option {
 // a normal "==" comparison except for the Time field which is being compared by
 // calling a.Time().Equal(b.Time()) for the two Events a and b that are being
 // compared.
-func Equal[D comparable](events ...Of[D]) bool {
+func Equal(events ...Of[any]) bool {
 	if len(events) < 2 {
 		return true
 	}
@@ -172,7 +172,7 @@ func Equal[D comparable](events ...Of[D]) bool {
 
 // Sort sorts events and returns the sorted events.
 func Sort[D any, Events ~[]Of[D]](events Events, sort Sorting, dir SortDirection) Events {
-	return SortMulti[D, Events](events, SortOptions{Sort: sort, Dir: dir})
+	return SortMulti(events, SortOptions{Sort: sort, Dir: dir})
 }
 
 // SortMulti sorts events by multiple fields and returns the sorted events.
@@ -249,6 +249,7 @@ func TryCast[To, From any](evt Of[From]) (Evt[To], bool) {
 	if !ok {
 		return Evt[To]{}, false
 	}
+
 	return New(
 		evt.Name(),
 		data,

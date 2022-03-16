@@ -82,7 +82,7 @@ type PermissionGranterEvent interface {
 type GranterOption func(*Granter)
 
 // GrantOn returns a GranterOption that registers a manual handler for the given
-// event. Instead of checking if the event data implements PermissionGranterEvent,
+// events. Instead of checking if the event data implements PermissionGranterEvent,
 // the handler is called directly with the same TargetedGranter that would be
 // passed to a PermissionGranterEvent.
 //
@@ -90,24 +90,30 @@ type GranterOption func(*Granter)
 // provided to NewGranter(); they are automatically added to the list of events
 // that are subscribed to:
 //
-//	// <nil> events provided, but "foo" event is subscribed to
-//	g := auth.NewGranter(nil, ..., auth.GrantOn("foo", ...))
+//	// <nil> events provided, but "foo", "bar", and "baz" events are subscribed to
+//	g := auth.NewGranter(nil, ..., auth.GrantOn(..., "foo", "bar", "baz"))
 //
 // Alternatively, if you already have an exisiting *Granter g, call g.GrantOn()
 // to register additional handlers.
-func GrantOn[Data any](eventName string, handler func(TargetedGranter, event.Of[Data]) error) GranterOption {
+func GrantOn[Data any](handler func(TargetedGranter, event.Of[Data]) error, eventNames ...string) GranterOption {
+	if handler == nil {
+		panic("[goes/contrib/auth.GrantOn] handler is nil")
+	}
+
 	return func(g *Granter) {
-		g.handlers[eventName] = func(tg TargetedGranter, evt event.Event) error {
-			casted, ok := event.TryCast[Data](evt)
-			if !ok {
-				var zero Data
-				return fmt.Errorf(
-					"Cannot cast %T to %T. "+
-						"You probably provided the wrong event name for this handler.",
-					evt.Data(), zero,
-				)
+		for _, eventName := range eventNames {
+			g.handlers[eventName] = func(tg TargetedGranter, evt event.Event) error {
+				casted, ok := event.TryCast[Data](evt)
+				if !ok {
+					var zero Data
+					return fmt.Errorf(
+						"Cannot cast %T to %T. "+
+							"You probably provided the wrong event name for this handler.",
+						evt.Data(), zero,
+					)
+				}
+				return handler(tg, casted)
 			}
-			return handler(tg, casted)
 		}
 	}
 }
@@ -150,10 +156,15 @@ func NewGranter(
 
 // GrantOn registers a manual handler for the given event. See the package-level
 // GrantOn function for more details and type parameterized handler registration.
-func (g *Granter) GrantOn(eventName string, handler func(TargetedGranter, event.Event) error) {
+func (g *Granter) GrantOn(handler func(TargetedGranter, event.Event) error, eventNames ...string) {
+	if len(eventNames) == 0 {
+		return
+	}
 	g.mux.Lock()
 	defer g.mux.Unlock()
-	g.handlers[eventName] = handler
+	for _, eventName := range eventNames {
+		g.handlers[eventName] = handler
+	}
 }
 
 // Ready returns a channel that blocks until the granter applied a projection
@@ -198,6 +209,7 @@ func (g *Granter) applyJob(ctx projection.Job) error {
 func (g *Granter) applyEvent(ctx context.Context, evt event.Event) error {
 	if h, ok := g.handler(evt.Name()); ok {
 		id, name, _ := evt.Aggregate()
+
 		return h(targetedGranter{
 			ctx:    ctx,
 			client: g.client,

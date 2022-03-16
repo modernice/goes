@@ -141,9 +141,9 @@ func TestGrantOn(t *testing.T) {
 
 	actions := []string{"foo", "bar", "baz"}
 
-	gt.Run(ctx, auth.GrantOn("foo", func(g auth.TargetedGranter, evt event.Of[test.FooEventData]) error {
+	gt.Run(ctx, auth.GrantOn(func(g auth.TargetedGranter, evt event.Of[test.FooEventData]) error {
 		return g.GrantToActor(g.Context(), actor.AggregateID(), actions...)
-	}))
+	}, "foo"))
 
 	target := aggregate.Ref{
 		Name: "foo",
