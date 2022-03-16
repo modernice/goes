@@ -28,11 +28,6 @@ type Authorizer interface {
 	Authorize(actorID uuid.UUID)
 }
 
-// Lookup is used to lookup aggregate ids of actors from string-formatted ids.
-type Lookup interface {
-	Actor(context.Context, string) (uuid.UUID, bool)
-}
-
 // AuthorizedActors returns the ids of the currently authorized actors.
 func AuthorizedActors(ctx context.Context) []uuid.UUID {
 	actors, _ := ctx.Value(authorizedActorsCtxKey).([]uuid.UUID)
@@ -48,7 +43,7 @@ func AuthorizedActors(ctx context.Context) []uuid.UUID {
 // middleware must be added to actually protect the routes. AuthorizeXXX()
 // middleware must be called before PermissionXXX middleware is called.
 // Otherwise the PermissionXXX middleware will always return 403 Forbidden.
-func Authorize(lookup Lookup, authorize func(Authorizer, *http.Request)) func(http.Handler) http.Handler {
+func Authorize(lookup auth.Lookup, authorize func(Authorizer, *http.Request)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cloned, err := cloneRequest(r)
@@ -110,11 +105,6 @@ func AuthorizeField(field string) func(http.Handler) http.Handler {
 	}
 }
 
-// PermissionFetcher fetches permissions of actors.
-type PermissionFetcher interface {
-	Fetch(context.Context, uuid.UUID) (auth.PermissionsDTO, error)
-}
-
 // Permission returns a middleware that protects routes from unauthorized access.
 // When called, the middleware extracts the aggregate that the user wants to act
 // on from the request body by calling the provided extractRef function.
@@ -122,7 +112,7 @@ type PermissionFetcher interface {
 // to perform the given action on the given aggregate. Only if an authorized
 // actor is allowed to perform the action, the next handler is called. Otherwise
 // the middleware returns 403 Forbidden.
-func Permission(perms PermissionFetcher, action string, extractRef func(*http.Request) aggregate.Ref) func(http.Handler) http.Handler {
+func Permission(perms auth.PermissionFetcher, action string, extractRef func(*http.Request) aggregate.Ref) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cloned, err := cloneRequest(r)
@@ -151,7 +141,7 @@ func Permission(perms PermissionFetcher, action string, extractRef func(*http.Re
 // PermissionField differs from Permission in that it requires the aggregate
 // name to be passed as an argument and that it extracts the aggregate id from
 // the request body.
-func PermissionField(perms PermissionFetcher, action, aggregateName, field string) func(http.Handler) http.Handler {
+func PermissionField(perms auth.PermissionFetcher, action, aggregateName, field string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cloned, err := cloneRequest(r)
@@ -213,7 +203,7 @@ func cloneRequest(req *http.Request) (*http.Request, error) {
 
 type authorizer struct {
 	sync.Mutex
-	lookup         Lookup
+	lookup         auth.Lookup
 	requestContext context.Context
 }
 
@@ -237,7 +227,7 @@ func withAuthorizedActor(ctx context.Context, actorID uuid.UUID) context.Context
 	return context.WithValue(ctx, authorizedActorsCtxKey, append(actors, actorID))
 }
 
-func allowed(ctx context.Context, permissions PermissionFetcher, ref aggregate.Ref, action string) bool {
+func allowed(ctx context.Context, permissions auth.PermissionFetcher, ref aggregate.Ref, action string) bool {
 	actors := AuthorizedActors(ctx)
 
 	for _, actor := range actors {

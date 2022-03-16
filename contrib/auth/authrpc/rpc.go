@@ -24,11 +24,11 @@ type Server struct {
 	authpb.UnimplementedAuthServiceServer
 
 	perms  auth.PermissionRepository
-	lookup *auth.Lookup
+	lookup *auth.LookupTable
 }
 
 // NewServer returns a new gRPC server for the authorization module.
-func NewServer(perms auth.PermissionRepository, lookup *auth.Lookup) *Server {
+func NewServer(perms auth.PermissionRepository, lookup *auth.LookupTable) *Server {
 	return &Server{
 		perms:  perms,
 		lookup: lookup,

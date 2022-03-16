@@ -138,7 +138,7 @@ type GrantTest struct {
 	store     event.Store
 	perms     auth.PermissionRepository
 	projector *auth.PermissionProjector
-	lookup    *auth.Lookup
+	lookup    *auth.LookupTable
 	granter   *auth.Granter
 }
 

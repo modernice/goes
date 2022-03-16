@@ -17,25 +17,25 @@ const (
 	LookupRole = "role"
 )
 
-// Lookup provides lookups from actor ids to aggregate ids of those actors.
-type Lookup struct {
+// LookupTable provides lookups from actor ids to aggregate ids of those actors.
+type LookupTable struct {
 	*lookup.Lookup
 }
 
 var lookupEvents = [...]string{ActorIdentified, RoleIdentified}
 
 // NewLookup returns a new lookup for aggregate ids of actors.
-func NewLookup(store event.Store, bus event.Bus, opts ...schedule.ContinuousOption) *Lookup {
-	return &Lookup{Lookup: lookup.New(store, bus, lookupEvents[:], opts...)}
+func NewLookup(store event.Store, bus event.Bus, opts ...schedule.ContinuousOption) *LookupTable {
+	return &LookupTable{Lookup: lookup.New(store, bus, lookupEvents[:], opts...)}
 }
 
 // Actor returns the aggregate id of the actor with the given formatted actor id.
-func (l *Lookup) Actor(ctx context.Context, id string) (uuid.UUID, bool) {
+func (l *LookupTable) Actor(ctx context.Context, id string) (uuid.UUID, bool) {
 	return l.Reverse(ctx, ActorAggregate, LookupActor, id)
 }
 
 // Role returns the aggregate id of the role with the given name.
-func (l *Lookup) Role(ctx context.Context, name string) (uuid.UUID, bool) {
+func (l *LookupTable) Role(ctx context.Context, name string) (uuid.UUID, bool) {
 	return l.Reverse(ctx, RoleAggregate, LookupRole, name)
 }
 

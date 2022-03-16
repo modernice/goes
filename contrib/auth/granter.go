@@ -22,7 +22,7 @@ import (
 // startup to ensure that new permissions are applied to existing actors and
 // roles.
 type Granter struct {
-	lookup   *Lookup
+	lookup   *LookupTable
 	actors   ActorRepositories
 	roles    RoleRepository
 	schedule *schedule.Continuous
@@ -46,7 +46,7 @@ type TargetedGranter interface {
 	Target() aggregate.Ref
 
 	// Lookup returns the lookup that can be used to resolve actor and role ids.
-	Lookup() *Lookup
+	Lookup() *LookupTable
 
 	// GrantToActor grants the given actor the permission to perform the given
 	// actions on the aggregate referenced by Target().
@@ -90,7 +90,7 @@ func NewGranter(
 	events []string,
 	actors ActorRepositories,
 	roles RoleRepository,
-	lookup *Lookup,
+	lookup *LookupTable,
 	bus event.Bus,
 	store event.Store,
 ) *Granter {
@@ -174,7 +174,7 @@ func (g *Granter) applyEvent(ctx context.Context, evt event.Event) error {
 
 type targetedGranter struct {
 	ctx    context.Context
-	lookup *Lookup
+	lookup *LookupTable
 	target aggregate.Ref
 	actors ActorRepository
 	roles  RoleRepository
@@ -184,7 +184,7 @@ func (tg targetedGranter) Context() context.Context { return tg.ctx }
 
 func (tg targetedGranter) Target() aggregate.Ref { return tg.target }
 
-func (tg targetedGranter) Lookup() *Lookup { return tg.lookup }
+func (tg targetedGranter) Lookup() *LookupTable { return tg.lookup }
 
 func (tg targetedGranter) GrantToActor(ctx context.Context, actorID uuid.UUID, actions ...string) error {
 	if len(actions) == 0 {

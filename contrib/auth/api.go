@@ -22,3 +22,13 @@ type Client interface {
 	// formatted actor id.
 	LookupActor(ctx context.Context, sid string) (uuid.UUID, error)
 }
+
+// PermissionFetcher fetches permissions of actors.
+type PermissionFetcher interface {
+	Fetch(context.Context, uuid.UUID) (PermissionsDTO, error)
+}
+
+// Lookup provides lookups of actor ids and role ids.
+type Lookup interface {
+	Actor(context.Context, string) (uuid.UUID, bool)
+}

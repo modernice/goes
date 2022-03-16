@@ -194,10 +194,10 @@ func TestPermission_granted(t *testing.T) {
 type PermissionTest struct {
 	bus                 event.Bus
 	store               event.Store
-	look                *auth.Lookup
+	look                *auth.LookupTable
 	actors              auth.ActorRepository
 	perms               auth.PermissionRepository
-	fetcher             middleware.PermissionFetcher
+	fetcher             auth.PermissionFetcher
 	proj                *auth.PermissionProjector
 	authorizeMiddleware func(http.Handler) http.Handler
 }
@@ -210,7 +210,7 @@ func newPermissionTest(ctx context.Context, t *testing.T, actors []uuid.UUID) *P
 	actorRepo := auth.NewUUIDActorRepository(repo)
 	perms := auth.InMemoryPermissionRepository()
 	roles := auth.NewRoleRepository(repo)
-	fetcher := middleware.RepositoryPermissionFetcher(perms)
+	fetcher := auth.RepositoryPermissionFetcher(perms)
 	proj := auth.NewPermissionProjector(perms, roles, bus, store)
 
 	errs, err := look.Run(ctx)
