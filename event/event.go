@@ -172,7 +172,7 @@ func Equal(events ...Of[any]) bool {
 
 // Sort sorts events and returns the sorted events.
 func Sort[D any, Events ~[]Of[D]](events Events, sort Sorting, dir SortDirection) Events {
-	return SortMulti[D, Events](events, SortOptions{Sort: sort, Dir: dir})
+	return SortMulti(events, SortOptions{Sort: sort, Dir: dir})
 }
 
 // SortMulti sorts events by multiple fields and returns the sorted events.
