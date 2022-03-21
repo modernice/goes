@@ -52,10 +52,10 @@ func ModelTransactions(tx bool) ModelRepositoryOption {
 
 // ModelDecoder returns a ModelRepositoryOption that specifies a custom decoder
 // for the model.
-func ModelDecoder[Model model.Model[ID], ID model.ID](decode func(*mongo.SingleResult, Model) error) ModelRepositoryOption {
+func ModelDecoder[Model model.Model[ID], ID model.ID](decode func(*mongo.SingleResult, *Model) error) ModelRepositoryOption {
 	return func(o *modelRepositoryOptions) {
 		o.customDecoder = func(res *mongo.SingleResult, m any) error {
-			return decode(res, m.(Model))
+			return decode(res, m.(*Model))
 		}
 	}
 }

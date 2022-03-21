@@ -88,7 +88,7 @@ func MongoPermissionRepository(ctx context.Context, col *gomongo.Collection) (Pe
 				OfRoles:    perms.OfRoles.withFlatKeys(),
 			}, nil
 		}),
-		mongo.ModelDecoder[*Permissions, uuid.UUID](func(res *gomongo.SingleResult, perms *Permissions) error {
+		mongo.ModelDecoder[*Permissions, uuid.UUID](func(res *gomongo.SingleResult, permsPtr **Permissions) error {
 			var dto mongoPermissions
 			if err := res.Decode(&dto); err != nil {
 				return err
@@ -98,6 +98,8 @@ func MongoPermissionRepository(ctx context.Context, col *gomongo.Collection) (Pe
 
 			ofActor.unflatten(dto.OfActor)
 			ofRoles.unflatten(dto.OfRoles)
+
+			perms := *permsPtr
 
 			perms.Progressor = dto.Progressor
 			perms.PermissionsDTO = PermissionsDTO{
