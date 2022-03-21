@@ -150,7 +150,7 @@ func (r *ModelRepository[Model, ID]) Fetch(ctx context.Context, id ID) (Model, e
 		m = r.factory(id).(Model)
 	}
 
-	if err := r.decode(res, m); err != nil {
+	if err := r.decode(res, &m); err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return m, fmt.Errorf("decode model: %w", err)
 		}
@@ -165,7 +165,7 @@ func (r *ModelRepository[Model, ID]) Fetch(ctx context.Context, id ID) (Model, e
 	return m, nil
 }
 
-func (r *ModelRepository[Model, ID]) decode(res *mongo.SingleResult, m Model) error {
+func (r *ModelRepository[Model, ID]) decode(res *mongo.SingleResult, m any) error {
 	if r.customDecoder != nil {
 		return r.customDecoder(res, m)
 	}
