@@ -156,12 +156,9 @@ func (r *ModelRepository[Model, ID]) Use(ctx context.Context, id ID, fn func(Mod
 
 		m, err := r.Fetch(ctx, id)
 		if err != nil {
-			if r.transactions {
-				if err := abort(err); err != nil {
-					return err
-				}
+			if err := abort(err); err != nil {
+				return err
 			}
-
 			return fmt.Errorf("fetch model: %w", err)
 		}
 
@@ -173,7 +170,6 @@ func (r *ModelRepository[Model, ID]) Use(ctx context.Context, id ID, fn func(Mod
 			if err := abort(err); err != nil {
 				return err
 			}
-
 			return fmt.Errorf("save model: %w", err)
 		}
 
