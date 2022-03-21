@@ -123,3 +123,28 @@ func (a Actions) grantedActions(ref aggregate.Ref, actions []string) []string {
 	}
 	return granted
 }
+
+func (a Actions) withFlatKeys() map[string]map[string]int {
+	out := make(map[string]map[string]int)
+	for ref, actions := range a {
+		refv := ref.String()
+		out[refv] = make(map[string]int)
+		for action, count := range actions {
+			out[refv][action] = count
+		}
+	}
+	return out
+}
+
+func (a Actions) unflatten(from map[string]map[string]int) {
+	for refv, actions := range from {
+		var ref aggregate.Ref
+		ref.Parse(refv)
+		if _, ok := a[ref]; !ok {
+			a[ref] = make(map[string]int)
+		}
+		for action, count := range actions {
+			a[ref][action] = count
+		}
+	}
+}

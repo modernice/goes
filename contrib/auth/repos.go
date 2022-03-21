@@ -12,6 +12,7 @@ import (
 	"github.com/modernice/goes/backend/memory"
 	"github.com/modernice/goes/backend/mongo"
 	"github.com/modernice/goes/persistence/model"
+	"github.com/modernice/goes/projection"
 	gomongo "go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -60,6 +61,14 @@ func InMemoryPermissionRepository() PermissionRepository {
 	return memory.NewModelRepository[*Permissions, uuid.UUID](memory.ModelFactory(PermissionsOf))
 }
 
+type mongoPermissions struct {
+	*projection.Progressor `bson:"progressor"`
+	ActorID                uuid.UUID                 `bson:"actorId"`
+	Roles                  []uuid.UUID               `bson:"roles"`
+	OfActor                map[string]map[string]int `bson:"ofActor"`
+	OfRoles                map[string]map[string]int `bson:"ofRoles"`
+}
+
 // MongoPermissionRepository returns a MongoDB repository for the permission read-models.
 // An index for the "actorId" field is automatically created if it does not exist yet.
 //
@@ -70,6 +79,36 @@ func MongoPermissionRepository(ctx context.Context, col *gomongo.Collection) (Pe
 		col,
 		mongo.ModelFactory(PermissionsOf, true),
 		mongo.ModelIDKey("actorId"),
+		mongo.ModelEncoder[*Permissions, uuid.UUID](func(perms *Permissions) (any, error) {
+			return mongoPermissions{
+				Progressor: perms.Progressor,
+				ActorID:    perms.ActorID,
+				Roles:      perms.Roles,
+				OfActor:    perms.OfActor.withFlatKeys(),
+				OfRoles:    perms.OfRoles.withFlatKeys(),
+			}, nil
+		}),
+		mongo.ModelDecoder[*Permissions, uuid.UUID](func(res *gomongo.SingleResult, perms *Permissions) error {
+			var dto mongoPermissions
+			if err := res.Decode(&dto); err != nil {
+				return err
+			}
+
+			ofActor, ofRoles := make(Actions), make(Actions)
+
+			ofActor.unflatten(dto.OfActor)
+			ofRoles.unflatten(dto.OfRoles)
+
+			perms.Progressor = dto.Progressor
+			perms.PermissionsDTO = PermissionsDTO{
+				ActorID: dto.ActorID,
+				Roles:   dto.Roles,
+				OfActor: ofActor,
+				OfRoles: ofRoles,
+			}
+
+			return nil
+		}),
 	)
 
 	if err := repo.CreateIndexes(ctx); err != nil {

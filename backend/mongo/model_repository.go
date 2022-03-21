@@ -28,6 +28,8 @@ type modelRepositoryOptions struct {
 	transactions     bool
 	factory          func(any) any
 	createIfNotFound bool
+	customDecoder    func(*mongo.SingleResult, any) error
+	customEncoder    func(any) (any, error)
 }
 
 // ModelIDKey returns a ModelRepositoryOption that specifies which field of the
@@ -45,6 +47,27 @@ func ModelIDKey(key string) ModelRepositoryOption {
 func ModelTransactions(tx bool) ModelRepositoryOption {
 	return func(o *modelRepositoryOptions) {
 		o.transactions = tx
+	}
+}
+
+// ModelDecoder returns a ModelRepositoryOption that specifies a custom decoder
+// for the model.
+func ModelDecoder[Model model.Model[ID], ID model.ID](decode func(*mongo.SingleResult, Model) error) ModelRepositoryOption {
+	return func(o *modelRepositoryOptions) {
+		o.customDecoder = func(res *mongo.SingleResult, m any) error {
+			return decode(res, m.(Model))
+		}
+	}
+}
+
+// ModelEncoder returns a ModelRepositoryOption that specifies a custom encoder
+// for the model. Then a model is saved, the document that is returned by the
+// provided encode function is used as the replacement document.
+func ModelEncoder[Model model.Model[ID], ID model.ID](encode func(Model) (any, error)) ModelRepositoryOption {
+	return func(o *modelRepositoryOptions) {
+		o.customEncoder = func(m any) (any, error) {
+			return encode(m.(Model))
+		}
 	}
 }
 
@@ -103,7 +126,16 @@ func (r *ModelRepository[Model, ID]) CreateIndexes(ctx context.Context) error {
 // Save saves the given model to the database using the MongoDB "ReplaceOne"
 // command with the upsert option set to true.
 func (r *ModelRepository[Model, ID]) Save(ctx context.Context, m Model) error {
-	_, err := r.col.ReplaceOne(ctx, bson.D{{Key: r.key, Value: m.ModelID()}}, m, options.Replace().SetUpsert(true))
+	var replacement any = m
+	if r.customEncoder != nil {
+		repl, err := r.customEncoder(m)
+		if err != nil {
+			return fmt.Errorf("custom encoder: %w", err)
+		}
+		replacement = repl
+	}
+
+	_, err := r.col.ReplaceOne(ctx, bson.D{{Key: r.key, Value: m.ModelID()}}, replacement, options.Replace().SetUpsert(true))
 	return err
 }
 
@@ -118,7 +150,7 @@ func (r *ModelRepository[Model, ID]) Fetch(ctx context.Context, id ID) (Model, e
 		m = r.factory(id).(Model)
 	}
 
-	if err := res.Decode(&m); err != nil {
+	if err := r.decode(res, m); err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return m, fmt.Errorf("decode model: %w", err)
 		}
@@ -131,6 +163,13 @@ func (r *ModelRepository[Model, ID]) Fetch(ctx context.Context, id ID) (Model, e
 	}
 
 	return m, nil
+}
+
+func (r *ModelRepository[Model, ID]) decode(res *mongo.SingleResult, m Model) error {
+	if r.customDecoder != nil {
+		return r.customDecoder(res, m)
+	}
+	return res.Decode(m)
 }
 
 // Use fetches the given model from the database, passes the model to the
