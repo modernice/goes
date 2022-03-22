@@ -193,12 +193,13 @@ func (a *Actor) identify(evt event.Of[ActorIdentifiedData]) {
 	}
 
 	sid := string(evt.Data())
-	if err := a.validateID(sid); err != nil {
-		return
-	}
 
 	id, err := a.parseID(sid)
 	if err != nil {
+		return
+	}
+
+	if err := a.validateID(id); err != nil {
 		return
 	}
 
