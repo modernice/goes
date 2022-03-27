@@ -41,8 +41,8 @@ func RegisterEvents(r *codec.Registry) {
 	gr := codec.Gob(r)
 	codec.GobRegister[ActorIdentifiedData](gr, ActorIdentified)
 	codec.GobRegister[RoleIdentifiedData](gr, RoleIdentified)
-	codec.GobRegister[uuid.UUID](gr, RoleGiven)
-	codec.GobRegister[uuid.UUID](gr, RoleRemoved)
+	codec.GobRegister[[]uuid.UUID](gr, RoleGiven)
+	codec.GobRegister[[]uuid.UUID](gr, RoleRemoved)
 	codec.GobRegister[PermissionGrantedData](gr, PermissionGranted)
 	codec.GobRegister[PermissionRevokedData](gr, PermissionRevoked)
 }
