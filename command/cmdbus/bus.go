@@ -17,6 +17,7 @@ import (
 	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/handler"
 	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/concurrent"
 )
@@ -60,7 +61,7 @@ var (
 
 // Bus is an event-driven Command Bus.
 type Bus struct {
-	*event.Handler
+	*handler.Handler
 
 	subMux        sync.RWMutex
 	subscriptions map[string]*subscription
@@ -136,7 +137,7 @@ func DrainTimeout(dur time.Duration) Option {
 // New returns an event-driven command bus.
 func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
 	b := &Bus{
-		Handler:        event.NewHandler(events),
+		Handler:        handler.New(events),
 		subscriptions:  make(map[string]*subscription),
 		requested:      make(map[uuid.UUID]command.Cmd[any]),
 		dispatched:     make(map[uuid.UUID]dispatcher),
