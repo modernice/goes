@@ -260,6 +260,8 @@ type provider struct {
 }
 
 func (p *provider) Provide(key string, val any) {
+	p.Remove(key)
+
 	if p.mux != nil {
 		p.mux.Lock()
 		defer p.mux.Unlock()
