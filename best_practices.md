@@ -11,4 +11,5 @@ working with this library. These will be integrated into the documentation somed
 	event applier
 	- better performance when re-building the aggregate
 	- event appliers are not responsible for validation, they just apply "facts"
-- 
+- do not raise *unnecessary* aggregate events that don't change the state of
+	the aggregate
