@@ -31,11 +31,21 @@ func NewLookup(store event.Store, bus event.Bus, opts ...schedule.ContinuousOpti
 
 // Actor returns the aggregate id of the actor with the given formatted actor id.
 func (l *LookupTable) Actor(ctx context.Context, id string) (uuid.UUID, bool) {
+	select {
+	case <-ctx.Done():
+		return uuid.Nil, false
+	case <-l.Ready():
+	}
 	return l.Reverse(ctx, ActorAggregate, LookupActor, id)
 }
 
 // Role returns the aggregate id of the role with the given name.
 func (l *LookupTable) Role(ctx context.Context, name string) (uuid.UUID, bool) {
+	select {
+	case <-ctx.Done():
+		return uuid.Nil, false
+	case <-l.Ready():
+	}
 	return l.Reverse(ctx, RoleAggregate, LookupRole, name)
 }
 
