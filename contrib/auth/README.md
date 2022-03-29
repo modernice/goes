@@ -2,9 +2,8 @@
 
 Package `auth` implements a ready-to-use authorization system for goes-driven apps.
 
-This module implements an action and role-based authorization system around the
-concepts of **actors and roles,** and builds on top of goes' aggregate,
-event, and command system.
+This module implements an authorization system around the concepts of **actors
+and roles,** and builds on top of goes' aggregate, event, and command system.
 
 User management is explicitly **not** provided by this module. Instead, it
 allows you to integrate your own or third-party user management using *custom actors.*
