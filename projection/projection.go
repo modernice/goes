@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/helper/streams"
 )
 
 var (
@@ -38,17 +39,26 @@ func IgnoreProgress() ApplyOption {
 //
 // If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
 // is called for every applied Event evt.
-func Apply[Events ~[]event.Of[any]](proj EventApplier[any], events Events, opts ...ApplyOption) error {
-	if len(events) == 0 {
-		return nil
-	}
+func Apply(proj EventApplier[any], events []event.Event, opts ...ApplyOption) error {
+	return ApplyStream(proj, streams.New(events...), opts...)
+}
 
+// ApplyStream applies events onto the given projection.
+//
+// If proj implements guard (or embeds Guard), proj.GuardProjection(evt) is
+// called for every Event evt to determine if the Event should be applied onto
+// the Projection.
+//
+// If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
+// is called for every applied Event evt.
+func ApplyStream(proj EventApplier[any], events <-chan event.Event, opts ...ApplyOption) error {
 	cfg := newApplyConfig(opts...)
 
-	progressor, isProgressor := proj.(Progressing)
+	progressor, isProgressor := proj.(ProgressAware)
 	guard, hasGuard := proj.(Guard)
 
-	for _, evt := range events {
+	var lastEvent event.Event
+	for evt := range events {
 		if hasGuard && !guard.GuardProjection(evt) {
 			continue
 		}
@@ -60,10 +70,13 @@ func Apply[Events ~[]event.Of[any]](proj EventApplier[any], events Events, opts 
 		}
 
 		proj.ApplyEvent(evt)
+		lastEvent = evt
 	}
 
-	if progress := events[len(events)-1].Time(); isProgressor && progressor.Progress().Before(progress) {
-		progressor.SetProgress(progress)
+	if isProgressor && lastEvent != nil {
+		if progress := lastEvent.Time(); progressor.Progress().Before(progress) {
+			progressor.SetProgress(progress)
+		}
 	}
 
 	return nil

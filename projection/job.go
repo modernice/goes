@@ -166,7 +166,7 @@ func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan eve
 func (j *job) EventsFor(ctx context.Context, target EventApplier[any]) (<-chan event.Event, <-chan error, error) {
 	var filter []event.Query
 
-	if progressor, isProgressor := target.(Progressing); isProgressor {
+	if progressor, isProgressor := target.(ProgressAware); isProgressor {
 		if progress := progressor.Progress(); !progress.IsZero() {
 			filter = append(filter, query.New(query.Time(time.After(progress))))
 		}
@@ -268,7 +268,7 @@ func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOp
 	opts = append([]ApplyOption{IgnoreProgress()}, opts...)
 
 	if j.reset {
-		if progressor, isProgressor := proj.(Progressing); isProgressor {
+		if progressor, isProgressor := proj.(ProgressAware); isProgressor {
 			progressor.SetProgress(stdtime.Time{})
 		}
 
