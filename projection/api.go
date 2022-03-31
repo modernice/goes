@@ -13,14 +13,15 @@ type EventApplier[Data any] interface {
 	ApplyEvent(event.Of[Data])
 }
 
-// Progressing makes projections track their projection progress.
+// A ProgressAware projection keeps track of its projection progress in terms of
+// the time of the last applied event.
 //
-// Embed *Progressor into a projection type to implement this interface.
+// *Progressor implements ProgressAware, and can be embedded in your projections.
 //
 // The current progress of a projection is the Time of the last applied event.
 // A projection that provides its projection progress only receives events with
 // a Time that is after the current progress Time.
-type Progressing interface {
+type ProgressAware interface {
 	// Progress returns the projection's progress as the Time of the last
 	// applied event.
 	Progress() time.Time
@@ -29,11 +30,13 @@ type Progressing interface {
 	SetProgress(time.Time)
 }
 
-// Progressor can be embedded into a projection to implement the Progressing interface.
+// Progressor can be embedded into a projection to implement the ProgressAware API.
 type Progressor struct {
 	LatestEventTime int64
 }
 
+// NewProgressor returns a new *Progressor that can be embeded into a projection
+// to implement the ProgressAware API.
 func NewProgressor() *Progressor {
 	return &Progressor{}
 }
