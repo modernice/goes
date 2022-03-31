@@ -3,7 +3,6 @@ package projection
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
@@ -33,24 +32,22 @@ func IgnoreProgress() ApplyOption {
 
 // Apply applies events onto the given projection.
 //
-// If proj implements guard (or embeds Guard), proj.GuardProjection(evt) is
-// called for every Event evt to determine if the Event should be applied onto
-// the Projection.
+// If the projection implements Guard, proj.GuardProjection(evt) is/ called for
+// every event to determine if the event should be applied onto the projection.
 //
-// If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
-// is called for every applied Event evt.
+// If the projection implements ProgressAware, the time of the last applied
+// event is applied to the projection by calling proj.SetProgress(evt).
 func Apply(proj EventApplier[any], events []event.Event, opts ...ApplyOption) error {
 	return ApplyStream(proj, streams.New(events...), opts...)
 }
 
 // ApplyStream applies events onto the given projection.
 //
-// If proj implements guard (or embeds Guard), proj.GuardProjection(evt) is
-// called for every Event evt to determine if the Event should be applied onto
-// the Projection.
+// If the projection implements Guard, proj.GuardProjection(evt) is/ called for
+// every event to determine if the event should be applied onto the projection.
 //
-// If proj implements progressor (or embeds *Progressor), proj.SetProgress(evt)
-// is called for every applied Event evt.
+// If the projection implements ProgressAware, the time of the last applied
+// event is applied to the projection by calling proj.SetProgress(evt).
 func ApplyStream(proj EventApplier[any], events <-chan event.Event, opts ...ApplyOption) error {
 	cfg := newApplyConfig(opts...)
 
@@ -80,24 +77,6 @@ func ApplyStream(proj EventApplier[any], events <-chan event.Event, opts ...Appl
 	}
 
 	return nil
-}
-
-// Progress returns the projection progress in terms of the time of the latest
-// applied event. If p.LatestEventTime is 0, the zero Time is returned.
-func (p *Progressor) Progress() time.Time {
-	if p.LatestEventTime == 0 {
-		return time.Time{}
-	}
-	return time.Unix(0, p.LatestEventTime)
-}
-
-// SetProgress sets the projection progress as the time of the latest applied event.
-func (p *Progressor) SetProgress(t time.Time) {
-	if t.IsZero() {
-		p.LatestEventTime = 0
-		return
-	}
-	p.LatestEventTime = t.UnixNano()
 }
 
 func newApplyConfig(opts ...ApplyOption) applyConfig {

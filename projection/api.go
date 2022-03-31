@@ -41,29 +41,72 @@ func NewProgressor() *Progressor {
 	return &Progressor{}
 }
 
-// A Resetter is a projection that can reset its state.
+// Progress returns the projection progress in terms of the time of the latest
+// applied event. If p.LatestEventTime is 0, the zero Time is returned.
+func (p *Progressor) Progress() time.Time {
+	if p.LatestEventTime == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, p.LatestEventTime)
+}
+
+// SetProgress sets the projection progress as the time of the latest applied event.
+func (p *Progressor) SetProgress(t time.Time) {
+	if t.IsZero() {
+		p.LatestEventTime = 0
+		return
+	}
+	p.LatestEventTime = t.UnixNano()
+}
+
+// A Resetter is a projection that can reset its state. Projections that
+// implement Resetter can be reset by projection jobs before applying events
+// onto the projection. Projection jobs reset a projection if the WithReset()
+// option was used to create the job.
 type Resetter interface {
-	// Reset should implement any custom logic to reset the state of a
-	// projection besides resetting the progress (if the projection implements
-	// Progressing).
+	// Reset should implement any custom logic to reset the state of a projection.
 	Reset()
 }
 
-// Guard can be implemented by projection to prevent the application of an
-// events. When a projection p implements Guard, p.GuardProjection(e) is called
-// for every Event e and prevents the p.ApplyEvent(e) call if GuardProjection
-// returns false.
+// Guard can be implemented by projections to "guard" the projection from
+// illegal events. If a projection implements Guard, GuardProjection(evt)
+// is called for every event that should be applied onto the projection to
+// determine if the event is allows to be applied. If GuardProjection(evt)
+// returns false, the event is not applied.
+//
+// QueryGuard implements Guard.
 type Guard interface {
 	// GuardProjection determines whether an Event is allowed to be applied onto a projection.
 	GuardProjection(event.Event) bool
 }
 
-// QueryGuardOf is a Guard that used an event query to determine the events that
-// are allowed to be applied onto a projection.
+// QueryGuard is a Guard that uses an event query to determine if an event is
+// allowed to be applied onto a projection.
+//
+//	type MyProjection struct {
+//		projection.QueryGuard
+//	}
+//
+//	func NewMyProjection() *MyProjection {
+//		return &MyProjection{
+//			QueryGuard: query.New(query.Name("foo", "bar", "baz")), // allow "foo", "bar", and "baz" events
+//		}
+//	}
 type QueryGuard query.Query
+
+// GuardProjection tests the Guard's Query against a given Event and returns
+// whether the Event is allowed to be applied onto the projection.
+func (g QueryGuard) GuardProjection(evt event.Event) bool {
+	return query.Test(query.Query(g), evt)
+}
 
 // GuardFunc allows functions to be used as Guards.
 type GuardFunc func(event.Event) bool
+
+// GuardProjection returns guard(evt).
+func (guard GuardFunc) GuardProjection(evt event.Event) bool {
+	return guard(evt)
+}
 
 // HistoryDependent can be implemented by continuous projections that need the
 // full event history (of the events that are configured in the Schedule) instead
@@ -129,15 +172,4 @@ type GuardFunc func(event.Event) bool
 //	})
 type HistoryDependent interface {
 	RequiresFullHistory() bool
-}
-
-// GuardProjection returns guard(evt).
-func (guard GuardFunc) GuardProjection(evt event.Event) bool {
-	return guard(evt)
-}
-
-// GuardProjection tests the Guard's Query against a given Event and returns
-// whether the Event is allowed to be applied onto the projection.
-func (g QueryGuard) GuardProjection(evt event.Event) bool {
-	return query.Test(query.Query(g), evt)
 }

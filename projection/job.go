@@ -112,7 +112,7 @@ func WithFilter(queries ...event.Query) JobOption {
 
 // WithReset returns a JobOption that resets Projections before applying Events
 // onto them. Resetting a Projection is done by first resetting the progress of
-// the Projection (if it implements progressor). Then, if the Projection has a
+// the Projection (if it implements ProgressAware). Then, if the Projection has a
 // Reset method, that method is called to allow for custom reset logic.
 func WithReset() JobOption {
 	return func(j *job) {
