@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	// ErrProgressed is returned when trying to apply an Event onto a Projection
-	// that has a progress Time that is after the Time of the Event.
+	// ErrProgressed is returned when trying to apply an event onto a projection
+	// that has a progress Time that is after the Time of the event.
 	ErrProgressed = errors.New("projection already progressed")
 )
 
@@ -22,8 +22,8 @@ type applyConfig struct {
 }
 
 // IgnoreProgress returns an ApplyOption that makes Apply ignore the current
-// progress of a projection so that it applies Events onto a projection even if
-// an Event's time is before the progress time of the projection.
+// progress of a projection so that it applies events onto a projection even if
+// an event's time is before the progress time of the projection.
 func IgnoreProgress() ApplyOption {
 	return func(cfg *applyConfig) {
 		cfg.ignoreProgress = true

@@ -481,7 +481,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
 
 // 	if err := eventStore.Insert(context.Background(), events...); err != nil {
-// 		t.Fatalf("failed to insert Events: %v", err)
+// 		t.Fatalf("failed to insert events: %v", err)
 // 	}
 
 // 	if err := snapStore.Save(context.Background(), snap); err != nil {
@@ -534,7 +534,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
 
 // 	if err := eventStore.Insert(context.Background(), events...); err != nil {
-// 		t.Fatalf("failed to insert Events: %v", err)
+// 		t.Fatalf("failed to insert events: %v", err)
 // 	}
 
 // 	if err := snapStore.Save(context.Background(), snap); err != nil {

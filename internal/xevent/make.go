@@ -32,7 +32,7 @@ func SkipVersion(v ...int) MakeOption {
 	}
 }
 
-// Make returns n Events with the specified name and data.
+// Make returns n events with the specified name and data.
 func Make(name string, data any, n int, opts ...MakeOption) []event.Event {
 	var cfg makeConfig
 	for _, opt := range opts {

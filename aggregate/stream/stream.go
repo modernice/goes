@@ -66,36 +66,36 @@ func Errors(errs ...<-chan error) Option {
 	}
 }
 
-// Sorted returns an Option that optimizes Aggregate builds by giving the
-// Stream information about the order of incoming Events from the streams.New.
+// Sorted returns an Option that optimizes aggregate builds by giving the
+// Stream information about the order of incoming events from the streams.New.
 //
 // When Sorted is disabled (which it is by default), the Stream sorts the
-// collected Events for a specific Aggregate by the AggregateVersion of the
-// Events before applying them to the Aggregate.
+// collected events for a specific aggregate by the AggregateVersion of the
+// Events before applying them to the aggregate.
 //
 // Enable this option only if the underlying streams.New guarantees that
-// incoming Events are sorted by AggregateVersion.
+// incoming events are sorted by aggregateVersion.
 func Sorted(v bool) Option {
 	return func(opts *options) {
 		opts.isSorted = v
 	}
 }
 
-// Grouped returns an Option that optimizes Aggregate builds by giving the
-// Stream information about the order of incoming Events from the streams.New.
+// Grouped returns an Option that optimizes aggregate builds by giving the
+// Stream information about the order of incoming events from the streams.New.
 //
 // When Grouped is disabled, the Stream has to wait for the streams.New to be
-// drained before it can be sure no more Events will arrive for a specific
-// Aggregate. When Grouped is enabled, the Stream knows when all Events for an
-// Aggregate have been received and can therefore return the Aggregate as soon
-// as its last Event has been received and applied.
+// drained before it can be sure no more events will arrive for a specific
+// Aggregate. When Grouped is enabled, the Stream knows when all events for an
+// Aggregate have been received and can therefore return the aggregate as soon
+// as its last event has been received and applied.
 //
 // Grouped is disabled by default and should only be enabled if the correct
-// order of events is guaranteed by the underlying streams.New. Events are
+// order of events is guaranteed by the underlying streams.New. events are
 // correctly ordered only if they're sequentially grouped by aggregate. Sorting
-// within a group of Events does not matter if IsSorted is disabled (which it is
-// by default). When IsSorted is enabled, Events within a group must be ordered
-// by AggregateVersion.
+// within a group of events does not matter if IsSorted is disabled (which it is
+// by default). When IsSorted is enabled, events within a group must be ordered
+// by aggregateVersion.
 //
 // An example for correctly ordered events (with IsSorted disabled):
 //
@@ -121,22 +121,22 @@ func Grouped(v bool) Option {
 	}
 }
 
-// ValidateConsistency returns an Option that optimizes Aggregate builds by
-// controlling if the consistency of Events is validated before building an
-// Aggregate from those Events.
+// ValidateConsistency returns an Option that optimizes aggregate builds by
+// controlling if the consistency of events is validated before building an
+// Aggregate from those events.
 //
 // This option is enabled by default and should only be disabled if the
-// consistency of Events is guaranteed by the underlying streams.New or if it's
-// explicitly desired to put an Aggregate into an invalid state.
+// consistency of events is guaranteed by the underlying streams.New or if it's
+// explicitly desired to put an aggregate into an invalid state.
 func ValidateConsistency(v bool) Option {
 	return func(opts *options) {
 		opts.validateConsistency = v
 	}
 }
 
-// Filter returns an Option that filters incoming Events before they're handled
-// by the Stream. Events are passed to every fn in fns until a fn returns false.
-// If any of fns returns false, the Event is discarded by the Stream.
+// Filter returns an Option that filters incoming events before they're handled
+// by the Stream. events are passed to every fn in fns until a fn returns false.
+// If any of fns returns false, the event is discarded by the Stream.
 func Filter(fns ...func(event.Event) bool) Option {
 	return func(opts *options) {
 		opts.filters = append(opts.filters, fns...)
@@ -152,9 +152,9 @@ func WithSoftDeleted(v bool) Option {
 	}
 }
 
-// New takes a channel of Events and returns both a channel of Aggregate
-// Histories and an error channel. A History apply itself on an Aggregate to
-// build the current state of the Aggregate.
+// New takes a channel of events and returns both a channel of aggregate
+// Histories and an error channel. A History apply itself on an aggregate to
+// build the current state of the aggregate.
 //
 // Use the Drain function to get the Histories as a slice and a single error:
 //
@@ -170,9 +170,9 @@ func New(ctx context.Context, events <-chan event.Event, opts ...Option) (<-chan
 	return NewOf[any](ctx, events, opts...)
 }
 
-// NewOf takes a channel of Events and returns both a channel of Aggregate
-// Histories and an error channel. A History apply itself on an Aggregate to
-// build the current state of the Aggregate.
+// NewOf takes a channel of events and returns both a channel of aggregate
+// Histories and an error channel. A History apply itself on an aggregate to
+// build the current state of the aggregate.
 //
 // Use the Drain function to get the Histories as a slice and a single error:
 //

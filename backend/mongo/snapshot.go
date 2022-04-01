@@ -114,8 +114,8 @@ func (s *SnapshotStore) Save(ctx context.Context, snap snapshot.Snapshot) error 
 	return nil
 }
 
-// Latest returns the latest Snapshot for the Aggregate with the given name and
-// UUID or ErrNotFound if no Snapshots for that Aggregate exist in the database.
+// Latest returns the latest Snapshot for the aggregate with the given name and
+// UUID or ErrNotFound if no Snapshots for that aggregate exist in the database.
 func (s *SnapshotStore) Latest(ctx context.Context, name string, id uuid.UUID) (snapshot.Snapshot, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
@@ -139,7 +139,7 @@ func (s *SnapshotStore) Latest(ctx context.Context, name string, id uuid.UUID) (
 	return e.snapshot()
 }
 
-// Version returns the Snapshot for the Aggregate with the given name, UUID and
+// Version returns the Snapshot for the aggregate with the given name, UUID and
 // version. If no Snapshot for the given version exists, Version returns
 // ErrNotFound.
 func (s *SnapshotStore) Version(ctx context.Context, name string, id uuid.UUID, version int) (snapshot.Snapshot, error) {

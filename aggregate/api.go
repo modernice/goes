@@ -5,10 +5,10 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// Aggregate is an event-sourced Aggregate.
+// Aggregate is an event-sourced aggregate.
 type Aggregate = AggregateOf[uuid.UUID]
 
-// AggregateOf is an event-sourced Aggregate.
+// AggregateOf is an event-sourced aggregate.
 type AggregateOf[ID comparable] interface {
 	// Aggregate returns the id, name and version of the aggregate.
 	Aggregate() (ID, string, int)

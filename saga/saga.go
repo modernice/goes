@@ -163,7 +163,7 @@ func SkipValidation() ExecutorOption {
 }
 
 // EventBus returns an ExecutorOption that provides a SAGA with an event.Bus.
-// Actions within that SAGA that receive an action.Context may publish Events
+// Actions within that SAGA that receive an action.Context may publish events
 // through that Context over the provided Bus.
 //
 // Example:
@@ -207,7 +207,7 @@ func CommandBus(bus command.Bus) ExecutorOption {
 
 // Repository returns an ExecutorOption that provides a SAGA with an
 // aggregate.Repository. Action within that SAGA that receive an action.Context
-// may fetch Aggregates through that Context from the provided Repository.
+// may fetch aggregates through that Context from the provided Repository.
 //
 // Example:
 //
@@ -310,7 +310,7 @@ func CompensateTimeout(d time.Duration) ExecutorOption {
 //
 // An Action has access to an action.Context that allows the Action to run
 // other Actions in the same SAGA and, depending on the passed ExecutorOptions,
-// publish Events and dispatch Commands:
+// publish events and dispatch Commands:
 //
 //	s := saga.New(
 //		saga.Action("foo", func(ctx action.Context) error {

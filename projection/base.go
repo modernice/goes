@@ -19,7 +19,7 @@ func (a *Base) RegisterEventHandler(eventName string, handler func(event.Event))
 	a.appliers[eventName] = handler
 }
 
-// ApplyEvent implements EventApplier.
+// ApplyEvent implements eventApplier.
 func (a *Base) ApplyEvent(evt event.Event) {
 	if handler, ok := a.appliers[evt.Name()]; ok {
 		handler(evt)

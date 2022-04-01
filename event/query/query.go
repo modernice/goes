@@ -114,7 +114,7 @@ func AggregateVersion(constraints ...version.Option) Option {
 	}
 }
 
-// Aggregate returns an Option that filters Events by a specific Aggregate.
+// Aggregate returns an Option that filters events by a specific aggregate.
 func Aggregate(name string, id uuid.UUID) Option {
 	return func(b *builder) {
 		for _, at := range b.aggregates {
@@ -126,7 +126,7 @@ func Aggregate(name string, id uuid.UUID) Option {
 	}
 }
 
-// Aggregates returns an Option that filters Events by specific Aggregates.
+// Aggregates returns an Option that filters events by specific aggregates.
 func Aggregates(aggregates ...event.AggregateRef) Option {
 	return func(b *builder) {
 	L:
@@ -166,9 +166,9 @@ func SortByMulti(sorts ...event.SortOptions) Option {
 // SortByAggregate returns an Option that sorts the a Query by aggregates.
 //
 // Order of sortings is:
-//	1. AggregateName (ascending)
-//	2. AggregateID (ascending)
-//	3. AggregateVersion (ascending)
+//	1. aggregateName (ascending)
+//	2. aggregateID (ascending)
+//	3. aggregateVersion (ascending)
 func SortByAggregate() Option {
 	return SortByMulti(
 		event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},
@@ -182,7 +182,7 @@ func SortByTime() Option {
 	return SortBy(event.SortTime, event.SortAsc)
 }
 
-// Test tests the Event evt against the Query q and returns true if q should
+// Test tests the event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
 func Test[D any](q event.Query, evt event.Of[D]) bool {
@@ -264,7 +264,7 @@ func (q Query) AggregateVersions() version.Constraints {
 	return q.aggregateVersions
 }
 
-// Aggregates returns a slice of specific Aggregates to query for.
+// Aggregates returns a slice of specific aggregates to query for.
 func (q Query) Aggregates() []event.AggregateRef {
 	return q.aggregates
 }

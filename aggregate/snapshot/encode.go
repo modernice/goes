@@ -9,7 +9,7 @@ import (
 // into an aggregate that does not implement one of the supported marshalers.
 var ErrUnimplemented = errors.New("aggregate does not implement (Un)Marshaler, encoding.Binary(Un)Marshaler or encoding.Text(Un)Marshaler")
 
-// A Marshaler can encode itself into bytes. Aggregates must implement Marshaler
+// A Marshaler can encode itself into bytes. aggregates must implement Marshaler
 // & Unmarshaler for Snapshots to work.
 //
 // Example using encoding/gob:
@@ -69,11 +69,11 @@ type Target interface {
 	SetVersion(int)
 }
 
-// Unmarshal decodes the Snapshot s into the Aggregate a by calling
-// a.UnmarshalSnapshot(s.State()). Unmarshal returns nil if the Aggregate does
+// Unmarshal decodes the Snapshot s into the aggregate a by calling
+// a.UnmarshalSnapshot(s.State()). Unmarshal returns nil if the aggregate does
 // not implement Unmarshaler.
 //
-// TODO: return an error if the Aggregate does not implement Unmarshaler?
+// TODO: return an error if the aggregate does not implement Unmarshaler?
 
 // Unmarshal decodes the given snapshot into the given aggregate. If a
 // implements Unmarshaler, a.UnmarshalSnapshot() is returned. If a implements

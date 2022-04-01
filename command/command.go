@@ -112,7 +112,7 @@ func ID(id uuid.UUID) Option {
 	}
 }
 
-// Aggregate returns an Option that links a Command to an Aggregate.
+// Aggregate returns an Option that links a Command to an aggregate.
 func Aggregate(name string, id uuid.UUID) Option {
 	return func(b *Cmd[any]) {
 		b.Data.AggregateName = name

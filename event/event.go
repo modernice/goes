@@ -15,12 +15,12 @@ import (
 // Event is any event.
 type Event = Of[any]
 
-// An Event describes something that has happened in the application or
-// specifically something that has happened to an Aggregate in the application.
+// An event describes something that has happened in the application or
+// specifically something that has happened to an aggregate in the application.
 //
 // Publish & Subscribe
 //
-// An Event can be published through a Bus and sent to subscribers of Events
+// An event can be published through a Bus and sent to subscribers of Events
 // with the same name.
 //
 // Example (publish):
@@ -38,17 +38,17 @@ type Event = Of[any]
 //	}, res, errs)
 //	// handle err
 type Of[Data any] interface {
-	// ID returns the unique id of the Event.
+	// ID returns the unique id of the event.
 	ID() uuid.UUID
-	// Name returns the name of the Event.
+	// Name returns the name of the event.
 	Name() string
-	// Time returns the time of the Event.
+	// Time returns the time of the event.
 	Time() stdtime.Time
-	// Data returns the Event Data.
+	// Data returns the event Data.
 	Data() Data
 
 	// Aggregate returns the id, name and version of the aggregate that the
-	// event belongs to. Aggregate should return zero values if the event is not
+	// event belongs to. aggregate should return zero values if the event is not
 	// an aggregate event.
 	Aggregate() (id uuid.UUID, name string, version int)
 }
@@ -61,7 +61,7 @@ type Evt[D any] struct {
 	D Data[D]
 }
 
-// Data can be used to provide the data that is needed to implement the Event
+// Data can be used to provide the data that is needed to implement the event
 // interface. E embeds Data and provides the methods that return the data in
 // Data.
 type Data[D any] struct {
@@ -74,14 +74,14 @@ type Data[D any] struct {
 	AggregateVersion int
 }
 
-// New creates an Event with the given name and Data. A UUID is generated for
-// the Event and its time is set to xtime.Now().
+// New creates an event with the given name and Data. A UUID is generated for
+// the event and its time is set to xtime.Now().
 //
-// Provide Options to override or add data to the Event:
+// Provide Options to override or add data to the event:
 //	ID(uuid.UUID): Use a custom UUID
 //	Time(time.Time): Use a custom Time
-//	Aggregate(string, uuid.UUID, int): Add Aggregate data
-//	Previous(event.Event): Set Aggregate data based on previous Event
+//	Aggregate(string, uuid.UUID, int): Add aggregate data
+//	Previous(event.Event): Set aggregate data based on previous event
 func New[D any](name string, data D, opts ...Option) Evt[D] {
 	evt := Evt[any]{D: Data[any]{
 		ID:   uuid.New(),
@@ -113,14 +113,14 @@ func ID(id uuid.UUID) Option {
 	}
 }
 
-// Time returns an Option that overrides the auto-generated timestamp of an Event.
+// Time returns an Option that overrides the auto-generated timestamp of an event.
 func Time(t stdtime.Time) Option {
 	return func(evt *Evt[any]) {
 		evt.D.Time = t
 	}
 }
 
-// Aggregate returns an Option that links an Event to an Aggregate.
+// Aggregate returns an Option that links an event to an aggregate.
 func Aggregate(id uuid.UUID, name string, version int) Option {
 	return func(evt *Evt[any]) {
 		evt.D.AggregateName = name
@@ -129,7 +129,7 @@ func Aggregate(id uuid.UUID, name string, version int) Option {
 	}
 }
 
-// Previous returns an Option that adds Aggregate data to an Event. If prev
+// Previous returns an Option that adds aggregate data to an event. If prev
 // provides non-nil aggregate data (id, name & version), the returned Option
 // adds those to the new event with its version increased by 1.
 func Previous[Data any](prev Of[Data]) Option {
@@ -142,7 +142,7 @@ func Previous[Data any](prev Of[Data]) Option {
 
 // Equal compares events and determines if they're equal. It works exactly like
 // a normal "==" comparison except for the Time field which is being compared by
-// calling a.Time().Equal(b.Time()) for the two Events a and b that are being
+// calling a.Time().Equal(b.Time()) for the two events a and b that are being
 // compared.
 func Equal(events ...Of[any]) bool {
 	if len(events) < 2 {
@@ -267,7 +267,7 @@ func Expand[D any](evt Of[D]) Evt[D] {
 	return New(evt.Name(), evt.Data(), ID(evt.ID()), Time(evt.Time()), Aggregate(evt.Aggregate()))
 }
 
-// Test tests the Event evt against the Query q and returns true if q should
+// Test tests the event evt against the Query q and returns true if q should
 // include evt in its results. Test can be used by in-memory event.Store
 // implementations to filter events based on the query.
 func Test[Data any](q Query, evt Of[Data]) bool {

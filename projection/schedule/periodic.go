@@ -33,7 +33,7 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 // canceled, the subscription is canceled and the returned error channel closed.
 //
 // When a projection Job is created, the apply function is called with that Job.
-// Use Job.Apply to apply the Job's Events onto a given Projection:
+// Use Job.Apply to apply the Job's events onto a given projection:
 //
 //	var proj projection.Projection
 //	var s *schedule.Periodic
@@ -41,7 +41,7 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 //		return job.Apply(job, proj)
 //	})
 //
-// A Job provides helper functions to extract data from the Job's Events. Query
+// A Job provides helper functions to extract data from the Job's events. Query
 // results are cached within a Job, so it is safe to call helper functions
 // multiple times; the Job will figure out if it needs to actually perform the
 // query or if it can return the cached result.

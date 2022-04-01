@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	// ErrPullTimeout is raised by an EventBus when a subscriber doesn't pull an
+	// ErrPullTimeout is raised by an eventBus when a subscriber doesn't pull an
 	// event from the event channel within the specified PullTimeout. In such
 	// case, the event is dropped to avoid blocking the application because of a
 	// slow consumer.
@@ -59,7 +59,7 @@ type EventBus struct {
 	stop        chan struct{}
 }
 
-// EventBusOption is an option for an EventBus.
+// EventBusOption is an option for an eventBus.
 type EventBusOption func(*EventBus)
 
 // A Driver provides the specific implementation for interacting with either
@@ -105,7 +105,7 @@ func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
 
 // Connects connects to NATS.
 //
-// It is not required to call Connect to use the EventBus because Connect is
+// It is not required to call Connect to use the eventBus because Connect is
 // automatically called by Subscribe and Publish.
 func (bus *EventBus) Connect(ctx context.Context) error {
 	var err error

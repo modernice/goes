@@ -14,7 +14,7 @@ import (
 )
 
 // Continuous is a projection Schedule that creates projection Jobs on every
-// specified published Event:
+// specified published event:
 //
 //	var bus event.Bus
 //	var store event.Store
@@ -34,8 +34,8 @@ type Continuous struct {
 type ContinuousOption func(*Continuous)
 
 // Debounce returns a ContinuousOption that debounces projection Jobs by the
-// given Duration. When multiple Events are published within the given Duration,
-// only 1 projection Job for all Events will be created instead of 1 Job per
+// given Duration. When multiple events are published within the given Duration,
+// only 1 projection Job for all events will be created instead of 1 Job per
 // Event.
 //
 //	var bus event.Bus
@@ -59,13 +59,13 @@ func Debounce(d time.Duration) ContinuousOption {
 }
 
 // Continuously returns a Continuous schedule that, when subscribed to,
-// subscribes to Events with the given eventNames to create projection Jobs
-// for those Events.
+// subscribes to events with the given eventNames to create projection Jobs
+// for those events.
 //
-// Debounce Events
+// Debounce events
 //
 // It may be desirable to debounce the creation of projection Jobs to avoid
-// creating a Job on every Event if Events are published within a short
+// creating a Job on every event if Events are published within a short
 // interval:
 //
 //	var bus event.Bus
@@ -87,7 +87,7 @@ func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ..
 // canceled, the subscription is canceled and the returned error channel closed.
 //
 // When a projection Job is created, the apply function is called with that Job.
-// Use Job.Apply to apply the Job's Events onto a given Projection:
+// Use Job.Apply to apply the Job's events onto a given projection:
 //
 //	var proj projection.Projection
 //	var s *schedule.Continuous
@@ -95,7 +95,7 @@ func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ..
 //		return job.Apply(job, proj)
 //	})
 //
-// A Job provides helper functions to extract data from the Job's Events. Query
+// A Job provides helper functions to extract data from the Job's events. Query
 // results are cached within a Job, so it is safe to call helper functions
 // multiple times; the Job will figure out if it needs to actually perform the
 // query or if it can return the cached result.

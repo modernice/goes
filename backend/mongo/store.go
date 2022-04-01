@@ -40,19 +40,19 @@ type EventStore struct {
 	onceConnect sync.Once
 }
 
-// EventStoreOption is an EventStore option.
+// EventStoreOption is an eventStore option.
 type EventStoreOption func(*EventStore)
 
 // A VersionError means the insertion of events failed because at least one of
 // the events has an invalid/inconsistent version.
 type VersionError struct {
-	// AggregateName is the name of the Aggregate.
+	// AggregateName is the name of the aggregate.
 	AggregateName string
 
-	// AggregateID is the UUID of the Aggregate.
+	// AggregateID is the UUID of the aggregate.
 	AggregateID uuid.UUID
 
-	// CurrentVersion is the current version of the Aggregate.
+	// CurrentVersion is the current version of the aggregate.
 	CurrentVersion int
 
 	// Event is the event with the invalid version.
@@ -135,7 +135,7 @@ func Database(name string) EventStoreOption {
 	}
 }
 
-// Collection returns an Option that sets the mongo collection where the Events
+// Collection returns an Option that sets the mongo collection where the events
 // are stored in.
 func Collection(name string) EventStoreOption {
 	return func(s *EventStore) {
@@ -144,7 +144,7 @@ func Collection(name string) EventStoreOption {
 }
 
 // StateCollection returns an Option that specifies the name of the Collection
-// where the current state of Aggregates are stored in.
+// where the current state of aggregates are stored in.
 func StateCollection(name string) EventStoreOption {
 	return func(s *EventStore) {
 		s.statesCol = name
@@ -152,7 +152,7 @@ func StateCollection(name string) EventStoreOption {
 }
 
 // Transactions returns an Option that, if tx is true, configures a Store to use
-// MongoDB Transactions when inserting Events.
+// MongoDB Transactions when inserting events.
 //
 // Transactions can only be used in replica sets or sharded clusters:
 // https://docs.mongodb.com/manual/core/transactions/
@@ -162,7 +162,7 @@ func Transactions(tx bool) EventStoreOption {
 	}
 }
 
-// ValidateVersions returns an Option that enables validation of Event versions
+// ValidateVersions returns an Option that enables validation of event versions
 // before inserting them into the Store.
 //
 // Defaults to true.
@@ -209,7 +209,7 @@ func (s *EventStore) Database() *mongo.Database {
 	return s.db
 }
 
-// Collection returns the underlying *mongo.Collection where the Events are
+// Collection returns the underlying *mongo.Collection where the events are
 // stored in. Collection returns nil until the connection to MongoDB has been
 // established by either explicitly calling s.Connect or implicitly by calling
 // s.Insert, s.Find, s.Delete or s.Query.
@@ -217,7 +217,7 @@ func (s *EventStore) Collection() *mongo.Collection {
 	return s.entries
 }
 
-// StateCollection returns the underlying *mongo.Collection where Aggregate
+// StateCollection returns the underlying *mongo.Collection where aggregate
 // states are stored in. StateCollection returns nil until the connection to
 // MongoDB has been established by either explicitly calling s.Connect or
 // implicitly by calling s.Insert, s.Find, s.Delete or s.Query.
@@ -225,7 +225,7 @@ func (s *EventStore) StateCollection() *mongo.Collection {
 	return s.states
 }
 
-// Insert saves the given Events into the database.
+// Insert saves the given events into the database.
 func (s *EventStore) Insert(ctx context.Context, events ...event.Event) error {
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -374,7 +374,7 @@ func (s *EventStore) insert(ctx context.Context, events []event.Event) error {
 	return nil
 }
 
-// Find returns the Event with the specified UUID from the database if it exists.
+// Find returns the event with the specified UUID from the database if it exists.
 func (s *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
@@ -387,7 +387,7 @@ func (s *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, error
 	return e.event(s.enc)
 }
 
-// Delete deletes the given Event from the database.
+// Delete deletes the given event from the database.
 func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
 	if len(events) == 0 {
 		return nil

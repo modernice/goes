@@ -11,7 +11,7 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Snapshot is a snapshot of an Aggregate.
+// Snapshot is a snapshot of an aggregate.
 type Snapshot interface {
 	// AggregateName returns the name of the aggregate.
 	AggregateName() string

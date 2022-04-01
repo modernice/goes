@@ -35,7 +35,7 @@ type Registerer interface {
 //	func NewFoo(id uuid.UUID) *Foo  {
 //		foo := &Foo{
 //			Base: aggregate.New("foo", id),
-//          AggregateHandler: command.NewAggregateHandler(),
+//          aggregateHandler: command.NewAggregateHandler(),
 //		}
 //
 //	    // Register event appliers.

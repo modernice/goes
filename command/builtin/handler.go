@@ -17,7 +17,7 @@ type HandleOption func(*handleConfig)
 // is non-nil, the events are also inserted into store after publishing.
 //
 // The following events are published by the handler:
-//	- AggregateDeleted ("goes.command.aggregate.deleted") (or a user-provided event, see DeleteEvent())
+//	- aggregateDeleted ("goes.command.aggregate.deleted") (or a user-provided event, see DeleteEvent())
 func PublishEvents(bus event.Bus, store event.Store) HandleOption {
 	return func(cfg *handleConfig) {
 		cfg.bus = bus

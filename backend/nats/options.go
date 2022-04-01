@@ -241,15 +241,15 @@ func SubOpts(opts ...nats.SubOpt) EventBusOption {
 	}
 }
 
-// PullTimeout returns an Option that limits the duration the EventBus tries
-// to send Events into the channel returned by bus.Subscribe. When d is exceeded
-// the Event will be dropped. The default is a duration of 0 and means no timeout.
+// PullTimeout returns an Option that limits the duration the eventBus tries
+// to send events into the channel returned by bus.Subscribe. When d is exceeded
+// the event will be dropped. The default is a duration of 0 and means no timeout.
 //
 // Can also be set with the "NATS_RECEIVE_TIMEOUT" environment variable in a
 // format understood by time.ParseDuration. If the environment value is not
 // parseable by time.ParseDuration, no timeout will be used.
 
-// PullTimeout returns an option that limits the Duration an EventBus tries to
+// PullTimeout returns an option that limits the Duration an eventBus tries to
 // push an event into a subscribed event channel. When the pull timeout is
 // exceeded, the event gets dropped and a warning is logged.
 //

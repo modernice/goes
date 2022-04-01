@@ -18,12 +18,12 @@ func NewMockProjection() *MockProjection {
 	return &MockProjection{}
 }
 
-// ApplyEvent adds evt as an applied Event to the MockProjection.
+// ApplyEvent adds evt as an applied event to the MockProjection.
 func (proj *MockProjection) ApplyEvent(evt event.Event) {
 	proj.AppliedEvents = append(proj.AppliedEvents, evt)
 }
 
-// HasApplied determines whether the passed Events have been applied onto the
+// HasApplied determines whether the passed events have been applied onto the
 // MockProjection.
 func (proj *MockProjection) HasApplied(events ...event.Event) bool {
 	for _, evt := range events {
@@ -95,7 +95,7 @@ func NewMockResetProjection(val int) *MockResetProjection {
 	}
 }
 
-// Reset resets the projection by clearing its applied Events and setting the
+// Reset resets the projection by clearing its applied events and setting the
 // Foo field to 0.
 func (proj *MockResetProjection) Reset() {
 	proj.AppliedEvents = nil

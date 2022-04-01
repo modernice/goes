@@ -32,14 +32,14 @@ const (
 
 // A Store persists and queries events.
 type Store interface {
-	// Insert inserts Events into the store.
+	// Insert inserts events into the store.
 	Insert(context.Context, ...Event) error
 
-	// Find fetches the Event with the specified UUID from the store.
+	// Find fetches the event with the specified UUID from the store.
 	Find(context.Context, uuid.UUID) (Event, error)
 
-	// Query queries the Store for Events that fit the given Query and returns a
-	// channel of Events and a channel of errors.
+	// Query queries the Store for events that fit the given Query and returns a
+	// channel of events and a channel of errors.
 	//
 	// Example:
 	//
@@ -47,16 +47,16 @@ type Store interface {
 	//	events, errs, err := store.Query(context.TODO(), query.New())
 	//	// handle err
 	//	err := streams.Walk(context.TODO(), func(evt event.Event) {
-	//		log.Println(fmt.Sprintf("Queried Event: %v", evt))
+	//		log.Println(fmt.Sprintf("Queried event: %v", evt))
 	//	}, events, errs)
 	//	// handle err
 	Query(context.Context, Query) (<-chan Event, <-chan error, error)
 
-	// Delete deletes Events from the Store.
+	// Delete deletes events from the Store.
 	Delete(context.Context, ...Event) error
 }
 
-// A Query is used by Stores to query Events.
+// A Query is used by Stores to query events.
 type Query interface {
 	// Names returns the event names to query for.
 	Names() []string
@@ -76,15 +76,15 @@ type Query interface {
 	// AggregateVersions returns the version.Constraints for the query.
 	AggregateVersions() version.Constraints
 
-	// Aggregates returns a list of specific Aggregates (name & ID pairs) to
-	// query for. If an AggregateRef has a nil-UUID, every Aggregate with the
+	// Aggregates returns a list of specific aggregates (name & ID pairs) to
+	// query for. If an aggregateRef has a nil-UUID, every Aggregate with the
 	// name of the tuple is queried.
 	//
 	// Example:
 	//	id := uuid.New()
 	//	q := query.New(query.Aggregate("foo", id), query.Aggregate("bar", uuid.Nil))
 	//
-	// The above Query q allows "foo" Aggregates with the UUID id and every "bar" Aggregate.
+	// The above Query q allows "foo" aggregates with the UUID id and every "bar" Aggregate.
 	Aggregates() []AggregateRef
 
 	// Sorting returns the SortConfigs for the query.
@@ -178,7 +178,7 @@ func (ref AggregateRef) String() string {
 
 var refStringRE = regexp.MustCompile(`([^()]+?)(\([a-z0-9-]+?\))`)
 
-// Parse parses the string-representation of an AggregateRef into ref.
+// Parse parses the string-representation of an aggregateRef into ref.
 // Parse accepts values that are returned by ref.String().
 func (ref *AggregateRef) Parse(v string) error {
 	matches := refStringRE.FindStringSubmatch(v)

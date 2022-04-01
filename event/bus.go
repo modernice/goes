@@ -9,14 +9,14 @@ type Bus interface {
 	// Publish publishes the given events to subscribers of those events.
 	Publish(ctx context.Context, events ...Event) error
 
-	// Subscribe returns a channel of Events and a channel of asynchronous errors.
-	// Only Events whose name is one of the provided names will be received from the
-	// returned Event channel.
+	// Subscribe returns a channel of events and a channel of asynchronous errors.
+	// Only events whose name is one of the provided names will be received from the
+	// returned event channel.
 	//
 	// When Subscribe fails to create the subscription, the returned channels
 	// are nil and an error is returned.
 	//
-	// When ctx is canceled, both the Event and error channel are closed.
+	// When ctx is canceled, both the event and error channel are closed.
 	//
 	// Errors
 	//

@@ -177,28 +177,28 @@ func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 }
 
 // Dispatch dispatches a Command to the appropriate handler (Command Bus) using
-// the underlying Event Bus to communicate between b and the other Command Buses.
+// the underlying event Bus to communicate between b and the other Command Buses.
 //
 // How it works
 //
-// Dispatch first publishes a CommandDispatched Event with the Command Payload
-// encoded in the Event Data. Every Command Bus that is currently subscribed to
-// a Command receives the CommandDispatched Event and checks if it handles
+// Dispatch first publishes a CommandDispatched event with the Command Payload
+// encoded in the event Data. Every Command Bus that is currently subscribed to
+// a Command receives the CommandDispatched event and checks if it handles
 // Commands that have the name of the dispatched Command.
 //
 // If a Command Bus doesn't handle Commands with that name, they just ignore the
-// CommandDispatched Event, but if they're instructed to handle such Commands,
+// CommandDispatched event, but if they're instructed to handle such Commands,
 // they tell the Bus b that they want to handle the Command by publishing a
-// CommandRequested Event which the Bus b will listen for.
+// CommandRequested event which the Bus b will listen for.
 //
-// The first of those CommandRequested Events that the Bus b receives is used to
+// The first of those CommandRequested events that the Bus b receives is used to
 // assign the Command to a Handler. When b receives the first CommandRequested
-// Event, it publishes a CommandAssigned Event with the ID of the selected
+// Event, it publishes a CommandAssigned event with the ID of the selected
 // Handler.
 //
-// The handler Command Buses receive the CommandAssigned Event and check if
+// The handler Command Buses receive the CommandAssigned event and check if
 // they're Handler that is assigned to the Command. The assigned Handler then
-// publishes a final CommandAccepted Event to tell the Bus b that the Command
+// publishes a final CommandAccepted event to tell the Bus b that the Command
 // arrived at its Handler.
 //
 // Errors
@@ -325,7 +325,7 @@ func (b *Bus) cleanupDispatch(cmdID uuid.UUID) {
 // Callers of Subscribe are responsible for receiving from the returned error
 // channel to prevent a deadlock.
 //
-// When a Command Bus, which uses the same underlying Event Bus as Bus b,
+// When a Command Bus, which uses the same underlying event Bus as Bus b,
 // dispatches a Command, Bus b tries to assign itself as the handler for that
 // Command. If b is assigned as the handler, a Command Context can be received
 // from the returned channel.

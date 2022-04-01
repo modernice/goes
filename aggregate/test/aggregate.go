@@ -11,12 +11,12 @@ const (
 	FooAggregate = "foo"
 )
 
-// Foo is an example Aggregate used for testing.
+// Foo is an example aggregate used for testing.
 type Foo struct {
 	testAggregate
 }
 
-// AggregateOption is an option for a test Aggregate.
+// AggregateOption is an option for a test aggregate.
 type AggregateOption func(*testAggregate)
 
 type testAggregate struct {
@@ -55,7 +55,7 @@ func NewFoo(id uuid.UUID, opts ...AggregateOption) *Foo {
 	return &foo
 }
 
-// ApplyEventFunc returns an AggregateOption that allows users to intercept
+// ApplyEventFunc returns an aggregateOption that allows users to intercept
 // calls to a.ApplyEvent.
 func ApplyEventFunc(eventName string, fn func(event.Event)) AggregateOption {
 	return func(a *testAggregate) {
@@ -63,7 +63,7 @@ func ApplyEventFunc(eventName string, fn func(event.Event)) AggregateOption {
 	}
 }
 
-// TrackChangeFunc returns an AggregateOption that allows users to intercept
+// TrackChangeFunc returns an aggregateOption that allows users to intercept
 // calls to a.TrackChange.
 func TrackChangeFunc(fn func(changes []event.Event, track func(...event.Event))) AggregateOption {
 	return func(a *testAggregate) {
@@ -71,7 +71,7 @@ func TrackChangeFunc(fn func(changes []event.Event, track func(...event.Event)))
 	}
 }
 
-// CommitFunc returns an AggregateOption that allows users to intercept
+// CommitFunc returns an aggregateOption that allows users to intercept
 // a.Commit calls. fn accepts a flush() function that can be called to
 // actually flush the changes.
 func CommitFunc(fn func(flush func())) AggregateOption {

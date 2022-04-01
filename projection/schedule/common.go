@@ -31,7 +31,7 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 // by Trigger is ctx.Err(), if ctx is canceled before the trigger was accepted
 // by every susbcriber.
 //
-// Queried Events
+// Queried events
 //
 // By default, when a Job is created by a trigger, the event query for the Job
 // queries the configured events from the beginning of time until now, sorted by
@@ -39,9 +39,9 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 //
 //	err := schedule.Trigger(context.TODO(), projection.Query(query.New(...)))
 //
-// Filter Events
+// Filter events
 //
-// Events can be further filtered using additional event queries. Fetched Events
+// Events can be further filtered using additional event queries. Fetched events
 // are tested against the provided Queries to determine whether they should be
 // included in the created Job:
 //
@@ -49,16 +49,16 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 //
 // Difference between filters and the base query of a Job is that a Job may have
 // multiple filters but only one query. The query is always used to actually
-// fetch the Events from the event store while filters are applied afterwards
-// (in-memory). Events must test against every provided filter to be included in
+// fetch the events from the event store while filters are applied afterwards
+// (in-memory). events must test against every provided filter to be included in
 // the projection Job.
 //
 // Projection guards
 //
-// A Projection may provide a projection guard, which is just an event query.
-// When a Projection provides a guard (a `ProjectionFilter() []event.Query`
+// A projection may provide a projection guard, which is just an event query.
+// When a projection provides a guard (a `ProjectionFilter() []event.Query`
 // method), that guard is automatically added as a filter when a Job queries
-// Events for that Projection:
+// Events for that projection:
 //
 //	type guardedProjection struct {
 //		projection.Guard
@@ -71,7 +71,7 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 //			Guard: projection.Guard(query.New(query.Name("foo", "bar"))),
 //		}
 //
-//		// job.Apply queries "foo", "bar" & "baz" Events, then filters them
+//		// job.Apply queries "foo", "bar" & "baz" events, then filters them
 //		// using the projection.Guard so that only "foo" & "bar" are applied.
 //		return job.Apply(job, proj)
 //	})

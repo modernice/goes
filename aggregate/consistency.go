@@ -9,18 +9,18 @@ import (
 )
 
 const (
-	// ID means there is an inconsistency in the ID of an Aggregate.
+	// ID means there is an inconsistency in the ID of an aggregate.
 	InconsistentID = ConsistencyKind(iota + 1)
 
-	// Name means there is an inconsistency in the Aggregate names of the Events
-	// of an Aggregate.
+	// Name means there is an inconsistency in the aggregate names of the events
+	// of an aggregate.
 	InconsistentName
 
-	// Version means there is an inconsistency in the Event versions of an
+	// Version means there is an inconsistency in the event versions of an
 	// Aggregate.
 	InconsistentVersion
 
-	// Time means there is an inconsistency in the Event times of an Aggregate.
+	// Time means there is an inconsistency in the event times of an aggregate.
 	InconsistentTime
 )
 
@@ -32,7 +32,7 @@ type ConsistencyError struct {
 	Aggregate Aggregate
 	// Events are the tested events.
 	Events []event.Event
-	// EventIndex is the index of the Event that caused the Error.
+	// EventIndex is the index of the event that caused the Error.
 	EventIndex int
 }
 
@@ -59,17 +59,17 @@ func IsConsistencyError(err error) bool {
 
 // Validate tests the consistency of the given events against the given aggregate.
 //
-// An Event e is invalid if e.AggregateName() doesn't match a.AggregateName(),
+// An event e is invalid if e.AggregateName() doesn't match a.AggregateName(),
 // e.AggregateID() doesn't match a.AggregateID() or if e.AggregateVersion()
 // doesn't match the position in events relative to a.AggregateVersion(). This
 // means that events[0].AggregateVersion() must equal a.AggregateVersion() + 1,
 // events[1].AggregateVersion() must equal a.AggregateVersion() + 2 etc.
 //
-// An Event a is also invalid if its time is equal to or after the time of the
-// previous Event.
+// An event a is also invalid if its time is equal to or after the time of the
+// previous event.
 //
-// The first Event e in events that is invalid causes Validate to return an
-// *Error containing the Kind of inconsistency and the Event that caused the
+// The first event e in events that is invalid causes Validate to return an
+// *Error containing the Kind of inconsistency and the event that caused the
 // inconsistency.
 func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events Events) error {
 	id, name, _ := a.Aggregate()
@@ -128,7 +128,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 	return nil
 }
 
-// Event return the first Event that caused an inconsistency.
+// Event return the first event that caused an inconsistency.
 func (err *ConsistencyError) Event() event.Event {
 	if err.EventIndex < 0 || err.EventIndex >= len(err.Events) {
 		return nil

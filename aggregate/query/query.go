@@ -105,7 +105,7 @@ type queryWithTags interface {
 	Tags() []string
 }
 
-// Test tests the Aggregate a against the Query q and returns true if q should
+// Test tests the aggregate a against the Query q and returns true if q should
 // include a in its results. Test can be used by in-memory aggregate.Repository
 // implementations to filter aggregates based on the query.
 func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
@@ -164,14 +164,14 @@ func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
 
 // EventQueryOpts returns query.Options for a given aggregate.Query.
 //
-// In order for the returned Query to return the correct Events, EventQueryOpts
-// needs to rewrite some of the version filters to make sense for an Aggregate-
+// In order for the returned Query to return the correct events, EventQueryOpts
+// needs to rewrite some of the version filters to make sense for an aggregate-
 // specific event.Query:
 // 	- version.Exact is rewritten to version.Max
-// 		(querying for version 10 of an Aggregate should return Events 1 -> 10)
+// 		(querying for version 10 of an aggregate should return events 1 -> 10)
 // 	- version.Max is passed without modification
 // 	- version.Min is discarded
-// 		(because an Aggregate cannot start at a version > 1)
+// 		(because an aggregate cannot start at a version > 1)
 // 	- version.Ranges is rewritten to version.Max
 func EventQueryOpts(q aggregate.Query) []query.Option {
 	var opts []query.Option

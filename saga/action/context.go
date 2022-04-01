@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	// ErrMissingBus is returned when trying to publish an Event without an
+	// ErrMissingBus is returned when trying to publish an event without an
 	// event.Bus or dispatch a Command without a command.Bus.
 	ErrMissingBus = errors.New("missing bus")
 
-	// ErrMissingRepository is returned when trying to fetch an Aggregate with
+	// ErrMissingRepository is returned when trying to fetch an aggregate with
 	// an .
 	ErrMissingRepository = errors.New("missing repository")
 )
@@ -27,7 +27,7 @@ type Context interface {
 	// Action returns the currently executed Action.
 	Action() Action
 
-	// Publish publishes the given Events via the underlying Event Bus. If no
+	// Publish publishes the given events via the underlying Event Bus. If no
 	// Event Bus is available, Publish returns ErrMissingBus.
 	Publish(context.Context, ...event.Event) error
 
@@ -35,8 +35,8 @@ type Context interface {
 	// Command Bus. If no Command Bus is available, Dispatch returns ErrMissingBus.
 	Dispatch(context.Context, command.Command, ...command.DispatchOption) error
 
-	// Fetch fetches the provided Aggregate from the underlying Aggregate
-	// Repository. If no Aggregate Repository is available, Fetch returns
+	// Fetch fetches the provided aggregate from the underlying Aggregate
+	// Repository. If no aggregate Repository is available, Fetch returns
 	// ErrMissingRepository.
 	Fetch(context.Context, aggregate.Aggregate) error
 

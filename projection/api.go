@@ -59,9 +59,9 @@ func (p *Progressor) SetProgress(t time.Time) {
 	p.LatestEventTime = t.UnixNano()
 }
 
-// A Resetter is a projection that can reset its state. Projections that
+// A Resetter is a projection that can reset its state. projections that
 // implement Resetter can be reset by projection jobs before applying events
-// onto the projection. Projection jobs reset a projection if the WithReset()
+// onto the projection. projection jobs reset a projection if the WithReset()
 // option was used to create the job.
 type Resetter interface {
 	// Reset should implement any custom logic to reset the state of a projection.
@@ -76,7 +76,7 @@ type Resetter interface {
 //
 // QueryGuard implements Guard.
 type Guard interface {
-	// GuardProjection determines whether an Event is allowed to be applied onto a projection.
+	// GuardProjection determines whether an event is allowed to be applied onto a projection.
 	GuardProjection(event.Event) bool
 }
 
@@ -94,8 +94,8 @@ type Guard interface {
 //	}
 type QueryGuard query.Query
 
-// GuardProjection tests the Guard's Query against a given Event and returns
-// whether the Event is allowed to be applied onto the projection.
+// GuardProjection tests the Guard's Query against a given event and returns
+// whether the event is allowed to be applied onto the projection.
 func (g QueryGuard) GuardProjection(evt event.Event) bool {
 	return query.Test(query.Query(g), evt)
 }

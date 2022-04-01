@@ -10,7 +10,7 @@ import (
 	"github.com/modernice/goes/helper/streams"
 )
 
-// HandlerBase can be embedded into an aggregate to implement the Aggregate
+// HandlerBase can be embedded into an aggregate to implement the aggregate
 // interface. Provided methods are
 //	- RegisterCommandHandler(string, func(command.Context) error)
 //	- CommandNames() []string
@@ -42,7 +42,7 @@ type HandlerBase struct {
 }
 
 // NewBase returns a new *HandlerBase that can be embedded into an aggregate to
-// implement the Aggregate interface.
+// implement the aggregate interface.
 func NewBase() *HandlerBase {
 	return &HandlerBase{
 		handlers: make(map[string]func(command.Context) error),

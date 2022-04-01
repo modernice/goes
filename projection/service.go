@@ -78,24 +78,24 @@ type Schedule interface {
 	//
 	// Reset projections
 	//
-	// The created Job can be configured to reset Projections before applying
+	// The created Job can be configured to reset projections before applying
 	// events onto them, effectively rebuilding the entire projection from the
 	// beginning (first event):
 	//
 	//	var s projection.Schedule
 	//	err := s.Trigger(context.TODO(), projection.Reset())
 	//
-	// When a Projection implements progressor (or embeds *Progressor), the
-	// progress time of the Projection is set to 0.
+	// When a projection implements progressor (or embeds *Progressor), the
+	// progress time of the projection is set to 0.
 	//
-	// When a Projection has a `Reset()` method, that method is called to allow
-	// for custom reset logic. Implementers of Projection should appropriately
-	// reset the state of the Projection.
+	// When a projection has a `Reset()` method, that method is called to allow
+	// for custom reset logic. Implementers of projection should appropriately
+	// reset the state of the projection.
 	//
 	// Custom event query
 	//
 	// When a Job is created, it is passed an event query to fetch the events
-	// for the Projections. By default, this query fetches the events configured
+	// for the projections. By default, this query fetches the events configured
 	// in the Schedule sorted by time. A custom query may be provided using the
 	// Query option. Don't forget to configure correct sorting when providing a
 	// custom query:
@@ -111,7 +111,7 @@ type Schedule interface {
 	// Queried events can be further filtered using the Filter option. Filters
 	// are applied in-memory, after the events have already been fetched from
 	// the event store. When multiple filters are passed, events must match
-	// against every filter to be applied to the Projections. Sorting options of
+	// against every filter to be applied to the projections. Sorting options of
 	// filters are ignored.
 	//
 	//	var s projection.Schedule

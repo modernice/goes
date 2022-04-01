@@ -4,16 +4,16 @@ import (
 	"github.com/modernice/goes/aggregate"
 )
 
-// A Schedule determines if an Aggregate is scheduled to be snapshotted.
+// A Schedule determines if an aggregate is scheduled to be snapshotted.
 type Schedule interface {
-	// Test returns true if the given Aggregate should be snapshotted.
+	// Test returns true if the given aggregate should be snapshotted.
 	Test(aggregate.Aggregate) bool
 }
 
 type scheduleFunc func(aggregate.Aggregate) bool
 
-// Every returns a Schedule that instructs to make Snapshots of an Aggregate
-// every nth Event of that Aggregate.
+// Every returns a Schedule that instructs to make Snapshots of an aggregate
+// every nth event of that aggregate.
 func Every(n int) Schedule {
 	return scheduleFunc(func(a aggregate.Aggregate) bool {
 		_, _, old := a.Aggregate()

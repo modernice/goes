@@ -13,10 +13,10 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Option is an Aggregate option.
+// Option is an aggregate option.
 type Option func(*Base)
 
-// Base can be embedded into structs to implement the Aggregate interface.
+// Base can be embedded into structs to implement the aggregate interface.
 // Base additional implements the Committer interface, which is used by the
 // ApplyHistory() function to "commit" changes to the aggregate.
 type Base struct {
@@ -28,7 +28,7 @@ type Base struct {
 	handlers map[string]func(event.Event)
 }
 
-// Version returns an Option that sets the version of an Aggregate.
+// Version returns an Option that sets the version of an aggregate.
 func Version(v int) Option {
 	return func(b *Base) {
 		b.Version = v
@@ -65,32 +65,32 @@ func (b *Base) Aggregate() (uuid.UUID, string, int) {
 	return b.ID, b.Name, b.Version
 }
 
-// AggregateID implements Aggregate.
+// AggregateID implements aggregate.
 func (b *Base) AggregateID() uuid.UUID {
 	return b.ID
 }
 
-// AggregateName implements Aggregate.
+// AggregateName implements aggregate.
 func (b *Base) AggregateName() string {
 	return b.Name
 }
 
-// AggregateVersion implements Aggregate.
+// AggregateVersion implements aggregate.
 func (b *Base) AggregateVersion() int {
 	return b.Version
 }
 
-// AggregateChanges implements Aggregate.
+// AggregateChanges implements aggregate.
 func (b *Base) AggregateChanges() []event.Event {
 	return b.Changes
 }
 
-// TrackChange implements Aggregate.
+// TrackChange implements aggregate.
 func (b *Base) TrackChange(events ...event.Event) {
 	b.Changes = append(b.Changes, events...)
 }
 
-// Commit implement Aggregate.
+// Commit implement aggregate.
 func (b *Base) Commit() {
 	if len(b.Changes) == 0 {
 		return
@@ -106,7 +106,7 @@ func (b *Base) DiscardChanges() {
 	b.Changes = b.Changes[:0]
 }
 
-// ApplyEvent implements aggregate. Aggregates that embed *Base should override
+// ApplyEvent implements aggregate. aggregates that embed *Base should override
 // ApplyEvent.
 func (b *Base) ApplyEvent(evt event.Event) {
 	if handler, ok := b.handlers[evt.Name()]; ok {
@@ -199,7 +199,7 @@ func Next[Data any](a Aggregate, name string, data Data, opts ...event.Option) e
 	return evt
 }
 
-// HasChange returns whether Aggregate a has an uncommitted Event with the given name.
+// HasChange returns whether aggregate a has an uncommitted event with the given name.
 func HasChange(a Aggregate, eventName string) bool {
 	for _, change := range a.AggregateChanges() {
 		if change.Name() == eventName {

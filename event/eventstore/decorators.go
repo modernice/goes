@@ -13,7 +13,7 @@ type storeWithBus struct {
 	b event.Bus
 }
 
-// WithBus returns a Store that publishes Events over the given Bus after
+// WithBus returns a Store that publishes events over the given Bus after
 // inserting them into the provided Store.
 func WithBus(s event.Store, b event.Bus) event.Store {
 	return &storeWithBus{

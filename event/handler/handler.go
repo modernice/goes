@@ -59,7 +59,7 @@ func New(bus event.Bus, opts ...Option) *Handler {
 }
 
 // RegisterEventHandler registers the handler for the given event.
-// Events must be registered before h.Run() is called. Events that are
+// Events must be registered before h.Run() is called. events that are
 // registered after h.Run() has been called, won't be handled.
 func (h *Handler) RegisterEventHandler(name string, fn func(event.Event)) {
 	h.handlers[name] = fn

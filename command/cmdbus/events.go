@@ -28,7 +28,7 @@ const (
 	CommandExecuted = "goes.command.executed"
 )
 
-// CommandDispatchedData is the Event Data for the CommandDispatched Event.
+// CommandDispatchedData is the event Data for the CommandDispatched Event.
 type CommandDispatchedData struct {
 	// ID is the unique Command ID.
 	ID uuid.UUID
@@ -36,36 +36,36 @@ type CommandDispatchedData struct {
 	// Name is the name of the Command.
 	Name string
 
-	// AggregateName is the name of the  Aggregate the Command belongs to.
+	// AggregateName is the name of the  aggregate the Command belongs to.
 	// (optional)
 	AggregateName string
 
-	// AggregateID is the ID of the Aggregate the Command belongs to. (optional)
+	// AggregateID is the ID of the aggregate the Command belongs to. (optional)
 	AggregateID uuid.UUID
 
 	// Payload is the encoded domain-specific Command Payload.
 	Payload []byte
 }
 
-// CommandRequestedData is the Event Data for the CommandRequested Event.
+// CommandRequestedData is the event Data for the CommandRequested Event.
 type CommandRequestedData struct {
 	ID        uuid.UUID
 	HandlerID uuid.UUID
 }
 
-// CommandAssignedData is the Event Data for the CommandAssigned Event.
+// CommandAssignedData is the event Data for the CommandAssigned Event.
 type CommandAssignedData struct {
 	ID        uuid.UUID
 	HandlerID uuid.UUID
 }
 
-// CommandAcceptedData is the Event Data for the CommandAccepted Event.
+// CommandAcceptedData is the event Data for the CommandAccepted Event.
 type CommandAcceptedData struct {
 	ID        uuid.UUID
 	HandlerID uuid.UUID
 }
 
-// CommandExecutedData is the Event Data for the CommandExecuted Event.
+// CommandExecutedData is the event Data for the CommandExecuted Event.
 type CommandExecutedData struct {
 	ID      uuid.UUID
 	Runtime time.Duration

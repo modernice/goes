@@ -30,24 +30,24 @@ type Repository interface {
 	// Save inserts the changes of the aggregate into the event store.
 	Save(ctx context.Context, a Aggregate) error
 
-	// Fetch fetches the events for the given Aggregate from the event store,
+	// Fetch fetches the events for the given aggregate from the event store,
 	// beginning from version a.AggregateVersion()+1 up to the latest version
-	// for that Aggregate and applies them to a, so that a is in the latest
+	// for that aggregate and applies them to a, so that a is in the latest
 	// state. If the event store does not return any events, a stays untouched.
 	Fetch(ctx context.Context, a Aggregate) error
 
-	// FetchVersion fetches the events for the given Aggregate from the event
+	// FetchVersion fetches the events for the given aggregate from the event
 	// store, beginning from version a.AggregateVersion()+1 up to v and applies
 	// them to a, so that a is in the state of the time of the event with
 	// version v. If the event store does not return any events, a stays
 	// untouched.
 	FetchVersion(ctx context.Context, a Aggregate, v int) error
 
-	// Query queries the Event Store for Aggregates and returns a channel of
+	// Query queries the event Store for aggregates and returns a channel of
 	// Histories and an error channel. If the query fails, Query returns nil
 	// channels and an error.
 	//
-	// A History can be applied on an Aggregate to reconstruct its state from
+	// A History can be applied on an aggregate to reconstruct its state from
 	// the History.
 	//
 	// The Drain function can be used to get the result of the stream as slice
@@ -58,18 +58,18 @@ type Repository interface {
 	//	appliers, err := stream.Drain(context.TODO(), res, errs)
 	//	// handle err
 	//	for _, app := range appliers {
-	//		// Initialize your Aggregate.
-	//		var a Aggregate = newAggregate(app.AggregateName(), app.AggregateID())
+	//		// Initialize your aggregate.
+	//		var a aggregate = newAggregate(app.AggregateName(), app.AggregateID())
 	//		a.Apply(a)
 	//	}
 	Query(ctx context.Context, q Query) (<-chan History, <-chan error, error)
 
-	// Use first fetches the Aggregate a from the event store, then calls fn(a)
+	// Use first fetches the aggregate a from the event store, then calls fn(a)
 	// and finally saves the aggregate changes. If fn returns a non-nil error,
 	// the aggregate is not saved and the error is returned.
 	Use(ctx context.Context, a Aggregate, fn func() error) error
 
-	// Delete deletes an Aggregate by deleting its Events from the Event Store.
+	// Delete deletes an aggregate by deleting its events from the Event Store.
 	Delete(ctx context.Context, a Aggregate) error
 }
 
@@ -102,7 +102,7 @@ type TypedRepository[A TypedAggregate] interface {
 	//
 	// A query made by this repository will only ever return aggregates of this
 	// repository's generic type, even if the query would normally return other
-	// aggregates. Aggregates that cannot be casted to the generic type will be
+	// aggregates. aggregates that cannot be casted to the generic type will be
 	// simply discarded from the stream.
 	//
 	// The streams.Drain returns the query result as slice and a single error:
@@ -153,8 +153,8 @@ type History interface {
 	// AggregateID returns the UUID of the aggregate.
 	AggregateID() uuid.UUID
 
-	// Apply applies the History on an Aggregate. Callers are responsible for
-	// providing an Aggregate that can make use of the Events in the History.
+	// Apply applies the History on an aggregate. Callers are responsible for
+	// providing an aggregate that can make use of the events in the History.
 
 	// Apply applies the history onto the aggregate to rebuild its current state.
 	Apply(Aggregate)

@@ -16,11 +16,11 @@ type Store interface {
 	// Save saves the given Snapshot into the Store.
 	Save(context.Context, Snapshot) error
 
-	// Latest returns the latest Snapshot for the Aggregate with the given name
+	// Latest returns the latest Snapshot for the aggregate with the given name
 	// and UUID.
 	Latest(context.Context, string, uuid.UUID) (Snapshot, error)
 
-	// Version returns the Snapshot with the given version for the Aggregate
+	// Version returns the Snapshot with the given version for the aggregate
 	// with the given name and UUID. Implementations should return an error if
 	// the specified Snapshot does not exist in the Store.
 	Version(context.Context, string, uuid.UUID, int) (Snapshot, error)

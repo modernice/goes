@@ -14,7 +14,7 @@ var (
 )
 
 // NewAggregate tests the New function of an aggregate to check if the returned
-// aggregate provides the correct AggregateName and AggregateID.
+// aggregate provides the correct aggregateName and AggregateID.
 //
 // Example:
 //	type Foo struct {
@@ -43,7 +43,7 @@ func NewAggregate[Aggregate aggregate.Aggregate](t TestingT, newFunc func(uuid.U
 }
 
 // ExpectedChangeError is returned by the `Change` testing helper when the
-// testd Aggregate doesn't have the required change.
+// testd aggregate doesn't have the required change.
 type ExpectedChangeError struct {
 	// EventName is the name of the tested change.
 	EventName string
@@ -82,7 +82,7 @@ func (err ExpectedChangeError) Error() string {
 }
 
 // UnexpectedChangeError is returned by the `NoChange` testing helper when the
-// testd Aggregate does have an unwanted change.
+// testd aggregate does have an unwanted change.
 type UnexpectedChangeError struct {
 	// EventName is the name of the tested change.
 	EventName string
@@ -116,7 +116,7 @@ func EventData(data any) ChangeOption {
 	}
 }
 
-// AtLeast returns a ChangeOption that requires an Aggregate to have a change at
+// AtLeast returns a ChangeOption that requires an aggregate to have a change at
 // least as many times as provided.
 //
 // AtLeast has no effect when used in `NoChange`.
@@ -126,7 +126,7 @@ func AtLeast(times int) ChangeOption {
 	}
 }
 
-// AtMost returns a ChangeOption that requires an Aggregate to have a change at
+// AtMost returns a ChangeOption that requires an aggregate to have a change at
 // most as many times as provided.
 //
 // AtMost has no effect when used in `NoChange`.
@@ -136,7 +136,7 @@ func AtMost(times int) ChangeOption {
 	}
 }
 
-// Exactly returns a ChangeOption that requires an Aggregate to have a change
+// Exactly returns a ChangeOption that requires an aggregate to have a change
 // exactly as many times as provided.
 //
 // Exactly has no effect when used in `NoChange`.
@@ -146,7 +146,7 @@ func Exactly(times int) ChangeOption {
 	}
 }
 
-// Change tests an Aggregate for a change. The Aggregate must have an
+// Change tests an aggregate for a change. The Aggregate must have an
 // uncommitted change with the specified event name.
 func Change(t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeOption) {
 	var cfg changeConfig
@@ -209,7 +209,7 @@ func Change(t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeO
 	}
 }
 
-// Change tests an Aggregate for a change. The Aggregate must not have an
+// Change tests an aggregate for a change. The Aggregate must not have an
 // uncommitted change with the specified event name.
 func NoChange(t TestingT, a aggregate.Aggregate, eventName string, opts ...ChangeOption) {
 	var cfg changeConfig

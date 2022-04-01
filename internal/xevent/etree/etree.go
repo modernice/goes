@@ -37,7 +37,7 @@ type node struct {
 
 type color bool
 
-// Insert inserts an Event into the Tree.
+// Insert inserts an event into the Tree.
 func (t *Tree) Insert(evt event.Event) {
 	var n *node
 	if t.root != nil {

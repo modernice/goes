@@ -18,8 +18,8 @@ type GobRegistry struct {
 // GobOption is an option for a GobRegistry.
 type GobOption func(*GobRegistry)
 
-// GobNameFunc returns a GobOption that specifies under which name Event
-// Data is registered with gob.RegisterName. The default name under which Events
+// GobNameFunc returns a GobOption that specifies under which name event
+// Data is registered with gob.RegisterName. The default name under which events
 // are registered is "goes.event(name)" where name is the name of the
 // Event.
 

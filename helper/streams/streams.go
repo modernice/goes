@@ -43,8 +43,8 @@ func Drain[T any](ctx context.Context, in <-chan T, errs ...<-chan error) ([]T, 
 //	var bus event.Bus
 //	in, errs, err := bus.Subscribe(context.TODO(), "foo", "bar", "baz")
 //	// handle err
-//	err := Walk(context.TODO(), func(e Event) {
-//		log.Println(fmt.Sprintf("Received %q Event: %v", e.Name(), e))
+//	err := Walk(context.TODO(), func(e event) {
+//		log.Println(fmt.Sprintf("Received %q event: %v", e.Name(), e))
 //	}, in, errs)
 //	// handle err
 func Walk[T any](

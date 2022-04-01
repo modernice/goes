@@ -12,7 +12,7 @@ import (
 
 type eventSlice[D any] []event.Of[D]
 
-// EqualEvents compares slices of Events.
+// EqualEvents compares slices of events.
 func EqualEvents[Events ~[]event.Of[D], D any](events ...Events) bool {
 	if len(events) < 2 {
 		return true

@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	// ErrVersionNotFound is returned when trying to fetch an Aggregate with a
-	// version higher than the current version of the Aggregate.
+	// ErrVersionNotFound is returned when trying to fetch an aggregate with a
+	// version higher than the current version of the aggregate.
 	ErrVersionNotFound = errors.New("version not found")
 
-	// ErrDeleted is returned when trying to fetch an Aggregate that has been soft-deleted.
+	// ErrDeleted is returned when trying to fetch an aggregate that has been soft-deleted.
 	ErrDeleted = errors.New("aggregate was soft-deleted")
 )
 
@@ -41,7 +41,7 @@ type Repository struct {
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
 //
 // A Repository that has a Snapshot Store will fetch the latest valid Snapshot
-// for an Aggregate before fetching the necessary Events to reconstruct the
+// for an aggregate before fetching the necessary events to reconstruct the
 // state of the Agrgegate.
 //
 // An optional Snapshot Schedule can be provided to instruct the Repository to
@@ -50,8 +50,8 @@ type Repository struct {
 //	var store snapshot.Store
 //	r := repository.New(store, snapshot.Every(3))
 //
-// The example above will make a Snapshot of an Aggregate every third version of
-// the Aggregate.
+// The example above will make a Snapshot of an aggregate every third version of
+// the aggregate.
 //
 // Aggregates must implement snapshot.Marshaler & snapshot.Unmarshaler in order
 // for Snapshots to work.
@@ -107,8 +107,8 @@ func OnDelete(fn func(context.Context, aggregate.Aggregate) error) Option {
 	}
 }
 
-// New returns an event-sourced Aggregate Repository. It uses the provided Event
-// Store to persist and query Aggregates.
+// New returns an event-sourced aggregate Repository. It uses the provided event
+// Store to persist and query aggregates.
 func New(store event.Store, opts ...Option) *Repository {
 	return newRepository(store, opts...)
 }
@@ -121,7 +121,7 @@ func newRepository(store event.Store, opts ...Option) *Repository {
 	return r
 }
 
-// Save saves the changes to an Aggregate into the underlying event store and
+// Save saves the changes to an aggregate into the underlying event store and
 // flushes its changes afterwards (by calling a.FlushChanges).
 func (r *Repository) Save(ctx context.Context, a aggregate.Aggregate) error {
 	var snap bool
@@ -175,13 +175,13 @@ func (r *Repository) makeSnapshot(ctx context.Context, a aggregate.Aggregate) er
 	return nil
 }
 
-// Fetch fetches the events of the provided Aggregate from the event store and
+// Fetch fetches the events of the provided aggregate from the event store and
 // applies them onto it to build its current state.
 //
-// It is allowed to pass an Aggregate that does't have any events in the event
+// It is allowed to pass an aggregate that does't have any events in the event
 // store yet.
 //
-// It is also allowed to pass an Aggregate that has already events applied onto
+// It is also allowed to pass an aggregate that has already events applied onto
 // it. Only events with a version higher than the current version of the passed
 // Aggregate are fetched from the event store.
 func (r *Repository) Fetch(ctx context.Context, a aggregate.Aggregate) error {
@@ -272,7 +272,7 @@ func (r *Repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 }
 
 // FetchVersion does the same as r.Fetch, but only fetches events up until the
-// given version v. If the event store has no event for the provided Aggregate
+// given version v. If the event store has no event for the provided aggregate
 // with the requested version, ErrVersionNotFound is returned.
 func (r *Repository) FetchVersion(ctx context.Context, a aggregate.Aggregate, v int) error {
 	if v < 0 {
@@ -425,7 +425,7 @@ func (r *Repository) makeQuery(ctx context.Context, aq aggregate.Query) (event.Q
 	return q, nil
 }
 
-// Use first fetches the Aggregate a, then calls fn(a) and finally saves the
+// Use first fetches the aggregate a, then calls fn(a) and finally saves the
 // aggregate. If the RetryUse() option is used, Use() is retried up to the
 // configured maxTries option.
 func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() error) error {
