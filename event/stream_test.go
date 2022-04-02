@@ -15,7 +15,7 @@ import (
 
 func TestStream(t *testing.T) {
 	events := makeEvents()
-	str := streams.New(events...)
+	str := streams.New(events)
 
 	result, err := streams.Drain(context.Background(), str)
 	if err != nil {
@@ -35,7 +35,7 @@ func TestStream(t *testing.T) {
 
 func TestDrain(t *testing.T) {
 	events := makeEvents()
-	str := streams.New(events...)
+	str := streams.New(events)
 
 	result, err := streams.Drain(context.Background(), str)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestDrain(t *testing.T) {
 
 func TestDrain_partial(t *testing.T) {
 	events := makeEvents()
-	str := streams.New(events...)
+	str := streams.New(events)
 
 	<-str
 
@@ -77,7 +77,7 @@ func TestDrain_partial(t *testing.T) {
 
 func TestWalk(t *testing.T) {
 	events := makeEvents()
-	str := streams.New(events...)
+	str := streams.New(events)
 
 	var walked []event.Event
 	err := streams.Walk(context.Background(), func(evt event.Event) error {
@@ -96,7 +96,7 @@ func TestWalk_chanError(t *testing.T) {
 	events := makeEvents()
 	errs := make(chan error, 1)
 	mockError := errors.New("mock error")
-	str := streams.New(events...)
+	str := streams.New(events)
 
 	errs <- mockError
 	close(errs)
@@ -111,7 +111,7 @@ func TestWalk_chanError(t *testing.T) {
 func TestWalk_error(t *testing.T) {
 	events := makeEvents()
 	mockError := errors.New("mock error")
-	str := streams.New(events...)
+	str := streams.New(events)
 
 	err := streams.Walk(context.Background(), func(evt event.Event) error { return mockError }, str)
 
@@ -130,7 +130,7 @@ func TestFilter(t *testing.T) {
 		event.New[any]("foobaz", test.FooEventData{}),
 	}
 
-	str := streams.New(events...)
+	str := streams.New(events)
 	str = event.Filter(str, query.New(query.Name("bar", "baz", "barbaz", "foobaz")))
 	str = event.Filter(str, query.New(query.Name("baz", "foobaz")))
 
