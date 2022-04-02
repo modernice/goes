@@ -26,6 +26,12 @@ type Subscription struct {
 
 // Startup returns a SubscribeOption that triggers an initial projection run
 // when subscribing to a projection schedule.
+//
+// The `Aggregates()` and `Aggregate()` helpers of the triggered job will use
+// the query of this trigger to extract the aggregates from the event store.
+// This allows to optimize the query performance of initial projection runs,
+// which often times need to fetch all ids of specific aggregates from the
+// event store in order to get all projections up-to-date.
 func Startup(opts ...TriggerOption) SubscribeOption {
 	return func(s *Subscription) {
 		t := NewTrigger(opts...)
