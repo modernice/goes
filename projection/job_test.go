@@ -152,7 +152,7 @@ func TestJob_EventsFor_Progressor(t *testing.T) {
 		t.Fatalf("drain Events: %v", err)
 	}
 
-	test.AssertEqualEventsUnsorted(t, events, storeEvents[2:])
+	test.AssertEqualEventsUnsorted(t, events, storeEvents[1:])
 }
 
 func TestJob_Aggregates(t *testing.T) {

@@ -55,12 +55,8 @@ func ApplyStream(proj EventApplier[any], events <-chan event.Event, opts ...Appl
 			continue
 		}
 
-		if isProgressor && !cfg.ignoreProgress {
-			progress, _ := progressor.Progress()
-
-			if !progress.IsZero() && !progress.Before(evt.Time()) {
-				continue
-			}
+		if isProgressor && !cfg.ignoreProgress && !progressorAllows(progressor, evt) {
+			continue
 		}
 
 		proj.ApplyEvent(evt)
@@ -91,4 +87,22 @@ func newApplyConfig(opts ...ApplyOption) applyConfig {
 		opt(&cfg)
 	}
 	return cfg
+}
+
+func progressorAllows(progressor ProgressAware, evt event.Event) bool {
+	progress, ids := progressor.Progress()
+
+	if progress.IsZero() || progress.Before(evt.Time()) {
+		return true
+	}
+
+	if progress.Unix() == evt.Time().Unix() {
+		for _, id := range ids {
+			if id == evt.ID() {
+				return false
+			}
+		}
+	}
+
+	return true
 }
