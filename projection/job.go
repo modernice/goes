@@ -271,7 +271,7 @@ func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate
 	}
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("fetch Events: %w", err)
+		return nil, nil, fmt.Errorf("fetch events: %w", err)
 	}
 
 	out := make(chan aggregate.Ref)

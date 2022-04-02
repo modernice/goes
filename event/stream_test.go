@@ -139,7 +139,7 @@ func TestFilter(t *testing.T) {
 
 	filtered, err := streams.Drain(ctx, str)
 	if err != nil {
-		t.Fatalf("drain Events: %v", err)
+		t.Fatalf("drain events: %v", err)
 	}
 
 	test.AssertEqualEvents(t, filtered, []event.Event{events[2], events[5]})

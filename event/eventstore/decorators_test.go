@@ -22,12 +22,12 @@ func TestWithBus(t *testing.T) {
 
 	events, errs, err := b.Subscribe(ctx, "foo")
 	if err != nil {
-		t.Fatalf("failed to subscribe to Events: %v", err)
+		t.Fatalf("failed to subscribe to events: %v", err)
 	}
 
 	evt := event.New("foo", test.FooEventData{})
 	if err := swb.Insert(ctx, evt.Any()); err != nil {
-		t.Fatalf("failed to insert Event: %v", err)
+		t.Fatalf("failed to insert event: %v", err)
 	}
 
 	var walkedEvent event.Event
