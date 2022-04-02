@@ -109,9 +109,10 @@ type job struct {
 	// If provided, will be used within the `Aggregates()` and `Aggregate()` methods.
 	aggregateQuery event.Query
 
-	filter []event.Query
-	reset  bool
-	cache  *queryCache
+	beforeEvent []func(context.Context, event.Event) ([]event.Event, error)
+	filter      []event.Query
+	reset       bool
+	cache       *queryCache
 
 	// Store that is used for projections that implement HistoryDependent, if
 	// their RequiresFullHistory method returns true.
@@ -143,6 +144,17 @@ func WithReset() JobOption {
 func WithAggregateQuery(q event.Query) JobOption {
 	return func(j *job) {
 		j.aggregateQuery = q
+	}
+}
+
+// WithBeforeEvent returns a JobOption that adds the given functions as
+// "before"-interceptors to the event streams returned by a job's `EventsFor()`
+// and `Apply()` methods. For each received event of a stream, all provided
+// functions are called in order, and the returned events are inserted into the
+// stream before the intercepted event.
+func WithBeforeEvent(fns ...func(context.Context, event.Event) ([]event.Event, error)) JobOption {
+	return func(j *job) {
+		j.beforeEvent = append(j.beforeEvent, fns...)
 	}
 }
 
@@ -182,11 +194,56 @@ func (j *job) queryEvents(ctx context.Context, q event.Query, filter ...event.Qu
 		return nil, nil, err
 	}
 
+	if len(j.beforeEvent) > 0 {
+		str, errs = j.applyBeforeEvent(ctx, str, errs)
+	}
+
 	if filter = append(j.filter, filter...); len(filter) > 0 {
 		str = event.Filter(str, filter...)
 	}
 
 	return str, errs, nil
+}
+
+func (j *job) applyBeforeEvent(ctx context.Context, events <-chan event.Event, errs <-chan error) (<-chan event.Event, <-chan error) {
+	outErrs := make(chan error)
+	fail := func(err error) {
+		select {
+		case <-ctx.Done():
+		case outErrs <- err:
+		}
+	}
+
+	for _, before := range j.beforeEvent {
+		events = streams.BeforeContext(ctx, events, func(evt event.Event) []event.Event {
+			add, err := before(ctx, evt)
+			if err != nil {
+				fail(fmt.Errorf("before %q event: %w", evt.Name(), err))
+				return nil
+			}
+			return add
+		})
+	}
+
+	out := make(chan event.Event)
+	eventsDone := make(chan struct{})
+	go func() {
+		defer close(eventsDone)
+		defer close(out)
+		for evt := range events {
+			out <- evt
+		}
+	}()
+
+	go func() {
+		defer close(outErrs)
+		for err := range errs {
+			outErrs <- err
+		}
+		<-eventsDone
+	}()
+
+	return out, outErrs
 }
 
 func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan event.Event, <-chan error, error) {

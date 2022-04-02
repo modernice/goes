@@ -28,14 +28,14 @@ func FanIn[T any](in ...<-chan T) (_ <-chan T, stop func()) {
 				select {
 				case <-stopped:
 					return
-				case err, ok := <-in:
+				case v, ok := <-in:
 					if !ok {
 						return
 					}
 					select {
 					case <-stopped:
 						return
-					case out <- err:
+					case out <- v:
 					}
 				}
 			}
