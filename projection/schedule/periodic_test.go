@@ -32,7 +32,7 @@ func TestPeriodic_Subscribe(t *testing.T) {
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {
-		t.Fatalf("insert Events: %v", err)
+		t.Fatalf("insert events: %v", err)
 	}
 
 	schedule := schedule.Periodically(store, 20*time.Millisecond, []string{"foo", "bar", "baz"})

@@ -186,7 +186,7 @@ func (svc *Service) Register(name string, s Schedule) {
 func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOption) error {
 	events, errs, err := svc.bus.Subscribe(ctx, TriggerAccepted)
 	if err != nil {
-		return fmt.Errorf("subscribe to %q Event: %w", TriggerAccepted, err)
+		return fmt.Errorf("subscribe to %q event: %w", TriggerAccepted, err)
 	}
 
 	id := uuid.New()
@@ -196,7 +196,7 @@ func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOpt
 		Schedule:  name,
 	})
 	if err := svc.bus.Publish(ctx, evt); err != nil {
-		return fmt.Errorf("publish %q Event: %w", evt.Name(), err)
+		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
 	}
 
 	if svc.triggerTimeout > 0 {
@@ -230,7 +230,7 @@ func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOpt
 func (svc *Service) Run(ctx context.Context) (<-chan error, error) {
 	events, errs, err := svc.bus.Subscribe(ctx, Triggered)
 	if err != nil {
-		return nil, fmt.Errorf("subscribe to %q Event: %w", Triggered, err)
+		return nil, fmt.Errorf("subscribe to %q event: %w", Triggered, err)
 	}
 
 	out := make(chan error)
@@ -259,7 +259,7 @@ func (svc *Service) handleEvents(ctx context.Context, events <-chan event.Event,
 
 		evt = event.New[any](TriggerAccepted, TriggerAcceptedData{TriggerID: data.TriggerID})
 		if err := svc.bus.Publish(ctx, evt); err != nil {
-			fail(fmt.Errorf("publish %q Event: %w", evt.Name(), err))
+			fail(fmt.Errorf("publish %q event: %w", evt.Name(), err))
 			return
 		}
 

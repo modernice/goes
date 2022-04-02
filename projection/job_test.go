@@ -34,7 +34,7 @@ func TestJob_Events(t *testing.T) {
 
 	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
-		t.Fatalf("drain Events: %v", err)
+		t.Fatalf("drain events: %v", err)
 	}
 
 	if len(events) != 2 {
@@ -59,7 +59,7 @@ func TestJob_Events_additionalFilter(t *testing.T) {
 
 	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
-		t.Fatalf("drain Events: %v", err)
+		t.Fatalf("drain events: %v", err)
 	}
 
 	if len(events) != 1 {
@@ -98,7 +98,7 @@ func TestJob_EventsOf(t *testing.T) {
 
 	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
-		t.Fatalf("drain Events: %v", err)
+		t.Fatalf("drain events: %v", err)
 	}
 
 	test.AssertEqualEventsUnsorted(t, events, []event.Event{
@@ -149,7 +149,7 @@ func TestJob_EventsFor_Progressor(t *testing.T) {
 
 	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
-		t.Fatalf("drain Events: %v", err)
+		t.Fatalf("drain events: %v", err)
 	}
 
 	test.AssertEqualEventsUnsorted(t, events, storeEvents[1:])
@@ -293,7 +293,7 @@ func TestJob_Events_cache(t *testing.T) {
 
 	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
-		t.Fatalf("drain Events: %v", err)
+		t.Fatalf("drain events: %v", err)
 	}
 
 	dur := time.Since(start)
@@ -309,7 +309,7 @@ func TestJob_Events_cache(t *testing.T) {
 	}
 
 	if events, err = streams.Drain(ctx, str, errs); err != nil {
-		t.Fatalf("drain Events: %v", err)
+		t.Fatalf("drain events: %v", err)
 	}
 
 	test.AssertEqualEventsUnsorted(t, events, storeEvents)
@@ -345,7 +345,7 @@ func TestWithFilter(t *testing.T) {
 
 	events, err := streams.Drain(ctx, str, errs)
 	if err != nil {
-		t.Fatalf("drain Events: %v", err)
+		t.Fatalf("drain events: %v", err)
 	}
 
 	test.AssertEqualEvents(t, events, []event.Event{storeEvents[0], storeEvents[4], storeEvents[5]})
@@ -400,7 +400,7 @@ func newEventStore(t *testing.T, events ...event.Event) (event.Store, []event.Ev
 		}
 	}
 	if err := store.Insert(context.Background(), events...); err != nil {
-		t.Fatalf("insert Events: %v", err)
+		t.Fatalf("insert events: %v", err)
 	}
 	return store, events
 }

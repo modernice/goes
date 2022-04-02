@@ -51,7 +51,7 @@ func TestContinuous_Subscribe(t *testing.T) {
 	}
 
 	if err := bus.Publish(ctx, events...); err != nil {
-		t.Fatalf("publish Events: %v", err)
+		t.Fatalf("publish events: %v", err)
 	}
 
 	timer := time.NewTimer(3 * time.Second)
@@ -115,7 +115,7 @@ func TestContinuous_Subscribe_Debounce(t *testing.T) {
 	}
 
 	if err := bus.Publish(ctx, events...); err != nil {
-		t.Fatalf("publish Events: %v", err)
+		t.Fatalf("publish events: %v", err)
 	}
 
 	timer := time.NewTimer(3 * time.Second)
@@ -178,7 +178,7 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 	}
 
 	if err := bus.Publish(ctx, events...); err != nil {
-		t.Fatalf("publish Events: %v", err)
+		t.Fatalf("publish events: %v", err)
 	}
 
 	timer := time.NewTimer(3 * time.Second)
@@ -221,7 +221,7 @@ func TestContinuous_Trigger(t *testing.T) {
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {
-		t.Fatalf("insert Events: %v", err)
+		t.Fatalf("insert events: %v", err)
 	}
 
 	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
@@ -342,7 +342,7 @@ func TestContinuous_Trigger_Query(t *testing.T) {
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {
-		t.Fatalf("insert Events: %v", err)
+		t.Fatalf("insert events: %v", err)
 	}
 
 	sch := schedule.Continuously(bus, store, []string{"foo", "bar", "baz", "foobar"})
@@ -406,7 +406,7 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {
-		t.Fatalf("insert Events: %v", err)
+		t.Fatalf("insert events: %v", err)
 	}
 
 	sch := schedule.Continuously(bus, store, []string{"foo", "bar", "baz", "foobar"})
