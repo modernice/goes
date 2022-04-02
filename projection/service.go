@@ -70,7 +70,7 @@ type Schedule interface {
 	//	for err := range errs {
 	//		log.Printf("projection failed: %v\n", err)
 	//	}
-	Subscribe(context.Context, func(Job) error) (<-chan error, error)
+	Subscribe(context.Context, func(Job) error, ...SubscribeOption) (<-chan error, error)
 
 	// Trigger manually triggers the Schedule immediately. A Job is created and
 	// passed to every subscriber of the Schedule. Trigger does not wait for the

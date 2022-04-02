@@ -3,6 +3,7 @@ package schedule
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/modernice/goes/event"
@@ -174,5 +175,24 @@ func (schedule *schedule) applyJobs(
 			case out <- fmt.Errorf("apply job: %w", err):
 			}
 		}
+	}
+}
+
+func (schedule *schedule) triggerStartupJob(ctx context.Context, trigger projection.Trigger, jobs chan<- projection.Job, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	if trigger.Query == nil {
+		log.Printf("[goes/projection/schedule.schedule@triggerStartupJob] no query specified for startup trigger; startup job disabled")
+		return
+	}
+
+	select {
+	case <-ctx.Done():
+	case jobs <- projection.NewJob(
+		ctx,
+		schedule.store,
+		trigger.Query,
+		projection.WithHistoryStore(schedule.store),
+	):
 	}
 }
