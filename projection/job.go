@@ -147,9 +147,13 @@ func NewJob(ctx context.Context, store event.Store, q event.Query, opts ...JobOp
 }
 
 func (j *job) Events(ctx context.Context, filter ...event.Query) (<-chan event.Event, <-chan error, error) {
-	str, errs, err := j.runQuery(ctx, j.query)
+	return j.queryEvents(ctx, j.query, filter...)
+}
+
+func (j *job) queryEvents(ctx context.Context, q event.Query, filter ...event.Query) (<-chan event.Event, <-chan error, error) {
+	str, errs, err := j.runQuery(ctx, q)
 	if err != nil {
-		return nil, nil, fmt.Errorf("query events: %w", err)
+		return nil, nil, err
 	}
 
 	if filter = append(j.filter, filter...); len(filter) > 0 {
@@ -164,12 +168,19 @@ func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan eve
 }
 
 func (j *job) EventsFor(ctx context.Context, target EventApplier[any]) (<-chan event.Event, <-chan error, error) {
-	var filter []event.Query
+	q := j.query
 
 	if progressor, isProgressor := target.(ProgressAware); isProgressor {
 		progressTime, _ := progressor.Progress()
 		if !progressTime.IsZero() {
-			filter = append(filter, query.New(query.Time(time.After(progressTime))))
+			// Why subtract a nanosecond and return possibly already applied
+			// events? Because multiple events can have the same time, and we
+			// want to ensure that we don't accidentally exclude events that
+			// haven't been applied yet. The Apply and ApplyStream functions
+			// ensure that an event is not applied twice to a projection.
+			q = query.Merge(q, query.New(query.Time(
+				time.After(progressTime.Add(-stdtime.Nanosecond))),
+			))
 		}
 	}
 
@@ -178,19 +189,19 @@ func (j *job) EventsFor(ctx context.Context, target EventApplier[any]) (<-chan e
 			return nil, nil, fmt.Errorf("projection requires full history, but job has no history event store")
 		}
 
-		str, errs, err := j.queryOnce(ctx, j.query)
+		str, errs, err := j.queryHistory(ctx, j.query)
 		if err != nil {
 			return str, errs, fmt.Errorf("query history: %w", err)
 		}
 
-		return event.Filter(str, filter...), errs, nil
+		return event.Filter(str), errs, nil
 	}
 
-	return j.Events(ctx, filter...)
+	return j.queryEvents(ctx, q)
 }
 
 // TODO(bounoable): Actually run the query only once.
-func (j *job) queryOnce(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
+func (j *job) queryHistory(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	return j.historyStore.Query(ctx, j.query)
 }
 
@@ -266,8 +277,6 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 }
 
 func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOption) error {
-	opts = append([]ApplyOption{IgnoreProgress()}, opts...)
-
 	if j.reset {
 		if progressor, isProgressor := proj.(ProgressAware); isProgressor {
 			progressor.SetProgress(stdtime.Time{})
@@ -306,7 +315,7 @@ func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOp
 }
 
 func (j *job) runQuery(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
-	return j.cache.ensure(ctx, q)
+	return j.cache.run(ctx, q)
 }
 
 type job struct {
@@ -340,7 +349,7 @@ func newQueryCache(store event.Store) *queryCache {
 	}
 }
 
-func (c *queryCache) ensure(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
+func (c *queryCache) run(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	hash := hashQuery(q)
 
 	events, ok := c.cached(hash, true)

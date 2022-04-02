@@ -168,9 +168,9 @@ func TestContinuous_Subscribe_Progressor(t *testing.T) {
 
 	events := []event.Event{
 		event.New[any]("foo", test.FooEventData{}, event.Time(now.Add(-time.Minute))),
-		event.New[any]("bar", test.FooEventData{}, event.Time(now)),
-		event.New[any]("baz", test.FooEventData{}, event.Time(now.Add(time.Second))),
-		event.New[any]("foobar", test.FooEventData{}, event.Time(now.Add(time.Minute))),
+		event.New[any]("bar", test.BarEventData{}, event.Time(now)),
+		event.New[any]("baz", test.BazEventData{}, event.Time(now.Add(time.Second))),
+		event.New[any]("foobar", test.FoobarEventData{}, event.Time(now.Add(time.Minute))),
 	}
 
 	if err := bus.Publish(ctx, events...); err != nil {
@@ -199,7 +199,7 @@ L:
 		}
 	}
 
-	test.AssertEqualEvents(t, proj.AppliedEvents, events[2:3])
+	test.AssertEqualEvents(t, proj.AppliedEvents, events[1:3])
 }
 
 func TestContinuous_Trigger(t *testing.T) {
