@@ -409,9 +409,7 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 
 	proj := projectiontest.NewMockResetProjection(7)
 
-	if err := projection.Apply(proj, storeEvents); err != nil {
-		t.Fatalf("apply projection: %v", err)
-	}
+	projection.Apply(proj, storeEvents)
 
 	applied := make(chan struct{})
 
