@@ -1,9 +1,9 @@
 package projectiontest
 
 import (
-	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection"
 )
@@ -29,7 +29,7 @@ func (proj *MockProjection) HasApplied(events ...event.Event) bool {
 	for _, evt := range events {
 		var applied bool
 		for _, pevt := range proj.AppliedEvents {
-			if reflect.DeepEqual(evt, pevt) {
+			if event.Equal(evt, pevt) {
 				applied = true
 				break
 			}
@@ -45,7 +45,7 @@ func (proj *MockProjection) HasApplied(events ...event.Event) bool {
 // and if not, makes the test fail.
 func (proj *MockProjection) ExpectApplied(t *testing.T, events ...event.Event) {
 	if !proj.HasApplied(events...) {
-		t.Fatalf("mockProjection should have applied %v; has applied %v", events, proj.AppliedEvents)
+		t.Fatalf("projection should have applied %d events. [applied=%d]\n%s", len(events), len(proj.AppliedEvents), cmp.Diff(events, proj.AppliedEvents))
 	}
 }
 
