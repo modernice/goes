@@ -25,9 +25,7 @@ func TestPermissions(t *testing.T) {
 		t.Fatalf("Permissions should not allow %q action before being projected", "foo")
 	}
 
-	if err := projection.Apply(perms, actor.AggregateChanges()); err != nil {
-		t.Fatalf("apply projection onto permissions: %v", err)
-	}
+	projection.Apply(perms, actor.AggregateChanges())
 
 	if !perms.Allows("foo", ref) {
 		t.Fatalf("Permissions should allow %q action after being projected", "foo")
@@ -54,9 +52,7 @@ func TestPermissions_ofRole(t *testing.T) {
 		t.Fatalf("Permissions should not allow %q action before being projected", "foo")
 	}
 
-	if err := projection.Apply(perms, role.AggregateChanges()); err != nil {
-		t.Fatalf("apply projection onto permissions: %v", err)
-	}
+	projection.Apply(perms, role.AggregateChanges())
 
 	if !perms.Allows("foo", ref) {
 		t.Fatalf("Permissions should allow %q action after being projected", "foo")
@@ -136,9 +132,7 @@ func TestPermissions_cases(t *testing.T) {
 			events := append(actor.AggregateChanges(), role.AggregateChanges()...)
 
 			perms := auth.PermissionsOf(actor.AggregateID())
-			if err := projection.Apply(perms, events); err != nil {
-				t.Fatalf("apply projection: %v", err)
-			}
+			projection.Apply(perms, events)
 
 			for _, action := range tt.wantAllowed {
 				if !perms.Allows(action, ref) {
