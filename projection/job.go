@@ -323,54 +323,81 @@ type job struct {
 }
 
 type queryCache struct {
-	sync.Mutex
-
 	store event.Store
-	cache map[[32]byte][]event.Event
+
+	locksMux sync.Mutex
+	locks    map[[32]byte]*sync.Mutex
+
+	cacheMux sync.RWMutex
+	cache    map[[32]byte][]event.Event
 }
 
 func newQueryCache(store event.Store) *queryCache {
 	return &queryCache{
 		store: store,
+		locks: make(map[[32]byte]*sync.Mutex),
 		cache: make(map[[32]byte][]event.Event),
 	}
 }
 
 func (c *queryCache) ensure(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
-	h := hashQuery(q)
+	hash := hashQuery(q)
 
-	var events []event.Event
-
-	c.Lock()
-	if cached, ok := c.cache[h]; ok {
-		events = make([]event.Event, len(cached))
-		copy(events, cached)
+	events, ok := c.cached(hash, true)
+	if ok {
+		out, errs := eventStream(ctx, events)
+		return out, errs, nil
 	}
-	c.Unlock()
 
-	if len(events) > 0 {
-		out := make(chan event.Event)
-		errs := make(chan error)
-		go func() {
-			defer close(out)
-			defer close(errs)
-			for _, evt := range events {
-				select {
-				case <-ctx.Done():
-					return
-				case out <- evt:
-				}
-			}
-		}()
+	// Prevent the same query from being run multiple times.
+	// If the same query is currently being run, wait for it to be finished so
+	// we can use the cached result.
+	unlock := c.acquireQueryLock(hash)
+	defer unlock()
+
+	// Check again if the query was cached by another run.
+	if events, ok = c.cached(hash, false); ok {
+		out, errs := eventStream(ctx, events)
 		return out, errs, nil
 	}
 
 	str, errs, err := c.store.Query(ctx, q)
 	if err != nil {
-		return nil, nil, fmt.Errorf("query Events: %w", err)
+		return nil, nil, fmt.Errorf("query events: %w", err)
 	}
 
-	return c.intercept(ctx, str, h), errs, nil
+	return c.intercept(ctx, str, hash), errs, nil
+}
+
+func (c *queryCache) cached(hash [32]byte, lock bool) ([]event.Event, bool) {
+	var events []event.Event
+
+	if lock {
+		c.cacheMux.RLock()
+		defer c.cacheMux.RUnlock()
+	}
+
+	if cached, ok := c.cache[hash]; ok {
+		events = make([]event.Event, len(cached))
+		copy(events, cached)
+		return events, true
+	}
+
+	return events, false
+}
+
+func (c *queryCache) acquireQueryLock(h [32]byte) func() {
+	c.locksMux.Lock()
+	defer c.locksMux.Unlock()
+
+	mux, ok := c.locks[h]
+	if !ok {
+		mux = &sync.Mutex{}
+		c.locks[h] = mux
+	}
+	mux.Lock()
+
+	return mux.Unlock
 }
 
 func (c *queryCache) intercept(ctx context.Context, in <-chan event.Event, hash [32]byte) <-chan event.Event {
@@ -403,11 +430,30 @@ func (c *queryCache) intercept(ctx context.Context, in <-chan event.Event, hash 
 }
 
 func (c *queryCache) update(hash [32]byte, events []event.Event) {
-	c.Lock()
+	c.cacheMux.Lock()
 	c.cache[hash] = events
-	c.Unlock()
+	c.cacheMux.Unlock()
 }
 
+// TODO(bounoable): Is this sufficient for avoiding collisions?
+// Alternative: github.com/mitchellh/hashstructure
 func hashQuery(q event.Query) [32]byte {
 	return sha256.Sum256([]byte(fmt.Sprintf("%v", q)))
+}
+
+func eventStream(ctx context.Context, events []event.Event) (<-chan event.Event, <-chan error) {
+	out := make(chan event.Event)
+	errs := make(chan error)
+	go func() {
+		defer close(out)
+		defer close(errs)
+		for _, evt := range events {
+			select {
+			case <-ctx.Done():
+				return
+			case out <- evt:
+			}
+		}
+	}()
+	return out, errs
 }
