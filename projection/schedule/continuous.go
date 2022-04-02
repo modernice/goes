@@ -192,7 +192,6 @@ func (schedule *Continuous) handleEvents(
 			sub,
 			eventstore.New(events...),
 			query.New(query.SortBy(event.SortTime, event.SortAsc)),
-			projection.WithHistoryStore(schedule.store),
 		)
 
 		select {

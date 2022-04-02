@@ -113,10 +113,6 @@ type job struct {
 	filter      []event.Query
 	reset       bool
 	cache       *queryCache
-
-	// Store that is used for projections that implement HistoryDependent, if
-	// their RequiresFullHistory method returns true.
-	historyStore event.Store
 }
 
 // WithFilter returns a JobOption that adds queries as filters to the Job.
@@ -155,15 +151,6 @@ func WithAggregateQuery(q event.Query) JobOption {
 func WithBeforeEvent(fns ...func(context.Context, event.Event) ([]event.Event, error)) JobOption {
 	return func(j *job) {
 		j.beforeEvent = append(j.beforeEvent, fns...)
-	}
-}
-
-// WithHistoryStore returns a JobOption that provides the projection job with an
-// event store that is used to query events for projections that require the
-// full event history to build the projection state.
-func WithHistoryStore(store event.Store) JobOption {
-	return func(j *job) {
-		j.historyStore = store
 	}
 }
 
@@ -267,25 +254,7 @@ func (j *job) EventsFor(ctx context.Context, target EventApplier[any]) (<-chan e
 		}
 	}
 
-	if hp, ok := target.(HistoryDependent); ok && hp.RequiresFullHistory() {
-		if j.historyStore == nil {
-			return nil, nil, fmt.Errorf("projection requires full history, but job has no history event store")
-		}
-
-		str, errs, err := j.queryHistory(ctx, j.query)
-		if err != nil {
-			return str, errs, fmt.Errorf("query history: %w", err)
-		}
-
-		return event.Filter(str), errs, nil
-	}
-
 	return j.queryEvents(ctx, q)
-}
-
-// TODO(bounoable): Actually run the query only once.
-func (j *job) queryHistory(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
-	return j.historyStore.Query(ctx, j.query)
 }
 
 func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate.Ref, <-chan error, error) {

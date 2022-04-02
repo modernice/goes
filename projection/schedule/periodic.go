@@ -116,7 +116,6 @@ func (schedule *Periodic) handleTicker(
 					query.Name(schedule.eventNames...),
 					query.SortByAggregate(),
 				),
-				projection.WithHistoryStore(schedule.store),
 			)
 
 			select {

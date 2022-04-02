@@ -139,7 +139,6 @@ func (schedule *schedule) handleTriggers(
 			return
 		case trigger := <-triggers:
 			opts := []projection.JobOption{
-				projection.WithHistoryStore(schedule.store),
 				projection.WithFilter(trigger.Filter...),
 			}
 
@@ -193,7 +192,6 @@ func (schedule *schedule) triggerStartupJob(ctx context.Context, sub projection.
 		sub,
 		schedule.store,
 		sub.Startup.Query,
-		projection.WithHistoryStore(schedule.store),
 	):
 	}
 }
