@@ -2,10 +2,9 @@ package streams
 
 import "context"
 
-// New returns a channel of the provided variadic type and fills it with the
-// provided elements. The channel is closed after all elements have been pushed
-// into the channel.
-func New[T any](in ...T) <-chan T {
+// New returns a channel that is filled with the given values. The channel is
+// closed after all elements have been pushed into the channel.
+func New[T any](in []T) <-chan T {
 	out := make(chan T)
 	go func() {
 		defer close(out)

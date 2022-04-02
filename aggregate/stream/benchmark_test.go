@@ -143,7 +143,7 @@ L:
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		var as []aggregate.Aggregate
-		estr := streams.New(events...)
+		estr := streams.New(events)
 		b.StartTimer()
 
 		str, errs := stream.New(context.Background(), estr, opts...)

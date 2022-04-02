@@ -32,7 +32,7 @@ func IgnoreProgress() ApplyOption {
 // If the projection implements ProgressAware, the time of the last applied
 // event is applied to the projection by calling proj.SetProgress(evt).
 func Apply(proj EventApplier[any], events []event.Event, opts ...ApplyOption) {
-	ApplyStream(proj, streams.New(events...), opts...)
+	ApplyStream(proj, streams.New(events), opts...)
 }
 
 // ApplyStream applies events onto the given projection.
