@@ -58,7 +58,9 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 //
 // When the schedule is triggered by calling schedule.Trigger, a projection Job
 // will be created and passed to apply.
-func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.Job) error) (<-chan error, error) {
+func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.Job) error, opts ...projection.SubscribeOption) (<-chan error, error) {
+	cfg := projection.NewSubscription(opts...)
+
 	ticker := time.NewTicker(schedule.interval)
 
 	out := make(chan error)
@@ -74,14 +76,20 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() {
-		wg.Wait()
-		close(jobs)
-	}()
 
 	go schedule.handleTicker(ctx, ticker, jobs, out, &wg)
 	go schedule.handleTriggers(ctx, triggers, jobs, out, &wg)
 	go schedule.applyJobs(ctx, apply, jobs, out, done)
+
+	if cfg.Startup != nil {
+		wg.Add(1)
+		go schedule.triggerStartupJob(ctx, *cfg.Startup, jobs, &wg)
+	}
+
+	go func() {
+		wg.Wait()
+		close(jobs)
+	}()
 
 	return out, nil
 }

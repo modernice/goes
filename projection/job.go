@@ -101,6 +101,23 @@ type Job interface {
 // JobOption is a Job option.
 type JobOption func(*job)
 
+type job struct {
+	context.Context
+
+	query event.Query
+
+	// If provided, will be used within the `Aggregates()` and `Aggregate()` methods.
+	aggregateQuery event.Query
+
+	filter []event.Query
+	reset  bool
+	cache  *queryCache
+
+	// Store that is used for projections that implement HistoryDependent, if
+	// their RequiresFullHistory method returns true.
+	historyStore event.Store
+}
+
 // WithFilter returns a JobOption that adds queries as filters to the Job.
 // Fetched events are matched against every Query and only returned in the
 // result if they match all Queries.
@@ -117,6 +134,15 @@ func WithFilter(queries ...event.Query) JobOption {
 func WithReset() JobOption {
 	return func(j *job) {
 		j.reset = true
+	}
+}
+
+// WithAggregateQuery returns a JobOption that specifies the event query that is
+// used for the `Aggregates()` and `Aggregate()` methods of a job. If this
+// option is not provided, the main query of the job is used instead.
+func WithAggregateQuery(q event.Query) JobOption {
+	return func(j *job) {
+		j.aggregateQuery = q
 	}
 }
 
@@ -316,19 +342,6 @@ func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOp
 
 func (j *job) runQuery(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	return j.cache.run(ctx, q)
-}
-
-type job struct {
-	context.Context
-
-	query  event.Query
-	filter []event.Query
-	reset  bool
-	cache  *queryCache
-
-	// Store that is used for projections that implement HistoryDependent, if
-	// their RequiresFullHistory method returns true.
-	historyStore event.Store
 }
 
 type queryCache struct {

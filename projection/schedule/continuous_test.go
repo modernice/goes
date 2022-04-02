@@ -5,11 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
@@ -451,5 +454,68 @@ func TestContinuous_Trigger_Reset(t *testing.T) {
 
 	if proj.Foo != 0 {
 		t.Fatalf("Projection should have been reset")
+	}
+}
+
+func TestContinuous_Subscribe_Startup(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus := eventbus.New()
+	store := eventstore.New()
+
+	storeEvents := []event.Event{
+		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 1)).Any(),
+		event.New("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 1)).Any(),
+		event.New("foobar", test.FoobarEventData{}, event.Aggregate(uuid.New(), "foobar", 1)).Any(),
+	}
+
+	if err := store.Insert(ctx, storeEvents...); err != nil {
+		t.Fatalf("insert events: %v", err)
+	}
+
+	sch := schedule.Continuously(bus, store, []string{"foo", "bar", "baz", "foobar"})
+
+	queriedRefs := make(chan []aggregate.Ref)
+
+	errs, err := sch.Subscribe(ctx, func(ctx projection.Job) error {
+		str, errs, err := ctx.Aggregates(ctx)
+		if err != nil {
+			return err
+		}
+		refs, err := streams.Drain(ctx, str, errs)
+		if err != nil {
+			return err
+		}
+		queriedRefs <- refs
+		return nil
+	}, projection.Startup(projection.Query(query.New(query.Name("foo", "baz")))))
+	if err != nil {
+		t.Fatalf("Subscribe() failed with %q", err)
+	}
+
+	var refs []aggregate.Ref
+	select {
+	case <-time.After(3 * time.Second):
+		t.Fatalf("timed out. startup projection job not triggered?")
+	case err := <-errs:
+		t.Fatal(err)
+	case refs = <-queriedRefs:
+	}
+
+	if len(refs) != 2 {
+		t.Fatalf("projection job should return 2 aggregates; got %d", len(refs))
+	}
+
+L:
+	for _, name := range []string{"foo", "baz"} {
+		for _, ref := range refs {
+			if ref.Name == name {
+				continue L
+			}
+		}
+
+		t.Fatalf("projection job should return aggregate %q", name)
 	}
 }

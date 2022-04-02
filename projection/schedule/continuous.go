@@ -112,7 +112,9 @@ func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ..
 //
 // When the schedule is triggered by calling schedule.Trigger, a projection Job
 // will be created and passed to apply.
-func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection.Job) error) (<-chan error, error) {
+func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection.Job) error, opts ...projection.SubscribeOption) (<-chan error, error) {
+	cfg := projection.NewSubscription(opts...)
+
 	events, errs, err := schedule.bus.Subscribe(ctx, schedule.eventNames...)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to events: %w (Events=%v)", err, schedule.eventNames)
@@ -130,14 +132,20 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() {
-		wg.Wait()
-		close(jobs)
-	}()
 
 	go schedule.handleEvents(ctx, events, errs, jobs, out, &wg)
 	go schedule.handleTriggers(ctx, triggers, jobs, out, &wg)
 	go schedule.applyJobs(ctx, apply, jobs, out, done)
+
+	if cfg.Startup != nil {
+		wg.Add(1)
+		go schedule.triggerStartupJob(ctx, *cfg.Startup, jobs, &wg)
+	}
+
+	go func() {
+		wg.Wait()
+		close(jobs)
+	}()
 
 	return out, nil
 }
