@@ -1,6 +1,8 @@
 package streams
 
-import "context"
+import (
+	"context"
+)
 
 // New returns a channel that is filled with the given values. The channel is
 // closed after all elements have been pushed into the channel.
@@ -168,5 +170,49 @@ func Map[To, From any](ctx context.Context, in <-chan From, mapper func(From) To
 			}
 		}
 	}()
+	return out
+}
+
+// Before returns a new channel that is filled with the elements from the input
+// channel. Before sending an element into the returned channel, fn(el) is
+// called. The values returned by fn are first sent into the returned channel,
+// then the element from the input channel.
+//
+// If the input channel or fn is nil, the input channel is returned directly.
+func Before[Value any](in <-chan Value, fn func(Value) []Value) <-chan Value {
+	return BeforeContext(context.Background(), in, fn)
+}
+
+// BeforeContext returns a new channel that is filled with the elements from the
+// input channel. The returned channel is closed when the input channel is
+// closed, or when ctx is canceled. Before sending an element into the returned
+// channel, fn(el) is called. The values returned by fn are first sent into the
+// returned channel, then the element from the input channel.
+//
+// If the input channel or fn is nil, the input channel is returned directly.
+func BeforeContext[Value any](ctx context.Context, in <-chan Value, fn func(Value) []Value) <-chan Value {
+	if in == nil || fn == nil {
+		return in
+	}
+
+	out := make(chan Value)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case el, ok := <-in:
+				if !ok {
+					return
+				}
+				for _, v := range fn(el) {
+					out <- v
+				}
+				out <- el
+			}
+		}
+	}()
+
 	return out
 }

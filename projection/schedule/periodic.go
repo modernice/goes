@@ -77,13 +77,13 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go schedule.handleTicker(ctx, ticker, jobs, out, &wg)
+	go schedule.handleTicker(ctx, cfg, ticker, jobs, out, &wg)
 	go schedule.handleTriggers(ctx, triggers, jobs, out, &wg)
 	go schedule.applyJobs(ctx, apply, jobs, out, done)
 
 	if cfg.Startup != nil {
 		wg.Add(1)
-		go schedule.triggerStartupJob(ctx, *cfg.Startup, jobs, &wg)
+		go schedule.triggerStartupJob(ctx, cfg, jobs, &wg)
 	}
 
 	go func() {
@@ -96,6 +96,7 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 
 func (schedule *Periodic) handleTicker(
 	ctx context.Context,
+	sub projection.Subscription,
 	ticker *time.Ticker,
 	jobs chan<- projection.Job,
 	out chan<- error,
@@ -107,8 +108,9 @@ func (schedule *Periodic) handleTicker(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			job := projection.NewJob(
+			job := schedule.newJob(
 				ctx,
+				sub,
 				schedule.store,
 				query.New(
 					query.Name(schedule.eventNames...),

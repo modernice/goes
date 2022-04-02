@@ -178,21 +178,28 @@ func (schedule *schedule) applyJobs(
 	}
 }
 
-func (schedule *schedule) triggerStartupJob(ctx context.Context, trigger projection.Trigger, jobs chan<- projection.Job, wg *sync.WaitGroup) {
+func (schedule *schedule) triggerStartupJob(ctx context.Context, sub projection.Subscription, jobs chan<- projection.Job, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	if trigger.Query == nil {
+	if sub.Startup == nil || sub.Startup.Query == nil {
 		log.Printf("[goes/projection/schedule.schedule@triggerStartupJob] no query specified for startup trigger; startup job disabled")
 		return
 	}
 
 	select {
 	case <-ctx.Done():
-	case jobs <- projection.NewJob(
+	case jobs <- schedule.newJob(
 		ctx,
+		sub,
 		schedule.store,
-		trigger.Query,
+		sub.Startup.Query,
 		projection.WithHistoryStore(schedule.store),
 	):
 	}
+}
+
+func (schedule *schedule) newJob(ctx context.Context, sub projection.Subscription, store event.Store, q event.Query, opts ...projection.JobOption) projection.Job {
+	return projection.NewJob(ctx, store, q, append([]projection.JobOption{
+		projection.WithBeforeEvent(sub.BeforeEvent...),
+	}, opts...)...)
 }

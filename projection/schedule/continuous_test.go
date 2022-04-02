@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
@@ -517,5 +518,65 @@ L:
 		}
 
 		t.Fatalf("projection job should return aggregate %q", name)
+	}
+}
+
+func TestContinuous_Subscribe_BeforeEvent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus := eventbus.New()
+	store := eventstore.New()
+
+	mainEvents := []event.Event{
+		event.New("foo", test.FooEventData{}).Any(),
+		event.New("bar", test.BarEventData{}).Any(),
+		event.New("baz", test.BazEventData{}).Any(),
+	}
+
+	addEvents := []event.Event{
+		event.New("foobar", test.FoobarEventData{}).Any(),
+		event.New("bar", test.BarEventData{}).Any(),
+	}
+
+	sch := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(200*time.Millisecond))
+
+	queriedEvents := make(chan []event.Event)
+	errs, err := sch.Subscribe(ctx, func(ctx projection.Job) error {
+		str, errs, err := ctx.Events(ctx)
+		events, err := streams.Drain(ctx, str, errs)
+		if err != nil {
+			return err
+		}
+		queriedEvents <- events
+		return nil
+	}, projection.BeforeEvent(func(context.Context, event.Event) ([]event.Event, error) {
+		return addEvents, nil
+	}, "foo", "baz"))
+	if err != nil {
+		t.Fatalf("Subscribe() failed with %q", err)
+	}
+
+	if err := bus.Publish(ctx, mainEvents...); err != nil {
+		t.Fatalf("publish events: %v", err)
+	}
+
+	var events []event.Event
+	select {
+	case <-time.After(3 * time.Second):
+		t.Fatalf("timed out")
+	case err := <-errs:
+		t.Fatal(err)
+	case events = <-queriedEvents:
+	}
+
+	want := append(append(addEvents, mainEvents[:2]...), append(addEvents, mainEvents[2])...)
+
+	if len(events) != len(want) {
+		t.Fatalf("projection job should return %d events; got %d", len(want), len(events))
+	}
+
+	if !cmp.Equal(want, events) {
+		t.Fatalf("projection job returned wrong events\n%s", cmp.Diff(want, events))
 	}
 }

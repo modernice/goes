@@ -117,7 +117,7 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 
 	events, errs, err := schedule.bus.Subscribe(ctx, schedule.eventNames...)
 	if err != nil {
-		return nil, fmt.Errorf("subscribe to events: %w (Events=%v)", err, schedule.eventNames)
+		return nil, fmt.Errorf("subscribe to %v events: %w", schedule.eventNames, err)
 	}
 
 	out := make(chan error)
@@ -133,13 +133,13 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go schedule.handleEvents(ctx, events, errs, jobs, out, &wg)
+	go schedule.handleEvents(ctx, cfg, events, errs, jobs, out, &wg)
 	go schedule.handleTriggers(ctx, triggers, jobs, out, &wg)
 	go schedule.applyJobs(ctx, apply, jobs, out, done)
 
 	if cfg.Startup != nil {
 		wg.Add(1)
-		go schedule.triggerStartupJob(ctx, *cfg.Startup, jobs, &wg)
+		go schedule.triggerStartupJob(ctx, cfg, jobs, &wg)
 	}
 
 	go func() {
@@ -152,6 +152,7 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 
 func (schedule *Continuous) handleEvents(
 	ctx context.Context,
+	sub projection.Subscription,
 	events <-chan event.Event,
 	errs <-chan error,
 	jobs chan<- projection.Job,
@@ -186,8 +187,9 @@ func (schedule *Continuous) handleEvents(
 		events := make([]event.Event, len(buf))
 		copy(events, buf)
 
-		job := projection.NewJob(
+		job := schedule.newJob(
 			ctx,
+			sub,
 			eventstore.New(events...),
 			query.New(query.SortBy(event.SortTime, event.SortAsc)),
 			projection.WithHistoryStore(schedule.store),
