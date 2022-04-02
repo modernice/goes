@@ -167,8 +167,9 @@ func (j *job) EventsFor(ctx context.Context, target EventApplier[any]) (<-chan e
 	var filter []event.Query
 
 	if progressor, isProgressor := target.(ProgressAware); isProgressor {
-		if progress := progressor.Progress(); !progress.IsZero() {
-			filter = append(filter, query.New(query.Time(time.After(progress))))
+		progressTime, _ := progressor.Progress()
+		if !progressTime.IsZero() {
+			filter = append(filter, query.New(query.Time(time.After(progressTime))))
 		}
 	}
 
@@ -277,21 +278,31 @@ func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOp
 		}
 	}
 
-	str, errs, err := j.EventsFor(ctx, proj)
+	events, errs, err := j.EventsFor(ctx, proj)
 	if err != nil {
-		return fmt.Errorf("fetch Events: %w", err)
+		return fmt.Errorf("fetch events: %w", err)
 	}
 
-	events, err := streams.Drain(ctx, str, errs)
-	if err != nil {
-		return fmt.Errorf("drain Events: %w", err)
-	}
+	done := make(chan struct{})
 
-	if err := Apply(proj, events, opts...); err != nil {
-		return fmt.Errorf("apply events onto Projection: %w", err)
-	}
+	go func() {
+		defer close(done)
+		ApplyStream(proj, events, opts...)
+	}()
 
-	return nil
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err, ok := <-errs:
+			if ok {
+				return err
+			}
+			errs = nil
+		case <-done:
+			return nil
+		}
+	}
 }
 
 func (j *job) runQuery(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {

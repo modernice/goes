@@ -3,6 +3,7 @@ package projection
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 )
@@ -14,49 +15,59 @@ type EventApplier[Data any] interface {
 }
 
 // A ProgressAware projection keeps track of its projection progress in terms of
-// the time of the last applied event.
+// the time and ids of the last applied events. When applying events onto a
+// projection with projection.Apply(), only those events with a later time than
+// the current progress time are applied to the projection.
 //
 // *Progressor implements ProgressAware, and can be embedded in your projections.
-//
-// The current progress of a projection is the Time of the last applied event.
-// A projection that provides its projection progress only receives events with
-// a Time that is after the current progress Time.
 type ProgressAware interface {
-	// Progress returns the projection's progress as the Time of the last
-	// applied event.
-	Progress() time.Time
+	// Progress returns the projection progress in terms of the time of the last
+	// applied events and the id's of those events. In most cases, Progress()
+	// should only a single event id. Multiple event ids should be returned if
+	// more than one event was applied at the returned time.
+	Progress() (time.Time, []uuid.UUID)
 
-	// SetProgress sets the progress of the projection to the provided Time.
-	SetProgress(time.Time)
+	// SetProgress sets the projection progress in terms of the time of the last
+	// applied event. The ids of the last applied events should be provided to
+	// SetProgress().
+	SetProgress(time.Time, ...uuid.UUID)
 }
 
-// Progressor can be embedded into a projection to implement the ProgressAware API.
+// Progressor can be embedded into a projection to implement ProgressAware.
 type Progressor struct {
-	LatestEventTime int64
+	// Time of the last applied events as elapsed nanoseconds since January 1, 1970 UTC.
+	LastEventTime int64
+
+	// LastEvents are the ids of last applied events that have LastEventTime as their time.
+	LastEvents []uuid.UUID
 }
 
 // NewProgressor returns a new *Progressor that can be embeded into a projection
 // to implement the ProgressAware API.
 func NewProgressor() *Progressor {
-	return &Progressor{}
+	return &Progressor{LastEvents: make([]uuid.UUID, 0)}
 }
 
-// Progress returns the projection progress in terms of the time of the latest
-// applied event. If p.LatestEventTime is 0, the zero Time is returned.
-func (p *Progressor) Progress() time.Time {
-	if p.LatestEventTime == 0 {
-		return time.Time{}
+// Progress returns the projection progress in terms of the time and ids of the
+// last applied events. If p.LastEventTime is 0, the zero Time is returned.
+func (p *Progressor) Progress() (time.Time, []uuid.UUID) {
+	var t time.Time
+	if p.LastEventTime > 0 {
+		t = time.Unix(0, p.LastEventTime)
 	}
-	return time.Unix(0, p.LatestEventTime)
+	return t, p.LastEvents
 }
 
-// SetProgress sets the projection progress as the time of the latest applied event.
-func (p *Progressor) SetProgress(t time.Time) {
+// SetProgress sets the projection progress as the time of the latest applied
+// event. The ids of the applied events that have the given time should be
+// provided.
+func (p *Progressor) SetProgress(t time.Time, ids ...uuid.UUID) {
+	p.LastEvents = ids
 	if t.IsZero() {
-		p.LatestEventTime = 0
-		return
+		p.LastEventTime = 0
+	} else {
+		p.LastEventTime = t.UnixNano()
 	}
-	p.LatestEventTime = t.UnixNano()
 }
 
 // A Resetter is a projection that can reset its state. projections that

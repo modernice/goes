@@ -367,9 +367,7 @@ func TestWithReset(t *testing.T) {
 
 	proj := projectiontest.NewMockResetProjection(3)
 
-	if err := projection.Apply(proj, storeEvents); err != nil {
-		t.Fatalf("Apply failed with %q", err)
-	}
+	projection.Apply(proj, storeEvents)
 
 	job := projection.NewJob(ctx, store, query.New(query.SortBy(event.SortTime, event.SortAsc)), projection.WithReset())
 
@@ -379,7 +377,7 @@ func TestWithReset(t *testing.T) {
 
 	test.AssertEqualEvents(t, proj.AppliedEvents, storeEvents)
 
-	got := proj.Progress()
+	got, _ := proj.Progress()
 	want := storeEvents[6].Time()
 	if !got.Equal(want) {
 		log.Printf("\n%#v\n\n%#v", want, got)

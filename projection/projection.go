@@ -1,17 +1,11 @@
 package projection
 
 import (
-	"errors"
-	"fmt"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
-)
-
-var (
-	// ErrProgressed is returned when trying to apply an event onto a projection
-	// that has a progress Time that is after the Time of the event.
-	ErrProgressed = errors.New("projection already progressed")
 )
 
 // ApplyOption is an option for Apply.
@@ -32,51 +26,63 @@ func IgnoreProgress() ApplyOption {
 
 // Apply applies events onto the given projection.
 //
-// If the projection implements Guard, proj.GuardProjection(evt) is/ called for
+// If the projection implements Guard, proj.GuardProjection(evt) is called for
 // every event to determine if the event should be applied onto the projection.
 //
 // If the projection implements ProgressAware, the time of the last applied
 // event is applied to the projection by calling proj.SetProgress(evt).
-func Apply(proj EventApplier[any], events []event.Event, opts ...ApplyOption) error {
-	return ApplyStream(proj, streams.New(events...), opts...)
+func Apply(proj EventApplier[any], events []event.Event, opts ...ApplyOption) {
+	ApplyStream(proj, streams.New(events...), opts...)
 }
 
 // ApplyStream applies events onto the given projection.
 //
-// If the projection implements Guard, proj.GuardProjection(evt) is/ called for
+// If the projection implements Guard, proj.GuardProjection(evt) is called for
 // every event to determine if the event should be applied onto the projection.
 //
 // If the projection implements ProgressAware, the time of the last applied
 // event is applied to the projection by calling proj.SetProgress(evt).
-func ApplyStream(proj EventApplier[any], events <-chan event.Event, opts ...ApplyOption) error {
+func ApplyStream(proj EventApplier[any], events <-chan event.Event, opts ...ApplyOption) {
 	cfg := newApplyConfig(opts...)
 
 	progressor, isProgressor := proj.(ProgressAware)
 	guard, hasGuard := proj.(Guard)
 
-	var lastEvent event.Event
+	var lastEventTime time.Time
+	var lastEvents []uuid.UUID
 	for evt := range events {
 		if hasGuard && !guard.GuardProjection(evt) {
 			continue
 		}
 
 		if isProgressor && !cfg.ignoreProgress {
-			if progress := progressor.Progress(); !progress.IsZero() && !progress.Before(evt.Time()) {
-				return fmt.Errorf("apply event with time %v: %w", evt.Time(), ErrProgressed)
+			progress, _ := progressor.Progress()
+
+			if !progress.IsZero() && !progress.Before(evt.Time()) {
+				continue
 			}
 		}
 
 		proj.ApplyEvent(evt)
-		lastEvent = evt
-	}
 
-	if isProgressor && lastEvent != nil {
-		if progress := lastEvent.Time(); progressor.Progress().Before(progress) {
-			progressor.SetProgress(progress)
+		// Avoid unnecessary computations.
+		if !isProgressor {
+			continue
 		}
+
+		if !lastEventTime.IsZero() && lastEventTime.Equal(evt.Time()) {
+			lastEvents = append(lastEvents, evt.ID())
+			continue
+		}
+
+		lastEventTime = evt.Time()
+		lastEvents = lastEvents[:0]
+		lastEvents = append(lastEvents, evt.ID())
 	}
 
-	return nil
+	if isProgressor && !lastEventTime.IsZero() {
+		progressor.SetProgress(lastEventTime, lastEvents...)
+	}
 }
 
 func newApplyConfig(opts ...ApplyOption) applyConfig {
