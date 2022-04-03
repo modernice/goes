@@ -56,7 +56,7 @@ type Job interface {
 	//	str, errs, err := job.EventsFor(job, proj)
 	//	// handle err
 	//	events, err := streams.Drain(job, str, errs)
-	EventsFor(context.Context, EventApplier[any]) (<-chan event.Event, <-chan error, error)
+	EventsFor(context.Context, Target[any]) (<-chan event.Event, <-chan error, error)
 
 	// Aggregates extracts the aggregates of the job's events as aggregate
 	// references. If aggregate names are provided, only references that have
@@ -78,7 +78,7 @@ type Job interface {
 	// Apply applies the Job onto the projection. It applies the events that
 	// would be returned by EventsFor(). A job may be applied concurrently to
 	// multiple projections.
-	Apply(context.Context, EventApplier[any], ...ApplyOption) error
+	Apply(context.Context, Target[any], ...ApplyOption) error
 }
 
 // JobOption is a Job option.
@@ -223,7 +223,7 @@ func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan eve
 	return j.Events(ctx, query.New(query.AggregateName(aggregateName...)))
 }
 
-func (j *job) EventsFor(ctx context.Context, target EventApplier[any]) (<-chan event.Event, <-chan error, error) {
+func (j *job) EventsFor(ctx context.Context, target Target[any]) (<-chan event.Event, <-chan error, error) {
 	q := j.query
 
 	if progressor, isProgressor := target.(ProgressAware); isProgressor {
@@ -315,18 +315,18 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	return id, nil
 }
 
-func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOption) error {
+func (j *job) Apply(ctx context.Context, target Target[any], opts ...ApplyOption) error {
 	if j.reset {
-		if progressor, isProgressor := proj.(ProgressAware); isProgressor {
+		if progressor, isProgressor := target.(ProgressAware); isProgressor {
 			progressor.SetProgress(stdtime.Time{})
 		}
 
-		if resetter, isResetter := proj.(Resetter); isResetter {
+		if resetter, isResetter := target.(Resetter); isResetter {
 			resetter.Reset()
 		}
 	}
 
-	events, errs, err := j.EventsFor(ctx, proj)
+	events, errs, err := j.EventsFor(ctx, target)
 	if err != nil {
 		return fmt.Errorf("fetch events: %w", err)
 	}
@@ -335,7 +335,7 @@ func (j *job) Apply(ctx context.Context, proj EventApplier[any], opts ...ApplyOp
 
 	go func() {
 		defer close(done)
-		ApplyStream(proj, events, opts...)
+		ApplyStream(target, events, opts...)
 	}()
 
 	for {

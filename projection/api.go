@@ -8,9 +8,12 @@ import (
 	"github.com/modernice/goes/event/query"
 )
 
-// EventApplier should be implemented by projections. It is the main projection
-// interface and is used to apply events onto the projection.
-type EventApplier[Data any] interface {
+// Target is a projection target. Projections must implement this interface to
+// be used within goes' projection system.
+//
+// *Base implements Target, and can be embedded into projections to implement
+// this interface.
+type Target[Data any] interface {
 	ApplyEvent(event.Of[Data])
 }
 

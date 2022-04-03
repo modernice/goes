@@ -31,7 +31,7 @@ func IgnoreProgress() ApplyOption {
 //
 // If the projection implements ProgressAware, the time of the last applied
 // event is applied to the projection by calling proj.SetProgress(evt).
-func Apply(proj EventApplier[any], events []event.Event, opts ...ApplyOption) {
+func Apply(proj Target[any], events []event.Event, opts ...ApplyOption) {
 	ApplyStream(proj, streams.New(events), opts...)
 }
 
@@ -42,11 +42,11 @@ func Apply(proj EventApplier[any], events []event.Event, opts ...ApplyOption) {
 //
 // If the projection implements ProgressAware, the time of the last applied
 // event is applied to the projection by calling proj.SetProgress(evt).
-func ApplyStream(proj EventApplier[any], events <-chan event.Event, opts ...ApplyOption) {
+func ApplyStream(target Target[any], events <-chan event.Event, opts ...ApplyOption) {
 	cfg := newApplyConfig(opts...)
 
-	progressor, isProgressor := proj.(ProgressAware)
-	guard, hasGuard := proj.(Guard)
+	progressor, isProgressor := target.(ProgressAware)
+	guard, hasGuard := target.(Guard)
 
 	var lastEventTime time.Time
 	var lastEvents []uuid.UUID
@@ -59,7 +59,7 @@ func ApplyStream(proj EventApplier[any], events <-chan event.Event, opts ...Appl
 			continue
 		}
 
-		proj.ApplyEvent(evt)
+		target.ApplyEvent(evt)
 
 		// Avoid unnecessary computations.
 		if !isProgressor {
