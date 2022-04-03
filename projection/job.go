@@ -250,7 +250,8 @@ func (j *job) EventsFor(ctx context.Context, target EventApplier[any]) (<-chan e
 			// events? Because multiple events can have the same time, and we
 			// want to ensure that we don't accidentally exclude events that
 			// haven't been applied yet. The Apply and ApplyStream functions
-			// ensure that an event is not applied twice to a projection.
+			// ensure that an event is not applied twice to a projection that
+			// implements ProgressAware.
 			q = query.Merge(q, query.New(query.Time(
 				time.After(progressTime.Add(-stdtime.Nanosecond))),
 			))
