@@ -2,7 +2,6 @@ package schedule
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -10,8 +9,6 @@ import (
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/projection"
 )
-
-var errMissingStartupQuery = errors.New("no query specified for startup trigger; startup job disabled")
 
 type schedule struct {
 	store      event.Store
@@ -180,15 +177,20 @@ func (schedule *schedule) applyStartupJob(
 	jobs chan<- projection.Job,
 	apply func(projection.Job) error,
 ) error {
-	if sub.Startup == nil || sub.Startup.Query == nil {
-		return errMissingStartupQuery
+	if sub.Startup == nil {
+		return nil
+	}
+
+	q := sub.Startup.Query
+	if q == nil {
+		q = query.New(query.Name(schedule.eventNames...))
 	}
 
 	return apply(schedule.newJob(
 		ctx,
 		sub,
 		schedule.store,
-		sub.Startup.Query,
+		q,
 		sub.Startup.JobOptions()...,
 	))
 }
