@@ -116,7 +116,7 @@ func (schedule *Periodic) handleTicker(
 				schedule.store,
 				query.New(
 					query.Name(schedule.eventNames...),
-					query.SortByAggregate(),
+					query.SortByTime(),
 				),
 			)
 

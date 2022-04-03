@@ -107,7 +107,7 @@ func (schedule *schedule) newTriggers() <-chan projection.Trigger {
 func (schedule *schedule) newTrigger(opts ...projection.TriggerOption) projection.Trigger {
 	t := projection.NewTrigger(opts...)
 	if t.Query == nil {
-		t.Query = query.New(query.Name(schedule.eventNames...), query.SortBy(event.SortTime, event.SortAsc))
+		t.Query = query.New(query.Name(schedule.eventNames...), query.SortByTime())
 	}
 	return t
 }
@@ -140,7 +140,7 @@ func (schedule *schedule) handleTriggers(
 		case trigger := <-triggers:
 			q := trigger.Query
 			if q == nil {
-				q = query.New(query.Name(schedule.eventNames...))
+				q = query.New(query.Name(schedule.eventNames...), query.SortByTime())
 			}
 			select {
 			case <-ctx.Done():
@@ -183,7 +183,7 @@ func (schedule *schedule) applyStartupJob(
 
 	q := sub.Startup.Query
 	if q == nil {
-		q = query.New(query.Name(schedule.eventNames...))
+		q = query.New(query.Name(schedule.eventNames...), query.SortByTime())
 	}
 
 	return apply(schedule.newJob(
