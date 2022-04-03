@@ -28,29 +28,19 @@ var (
 type Job interface {
 	context.Context
 
-	// Events fetches all events that match the Job's Query and returns an Event
-	// channel and a channel of asynchronous query errors.
+	// Events queries the events of the job. Any provided filters are applied
+	// in-memory to the query result.
 	//
 	//	var job Job
 	//	str, errs, err := job.Events(job)
 	//	// handle err
 	//	events, err := streams.Drain(job, str, errs)
 	//
-	// Optional Queries may be provided as filters for the fetched events. If
-	// filters are provided, the returned event channel will only receive Events
-	// that match all provided Queries:
-	//
-	//	var job Job
-	//	str, errs, err := job.Events(job, query.New(query.Name("foo")), query.New(...))
-	//	// handle err
-	//	events, err := streams.Drain(job, str, errs)
-	//
-	// If you need the events for a specific projection, use EventsFor instead.
+	// If you need the events that would be applied onto a given projection,
+	// call EventsFor() instead.
 	Events(_ context.Context, filters ...event.Query) (<-chan event.Event, <-chan error, error)
 
-	// EventsOf fetches all events that belong to aggregates that have one of
-	// aggregateNames and returns an event channel and a channel of asynchronous
-	// query errors.
+	// EventsOf queries the events that belong to one of the given aggregate names.
 	//
 	//	var job Job
 	//	str, errs, err := job.EventsOf(job, "foo", "bar", "baz")
@@ -58,13 +48,8 @@ type Job interface {
 	//	events, err := streams.Drain(job, str, errs)
 	EventsOf(_ context.Context, aggregateNames ...string) (<-chan event.Event, <-chan error, error)
 
-	// EventsFor fetches all events that are appropriate for the given
-	// Projection and returns an event channel and a channel of asynchronous
-	// query errors. Which events are queried depends on the projection: If the
-	// Projection implements guard (or embeds Guard), the Guard's Query is added
-	// as a filter when querying events. If the projection implements progressor
-	// (or embeds *Progressor), the progress time of the projection is used to
-	// only query events that happened after that time.
+	// EventsFor queries the events that would be applied onto the given
+	// projection when calling Apply().
 	//
 	//	var job Job
 	//	var proj projection.Projection
@@ -73,14 +58,10 @@ type Job interface {
 	//	events, err := streams.Drain(job, str, errs)
 	EventsFor(context.Context, EventApplier[any]) (<-chan event.Event, <-chan error, error)
 
-	// Aggregates returns a channel of aggregate Tuples and a channel of
-	// asynchronous query errors. It fetches events, extracts the Tuples from
-	// those events and pushes them into the returned Tuple channel. Every
-	// unique Tuple is guarenteed to be received exactly once, even if there are
-	// muliple events that belong to the same aggregate.
-	//
-	// If aggregateNames are provided, they are used to query only events that
-	// belong to one of the given aggregates.
+	// Aggregates extracts the aggregates of the job's events as aggregate
+	// references. If aggregate names are provided, only references that have
+	// one of the given names are returned. References are deduplicated, so each
+	// of the returned references is unique.
 	//
 	//	var job Job
 	//	str, errs, err := job.Aggregates(job, "foo", "bar", "baz")
@@ -88,13 +69,15 @@ type Job interface {
 	//	events, err := streams.Drain(job, str, errs)
 	Aggregates(_ context.Context, aggregateNames ...string) (<-chan aggregate.Ref, <-chan error, error)
 
-	// Aggregate returns the UUID of the first aggregate with the given
-	// aggregateName that can be found in the events of the Job, or
-	// ErrAggregateNotFound if no event belongs to an aggregate with that name.
+	// Aggregate returns the id of the first aggregate with the given name that
+	// can be extracted from the events of the job. If no event that belongs to
+	// this kind of aggregate can be found, an error that satisfies
+	// errors.Is(err, ErrAggregateNotFound) is returned.
 	Aggregate(_ context.Context, aggregateName string) (uuid.UUID, error)
 
-	// Apply applies the Job onto the projection. A Job may be applied onto as
-	// many projections as needed.
+	// Apply applies the Job onto the projection. It applies the events that
+	// would be returned by EventsFor(). A job may be applied concurrently to
+	// multiple projections.
 	Apply(context.Context, EventApplier[any], ...ApplyOption) error
 }
 
