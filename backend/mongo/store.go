@@ -11,6 +11,7 @@ import (
 	stdtime "time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/backend/mongo/indices"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
@@ -24,13 +25,14 @@ import (
 
 // EventStore is the MongoDB event.Store.
 type EventStore struct {
-	enc              codec.Encoding
-	url              string
-	dbname           string
-	entriesCol       string
-	statesCol        string
-	transactions     bool
-	validateVersions bool
+	enc               codec.Encoding
+	url               string
+	dbname            string
+	entriesCol        string
+	statesCol         string
+	transactions      bool
+	validateVersions  bool
+	additionalIndices []mongo.IndexModel
 
 	client  *mongo.Client
 	db      *mongo.Database
@@ -169,6 +171,15 @@ func Transactions(tx bool) EventStoreOption {
 func ValidateVersions(v bool) EventStoreOption {
 	return func(s *EventStore) {
 		s.validateVersions = v
+	}
+}
+
+// WithIndices returns an EventStoreOption that creates additional indices for
+// the event collection. Can be used to create builtin edge-case indices:
+//	WithIndices(indices.EventStore.NameAndVersion)
+func WithIndices(models ...mongo.IndexModel) EventStoreOption {
+	return func(s *EventStore) {
+		s.additionalIndices = append(s.additionalIndices, models...)
 	}
 }
 
@@ -574,56 +585,9 @@ func (s *EventStore) connect(ctx context.Context, opts ...*options.ClientOptions
 }
 
 func (s *EventStore) ensureIndexes(ctx context.Context) error {
-	// TODO: make indexes configurable
-
-	if _, err := s.entries.Indexes().CreateMany(ctx, []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "id", Value: 1}},
-			Options: options.Index().SetName("goes_id").SetUnique(true),
-		},
-		{
-			Keys:    bson.D{{Key: "name", Value: 1}},
-			Options: options.Index().SetName("goes_name"),
-		},
-		{
-			Keys:    bson.D{{Key: "time", Value: 1}},
-			Options: options.Index().SetName("goes_time"),
-		},
-		{
-			Keys:    bson.D{{Key: "timeNano", Value: 1}},
-			Options: options.Index().SetName("goes_time_nano"),
-		},
-		{
-			Keys:    bson.D{{Key: "aggregateName", Value: 1}},
-			Options: options.Index().SetName("goes_aggregate_name"),
-		},
-		{
-			Keys:    bson.D{{Key: "aggregateId", Value: 1}},
-			Options: options.Index().SetName("goes_aggregate_id"),
-		},
-		{
-			Keys:    bson.D{{Key: "aggregateVersion", Value: 1}},
-			Options: options.Index().SetName("goes_aggregate_version"),
-		},
-		{
-			Keys: bson.D{
-				{Key: "aggregateName", Value: 1},
-				{Key: "aggregateId", Value: 1},
-				{Key: "aggregateVersion", Value: 1},
-			},
-			Options: options.Index().SetUnique(true).SetPartialFilterExpression(
-				bson.D{
-					{Key: "aggregateName", Value: bson.D{{Key: "$gt", Value: ""}}},
-					{Key: "aggregateId", Value: bson.D{{Key: "$gt", Value: uuid.UUID{}}}},
-					{Key: "aggregateVersion", Value: bson.D{{Key: "$gt", Value: 0}}},
-				},
-			),
-		},
-	}); err != nil {
-		return fmt.Errorf("create indexes (%s): %w", s.entries.Name(), err)
-	}
-
-	return nil
+	models := append(indices.EventStoreCore(), s.additionalIndices...)
+	_, err := s.entries.Indexes().CreateMany(ctx, models)
+	return err
 }
 
 func (e entry) event(enc codec.Encoding) (event.Event, error) {
