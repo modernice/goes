@@ -76,15 +76,17 @@ type Query interface {
 	// AggregateVersions returns the version.Constraints for the query.
 	AggregateVersions() version.Constraints
 
-	// Aggregates returns a list of specific aggregates (name & ID pairs) to
-	// query for. If an aggregateRef has a nil-UUID, every Aggregate with the
-	// name of the tuple is queried.
+	// Aggregates returns a list of specific aggregates (name & id pairs) to
+	// query for. If an AggregateRef has a nil-UUID, every Aggregate with the
+	// given name is queried.
 	//
 	// Example:
 	//	id := uuid.New()
 	//	q := query.New(query.Aggregate("foo", id), query.Aggregate("bar", uuid.Nil))
 	//
-	// The above Query q allows "foo" aggregates with the UUID id and every "bar" Aggregate.
+	// The above query allows the "foo" aggregate with the specified id and
+	// every "bar" aggregate. Events that do not fulfill any of these two
+	// constraints will not be returned.
 	Aggregates() []AggregateRef
 
 	// Sorting returns the SortConfigs for the query.
