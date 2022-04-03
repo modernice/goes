@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -74,17 +75,18 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 		ticker.Stop()
 	}()
 
+	if cfg.Startup != nil {
+		if err := schedule.applyStartupJob(ctx, cfg, jobs, apply); err != nil {
+			return nil, fmt.Errorf("startup: %w", err)
+		}
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go schedule.handleTicker(ctx, cfg, ticker, jobs, out, &wg)
 	go schedule.handleTriggers(ctx, cfg, triggers, jobs, out, &wg)
 	go schedule.applyJobs(ctx, apply, jobs, out, done)
-
-	if cfg.Startup != nil {
-		wg.Add(1)
-		go schedule.triggerStartupJob(ctx, cfg, jobs, &wg)
-	}
 
 	go func() {
 		wg.Wait()

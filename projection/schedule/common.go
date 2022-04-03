@@ -2,14 +2,16 @@ package schedule
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/projection"
 )
+
+var errMissingStartupQuery = errors.New("no query specified for startup trigger; startup job disabled")
 
 type schedule struct {
 	store      event.Store
@@ -172,24 +174,23 @@ func (schedule *schedule) applyJobs(
 	}
 }
 
-func (schedule *schedule) triggerStartupJob(ctx context.Context, sub projection.Subscription, jobs chan<- projection.Job, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (schedule *schedule) applyStartupJob(
+	ctx context.Context,
+	sub projection.Subscription,
+	jobs chan<- projection.Job,
+	apply func(projection.Job) error,
+) error {
 	if sub.Startup == nil || sub.Startup.Query == nil {
-		log.Printf("[goes/projection/schedule.schedule@triggerStartupJob] no query specified for startup trigger; startup job disabled")
-		return
+		return errMissingStartupQuery
 	}
 
-	select {
-	case <-ctx.Done():
-	case jobs <- schedule.newJob(
+	return apply(schedule.newJob(
 		ctx,
 		sub,
 		schedule.store,
 		sub.Startup.Query,
 		sub.Startup.JobOptions()...,
-	):
-	}
+	))
 }
 
 func (schedule *schedule) newJob(ctx context.Context, sub projection.Subscription, store event.Store, q event.Query, opts ...projection.JobOption) projection.Job {

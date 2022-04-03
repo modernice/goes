@@ -97,7 +97,7 @@ func TestPeriodic_Subscribe_Startup(t *testing.T) {
 
 	sch := schedule.Periodically(store, 500*time.Millisecond, []string{"foo", "bar", "baz", "foobar"})
 
-	queriedRefs := make(chan []aggregate.Ref)
+	queriedRefs := make(chan []aggregate.Ref, 1)
 
 	subCtx, cancelSubscription := context.WithCancel(ctx)
 

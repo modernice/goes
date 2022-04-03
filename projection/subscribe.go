@@ -12,11 +12,6 @@ type SubscribeOption func(*Subscription)
 // Subscripion is the configuration for a subscription to a projection schedule.
 type Subscription struct {
 	// If provided, the projection schedule triggers a projection job on startup.
-	// The projection job's `Aggregates()` and `Aggregate()` helpers will use
-	// the query of this trigger to extract the aggregates from the event store.
-	// This allows to optimize the query performance of initial projection runs,
-	// which often times need to fetch all ids of specific aggregates from the
-	// event store in order to get all projections up-to-date.
 	Startup *Trigger
 
 	// BeforeEvent are the "before"-interceptors for the event streams created

@@ -478,7 +478,7 @@ func TestContinuous_Subscribe_Startup(t *testing.T) {
 
 	sch := schedule.Continuously(bus, store, []string{"foo", "bar", "baz", "foobar"})
 
-	queriedRefs := make(chan []aggregate.Ref)
+	queriedRefs := make(chan []aggregate.Ref, 1)
 
 	errs, err := sch.Subscribe(ctx, func(ctx projection.Job) error {
 		str, errs, err := ctx.Aggregates(ctx)

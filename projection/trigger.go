@@ -18,7 +18,10 @@ type Trigger struct {
 
 	// If provided, overrides the query that is used to extract events from a
 	// projection job. The `Aggregates()` and `Aggregate()` methods of a
-	// projection job will use this query.
+	// projection job will use this query. This allows to optimize the query
+	// performance of initial projection runs, which often times need to fetch
+	// all ids of specific aggregates from the event store in order to get all
+	// projections up-to-date.
 	AggregateQuery event.Query
 
 	// Additional filters that are applied in-memory to the query result of a
