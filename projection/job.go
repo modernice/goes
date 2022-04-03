@@ -234,6 +234,9 @@ func (j *job) applyBeforeEvent(ctx context.Context, events <-chan event.Event, e
 }
 
 func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan event.Event, <-chan error, error) {
+	if len(aggregateName) == 0 {
+		return j.Events(ctx)
+	}
 	return j.Events(ctx, query.New(query.AggregateName(aggregateName...)))
 }
 
@@ -264,14 +267,14 @@ func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate
 		err    error
 	)
 
-	if len(names) == 0 {
-		events, errs, err = j.Events(ctx)
+	if j.aggregateQuery != nil {
+		events, errs, err = j.queryEvents(ctx, j.aggregateQuery)
 	} else {
 		events, errs, err = j.EventsOf(ctx, names...)
 	}
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("fetch events: %w", err)
+		return nil, nil, fmt.Errorf("query events: %w", err)
 	}
 
 	out := make(chan aggregate.Ref)

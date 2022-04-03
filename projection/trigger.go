@@ -12,15 +12,21 @@ type Trigger struct {
 	// Reset projections before applying events.
 	Reset bool
 
-	// Override the Query that is used to query events from the event store.
+	// If provided, overrides the query that is used to fetch events that are
+	// applied onto projections.
 	Query event.Query
 
-	// Additional filters that are applied in-memory to the query result from
-	// the event store.
+	// If provided, overrides the query that is used to extract events from a
+	// projection job. The `Aggregates()` and `Aggregate()` methods of a
+	// projection job will use this query.
+	AggregateQuery event.Query
+
+	// Additional filters that are applied in-memory to the query result of a
+	// job's `EventsFor()` and `Apply()` methods.
 	Filter []event.Query
 }
 
-// NewTrigger returns a Trigger.
+// NewTrigger returns a projection trigger.
 func NewTrigger(opts ...TriggerOption) Trigger {
 	var t Trigger
 	for _, opt := range opts {
@@ -58,12 +64,27 @@ func Query(q event.Query) TriggerOption {
 	}
 }
 
+// AggregateQuery returns a TriggerOption that sets the AggregateQuery of a Trigger.
+//
+// The `Aggregates()` and `Aggregate()` methods of a projection job will use
+// this query to extract the aggregates from the projection job.
+//
+//	var s projection.Schedule
+//	err := s.Trigger(context.TODO(), projection.AggregateQuery(query.New(
+//		query.Name("foo", "bar"), // extract aggregates from "foo" and "bar" events
+//	)))
+func AggregateQuery(q event.Query) TriggerOption {
+	return func(t *Trigger) {
+		t.AggregateQuery = q
+	}
+}
+
 // Filter returns a TriggerOption that adds filters to a Trigger.
 //
-// Queried events can be further filtered using the `Filter` option. Filters
-// are applied in-memory, after the events have been fetched from the event
-// store. When multiple filters are configured, events must match against every
-// filter to be applied to projections. Sorting options of filters are ignored.
+// Filters are applied in-memory, after the events have been fetched from the
+// event store. When multiple filters are configured, events must match against
+// every filter to be applied to projections. Sorting options of queries are
+// ignored.
 //
 //	var s projection.Schedule
 //	err := s.Trigger(context.TODO(), projection.Filter(query.New(...), query.New(...)))
@@ -82,8 +103,26 @@ func (t Trigger) Options() []TriggerOption {
 	if t.Query != nil {
 		opts = append(opts, Query(t.Query))
 	}
+	if t.AggregateQuery != nil {
+		opts = append(opts, AggregateQuery(t.AggregateQuery))
+	}
 	if len(t.Filter) > 0 {
 		opts = append(opts, Filter(t.Filter...))
+	}
+	return opts
+}
+
+// JobOptions returns the options for a job that is triggered by this trigger.
+func (t Trigger) JobOptions() []JobOption {
+	var opts []JobOption
+	if t.Reset {
+		opts = append(opts, WithReset())
+	}
+	if t.AggregateQuery != nil {
+		opts = append(opts, WithAggregateQuery(t.AggregateQuery))
+	}
+	if len(t.Filter) > 0 {
+		opts = append(opts, WithFilter(t.Filter...))
 	}
 	return opts
 }

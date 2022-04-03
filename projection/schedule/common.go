@@ -126,6 +126,7 @@ func (schedule *schedule) removeTriggers(triggers <-chan projection.Trigger) {
 
 func (schedule *schedule) handleTriggers(
 	ctx context.Context,
+	sub projection.Subscription,
 	triggers <-chan projection.Trigger,
 	jobs chan<- projection.Job,
 	out chan<- error,
@@ -138,20 +139,14 @@ func (schedule *schedule) handleTriggers(
 		case <-ctx.Done():
 			return
 		case trigger := <-triggers:
-			opts := []projection.JobOption{
-				projection.WithFilter(trigger.Filter...),
+			q := trigger.Query
+			if q == nil {
+				q = query.New(query.Name(schedule.eventNames...))
 			}
-
-			if trigger.Reset {
-				opts = append(opts, projection.WithReset())
-			}
-
-			job := projection.NewJob(ctx, schedule.store, trigger.Query, opts...)
-
 			select {
 			case <-ctx.Done():
 				return
-			case jobs <- job:
+			case jobs <- schedule.newJob(ctx, sub, schedule.store, q, trigger.JobOptions()...):
 			}
 		}
 	}
@@ -192,6 +187,7 @@ func (schedule *schedule) triggerStartupJob(ctx context.Context, sub projection.
 		sub,
 		schedule.store,
 		sub.Startup.Query,
+		sub.Startup.JobOptions()...,
 	):
 	}
 }

@@ -134,7 +134,7 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 	wg.Add(2)
 
 	go schedule.handleEvents(ctx, cfg, events, errs, jobs, out, &wg)
-	go schedule.handleTriggers(ctx, triggers, jobs, out, &wg)
+	go schedule.handleTriggers(ctx, cfg, triggers, jobs, out, &wg)
 	go schedule.applyJobs(ctx, apply, jobs, out, done)
 
 	if cfg.Startup != nil {

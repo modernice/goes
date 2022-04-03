@@ -78,7 +78,7 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 	wg.Add(2)
 
 	go schedule.handleTicker(ctx, cfg, ticker, jobs, out, &wg)
-	go schedule.handleTriggers(ctx, triggers, jobs, out, &wg)
+	go schedule.handleTriggers(ctx, cfg, triggers, jobs, out, &wg)
 	go schedule.applyJobs(ctx, apply, jobs, out, done)
 
 	if cfg.Startup != nil {
