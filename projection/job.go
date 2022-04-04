@@ -252,7 +252,11 @@ func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate
 	)
 
 	if j.aggregateQuery != nil {
-		events, errs, err = j.queryEvents(ctx, j.aggregateQuery)
+		var filters []event.Query
+		if len(names) > 0 {
+			filters = append(filters, query.New(query.AggregateName(names...)))
+		}
+		events, errs, err = j.queryEvents(ctx, j.aggregateQuery, filters...)
 	} else {
 		events, errs, err = j.EventsOf(ctx, names...)
 	}
@@ -262,26 +266,26 @@ func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate
 	}
 
 	out := make(chan aggregate.Ref)
-	found := make(map[aggregate.Ref]bool)
+	found := make(map[aggregate.Ref]struct{})
 
 	go func() {
 		defer close(out)
 		for evt := range events {
 			id, name, _ := evt.Aggregate()
-			tuple := aggregate.Ref{
+			ref := aggregate.Ref{
 				Name: name,
 				ID:   id,
 			}
 
-			if found[tuple] {
+			if _, ok := found[ref]; ok {
 				continue
 			}
-			found[tuple] = true
+			found[ref] = struct{}{}
 
 			select {
 			case <-ctx.Done():
 				return
-			case out <- tuple:
+			case out <- ref:
 			}
 		}
 	}()

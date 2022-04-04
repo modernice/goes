@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
@@ -185,6 +186,82 @@ func TestJob_Aggregates(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(want, aggregates) {
+		t.Fatalf("Job returned wrong Aggregates. want=%v got=%v", want, aggregates)
+	}
+}
+
+func TestJob_Aggregates_customAggregateQuery(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	storeEvents := []event.Event{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 1), event.Time(now)),
+		event.New[any]("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar-agg", 1), event.Time(now.Add(time.Second))),
+		event.New[any]("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz-agg", 1), event.Time(now.Add(2*time.Second))),
+		event.New[any]("foobar", test.FoobarEventData{}, event.Aggregate(uuid.New(), "foobar-agg", 1), event.Time(now.Add(3*time.Second))),
+	}
+	store, _ := newEventStore(t, storeEvents...)
+
+	job := projection.NewJob(
+		ctx,
+		store,
+		query.New(),
+		projection.WithAggregateQuery(query.New(query.Name("foo", "baz"), query.SortByTime())),
+	)
+
+	str, errs, err := job.Aggregates(job)
+	if err != nil {
+		t.Fatalf("Aggregates() failed with %q", err)
+	}
+
+	aggregates, err := streams.Drain(ctx, str, errs)
+	if err != nil {
+		t.Fatalf("drain refs: %v", err)
+	}
+
+	want := []aggregate.Ref{
+		{Name: pick.AggregateName(storeEvents[0]), ID: pick.AggregateID(storeEvents[0])},
+		{Name: pick.AggregateName(storeEvents[2]), ID: pick.AggregateID(storeEvents[2])},
+	}
+
+	if !cmp.Equal(want, aggregates) {
+		t.Fatalf("Job returned wrong Aggregates. want=%v got=%v", want, aggregates)
+	}
+}
+
+func TestJob_Aggregates_names_customAggregateQuery(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	storeEvents := []event.Event{
+		event.New[any]("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo-agg", 1), event.Time(now)),
+		event.New[any]("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar-agg", 1), event.Time(now.Add(time.Second))),
+		event.New[any]("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz-agg", 1), event.Time(now.Add(2*time.Second))),
+		event.New[any]("foobar", test.FoobarEventData{}, event.Aggregate(uuid.New(), "foobar-agg", 1), event.Time(now.Add(3*time.Second))),
+	}
+	store, _ := newEventStore(t, storeEvents...)
+
+	job := projection.NewJob(
+		ctx,
+		store,
+		query.New(),
+		projection.WithAggregateQuery(query.New(query.Name("foo", "baz", "foobar"), query.SortByTime())),
+	)
+
+	str, errs, err := job.Aggregates(job, "baz-agg", "foobar-agg")
+	if err != nil {
+		t.Fatalf("Aggregates() failed with %q", err)
+	}
+
+	aggregates, err := streams.Drain(ctx, str, errs)
+	if err != nil {
+		t.Fatalf("drain refs: %v", err)
+	}
+
+	want := []aggregate.Ref{
+		{Name: pick.AggregateName(storeEvents[2]), ID: pick.AggregateID(storeEvents[2])},
+		{Name: pick.AggregateName(storeEvents[3]), ID: pick.AggregateID(storeEvents[3])},
+	}
+
+	if !cmp.Equal(want, aggregates) {
 		t.Fatalf("Job returned wrong Aggregates. want=%v got=%v", want, aggregates)
 	}
 }
