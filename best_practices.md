@@ -13,3 +13,11 @@ working with this library. These will be integrated into the documentation somed
 	- event appliers are not responsible for validation, they just apply "facts"
 - do not raise *unnecessary* aggregate events that don't change the state of
 	the aggregate
+
+## Projections
+
+- keep projections performant
+	- run costly computations in a `finalize` method after applying a projection
+		job onto a projection
+	- generally, don't call long-running functions that require a
+		`context.Context` within event appliers.
