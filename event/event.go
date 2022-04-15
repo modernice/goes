@@ -1,7 +1,5 @@
 package event
 
-//go:generate mockgen -source=event.go -destination=./mocks/event.go
-
 import (
 	"sort"
 	stdtime "time"
@@ -12,31 +10,31 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Event is any event.
+// Event is an event with any data.
 type Event = Of[any]
 
-// An event describes something that has happened in the application or
-// specifically something that has happened to an aggregate in the application.
+// Of is an event with a specific data type. An event has a unique id, a name,
+// some arbitrary event data, and a time at which the event was raised. Behavior
+// for events that do not provide this data is not defined.
 //
-// Publish & Subscribe
+// If an event belongs to the stream of an aggregate, the Aggregate() method of
+// the event should return the aggregate's id and name, and the optimistic
+// concurrency version of the event.
 //
-// An event can be published through a Bus and sent to subscribers of Events
-// with the same name.
+// Events can be published over a Bus. When published, the event is sent to all
+// subscribers of the event that are subscribed to the event via the same Bus.
 //
-// Example (publish):
-// 	var b event.Bus
-// 	evt := event.New("foo", someData{})
-// 	err := b.Publish(context.TODO(), evt)
-// 	// handle err
+//	var bus event.Bus
+//	var evt event.Event
+//	err := bus.Publish(context.TODO(), evt)
 //
-// Example (subscribe):
-// 	var b event.Bus
-// 	res, errs, err := b.Subscribe(context.TODO(), "foo")
-// 	// handle err
-//	err := streams.Walk(context.TODO(), func(e event.Event) {
-// 	    log.Println(fmt.Sprintf("Received %q event: %v", e.Name(), e))
-//	}, res, errs)
-//	// handle err
+// To subscribe to an event, call the Subscribe() method on a Bus:
+//
+//	var bus event.Bus
+//	// Subscribe to "foo", "bar", and "baz" events.
+//	events, errs, err := bus.Subscribe(context.TODO(), "foo", "bar", "baz")
+//
+// Read the documentation of Bus for more details.
 type Of[Data any] interface {
 	// ID returns the unique id of the event.
 	ID() uuid.UUID
