@@ -1,10 +1,10 @@
 // Package version provides version constraints for queries.
 package version
 
-// Constraints provides the different constraints for querying events. An
-// event.Store that uses Constraints should combine the different types of
-// constraints with a logical "AND" and the different values for a constraint
-// with a logical "OR".
+// Constraints are the version constraints for an event query. Methods of
+// Constraints that return non-nil filters must all be fulfilled by an event to
+// be included in the query result. If a filter allows multiple values, the
+// event must match at least one of the values.
 type Constraints interface {
 	// Exact returns the exact versions to query for.
 	Exact() []int
@@ -19,7 +19,7 @@ type Constraints interface {
 	Max() []int
 }
 
-// A Option is an option for constraints.
+// A Option defines a version constraint.
 type Option func(*constraints)
 
 // Range is a version range.

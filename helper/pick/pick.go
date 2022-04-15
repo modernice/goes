@@ -1,9 +1,11 @@
 package pick
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
 
-// An aggregateProvider has an Aggregate() (uuid.UUID, string, int) method.
-// aggregate.Aggrgeate and event.Event implement this interface.
+// An AggregateProvider has an Aggregate() (uuid.UUID, string, int) method.
+// aggregate.Aggregate and event.Event implement this interface.
 type AggregateProvider interface {
 	Aggregate() (uuid.UUID, string, int)
 }

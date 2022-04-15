@@ -1,28 +1,28 @@
 package event
 
-//go:generate mockgen -source=bus.go -destination=./mocks/bus.go
-
 import "context"
 
 // Bus is the pub-sub client for events.
 type Bus interface {
-	// Publish publishes the given events to subscribers of those events.
-	Publish(ctx context.Context, events ...Event) error
+	Publisher
+	Subscriber
+}
 
-	// Subscribe returns a channel of events and a channel of asynchronous errors.
-	// Only events whose name is one of the provided names will be received from the
-	// returned event channel.
+// A Publisher allows to publish events to subscribers of these events.
+type Publisher interface {
+	// Publish publishes events. Each event is sent to all subscribers of the event.
+	Publish(ctx context.Context, events ...Event) error
+}
+
+// A Subscriber allows to subscribe to events.
+type Subscriber interface {
+	// Subscribe subscribes to events with the given names and returns two
+	// channels – one for the received events and one for any asynchronous
+	// errors that occur during the subscription. If Subscribe fails to
+	// subscribe to all events, nil channels and an error are returned instead.
 	//
-	// When Subscribe fails to create the subscription, the returned channels
-	// are nil and an error is returned.
-	//
-	// When ctx is canceled, both the event and error channel are closed.
-	//
-	// Errors
-	//
-	// Callers of Subscribe must ensure that errors are received from the
-	// returned error channel; otherwise the Bus may be blocked by the error
-	// channel.
+	// When the provided context is canceled, the subscription is also canceled
+	// and the returned channels are closed.
 	Subscribe(ctx context.Context, names ...string) (<-chan Event, <-chan error, error)
 }
 

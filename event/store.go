@@ -1,7 +1,5 @@
 package event
 
-//go:generate mockgen -source=store.go -destination=./mocks/store.go
-
 import (
 	"context"
 	"fmt"
@@ -15,11 +13,11 @@ import (
 const (
 	// SortTime sorts events by time.
 	SortTime = Sorting(iota)
-	// SortAggregateName sorts events by their aggregate name.
+	// SortAggregateName sorts events by aggregate name.
 	SortAggregateName
-	// SortAggregateID sorts events by their aggregate id.
+	// SortAggregateID sorts events by aggregate id.
 	SortAggregateID
-	// SortAggregateVersion sorts events by their aggregate version.
+	// SortAggregateVersion sorts events by aggregate version.
 	SortAggregateVersion
 )
 
@@ -30,33 +28,36 @@ const (
 	SortDesc
 )
 
-// A Store persists and queries events.
+// A Store provides persistence for events.
 type Store interface {
 	// Insert inserts events into the store.
 	Insert(context.Context, ...Event) error
 
-	// Find fetches the event with the specified UUID from the store.
+	// Find fetches the given event from the store.
 	Find(context.Context, uuid.UUID) (Event, error)
 
-	// Query queries the Store for events that fit the given Query and returns a
-	// channel of events and a channel of errors.
-	//
-	// Example:
+	// Query queries the store for events and returns two channels – one for the
+	// returned events and one for any asynchronous errors that occur during the
+	// query.
 	//
 	//	var store event.Store
-	//	events, errs, err := store.Query(context.TODO(), query.New())
+	//	events, errs, err := store.Query(context.TODO(), query.New(...))
 	//	// handle err
 	//	err := streams.Walk(context.TODO(), func(evt event.Event) {
-	//		log.Println(fmt.Sprintf("Queried event: %v", evt))
+	//		log.Println(fmt.Sprintf("Queried event: %s", evt.Name()))
 	//	}, events, errs)
 	//	// handle err
 	Query(context.Context, Query) (<-chan Event, <-chan error, error)
 
-	// Delete deletes events from the Store.
+	// Delete deletes events from the store.
 	Delete(context.Context, ...Event) error
 }
 
-// A Query is used by Stores to query events.
+// A Query can be used to query events from an event store. Each of the query's
+// methods that return a non-nil filter are considered when filtering events.
+// Different (non-nil) filters must all be fulfilled by an event to be included
+// in the result. Within a single filter that allows multiple values, the event
+// must match at least one of the values.
 type Query interface {
 	// Names returns the event names to query for.
 	Names() []string
@@ -64,7 +65,7 @@ type Query interface {
 	// IDs returns the event ids to query for.
 	IDs() []uuid.UUID
 
-	// Times returns the time.Constraints for the query.
+	// Times returns the event time constraints for the query.
 	Times() time.Constraints
 
 	// AggregateNames returns the aggregate names to query for.
@@ -73,7 +74,7 @@ type Query interface {
 	// AggregateIDs returns the aggregate ids to query for.
 	AggregateIDs() []uuid.UUID
 
-	// AggregateVersions returns the version.Constraints for the query.
+	// AggregateVersions returns the event version constraints for the query.
 	AggregateVersions() version.Constraints
 
 	// Aggregates returns a list of specific aggregates (name & id pairs) to
@@ -87,9 +88,14 @@ type Query interface {
 	// The above query allows the "foo" aggregate with the specified id and
 	// every "bar" aggregate. Events that do not fulfill any of these two
 	// constraints will not be returned.
+	//
+	// Advantage of using this filter instead of using the `AggregateNames()`
+	// and `AggregateIDs()` filters is that this filter allows to query multiple
+	// specific aggregates with different names.
 	Aggregates() []AggregateRef
 
-	// Sorting returns the SortConfigs for the query.
+	// Sorting returns the sorting options for the query. Events are sorted as
+	// they would be by calling SortMulti().
 	Sortings() []SortOptions
 }
 
@@ -100,7 +106,7 @@ type AggregateRef struct {
 	ID   uuid.UUID
 }
 
-// SortOptions defines the sorting behaviour of a Query.
+// SortOptions defines the sorting of a query.
 type SortOptions struct {
 	Sort Sorting
 	Dir  SortDirection
@@ -109,7 +115,7 @@ type SortOptions struct {
 // Sorting is a sorting.
 type Sorting int
 
-// SortDirection is a sorting direction.
+// SortDirection is a sorting direction, either ascending or descending.
 type SortDirection int
 
 // CompareSorting compares a and b based on the given sorting and returns
@@ -173,15 +179,16 @@ var zeroRef AggregateRef
 // IsZero returns whether the ref has an empty name and a nil-UUID.
 func (ref AggregateRef) IsZero() bool { return ref == zeroRef }
 
-// String returns the string representation of the aggregate: NAME(ID)
+// String returns the string representation of the aggregate:
+//	"NAME(ID)"
 func (ref AggregateRef) String() string {
 	return fmt.Sprintf("%s(%s)", ref.Name, ref.ID)
 }
 
 var refStringRE = regexp.MustCompile(`([^()]+?)(\([a-z0-9-]+?\))`)
 
-// Parse parses the string-representation of an aggregateRef into ref.
-// Parse accepts values that are returned by ref.String().
+// Parse parses the string-representation of an AggregateRef into ref.
+// Parse accepts values that are returned by AggregateRef.String().
 func (ref *AggregateRef) Parse(v string) error {
 	matches := refStringRE.FindStringSubmatch(v)
 	if len(matches) != 3 {

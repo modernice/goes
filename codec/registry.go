@@ -74,7 +74,7 @@ func Make[D any](r *Registry, name string) (D, error) {
 
 // Register registers the encoding for events with the given name.
 func Register[D any, Enc Encoder[D], Dec Decoder[D]](r *Registry, name string, enc Enc, dec Dec) {
-	registerWithFactoryFunc[D, Enc, Dec](r, name, enc, dec, func() any {
+	registerWithFactoryFunc[D](r, name, enc, dec, func() any {
 		var v D
 		return v
 	})

@@ -38,7 +38,7 @@ type Option func(*Handler)
 
 // WithStore returns an Option that makes a Handler query the registered events
 // from the provided store on startup and handle them as if they were published
-// over the underlying event bus. This allows to handle "past" events.
+// over the underlying event bus. This allows to handle "past" events on startup.
 func WithStore(store event.Store) Option {
 	return func(h *Handler) {
 		h.store = store

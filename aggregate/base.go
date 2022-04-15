@@ -123,7 +123,7 @@ func (b *Base) SetVersion(v int) {
 // state of a at the time of the latest event. If the aggregate implements
 // Committer, a.TrackChange(events) and a.Commit() are called before returning.
 func ApplyHistory[Data any, Events ~[]event.Of[Data]](a Aggregate, events Events) error {
-	if err := ValidateConsistency[Data](a, events); err != nil {
+	if err := ValidateConsistency(a, events); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 

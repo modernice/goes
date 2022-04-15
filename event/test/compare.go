@@ -41,7 +41,7 @@ func AssertEqualEvents[Events ~[]event.Of[D], D any](t *testing.T, events ...Eve
 	if len(events) < 2 {
 		return
 	}
-	if EqualEvents[Events, D](events...) {
+	if EqualEvents(events...) {
 		return
 	}
 
@@ -78,7 +78,7 @@ func AssertEqualEventsUnsorted[Events ~[]event.Of[D], D any](t *testing.T, event
 		es.sortByTime()
 		events[i] = Events(es)
 	}
-	AssertEqualEvents[Events, D](t, events...)
+	AssertEqualEvents(t, events...)
 }
 
 func (es eventSlice[D]) sortByTime() {

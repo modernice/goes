@@ -24,10 +24,9 @@ func NewAwaiter[D any](bus event.Bus) Awaiter[D] {
 	return Awaiter[D]{bus}
 }
 
-// Once subscribes to the given events over the event bus and returns a channel
-// for the event and an error channel. The returned event channels will never
-// receive more than one element (either a single event or a single error). When
-// an event or an error is received, both channels are immediately closed.
+// Once subscribes to the given events. After the first received event, the
+// subscription is canceled, so that the returned event and error channels will
+// never receive more than one event or one error, respectively.
 //
 // If len(names) == 0, Once returns nil channels.
 func (a Awaiter[D]) Once(ctx context.Context, names ...string) (<-chan event.Of[D], <-chan error, error) {

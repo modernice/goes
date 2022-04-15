@@ -8,7 +8,7 @@ import (
 	"github.com/modernice/goes/event/query/version"
 )
 
-// Query is used by event stores to filter events.
+// A Query is used by event stores to query events.
 type Query struct {
 	names          []string
 	ids            []uuid.UUID
@@ -21,7 +21,7 @@ type Query struct {
 	aggregateVersions version.Constraints
 }
 
-// Option is a Query option.
+// Option is an option for building a query.
 type Option func(*builder)
 
 type builder struct {
@@ -30,7 +30,7 @@ type builder struct {
 	versionConstraints []version.Option
 }
 
-// New builds a Query from opts.
+// New builds the query from the provided options.
 func New(opts ...Option) Query {
 	var b builder
 	for _, opt := range opts {
@@ -204,10 +204,10 @@ func Apply[D any](q event.Query, events ...event.Of[D]) []event.Of[D] {
 	return out
 }
 
-// Merge merges multiple Queries and returns the merged Query.
+// Merge merges multiple queries into a single query.
 //
 // In cases where only a single value can be assigned to a filter, the last
-// provided Query that provides that filter is used.
+// provided query that provides that filter is used.
 func Merge(queries ...event.Query) Query {
 	var opts []Option
 	for _, q := range queries {
@@ -243,9 +243,12 @@ func (q Query) IDs() []uuid.UUID {
 	return q.ids
 }
 
-// Times returns the time constraints. Times guarantees to return non-nil
-// time.Constraints.
+// Time returns the time constraints. The returned Constraints are guaranteed to
+// be non-nil.
 func (q Query) Times() time.Constraints {
+	if q.times == nil {
+		return time.Filter()
+	}
 	return q.times
 }
 
@@ -269,7 +272,7 @@ func (q Query) Aggregates() []event.AggregateRef {
 	return q.aggregates
 }
 
-// Sortings returns the SortConfigs for the query.
+// Sortings returns the sorting options for the query.
 func (q Query) Sortings() []event.SortOptions {
 	return q.sortings
 }

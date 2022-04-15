@@ -8,6 +8,16 @@ import (
 	"github.com/modernice/goes/event"
 )
 
+// New returns a thread-safe in-memory event bus.
+func New() event.Bus {
+	bus := &chanbus{
+		events: make(map[string]*eventSubscription),
+		queue:  make(chan event.Event),
+	}
+	go bus.work()
+	return bus
+}
+
 type chanbus struct {
 	sync.RWMutex
 
@@ -36,16 +46,6 @@ type recipient struct {
 type subscribeJob struct {
 	rcpt recipient
 	done chan struct{}
-}
-
-// New returns a new in-memory event bus.
-func New() event.Bus {
-	bus := &chanbus{
-		events: make(map[string]*eventSubscription),
-		queue:  make(chan event.Event),
-	}
-	go bus.work()
-	return bus
 }
 
 func (bus *chanbus) Subscribe(ctx context.Context, events ...string) (<-chan event.Event, <-chan error, error) {

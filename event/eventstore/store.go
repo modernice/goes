@@ -11,6 +11,15 @@ import (
 	"github.com/modernice/goes/event/query"
 )
 
+// New returns a thread-safe in-memory event store. The provided events are
+// immediately inserted into the store.
+func New(events ...event.Event) event.Store {
+	return &memstore{
+		idMap:  make(map[uuid.UUID]event.Event),
+		events: events,
+	}
+}
+
 var (
 	errEventNotFound  = errors.New("event not found")
 	errDuplicateEvent = errors.New("duplicate event")
@@ -20,14 +29,6 @@ type memstore struct {
 	mux    sync.RWMutex
 	events []event.Event
 	idMap  map[uuid.UUID]event.Event
-}
-
-// New returns a thread-safe in-memory event store.
-func New(events ...event.Event) event.Store {
-	return &memstore{
-		idMap:  make(map[uuid.UUID]event.Event),
-		events: events,
-	}
 }
 
 func (s *memstore) Insert(ctx context.Context, events ...event.Event) error {
