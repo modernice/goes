@@ -71,7 +71,7 @@ func (base *HandlerBase) HandleCommand(ctx command.Context) error {
 	return fmt.Errorf("no handler registered for %q command", ctx.Name())
 }
 
-// Aggregate is an aggregate that handles commands itself.
+// Aggregate is an aggregate that handles commands by itself.
 type Aggregate interface {
 	aggregate.Aggregate
 
@@ -82,14 +82,14 @@ type Aggregate interface {
 	HandleCommand(command.Context) error
 }
 
-// Of is a handler for a specific type of aggregate. It subscribes to the
-// commands of the aggregate and calls the registered command handlers of the
-// aggregate. It is important that the provided newFunc that instantiates the
-// aggregates has no side effects other than the setup of the aggregate, because
-// in order to know which commands are handled by the aggregate, Of.Handle()
-// initially creates an instance of the aggregate using the provided newFunc and
-// a random UUID and calls CommandNames() on it to extract the command names
-// from the registered handlers.
+// Of is a command handler for a specific aggregate. It subscribes to the
+// commands of the aggregate and calls its registered command handlers.
+// It is important that the provided newFunc that instantiates the aggregates
+// has no side effects other than the setup of the aggregate, because in order
+// to know which commands are handled by the aggregate, Of.Handle() initially
+// creates an instance of the aggregate using the provided newFunc with a random
+// UUID and calls CommandNames() on it to extract the command names from the
+// registered handlers.
 type Of[A Aggregate] struct {
 	handler *command.Handler[any]
 	repo    aggregate.Repository
@@ -132,9 +132,8 @@ func (h *Of[A]) MustHandle(ctx context.Context) <-chan error {
 	return errs
 }
 
-// Handle subscribes to the commands of the aggregate and executes them using
-// the registered handlers of the aggregate. Command errors are returned over
-// the returned channel.
+// Handle subscribes to and handles the commands for which a handler has been
+// registered. Command errors are sent into the returned error channel.
 func (h *Of[A]) Handle(ctx context.Context) (<-chan error, error) {
 	names := h.newFunc(uuid.New()).CommandNames()
 

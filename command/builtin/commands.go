@@ -16,11 +16,16 @@ type DeleteAggregatePayload struct{}
 // built-in command handler of this package, aggregates are deleted by deleting
 // their events from the event store. Additionally, a "goes.command.aggregate.deleted"
 // is published after deletion.
+//
+// This command completely deletes the event stream of the aggregate. Consider
+// using soft-deletes instead.
 func DeleteAggregate(name string, id uuid.UUID) command.Cmd[DeleteAggregatePayload] {
 	return command.New(DeleteAggregateCmd, DeleteAggregatePayload{}, command.Aggregate(name, id))
 }
 
 // RegisterCommands registers the built-in commands into a command registry.
+//
+// TODO(bounoable): Implement other encodings than gob.
 func RegisterCommands(r *codec.Registry) {
 	gob := codec.Gob(r)
 	gob.GobRegister(DeleteAggregateCmd, func() any { return DeleteAggregatePayload{} })

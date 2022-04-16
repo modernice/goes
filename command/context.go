@@ -8,6 +8,13 @@ import (
 	"github.com/modernice/goes/command/finish"
 )
 
+// ContextOption is a Context option.
+type ContextOption func(*options)
+
+type options struct {
+	whenDone func(context.Context, finish.Config) error
+}
+
 type cmdctx[P any] struct {
 	context.Context
 	Of[P]
@@ -15,13 +22,6 @@ type cmdctx[P any] struct {
 	mux sync.Mutex
 	options
 	finished bool
-}
-
-// ContextOption is a Context option.
-type ContextOption func(*options)
-
-type options struct {
-	whenDone func(context.Context, finish.Config) error
 }
 
 // WhenDone returns an Option that calls the provided function when the Finish()
@@ -67,6 +67,8 @@ func (ctx *cmdctx[P]) Finish(c context.Context, opts ...finish.Option) error {
 	return nil
 }
 
+// TryCastContext tries to cast the payload of the given context to the given
+// `To` type. If the payload is not a `To`, TryCastContext returns false.
 func TryCastContext[To, From any](ctx Ctx[From]) (Ctx[To], bool) {
 	cmd, ok := TryCast[To, From](ctx)
 	if !ok {
@@ -81,6 +83,8 @@ func TryCastContext[To, From any](ctx Ctx[From]) (Ctx[To], bool) {
 	return NewContext[To](ctx, cmd, opts...), true
 }
 
+// CastContext casts the payload of the given context to the given `To` type.
+// If the payload is not a `To`, CastContext panics.
 func CastContext[To, From any](ctx Ctx[From]) Ctx[To] {
 	cmd := Cast[To, From](ctx)
 

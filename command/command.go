@@ -1,96 +1,42 @@
 package command
 
 import (
-	"context"
-
 	"github.com/google/uuid"
-	"github.com/modernice/goes/command/cmdbus/report"
-	"github.com/modernice/goes/command/finish"
 )
 
+// Command is a command with arbitrary payload.
 type Command = Of[any]
 
 // A Command represents a command in the business model of an application or
 // service. Commands can be dispatched through a Bus to handlers of such
 // Commands.
+
+// Of is a command with the given specific payload type. A command has a unique
+// id, a name, and a user-provided payload. A command can optionally provide the
+// aggregate that it acts on.
 type Of[Payload any] interface {
-	// ID returns the Command ID.
+	// ID returns the command id.
 	ID() uuid.UUID
 
-	// Name returns the Command name.
+	// Name returns the command name.
 	Name() string
 
-	// Payload returns the Command Payload.
+	// Payload returns the command payload.
 	Payload() Payload
 
-	// Aggregate returns the attached aggregate data.
+	// Aggregate returns aggregate that the command acts on.
 	Aggregate() (id uuid.UUID, name string)
 }
 
-// A Bus dispatches Commands to appropriate handlers.
-type Bus interface {
-	// Dispatch sends the Command to the appropriate subscriber. Dispatch must
-	// only return nil if the Command has been successfully received by a
-	// subscriber.
-	Dispatch(context.Context, Command, ...DispatchOption) error
-
-	// Subscribe subscribes to Commands with the given names and returns a
-	// channel of Contexts. Implementations of Bus must ensure that Commands
-	// aren't received by multiple subscribers.
-	Subscribe(ctx context.Context, names ...string) (<-chan Ctx[any], <-chan error, error)
-}
-
-// Config is the configuration for dispatching a Command.
-type DispatchConfig struct {
-	// A synchronous dispatch waits for the execution of the Command to finish
-	// and returns the execution error if there was any.
-	//
-	// A dispatch is automatically made synchronous when Repoter is non-nil.
-	Synchronous bool
-
-	// If Reporter is not nil, the Bus will report the execution result of a
-	// Command to Reporter by calling Reporter.Report().
-	//
-	// A non-nil Reporter makes the dispatch synchronous.
-	Reporter Reporter
-}
-
-// DispatchOption is an option for dispatching Commands.
-type DispatchOption func(*DispatchConfig)
-
-// A Reporter reports execution results of a Command.
-type Reporter interface {
-	Report(report.Report)
-}
-
-type Context = Ctx[any]
-
-// Context is the context for handling Commands.
-type Ctx[P any] interface {
-	context.Context
-	Of[P]
-
-	// AggregateID returns the UUID of the attached aggregate, or uuid.Nil.
-	AggregateID() uuid.UUID
-
-	// AggregateName returns the name of the attached aggregate, or an empty string.
-	AggregateName() string
-
-	// Finish should be called after the Command has been handled so that the
-	// Bus that dispatched the Command can be notified about the execution
-	// result.
-	Finish(context.Context, ...finish.Option) error
-}
-
-// Option is a command option.
+// Option is an option for creating a command.
 type Option func(*Cmd[any])
 
-// Cmd is the implementation of Command.
+// Cmd is the command implementation.
 type Cmd[Payload any] struct {
 	Data Data[Payload]
 }
 
-// Data contains the actual fields of a Cmd.
+// Data contains the fields of a Cmd.
 type Data[Payload any] struct {
 	ID            uuid.UUID
 	Name          string
@@ -99,14 +45,14 @@ type Data[Payload any] struct {
 	AggregateID   uuid.UUID
 }
 
-// ID returns an Option that overrides the auto-generated UUID of a Command.
+// ID returns an Option that overrides the auto-generated UUID of a command.
 func ID(id uuid.UUID) Option {
 	return func(b *Cmd[any]) {
 		b.Data.ID = id
 	}
 }
 
-// Aggregate returns an Option that links a Command to an aggregate.
+// Aggregate returns an Option that links a command to an aggregate.
 func Aggregate(name string, id uuid.UUID) Option {
 	return func(b *Cmd[any]) {
 		b.Data.AggregateName = name
@@ -114,7 +60,8 @@ func Aggregate(name string, id uuid.UUID) Option {
 	}
 }
 
-// New returns a new command with the given name and payload.
+// New returns a new command with the given name and payload. A random UUID is
+// generated and set as the command id.
 func New[P any](name string, pl P, opts ...Option) Cmd[P] {
 	cmd := Cmd[any]{
 		Data: Data[any]{
@@ -152,7 +99,7 @@ func (cmd Cmd[P]) Payload() P {
 	return cmd.Data.Payload
 }
 
-// Aggregate returns the attached aggregate data.
+// Aggregate returns the aggregate that the command acts on.
 func (cmd Cmd[P]) Aggregate() (uuid.UUID, string) {
 	return cmd.Data.AggregateID, cmd.Data.AggregateName
 }
@@ -173,6 +120,8 @@ func Any[P any](cmd Of[P]) Cmd[any] {
 	return New[any](cmd.Name(), cmd.Payload(), ID(cmd.ID()), Aggregate(name, id))
 }
 
+// TryCast tries to cast the payload of the given command to the given `To`
+// type. If the payload is not of type `To`, false is returned.
 func TryCast[To, From any](cmd Of[From]) (Cmd[To], bool) {
 	load, ok := any(cmd.Payload()).(To)
 	if !ok {
@@ -182,6 +131,8 @@ func TryCast[To, From any](cmd Of[From]) (Cmd[To], bool) {
 	return New(cmd.Name(), load, ID(cmd.ID()), Aggregate(name, id)), true
 }
 
+// Cast casts the payload of the given command to the given `To` type. If the
+// payload is not of type `To`, Cast panics.
 func Cast[To, From any](cmd Of[From]) Cmd[To] {
 	id, name := cmd.Aggregate()
 	return New(cmd.Name(), any(cmd.Payload()).(To), ID(cmd.ID()), Aggregate(name, id))

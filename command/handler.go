@@ -9,13 +9,12 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Handler can be used to subscribe to and handle commands.
+// Handler wraps a Bus to provide a convenient way to subscribe to and handle commands.
 type Handler[P any] struct {
 	bus Bus
 }
 
-// NewHandler returns a handler for commands that uses the provided Bus to
-// subscribe to commands.
+// NewHandler wraps the provided Bus in a *Handler.
 func NewHandler[P any](bus Bus) *Handler[P] {
 	return &Handler[P]{bus}
 }
@@ -32,19 +31,19 @@ func MustHandle[P any](ctx context.Context, bus Bus, name string, handler func(C
 	return NewHandler[P](bus).MustHandle(ctx, name, handler)
 }
 
-// Handle registers the function handler as a handler for the given Command name.
-// Handle subscribes to the underlying Bus for Commands with that name. When
-// Handler is selected as the handler for a dispatched Command, handler is
-// called with a Command Context which contains the Command and its Payload.
+// Handle registers the provided function as a handler for the given command.
+// Handle subscribes to the command over the underlying Bus. The command.Context
+// returned by the Bus is passed to the provided handler function. Afterwards,
+// the `Finish` method of the command.Context is called by *Handler to report
+// the execution result of the command.
 //
-// If Handle fails to subscribe to the Command, a nil channel and the error from
-// the Bus is returned. Otherwise a channel of asynchronous Command errors and a
-// nil error are returned.
+// Handle returns a channel of asynchronous errors. Users are responsible for
+// receiving the errors from the channel, to avoid blocking. Errors that are
+// sent into the channel are
 //
-// When handler returns a non-nil error, that error is pushed into the returned
-// error channel. Asynchronous errors from the underlying Command Bus are pushed
-// into the error channel as well. Callers must receive from the returned error
-// channel to prevent the handler from blocking indefinitely.
+//	- all asynchronous errors from the underlying Bus
+// 	- all errors returned by the provided handler function
+//	- errors returned by the `Finish` method of command.Context
 //
 // When ctx is canceled, the returned error channel is closed.
 func (h *Handler[P]) Handle(ctx context.Context, name string, handler func(Ctx[P]) error) (<-chan error, error) {
@@ -59,7 +58,7 @@ func (h *Handler[P]) Handle(ctx context.Context, name string, handler func(Ctx[P
 	return out, nil
 }
 
-// MustHandle does the same as Handle, but panics if the event subscription fails.
+// MustHandle does the same as Handle, but panics if the command subscription fails.
 func (h *Handler[P]) MustHandle(ctx context.Context, name string, handler func(Ctx[P]) error) <-chan error {
 	errs, err := h.Handle(ctx, name, handler)
 	if err != nil {

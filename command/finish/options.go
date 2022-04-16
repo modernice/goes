@@ -2,7 +2,7 @@ package finish
 
 import "time"
 
-// Config is the configuration for finishing a Command.
+// Config is the configuration for finishing a command.
 type Config struct {
 	Err     error
 	Runtime time.Duration

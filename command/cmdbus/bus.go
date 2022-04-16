@@ -96,17 +96,8 @@ type dispatcher struct {
 	out             chan error
 }
 
-// Option is a Command Bus option.
+// Option is a command bus option.
 type Option func(*Bus)
-
-// // Debug enables verbose logging for debugging purposes. Optional id may be
-// // specified to annotate debug output.
-// func Debug(id string) Option {
-// 	return func(b *Bus) {
-// 		b.debug = true
-// 		b.debugID = id
-// 	}
-// }
 
 // AssignTimeout returns an Option that configures the timeout when assigning a
 // Command to a Handler. A zero Duration means no timeout.

@@ -6,22 +6,17 @@ import (
 	"github.com/modernice/goes/helper/pick"
 )
 
-// A Registerer is an object that can register handlers for different commands.
+// A Registerer is a type that can register handlers for different commands.
 type Registerer interface {
 	// RegisterCommandHandler registers a command handler for the given command name.
 	RegisterCommandHandler(commandName string, handler func(Context) error)
 }
 
-// RegisterHandler registers command handler for the given command name.
-// The provided Registerer should usually be an aggregate that uses the
-// registered handlers to execute its own aggregate commands.
-//
-// Handler is implemented by
-//  - *command.AggregateHandler
+// RegisterHandler registers the handler for the given command.
 //
 //	type Foo struct {
 //		*aggregate.Base
-//		*command.AggregateHandler
+//		*handler.HandlerBase
 //
 //		Foo string
 //		Bar string
@@ -35,7 +30,7 @@ type Registerer interface {
 //	func NewFoo(id uuid.UUID) *Foo  {
 //		foo := &Foo{
 //			Base: aggregate.New("foo", id),
-//          aggregateHandler: command.NewAggregateHandler(),
+//          Handler: handler.NewBase(),
 //		}
 //
 //	    // Register event appliers.
