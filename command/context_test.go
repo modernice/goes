@@ -59,16 +59,27 @@ func TestContext_Finish_default(t *testing.T) {
 
 func TestContext_Finish_multipleTimes(t *testing.T) {
 	cmd := command.New("foo", mockPayload{})
-	ctx := command.NewContext[mockPayload](context.Background(), cmd)
+	var doneCount int
+	ctx := command.NewContext[mockPayload](
+		context.Background(),
+		cmd,
+		command.WhenDone(func(_ context.Context, _ finish.Config) error {
+			doneCount++
+			return nil
+		}),
+	)
 
 	err := ctx.Finish(context.Background())
 
 	if err != nil {
-		t.Fatalf("ctx.Finish shouldn't fail; failed with %q", err)
+		t.Fatalf("Finish() shouldn't fail; failed with %q", err)
 	}
 
-	err = ctx.Finish(context.Background())
-	if !errors.Is(err, command.ErrAlreadyFinished) {
-		t.Fatalf("multiple calls ctx.Finish should fail with %q; got %v", command.ErrAlreadyFinished, err)
+	if err = ctx.Finish(context.Background()); err != nil {
+		t.Fatalf("Finish() shouldn't fail if called multiple times")
+	}
+
+	if doneCount != 1 {
+		t.Fatalf("WhenDone() callback should have been called once; was called %d times", doneCount)
 	}
 }

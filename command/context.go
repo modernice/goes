@@ -58,7 +58,7 @@ func (ctx *cmdctx[P]) Finish(c context.Context, opts ...finish.Option) error {
 	ctx.mux.Lock()
 	defer ctx.mux.Unlock()
 	if ctx.finished {
-		return ErrAlreadyFinished
+		return nil
 	}
 	ctx.finished = true
 	if ctx.whenDone != nil {

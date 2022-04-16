@@ -2,16 +2,10 @@ package command
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/command/cmdbus/report"
 	"github.com/modernice/goes/command/finish"
-)
-
-var (
-	// ErrAlreadyFinished is returned when a Command is finished multiple times.
-	ErrAlreadyFinished = errors.New("command already finished")
 )
 
 type Command = Of[any]
