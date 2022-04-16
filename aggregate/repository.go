@@ -1,7 +1,5 @@
 package aggregate
 
-//go:generate mockgen -source=repository.go -destination=./mocks/repository.go
-
 import (
 	"context"
 
@@ -152,9 +150,6 @@ type History interface {
 
 	// AggregateID returns the UUID of the aggregate.
 	AggregateID() uuid.UUID
-
-	// Apply applies the History on an aggregate. Callers are responsible for
-	// providing an aggregate that can make use of the events in the History.
 
 	// Apply applies the history onto the aggregate to rebuild its current state.
 	Apply(Aggregate)

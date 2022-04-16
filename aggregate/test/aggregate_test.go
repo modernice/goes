@@ -37,7 +37,7 @@ func TestApplyEventFunc(t *testing.T) {
 	}
 }
 
-func TestTrackChangeFunc(t *testing.T) {
+func TestRecordChangeFunc(t *testing.T) {
 	aggregateID := uuid.New()
 	events := []event.Event{
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate(aggregateID, "foo", 1)),
@@ -48,13 +48,13 @@ func TestTrackChangeFunc(t *testing.T) {
 	var tracked bool
 	foo := test.NewFoo(
 		aggregateID,
-		test.TrackChangeFunc(func(changes []event.Event, track func(...event.Event)) {
+		test.RecordChangeFunc(func(changes []event.Event, track func(...event.Event)) {
 			tracked = true
 			track(changes...)
 		}),
 	)
 
-	foo.TrackChange(events...)
+	foo.RecordChange(events...)
 
 	if !tracked {
 		t.Errorf("changes were not tracked")
@@ -71,7 +71,7 @@ func TestCommitFunc(t *testing.T) {
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 2)),
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 3)),
 	}
-	foo.TrackChange(events...)
+	foo.RecordChange(events...)
 
 	foo.Commit()
 	eventtest.AssertEqualEvents(t, events, foo.AggregateChanges())
@@ -79,7 +79,7 @@ func TestCommitFunc(t *testing.T) {
 	foo = test.NewFoo(aggregateID, test.CommitFunc(func(flush func()) {
 		flush()
 	}))
-	foo.TrackChange(events...)
+	foo.RecordChange(events...)
 
 	foo.Commit()
 	eventtest.AssertEqualEvents(t, foo.AggregateChanges(), nil)

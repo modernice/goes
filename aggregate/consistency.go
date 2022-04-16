@@ -9,18 +9,16 @@ import (
 )
 
 const (
-	// ID means there is an inconsistency in the ID of an aggregate.
+	// ID means there is an inconsistency in the aggregate ids.
 	InconsistentID = ConsistencyKind(iota + 1)
 
-	// Name means there is an inconsistency in the aggregate names of the events
-	// of an aggregate.
+	// Name means there is an inconsistency in the aggregate names.
 	InconsistentName
 
-	// Version means there is an inconsistency in the event versions of an
-	// Aggregate.
+	// Version means there is an inconsistency in the event versions.
 	InconsistentVersion
 
-	// Time means there is an inconsistency in the event times of an aggregate.
+	// Time means there is an inconsistency in the event times.
 	InconsistentTime
 )
 
@@ -198,7 +196,7 @@ func (k ConsistencyKind) String() string {
 	case InconsistentTime:
 		return "<InconsitentTime>"
 	default:
-		return "<UnknownInconsitency>"
+		return "<UnknownInconsistency>"
 	}
 }
 

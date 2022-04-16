@@ -1,7 +1,5 @@
 package aggregate
 
-//go:generate mockgen -source=aggregate.go -destination=./mocks/aggregate.go
-
 import (
 	"fmt"
 	"sort"
@@ -13,12 +11,14 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Option is an aggregate option.
+// Option is an option for creating an aggregate.
 type Option func(*Base)
 
-// Base can be embedded into structs to implement the aggregate interface.
-// Base additional implements the Committer interface, which is used by the
-// ApplyHistory() function to "commit" changes to the aggregate.
+// Base can be embedded into aggregates to implement the goes' APIs:
+//	- aggregate.Aggregate
+//	- aggregate.Committer
+//	- repository.ChangeDiscarder
+//	- snapshot.Aggregate
 type Base struct {
 	ID      uuid.UUID
 	Name    string
@@ -48,94 +48,107 @@ func New(name string, id uuid.UUID, opts ...Option) *Base {
 	return b
 }
 
-// RegisterEventHandler registers an event handler for the given event name.
-// When b.ApplyEvent is called and a handler is registered for the given event,
-// the provided handler is called.
+// RegisterEventHandler registers the event applier for the given event.
 //
-// This method implements event.Registerer.
+// This method implements event.Registerer, so that the following can be done:
+//
+//	type Foo struct { *aggregate.Base }
+//
+//	func NewFoo(id uuid.UUID) *Foo {
+//		foo := &Foo{Base: aggregate.New("foo", id)}
+//		event.ApplyWith(foo, foo.applyFoo, "foo")
+//		event.ApplyWith(foo, foo.applyBar, "bar")
+//	}
+//
+//	func (f *Foo) applyFoo(event.Of[string]) {}
+//	func (f *Foo) applyBar(event.Of[int]) {}
 func (b *Base) RegisterEventHandler(eventName string, handle func(event.Event)) {
 	b.handlers[eventName] = handle
 }
 
+// ModelID implements goes/persistence/model.Model. This allows *Base to be used
+// as a TypedAggregate for the type parameter of a TypedRepository.
 func (b *Base) ModelID() uuid.UUID {
 	return b.ID
 }
 
+// Aggregate retrns the id, name, and version of the aggregate.
 func (b *Base) Aggregate() (uuid.UUID, string, int) {
 	return b.ID, b.Name, b.Version
 }
 
-// AggregateID implements aggregate.
+// AggregateID returns the aggregate id.
 func (b *Base) AggregateID() uuid.UUID {
 	return b.ID
 }
 
-// AggregateName implements aggregate.
+// AggregateName returns the aggregate name.
 func (b *Base) AggregateName() string {
 	return b.Name
 }
 
-// AggregateVersion implements aggregate.
+// AggregateVersion returns the aggregate version.
 func (b *Base) AggregateVersion() int {
 	return b.Version
 }
 
-// AggregateChanges implements aggregate.
+// AggregateChanges returns the recorded changes.
 func (b *Base) AggregateChanges() []event.Event {
 	return b.Changes
 }
 
-// TrackChange implements aggregate.
-func (b *Base) TrackChange(events ...event.Event) {
+// RecordChange records applied changes to the aggregate.
+func (b *Base) RecordChange(events ...event.Event) {
 	b.Changes = append(b.Changes, events...)
 }
 
-// Commit implement aggregate.
+// Commit clears the recorded changes and sets the aggregate version to the
+// version of the last recorded change. The recorded changes must be sorted by
+// event version.
 func (b *Base) Commit() {
 	if len(b.Changes) == 0 {
 		return
 	}
-	// b.TrackChange guarantees a correct event order, so we can safely assume
-	// the last element has the highest version.
 	b.Version = pick.AggregateVersion(b.Changes[len(b.Changes)-1])
 	b.Changes = b.Changes[:0]
 }
 
-// DiscardChanges discard the changes to the aggregate.
+// DiscardChanges discards the recorded changes. The aggregate repository calls
+// this method when retrying a failed Repository.Use() call. Note that this
+// method does not discard any state changs that were applied to the aggregate;
+// it only discards recorded changes.
 func (b *Base) DiscardChanges() {
 	b.Changes = b.Changes[:0]
 }
 
-// ApplyEvent implements aggregate. aggregates that embed *Base should override
-// ApplyEvent.
+// ApplyEvent calls the event applier that was registered for the given event.
 func (b *Base) ApplyEvent(evt event.Event) {
 	if handler, ok := b.handlers[evt.Name()]; ok {
 		handler(evt)
 	}
 }
 
+// SetVersion manually sets the version of the aggregate.
+//
 // SetVersion implements snapshot.Aggregate.
 func (b *Base) SetVersion(v int) {
 	b.Version = v
 }
 
-// ApplyHistory applies the given events to the aggregate a to reconstruct the
-// state of a at the time of the latest event. If the aggregate implements
-// Committer, a.TrackChange(events) and a.Commit() are called before returning.
-func ApplyHistory[Data any, Events ~[]event.Of[Data]](a Aggregate, events Events) error {
+// ApplyHistory applies an event stream to an aggregate to reconstruct its state.
+// If the aggregate implements Committer, a.RecordChange(events) and a.Commit()
+// are called before returning.
+func ApplyHistory[Events ~[]event.Of[any]](a Aggregate, events Events) error {
 	if err := ValidateConsistency(a, events); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 
-	aevents := make([]event.Event, len(events))
-	for i, evt := range events {
-		aevt := event.Any(evt)
-		aevents[i] = aevt
-		a.ApplyEvent(aevt)
+	for _, evt := range events {
+		a.ApplyEvent(evt)
 	}
 
 	if c, ok := a.(Committer); ok {
-		c.TrackChange(aevents...)
+		c.RecordChange(events...)
 		c.Commit()
 	}
 
@@ -147,8 +160,7 @@ func Sort(as []Aggregate, s Sorting, dir SortDirection) []Aggregate {
 	return SortMulti(as, SortOptions{Sort: s, Dir: dir})
 }
 
-// SortMulti sorts aggregates by multiple fields and returns the sorted
-// aggregates.
+// SortMulti sorts aggregates by multiple fields and returns the sorted aggregates.
 func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 	sorted := make([]Aggregate, len(as))
 	copy(sorted, as)
@@ -171,10 +183,10 @@ func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option) ev
 	return Next(a, name, data, opts...)
 }
 
-// Next creates, applies and returns the provided event for the given aggregate.
+// Next creates, applies and returns the next event for the given aggregate.
 //
 //	var foo aggregate.Aggregate
-//	evt := aggregate.Next(foo, "event-name", ...)
+//	evt := aggregate.Next(foo, "name", <data>, ...)
 func Next[Data any](a Aggregate, name string, data Data, opts ...event.Option) event.Evt[Data] {
 	aid, aname, _ := a.Aggregate()
 
@@ -193,47 +205,41 @@ func Next[Data any](a Aggregate, name string, data Data, opts ...event.Option) e
 	a.ApplyEvent(aevt)
 
 	if c, ok := a.(Committer); ok {
-		c.TrackChange(aevt)
+		c.RecordChange(aevt)
 	}
 
 	return evt
 }
 
-// HasChange returns whether aggregate a has an uncommitted event with the given name.
-func HasChange(a Aggregate, eventName string) bool {
-	for _, change := range a.AggregateChanges() {
-		if change.Name() == eventName {
-			return true
-		}
-	}
-	return false
-}
-
-// UncommittedVersion returns the version the aggregate, including any uncommitted changes.
+// UncommittedVersion returns the version of the aggregate after committing the
+// recorded changes.
 func UncommittedVersion(a Aggregate) int {
 	_, _, v := a.Aggregate()
 	return v + len(a.AggregateChanges())
 }
 
-// NextVersion returns the next (uncommitted) version of an aggregate (UncommittedVersion(a) + 1).
+// NextVersion returns the version that the next event of the aggregate must have.
 func NextVersion(a Aggregate) int {
 	return UncommittedVersion(a) + 1
 }
 
 // nextTime returns the Time for the next event of the given aggregate. The time
 // should most of the time just be time.Now(), but nextTime guarantees that the
-// returned Time is at least 1 nanosecond after the previous event. This is
-// necessary for the projection.Progressing API to work.
+// returned Time is at least 1 nanosecond after the previous event.
 func nextTime(a Aggregate) time.Time {
 	changes := a.AggregateChanges()
 	now := xtime.Now()
+
 	if len(changes) == 0 {
 		return now
 	}
+
 	latestTime := changes[len(changes)-1].Time()
 	nowTrunc := now.Truncate(0)
+
 	if nowTrunc.Equal(latestTime) || nowTrunc.Before(latestTime.Truncate(0)) {
 		return changes[len(changes)-1].Time().Add(time.Nanosecond)
 	}
+
 	return now
 }

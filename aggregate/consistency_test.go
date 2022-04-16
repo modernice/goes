@@ -81,7 +81,7 @@ func TestValidate_version(t *testing.T) {
 	aggregateID := uuid.New()
 	changedAggregate := aggregate.New("foo", aggregateID)
 	changes := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(changedAggregate))
-	changedAggregate.TrackChange(changes...)
+	changedAggregate.RecordChange(changes...)
 	now := xtime.Now()
 
 	tests := []struct {

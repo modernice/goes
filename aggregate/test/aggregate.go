@@ -63,9 +63,9 @@ func ApplyEventFunc(eventName string, fn func(event.Event)) AggregateOption {
 	}
 }
 
-// TrackChangeFunc returns an aggregateOption that allows users to intercept
-// calls to a.TrackChange.
-func TrackChangeFunc(fn func(changes []event.Event, track func(...event.Event))) AggregateOption {
+// RecordChangeFunc returns an aggregateOption that allows users to intercept
+// calls to a.RecordChange.
+func RecordChangeFunc(fn func(changes []event.Event, track func(...event.Event))) AggregateOption {
 	return func(a *testAggregate) {
 		a.trackFunc = fn
 	}
@@ -91,16 +91,16 @@ func (a *testAggregate) ApplyEvent(evt event.Event) {
 	}
 }
 
-func (a *testAggregate) TrackChange(changes ...event.Event) {
+func (a *testAggregate) RecordChange(changes ...event.Event) {
 	if a.trackFunc == nil {
-		a.trackChange(changes...)
+		a.recordChange(changes...)
 		return
 	}
-	a.trackFunc(changes, a.trackChange)
+	a.trackFunc(changes, a.recordChange)
 }
 
-func (a *testAggregate) trackChange(changes ...event.Event) {
-	a.Base.TrackChange(changes...)
+func (a *testAggregate) recordChange(changes ...event.Event) {
+	a.Base.RecordChange(changes...)
 }
 
 func (a *testAggregate) Commit() {

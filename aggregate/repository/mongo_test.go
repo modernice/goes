@@ -42,7 +42,7 @@ func TestRepository_Use_Retry(t *testing.T) {
 	if err := r.Use(ctx, foo, func() error {
 		tries++
 		// apply the last event again. this should fail with a *mongo.VersionError
-		foo.TrackChange(events[len(events)-1])
+		foo.RecordChange(events[len(events)-1])
 		return nil
 	}); !aggregate.IsConsistencyError(err) {
 		t.Fatalf("Use() should fail with a consistency error; got %T %v", err, err)

@@ -23,7 +23,7 @@ func example() {
 }
 ```
 
-Events can be published and subscribed to over an event bus:
+Events can be published over an event bus:
 
 ```go
 import "github.com/modernice/goes/event"
@@ -60,8 +60,9 @@ func example(store event.Store) {
 ```
 
 Depending on the used event store and/or event bus implementations, it may be
-required to pass an Encoding for your event data to the store/bus. Example
-using encoding/gob for encoding of event data:
+required to pass an encoder for event data to the store/bus.
+
+**Example using encoding/gob:**
 
 ```go
 import (
@@ -76,4 +77,13 @@ func example() {
 	codec.GobRegister[struct{Foo string}](enc, "baz") // register "baz" as a struct{Foo string}
 
 	store := mongo.NewEventStore(enc)
+}
+
+// Alternative without the use of generics.
+func example() {
+	enc := codec.Gob(event.NewRegistry())
+	enc.GobRegister("foo", func() any { return 0 })
+	enc.GobRegister("bar", func() any { return "" })
+	enc.GobRegister("baz", func() any { return struct{Foo string}{} })
+}
 ```

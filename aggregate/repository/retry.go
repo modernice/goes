@@ -15,7 +15,7 @@ import (
 //
 // The following example retries calls that failed due to consistency errors.
 // It is retried every second, up to 3 times before giving up. If the call does
-// not succeed after 3 times, the error of the last attempt is returned to the
+// not succeed after 3 tries, the error of the last attempt is returned to the
 // caller.
 //
 //	type Foo struct { *aggregate.Base }

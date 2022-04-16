@@ -109,7 +109,7 @@ func TestEvery(t *testing.T) {
 			a := aggregate.New("foo", uuid.New(), aggregate.Version(tt.oldVersion))
 			events := xevent.Make("foo", test.FooEventData{}, tt.newVersion-tt.oldVersion, xevent.ForAggregate(a))
 			for _, evt := range events {
-				a.TrackChange(evt)
+				a.RecordChange(evt)
 			}
 			got := s.Test(a)
 			if got != tt.want {

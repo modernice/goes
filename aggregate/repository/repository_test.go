@@ -48,7 +48,7 @@ func TestRepository_Save(t *testing.T) {
 		close(flushed)
 	}))
 
-	foo.TrackChange(events...)
+	foo.RecordChange(events...)
 
 	if err := r.Save(context.Background(), foo); err != nil {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
@@ -78,7 +78,7 @@ func TestRepository_Save_Snapshot(t *testing.T) {
 	for _, evt := range events {
 		foo.ApplyEvent(evt)
 
-		foo.TrackChange(evt)
+		foo.RecordChange(evt)
 	}
 
 	if err := r.Save(context.Background(), foo); err != nil {
@@ -216,7 +216,7 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	}
 
 	org := test.NewFoo(aggregateID)
-	org.TrackChange(events...)
+	org.RecordChange(events...)
 
 	r := repository.New(eventstore.New())
 	if err := r.Save(context.Background(), org); err != nil {

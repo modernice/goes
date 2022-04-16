@@ -49,7 +49,7 @@ func TestBase_TrackChange(t *testing.T) {
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 2)),
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)),
 	}
-	b.TrackChange(events...)
+	b.RecordChange(events...)
 	if changes := b.AggregateChanges(); !reflect.DeepEqual(events, changes) {
 		t.Fatalf("b.AggregateChanges() returned wrong events\n\nwant: %#v\n\ngot: %#v", events, changes)
 	}
@@ -64,7 +64,7 @@ func TestBase_FlushChanges(t *testing.T) {
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3)),
 	}
 
-	b.TrackChange(events...)
+	b.RecordChange(events...)
 
 	b.Commit()
 
@@ -117,7 +117,7 @@ func TestUncommittedVersion(t *testing.T) {
 
 	evt := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 1))
 
-	a.TrackChange(evt)
+	a.RecordChange(evt)
 
 	if v := aggregate.UncommittedVersion(a); v != 1 {
 		t.Errorf("current aggregate version should be %d; got %d", 1, v)
@@ -125,7 +125,7 @@ func TestUncommittedVersion(t *testing.T) {
 
 	evt = event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 2))
 
-	a.TrackChange(evt)
+	a.RecordChange(evt)
 
 	if v := aggregate.UncommittedVersion(a); v != 2 {
 		t.Errorf("current aggregate version should be %d; got %d", 2, v)
@@ -153,23 +153,5 @@ func TestNextEvent(t *testing.T) {
 
 	if evt.Data() != data {
 		t.Errorf("Event should have data %v; got %v", data, evt.Data())
-	}
-}
-
-func TestHasChange(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
-	aggregate.NextEvent(a, "foo", etest.FooEventData{})
-	aggregate.NextEvent(a, "bar", etest.BarEventData{})
-	aggregate.NextEvent(a, "baz", etest.BazEventData{})
-
-	wantChanges := []string{"foo", "bar", "baz"}
-	for _, name := range wantChanges {
-		if !aggregate.HasChange(a, name) {
-			t.Fatalf("Aggregate should have %q change", name)
-		}
-	}
-
-	if aggregate.HasChange(a, "foobar") {
-		t.Fatalf("Aggregate shouldn't have %q change", "foobar")
 	}
 }
