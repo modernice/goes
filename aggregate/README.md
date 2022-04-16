@@ -546,8 +546,8 @@ of aggregates. The `TypedRepository` can be used to define a type-safe
 repository for a specific aggregate. The `TypedRepository` removes the need for
 passing the aggregate instance to repository methods.
 
-To create a type-safe repository for an aggregate, use the `repository.Typed()`
-constructor:
+To create a type-safe repository for an aggregate, pass the `Repository` and the
+constructor of the aggregate to `repository.Typed()`:
 
 ```go
 package todo
@@ -555,6 +555,7 @@ package todo
 import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
+	"github.com/modernice/goes/event"
 )
 
 // List is the "todo list" aggregate.
