@@ -104,3 +104,14 @@ func HandleWith[Payload any](r Registerer, handler func(Ctx[Payload]) error, com
 		RegisterHandler(r, name, handler)
 	}
 }
+
+// ApplyWith registers the command applier for the given commands. When a
+// command handler one of the given commands, it calls the provided apply
+// function with the command payload to execute the command.
+//
+// ApplyWith calls HandleWith under the hood to register the command handler.
+func ApplyWith[Payload any](r Registerer, apply func(Payload) error, commandNames ...string) {
+	HandleWith(r, func(ctx Ctx[Payload]) error {
+		return apply(ctx.Payload())
+	}, commandNames...)
+}
