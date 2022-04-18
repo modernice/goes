@@ -785,7 +785,10 @@ func runQuery(r aggregate.Repository, q query.Query, factory func(string, uuid.U
 			if !ok {
 				return out, nil
 			}
-			a := factory(apply.AggregateName(), apply.AggregateID())
+
+			ref := apply.Aggregate()
+
+			a := factory(ref.Name, ref.ID)
 			apply.Apply(a)
 			out = append(out, a)
 		}

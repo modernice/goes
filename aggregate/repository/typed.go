@@ -87,7 +87,9 @@ func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Quer
 	go func() {
 		defer close(out)
 		for his := range str {
-			a := r.make(his.AggregateID())
+			ref := his.Aggregate()
+
+			a := r.make(ref.ID)
 
 			// The query returned an aggregate that doesn't match the aggregate
 			// type of the repository, so we discard it.
@@ -99,7 +101,7 @@ func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Quer
 			//
 			//	name := pick.AggregateName(r.make())
 			//	q := query.New(query.AggregateName(name), ...)
-			if pick.AggregateName(a) != his.AggregateName() {
+			if pick.AggregateName(a) != ref.Name {
 				continue
 			}
 

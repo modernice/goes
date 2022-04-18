@@ -364,7 +364,8 @@ func drain(
 
 	as := make([]aggregate.Aggregate, len(results))
 	for i, res := range results {
-		as[i] = factory(res.AggregateName(), res.AggregateID())
+		ref := res.Aggregate()
+		as[i] = factory(ref.Name, ref.ID)
 		res.Apply(as[i])
 	}
 

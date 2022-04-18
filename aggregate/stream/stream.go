@@ -341,12 +341,8 @@ func (s *stream) sortEvents() {
 	}
 }
 
-func (a applier) AggregateName() string {
-	return a.name
-}
-
-func (a applier) AggregateID() uuid.UUID {
-	return a.id
+func (a applier) Aggregate() aggregate.Ref {
+	return aggregate.Ref{Name: a.name, ID: a.id}
 }
 
 func (a applier) Apply(ag aggregate.Aggregate) {

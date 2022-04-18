@@ -158,7 +158,10 @@ L:
 				if !ok {
 					continue L
 				}
-				a := &mockAggregate{Base: aggregate.New(res.AggregateName(), res.AggregateID())}
+
+				ref := res.Aggregate()
+
+				a := &mockAggregate{Base: aggregate.New(ref.Name, ref.ID)}
 				as = append(as, a)
 			}
 		}

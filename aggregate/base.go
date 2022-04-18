@@ -1,7 +1,6 @@
 package aggregate
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -133,26 +132,6 @@ func (b *Base) ApplyEvent(evt event.Event) {
 // SetVersion implements snapshot.Aggregate.
 func (b *Base) SetVersion(v int) {
 	b.Version = v
-}
-
-// ApplyHistory applies an event stream to an aggregate to reconstruct its state.
-// If the aggregate implements Committer, a.RecordChange(events) and a.Commit()
-// are called before returning.
-func ApplyHistory[Events ~[]event.Of[any]](a Aggregate, events Events) error {
-	if err := ValidateConsistency(a, events); err != nil {
-		return fmt.Errorf("validate consistency: %w", err)
-	}
-
-	for _, evt := range events {
-		a.ApplyEvent(evt)
-	}
-
-	if c, ok := a.(Committer); ok {
-		c.RecordChange(events...)
-		c.Commit()
-	}
-
-	return nil
 }
 
 // Sort sorts aggregates and returns the sorted aggregates.

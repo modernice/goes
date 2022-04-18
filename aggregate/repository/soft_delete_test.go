@@ -94,12 +94,14 @@ func TestRepository_Query_SoftDelete(t *testing.T) {
 
 	his := histories[0]
 
-	if his.AggregateName() != "foo" {
-		t.Fatalf("aggregate name of history should be %q; is %q", "foo", his.AggregateID())
+	ref := his.Aggregate()
+
+	if ref.Name != "foo" {
+		t.Fatalf("aggregate name of history should be %q; is %q", "foo", ref.Name)
 	}
 
-	if his.AggregateID() != foo.AggregateID() {
-		t.Fatalf("aggregate id of history should be %q; is %q", foo.AggregateID(), his.AggregateID())
+	if ref.ID != foo.AggregateID() {
+		t.Fatalf("aggregate id of history should be %q; is %q", foo.AggregateID(), ref.ID)
 	}
 }
 

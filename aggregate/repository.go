@@ -142,19 +142,6 @@ type Sorting int
 // SortDirection is a sorting direction.
 type SortDirection int
 
-// A History provides the event history of an aggregate. A History can be
-// applied onto an aggregate to rebuild its current state.
-type History interface {
-	// AggregateName returns the name of the aggregate.
-	AggregateName() string
-
-	// AggregateID returns the UUID of the aggregate.
-	AggregateID() uuid.UUID
-
-	// Apply applies the history onto the aggregate to rebuild its current state.
-	Apply(Aggregate)
-}
-
 // Compare compares a and b and returns -1 if a < b, 0 if a == b or 1 if a > b.
 func (s Sorting) Compare(a, b Aggregate) (cmp int8) {
 	aid, aname, av := a.Aggregate()
