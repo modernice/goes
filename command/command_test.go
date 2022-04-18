@@ -52,7 +52,8 @@ func TestAggregateName(t *testing.T) {
 		command.Aggregate(a.AggregateName(), a.AggregateID()),
 	)
 
-	id, name, _ := cmd.Aggregate().Aggregate()
+	id, name := cmd.Aggregate().Split()
+
 	if name != a.AggregateName() {
 		t.Fatalf(
 			"cmd.AggregateName should return %q; got %q",

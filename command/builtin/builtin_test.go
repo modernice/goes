@@ -33,7 +33,7 @@ func TestDeleteAggregate(t *testing.T) {
 		t.Fatalf("Name() should return %q; got %q", "goes.command.aggregate.delete", cmd.Name())
 	}
 
-	id, name, _ := cmd.Aggregate().Aggregate()
+	id, name := cmd.Aggregate().Split()
 
 	if name != aggregateName {
 		t.Fatalf("AggregateName() should return %q; got %q", aggregateName, name)

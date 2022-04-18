@@ -406,8 +406,8 @@ func assertEqualCommands(t *testing.T, cmd1, cmd2 command.Command) {
 		t.Errorf("Command ID mismatch: %s != %s", cmd1.ID(), cmd2.ID())
 	}
 
-	id1, name1, _ := cmd1.Aggregate().Aggregate()
-	id2, name2, _ := cmd2.Aggregate().Aggregate()
+	id1, name1 := cmd1.Aggregate().Split()
+	id2, name2 := cmd2.Aggregate().Split()
 
 	if name1 != name2 {
 		t.Errorf("Command AggregateName mismatch: %q != %q", name1, name2)

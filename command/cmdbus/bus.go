@@ -244,7 +244,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 		return fmt.Errorf("encode payload: %w", err)
 	}
 
-	id, name, _ := cmd.Aggregate().Aggregate()
+	id, name := cmd.Aggregate().Split()
 
 	evt := event.New(CommandDispatched, CommandDispatchedData{
 		ID:            cmd.ID(),
@@ -576,7 +576,7 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 
 	// if the dispatch requested a report, report the execution result
 	if cmd.cfg.Reporter != nil {
-		id, name, _ := cmd.cmd.Aggregate().Aggregate()
+		id, name := cmd.cmd.Aggregate().Split()
 
 		var err error
 		if data.Error != "" {

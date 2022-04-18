@@ -120,7 +120,7 @@ func (cmd Cmd[P]) Command() Of[P] {
 
 // Any returns the command with its type paramter set to `any`.
 func Any[P any](cmd Of[P]) Cmd[any] {
-	id, name, _ := cmd.Aggregate().Aggregate()
+	id, name := cmd.Aggregate().Split()
 	return New[any](cmd.Name(), cmd.Payload(), ID(cmd.ID()), Aggregate(name, id))
 }
 
@@ -131,13 +131,13 @@ func TryCast[To, From any](cmd Of[From]) (Cmd[To], bool) {
 	if !ok {
 		return Cmd[To]{}, false
 	}
-	id, name, _ := cmd.Aggregate().Aggregate()
+	id, name := cmd.Aggregate().Split()
 	return New(cmd.Name(), load, ID(cmd.ID()), Aggregate(name, id)), true
 }
 
 // Cast casts the payload of the given command to the given `To` type. If the
 // payload is not of type `To`, Cast panics.
 func Cast[To, From any](cmd Of[From]) Cmd[To] {
-	id, name, _ := cmd.Aggregate().Aggregate()
+	id, name := cmd.Aggregate().Split()
 	return New(cmd.Name(), any(cmd.Payload()).(To), ID(cmd.ID()), Aggregate(name, id))
 }

@@ -190,6 +190,11 @@ func (ref AggregateRef) Aggregate() (uuid.UUID, string, int) {
 	return ref.ID, ref.Name, -1
 }
 
+// Split splits the reference into its id and name.
+func (ref AggregateRef) Split() (uuid.UUID, string) {
+	return ref.ID, ref.Name
+}
+
 // String returns the string representation of the aggregate:
 //	"NAME(ID)"
 func (ref AggregateRef) String() string {
