@@ -18,7 +18,7 @@ import (
 	"github.com/modernice/goes/internal/testutil"
 )
 
-func TestHandlerBase_HandleCommand(t *testing.T) {
+func TestBaseHandler_HandleCommand(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -90,7 +90,7 @@ func TestOf_Handle(t *testing.T) {
 
 type HandlerAggregate struct {
 	*aggregate.Base
-	*handler.HandlerBase
+	*handler.BaseHandler
 
 	FooVal string
 	BarVal string
@@ -99,7 +99,7 @@ type HandlerAggregate struct {
 func NewHandlerAggregate(id uuid.UUID) *HandlerAggregate {
 	a := &HandlerAggregate{
 		Base:        aggregate.New("handler", id),
-		HandlerBase: handler.NewBase(),
+		BaseHandler: handler.NewBase(),
 	}
 
 	event.ApplyWith(a, a.foo, "foo")

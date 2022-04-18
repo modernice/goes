@@ -16,7 +16,7 @@ type Registerer interface {
 //
 //	type Foo struct {
 //		*aggregate.Base
-//		*handler.HandlerBase
+//		*handler.BaseHandler
 //
 //		Foo string
 //		Bar string

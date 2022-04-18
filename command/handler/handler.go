@@ -10,23 +10,23 @@ import (
 	"github.com/modernice/goes/helper/streams"
 )
 
-// HandlerBase can be embedded into an aggregate to implement the aggregate
+// BaseHandler can be embedded into an aggregate to implement the aggregate
 // interface. Provided methods are
 //	- RegisterCommandHandler(string, func(command.Context) error)
 //	- CommandNames() []string
 //	- HandleCommand(command.Context) error
 //
-// HandlerBase allows to do the following:
+// BaseHandler allows to do the following:
 //
 //	type MyAggregate struct {
 //    *aggregate.Base
-//    *handler.HandlerBase
+//    *handler.BaseHandler
 //  }
 //
 //	func New(id uuid.UUID) *MyAggregate {
 //		foo := &MyAggregate{
 //			Base: aggregate.NewBase("foo", id),
-//			HandlerBase: handler.NewBase(),
+//			BaseHandler: handler.NewBase(),
 //		}
 //
 //		// Handle "foo" and "bar" commands using the provided handler function.
@@ -35,27 +35,27 @@ import (
 //		return foo
 //	}
 //
-// HandlerBase is not named Base to avoid name collisions with the
+// BaseHandler is not named Base to avoid name collisions with the
 // aggregate.Base type.
-type HandlerBase struct {
+type BaseHandler struct {
 	handlers map[string]func(command.Context) error
 }
 
-// NewBase returns a new *HandlerBase that can be embedded into an aggregate to
+// NewBase returns a new *BaseHandler that can be embedded into an aggregate to
 // implement the aggregate interface.
-func NewBase() *HandlerBase {
-	return &HandlerBase{
+func NewBase() *BaseHandler {
+	return &BaseHandler{
 		handlers: make(map[string]func(command.Context) error),
 	}
 }
 
 // RegisterHandler registers a command handler for the given command name.
-func (base *HandlerBase) RegisterCommandHandler(commandName string, handler func(command.Context) error) {
+func (base *BaseHandler) RegisterCommandHandler(commandName string, handler func(command.Context) error) {
 	base.handlers[commandName] = handler
 }
 
 // CommandNames returns the commands that this handler (usually an aggregate) handles.
-func (base *HandlerBase) CommandNames() []string {
+func (base *BaseHandler) CommandNames() []string {
 	names := make([]string, 0, len(base.handlers))
 	for name := range base.handlers {
 		names = append(names, name)
@@ -64,7 +64,7 @@ func (base *HandlerBase) CommandNames() []string {
 }
 
 // HandleCommand executes the command handler on the given command.
-func (base *HandlerBase) HandleCommand(ctx command.Context) error {
+func (base *BaseHandler) HandleCommand(ctx command.Context) error {
 	if handler, ok := base.handlers[ctx.Name()]; ok {
 		return handler(ctx)
 	}
