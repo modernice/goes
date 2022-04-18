@@ -2,6 +2,7 @@ package command
 
 import (
 	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
 )
 
 // Command is a command with arbitrary payload.
@@ -24,8 +25,8 @@ type Of[Payload any] interface {
 	// Payload returns the command payload.
 	Payload() Payload
 
-	// Aggregate returns aggregate that the command acts on.
-	Aggregate() (id uuid.UUID, name string)
+	// Aggregate returns the aggregate this command acts on.
+	Aggregate() aggregate.Ref
 }
 
 // Option is an option for creating a command.
@@ -100,8 +101,11 @@ func (cmd Cmd[P]) Payload() P {
 }
 
 // Aggregate returns the aggregate that the command acts on.
-func (cmd Cmd[P]) Aggregate() (uuid.UUID, string) {
-	return cmd.Data.AggregateID, cmd.Data.AggregateName
+func (cmd Cmd[P]) Aggregate() aggregate.Ref {
+	return aggregate.Ref{
+		Name: cmd.Data.AggregateName,
+		ID:   cmd.Data.AggregateID,
+	}
 }
 
 // Any returns the command with its type paramter set to `any`.
@@ -116,7 +120,7 @@ func (cmd Cmd[P]) Command() Of[P] {
 
 // Any returns the command with its type paramter set to `any`.
 func Any[P any](cmd Of[P]) Cmd[any] {
-	id, name := cmd.Aggregate()
+	id, name, _ := cmd.Aggregate().Aggregate()
 	return New[any](cmd.Name(), cmd.Payload(), ID(cmd.ID()), Aggregate(name, id))
 }
 
@@ -127,13 +131,13 @@ func TryCast[To, From any](cmd Of[From]) (Cmd[To], bool) {
 	if !ok {
 		return Cmd[To]{}, false
 	}
-	id, name := cmd.Aggregate()
+	id, name, _ := cmd.Aggregate().Aggregate()
 	return New(cmd.Name(), load, ID(cmd.ID()), Aggregate(name, id)), true
 }
 
 // Cast casts the payload of the given command to the given `To` type. If the
 // payload is not of type `To`, Cast panics.
 func Cast[To, From any](cmd Of[From]) Cmd[To] {
-	id, name := cmd.Aggregate()
+	id, name, _ := cmd.Aggregate().Aggregate()
 	return New(cmd.Name(), any(cmd.Payload()).(To), ID(cmd.ID()), Aggregate(name, id))
 }

@@ -45,13 +45,11 @@ func NewContext[P any](base context.Context, cmd Of[P], opts ...ContextOption) C
 }
 
 func (ctx *cmdctx[P]) AggregateID() uuid.UUID {
-	id, _ := ctx.Aggregate()
-	return id
+	return ctx.Aggregate().ID
 }
 
 func (ctx *cmdctx[P]) AggregateName() string {
-	_, name := ctx.Aggregate()
-	return name
+	return ctx.Aggregate().Name
 }
 
 func (ctx *cmdctx[P]) Finish(c context.Context, opts ...finish.Option) error {

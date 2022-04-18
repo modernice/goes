@@ -179,6 +179,17 @@ var zeroRef AggregateRef
 // IsZero returns whether the ref has an empty name and a nil-UUID.
 func (ref AggregateRef) IsZero() bool { return ref == zeroRef }
 
+// Aggregate returns the id and name of the aggregate, and -1 as its version.
+//
+// AggregateRef implements pick.AggregateProvider to allow for this:
+//
+//	var ref event.AggregateRef
+//	name := pick.AggregateName(ref)
+//	id := pick.AggregateID(ref)
+func (ref AggregateRef) Aggregate() (uuid.UUID, string, int) {
+	return ref.ID, ref.Name, -1
+}
+
 // String returns the string representation of the aggregate:
 //	"NAME(ID)"
 func (ref AggregateRef) String() string {

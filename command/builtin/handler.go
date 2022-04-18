@@ -64,7 +64,7 @@ func Handle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opt
 
 	deleteErrors, err := h.Handle(ctx, DeleteAggregateCmd, func(ctx command.Context) error {
 		cmd := ctx
-		id, name := cmd.Aggregate()
+		id, name, _ := cmd.Aggregate().Aggregate()
 		a := aggregate.New(name, id)
 
 		if err := repo.Fetch(ctx, a); err != nil {
