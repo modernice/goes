@@ -89,7 +89,7 @@ type TypedRepository[A TypedAggregate] interface {
 	model.Repository[A, uuid.UUID]
 
 	// FetchVersion fetches all events for the given aggregate up to the given
-	// version from the event store and applies them onto the aggregate.
+	// version from the event store and applies them to the aggregate.
 	// FetchVersion fetches the given aggregate in the given version from the
 	// event store.
 	FetchVersion(ctx context.Context, id uuid.UUID, version int) (A, error)

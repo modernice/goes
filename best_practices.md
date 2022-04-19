@@ -18,6 +18,6 @@ working with this library. These will be integrated into the documentation somed
 
 - keep projections performant
 	- run costly computations in a `finalize` method after applying a projection
-		job onto a projection
+		job to a projection
 	- generally, don't call long-running functions that require a
 		`context.Context` within event appliers.

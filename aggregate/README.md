@@ -18,7 +18,7 @@ type Aggregate interface {
 	// AggregateChanges returns the uncommited events of the aggregate.
 	AggregateChanges() []event.Event
 
-	// ApplyEvent applies an event onto the aggregate.
+	// ApplyEvent applies an event to the aggregate.
 	ApplyEvent(event.Event)
 }
 ```
@@ -499,7 +499,7 @@ func example() {
 
 Aggregates can be queried from the event store. When queried, the repository
 returns a `History` channel (lol) and an `error` channel. A `History` can be
-applied onto an aggregate to reconstruct its current state.
+applied to an aggregate to reconstruct its current state.
 
 ```go
 package example

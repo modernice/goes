@@ -91,7 +91,7 @@ func RegisterHandler[Data any](r Registerer, eventName string, handler func(Of[D
 //	func NewFoo() *Foo  {
 //		foo := &Foo{Base: projection.New()}
 //
-//		// Because we "apply" events onto the projection.
+//		// Because we "apply" events to the projection.
 //		event.ApplyWith(foo, foo.applyFoo, "foo")
 //
 //		return foo

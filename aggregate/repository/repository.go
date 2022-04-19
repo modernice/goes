@@ -176,7 +176,7 @@ func (r *Repository) makeSnapshot(ctx context.Context, a aggregate.Aggregate) er
 }
 
 // Fetch fetches the events of the provided aggregate from the event store and
-// applies them onto it to build its current state.
+// applies them to it to build its current state.
 //
 // It is allowed to pass an aggregate that does't have any events in the event
 // store yet.

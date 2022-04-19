@@ -7,12 +7,12 @@ import (
 )
 
 // A History provides the event history of an aggregate. A History can be
-// applied onto an aggregate to rebuild its current state.
+// applied to an aggregate to rebuild its current state.
 type History interface {
 	// Aggregate returns the reference to the aggregate of this history.
 	Aggregate() Ref
 
-	// Apply applies the history onto the aggregate to rebuild its current state.
+	// Apply applies the history to the aggregate to rebuild its current state.
 	Apply(Aggregate)
 }
 

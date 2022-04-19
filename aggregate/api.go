@@ -16,7 +16,7 @@ type Of[ID comparable] interface {
 	// AggregateChanges returns the uncommited events of the aggregate.
 	AggregateChanges() []event.Event
 
-	// ApplyEvent applies an event onto the aggregate.
+	// ApplyEvent applies an event to the aggregate.
 	ApplyEvent(event.Event)
 }
 

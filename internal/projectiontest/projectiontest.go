@@ -23,7 +23,7 @@ func (proj *MockProjection) ApplyEvent(evt event.Event) {
 	proj.AppliedEvents = append(proj.AppliedEvents, evt)
 }
 
-// HasApplied determines whether the passed events have been applied onto the
+// HasApplied determines whether the passed events have been applied to the
 // MockProjection.
 func (proj *MockProjection) HasApplied(events ...event.Event) bool {
 	for _, evt := range events {
@@ -41,7 +41,7 @@ func (proj *MockProjection) HasApplied(events ...event.Event) bool {
 	return true
 }
 
-// ExpectApplied determines whether events were applied onto the MockProjection
+// ExpectApplied determines whether events were applied to the MockProjection
 // and if not, makes the test fail.
 func (proj *MockProjection) ExpectApplied(t *testing.T, events ...event.Event) {
 	if !proj.HasApplied(events...) {

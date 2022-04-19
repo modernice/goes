@@ -65,7 +65,7 @@ func (ex *Expectations) Result() error {
 	}
 }
 
-// Apply applies the result onto the provided test. If the result is an error,
+// Apply applies the result to the provided test. If the result is an error,
 // t.Fatal(err) is called.
 func (ex *Expectations) Apply(t *testing.T) {
 	if err := ex.Result(); err != nil {
