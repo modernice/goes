@@ -16,7 +16,7 @@ type applyConfig struct {
 }
 
 // IgnoreProgress returns an ApplyOption that makes Apply ignore the current
-// progress of a projection so that it applies events onto a projection even if
+// progress of a projection so that it applies events to a projection even if
 // an event's time is before the progress time of the projection.
 func IgnoreProgress() ApplyOption {
 	return func(cfg *applyConfig) {
@@ -24,10 +24,10 @@ func IgnoreProgress() ApplyOption {
 	}
 }
 
-// Apply applies events onto the given projection.
+// Apply applies events to the given projection.
 //
 // If the projection implements Guard, proj.GuardProjection(evt) is called for
-// every event to determine if the event should be applied onto the projection.
+// every event to determine if the event should be applied to the projection.
 //
 // If the projection implements ProgressAware, the time of the last applied
 // event is applied to the projection by calling proj.SetProgress(evt).
@@ -35,10 +35,10 @@ func Apply(proj Target[any], events []event.Event, opts ...ApplyOption) {
 	ApplyStream(proj, streams.New(events), opts...)
 }
 
-// ApplyStream applies events onto the given projection.
+// ApplyStream applies events to the given projection.
 //
 // If the projection implements Guard, proj.GuardProjection(evt) is called for
-// every event to determine if the event should be applied onto the projection.
+// every event to determine if the event should be applied to the projection.
 //
 // If the projection implements ProgressAware, the time of the last applied
 // event is applied to the projection by calling proj.SetProgress(evt).

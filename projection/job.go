@@ -36,7 +36,7 @@ type Job interface {
 	//	// handle err
 	//	events, err := streams.Drain(job, str, errs)
 	//
-	// If you need the events that would be applied onto a given projection,
+	// If you need the events that would be applied to a given projection,
 	// call EventsFor() instead.
 	Events(_ context.Context, filters ...event.Query) (<-chan event.Event, <-chan error, error)
 
@@ -48,7 +48,7 @@ type Job interface {
 	//	events, err := streams.Drain(job, str, errs)
 	EventsOf(_ context.Context, aggregateNames ...string) (<-chan event.Event, <-chan error, error)
 
-	// EventsFor queries the events that would be applied onto the given
+	// EventsFor queries the events that would be applied to the given
 	// projection when calling Apply().
 	//
 	//	var job Job
@@ -75,7 +75,7 @@ type Job interface {
 	// errors.Is(err, ErrAggregateNotFound) is returned.
 	Aggregate(_ context.Context, aggregateName string) (uuid.UUID, error)
 
-	// Apply applies the Job onto the projection. It applies the events that
+	// Apply applies the Job to the projection. It applies the events that
 	// would be returned by EventsFor(). A job may be applied concurrently to
 	// multiple projections.
 	Apply(context.Context, Target[any], ...ApplyOption) error
@@ -108,7 +108,7 @@ func WithFilter(queries ...event.Query) JobOption {
 }
 
 // WithReset returns a JobOption that resets projections before applying events
-// onto them. Resetting a projection is done by first resetting the progress of
+// to them. Resetting a projection is done by first resetting the progress of
 // the projection (if it implements ProgressAware). Then, if the Projection has a
 // Reset method, that method is called to allow for custom reset logic.
 func WithReset() JobOption {

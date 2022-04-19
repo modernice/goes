@@ -34,7 +34,7 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 // canceled, the subscription is canceled and the returned error channel closed.
 //
 // When a projection Job is created, the apply function is called with that Job.
-// Use Job.Apply to apply the Job's events onto a given projection:
+// Use Job.Apply to apply the Job's events to a given projection:
 //
 //	var proj projection.Projection
 //	var s *schedule.Periodic
@@ -51,7 +51,7 @@ func Periodically(store event.Store, interval time.Duration, eventNames []string
 //		events, errs, err := job.Events(job) // fetch all events of the Job
 //		events, errs, err := job.Events(job, query.New(...)) // fetch events with filter
 //		events, errs, err := job.EventsOf(job, "foo", "bar") // fetch events that belong to specific aggregates
-//		events, errs, err := job.EventsFor(job, proj) // fetch events that would be applied onto proj
+//		events, errs, err := job.EventsFor(job, proj) // fetch events that would be applied to proj
 //		tuples, errs, err := job.Aggregates(job) // extract aggregates from events
 //		tuples, errs, err := job.Aggregates(job, "foo", "bar") // extract specific aggregates from events
 //		id, err := job.Aggregate(job, "foo") // extract UUID of first aggregate with given name

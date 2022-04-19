@@ -64,7 +64,7 @@ type Schedule interface {
 	//	var proj projection.Projection // created by yourself
 	//	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
 	//	errs, err := s.Subscribe(context.TODO(), func(job projection.Job) error {
-	//		return job.Apply(job, proj) // job.Apply applies the appropriate events onto the projection
+	//		return job.Apply(job, proj) // job.Apply applies the appropriate events to the projection
 	//	})
 	//	// handle err
 	//	for err := range errs {
@@ -79,7 +79,7 @@ type Schedule interface {
 	// Reset projections
 	//
 	// The created Job can be configured to reset projections before applying
-	// events onto them, effectively rebuilding the entire projection from the
+	// events to them, effectively rebuilding the entire projection from the
 	// beginning (first event):
 	//
 	//	var s projection.Schedule

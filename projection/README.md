@@ -5,7 +5,7 @@ Package `projection` provides a framework for building and managing projections.
 ## Introduction
 
 A projection is any type that implements the `Target` interface. A projection
-target can apply events onto itself to _project its state._
+target can apply events to itself to _project its state._
 
 ```go
 package projection
@@ -16,10 +16,15 @@ type Target interface {
 ```
 
 To build the projection state, you can use the `Apply()` function provided by
-this package. Each of the provided events will be applied onto the target:
+this package. Each of the provided events will be applied to the target:
 
 ```go
 package example
+
+import (
+	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/projection"
+)
 
 func example(target projection.Target, events []event.Event) {
 	projection.Apply(target, events)
@@ -28,8 +33,8 @@ func example(target projection.Target, events []event.Event) {
 
 The `Apply()` function also supports the following optional APIs:
 
-- [`ProgressAware`](#projection-progress)
-- [`Guard`](#projection-guards)
+- [`ProgressAware`](#progressaware)
+- [`Guard`](#guard)
 
 ### Example – Lookup table
 
@@ -42,6 +47,7 @@ package example
 
 import (
 	"sync"
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/pick"
 )
@@ -110,13 +116,18 @@ This can be achieved using a [continuous schedule](#continuous).
 
 The continuous schedule subscribes to events over an event bus to trigger
 [projection jobs](#projection-jobs) when events of a specified set are
-published. The projection job can be applied onto a projection to update its
+published. The projection job can be applied to a projection to update its
 state.
 
 ```go
 package example
 
 // ... previous code ...
+
+import (
+	"context"
+	"github.com/modernice/goes/projection/schedule"
+)
 
 func example(bus event.Bus, store event.Store) {
 	emails := NewEmails()
@@ -127,7 +138,7 @@ func example(bus event.Bus, store event.Store) {
 	})
 
 	errs, err := s.Subscribe(context.TODO(), func(ctx projection.Job) error {
-		// Apply the projection job onto the projection.
+		// Apply the projection job to the projection.
 		return ctx.Apply(ctx, emails)
 	})
 
@@ -141,11 +152,38 @@ func example(bus event.Bus, store event.Store) {
 }
 ```
 
+#### Debounce
+
+If your application publishes a lot of events in a short amount of time,
+consider providing the `Debounce(time.Duration)` option to continuous schedules
+to improve the performance of your application.
+
+Each time one of the configured events is published, the schedule will wait for
+the specified duration before triggering a projection job. Additional events
+that are published during this time will be buffered by the schedule and passed
+as a unit to the triggered projection job. Should an event be published and
+buffered during this wait time, the wait timer resets.
+
+> TODO: Implement a wait cap.
+
+```go
+package example
+
+func example(bus event.Bus, store event.Store) {
+	s := schedule.Continuously(
+		bus, store, []string{"..."},
+
+		// Debounce projection jobs by 1 second.
+		schedule.Debounce(time.Second),
+	)
+}
+```
+
 ### Periodic
 
 A periodic schedule triggers [projection jobs](#projection-jobs) at a
 specified interval. Periodic schedules always fetch the entire history of the
-configured events from the event store to apply onto the projections.
+configured events from the event store to apply to the projections.
 
 ```go
 package example
@@ -178,7 +216,7 @@ func example(store event.Store) {
 ## Projection jobs
 
 Jobs are typically created by schedules when triggering a projection update.
-A job can be applied onto projections to update their state by applying the
+A job can be applied to projections to update their state by applying the
 events that are configured in the job. Depending on the schedule that triggered
 the job, the job may fetch events on-the-fly from the event store when applied
 onto a projection.
@@ -204,7 +242,7 @@ func example(s projection.Schedule) {
     // Query all events of the job that belong to one of the given aggregate names.
     events, errs, err := ctx.EventsOf(ctx, "user")
 
-    // Query all events of the job that would be applied onto the given projection.
+    // Query all events of the job that would be applied to the given projection.
     events, errs, err := ctx.EventsFor(ctx, emails)
 
     // Extract all aggregates from the job's events as aggregate.Refs.
@@ -230,6 +268,32 @@ func example(s projection.Schedule) {
 }
 ```
 
+### Startup / initial projections
+
+When subscribing to a schedule, you can provide the `Startup(TriggerOption)`
+option to trigger an initial projection update on startup.
+
+```go
+package example
+
+func example(s projection.Schedule) {
+	errs, err := s.Subscribe(
+		context.TODO(),
+		func(projection.Job) error { ... },
+
+		// immediately create and apply a projection job
+		projection.Startup(), 
+	)
+
+	if err != nil {
+		// initial projection job failed
+	}
+
+	for err := range errs {
+		log.Printf("subsequent projection job failed: %v", err)
+	}
+}
+```
 
 ### Manually trigger a job
 
@@ -270,6 +334,178 @@ func example(store event.Store) {
 	}
 }
 ```
+
+## Extensions
+
+### ProgressAware
+
+You can embed the `*Progressor` type into your projection to make the
+projection `ProgressAware`. Such a projection keeps track of its "projection
+progress" when updated, which
+
+1. guards the projection from old, already applied events
+2. can optimize the query performance of projection jobs by only querying
+	 events that occured after a projection's progress time
+3. allows for simple and performant
+	 [startup projection jobs](#startup-projection-jobs)
+
+```go
+package example
+
+type Foo struct {
+	*projection.Progressor
+}
+
+func NewFoo() *Foo {
+	return &Foo{
+		Progressor: projection.NewProgressor(),
+	}
+}
+```
+
+### Guard
+
+If a projection implements `Guard`, its `GuardProjection(event.Event)` is called
+for every event that is about to be applied to the projection, and is only
+applied if `GuardProjection()` returns `true`.
+
+#### Example – Ecommerce orders
+
+Given an ecommerce app where read models of orders need to be projected for the
+customers. For brevity, the read model just needs to provide the id and total
+price of the order. One could implement a projector for the order read models
+like this:
+
+```go
+package example
+
+// ... order aggregate implementation ..
+
+// OrderPlaced is the event data for the "order_placed" event.
+type OrderPlaced struct {
+	UnitPrice int64
+	Quantity int
+}
+
+// CustomerOrder is the read model of an order for the customer of the order.
+type CustomerOrder struct {
+	ID uuid.UUID
+	Total int64
+}
+
+// NewCustomerOrder returns the customer read model of the order with the given id.
+func NewCustomerOrder(id uuid.UUID) *CustomerOrder {
+	return &CustomerOrder{
+		ID: id,
+	}
+}
+
+// GuardProjection implements projection.Guard.
+func (order *CustomerOrder) GuardProjection(evt event.Event) bool {
+	// Only allow events of the order that this read model represents.
+	return pick.AggregateID(evt) == order.ID
+}
+
+// ApplyEvent implements projection.Target.
+func (order *CustomerOrder) ApplyEvent(evt event.Event) {
+	switch evt.Name() {
+	case "order_placed":
+		data := order.Data().(OrderPlaced)
+		order.Total += data.UnitPrice * data.Quantity
+	}
+}
+
+// ProjectCustomerOrders continuously projects order read models for
+// customers until ctx is canceled.
+func ProjectCustomerOrders(
+	ctx context.Context,
+	bus event.Bus,
+	store event.Store,
+) (<-chan error, error) {
+	// Create a schedule that is triggered by the "order_placed" event.
+	// We debounce the schedule by 1 second which can trigger a single
+	// projection job for events of multiple orders.
+	s := schedule.Continuously(
+		bus, store, []string{"order_placed"},
+		schedule.Debounce(time.Second),
+	)
+
+	return s.Subscribe(ctx, func(ctx projection.Job) error {
+		// Extract the the orders from the events.
+		refs, errs, err := ctx.Aggregates(ctx)
+		if err != nil {
+			return fmt.Error("extract aggregates: %w", err)
+		}
+
+		// For each order, create (or fetch) the read model and apply
+		// the job to it.
+		return streams.Walk(ctx, func(ref aggregate.Ref) error {
+			order := NewCustomerOrder(ref.ID) // or fetch it from a repository
+
+			// Simply apply the job to the projection and let the projection
+			// guard determine which events are actually applied.
+			return ctx.Apply(ctx, order)
+		}, refs, errs)
+	})
+}
+```
+
+The projection guard example above could also be rewritten using the
+`QueryGuard` provided by this package:
+
+```go
+package example
+
+type CustomerOrder struct {
+	projection.Guard
+
+	ID uuid.UUID
+	Total int64
+}
+
+func NewCustomerOrder(id uuid.UUID) *CustomerOrder {
+	return &CustomerOrder{
+		// Use an event query as the projection guard.
+		Guard: projection.QueryGuard(query.New(query.AggregateID(id))),
+		ID: id,
+	}
+}
+```
+
+## Projection service
+
+The projection service allows projections to be triggered from external services
+/ processes. Communication between projection services is done using events.
+
+```go
+package service1
+
+func example(reg *codec.Registry, bus event.Bus) {
+  // Register the events of the projection service into a registry.
+  projection.RegisterService(reg)
+
+  svc := projection.NewService(bus)
+
+  // Given some named schedules
+  var schedules map[string]projection.Schedule
+
+  // When registering them in the projection service
+  for name, s := range schedules {
+    svc.Register(name, s)
+  }
+}
+
+package service2
+
+func example(bus event.Bus) {
+  svc := projection.NewService(bus)
+
+  // Then another service that uses the same underlying event bus can
+  // trigger the registered schedules
+  err := svc.Trigger(context.TODO(), "foo")
+}
+```
+
 
 ## Generic helpers
 
@@ -323,46 +559,14 @@ func (emails *Emails) userDeleted(evt event.Event) {
 }
 ```
 
-## Projection service
+## Tips
 
-The projection service allows projections to be triggered from external services
-/ processes. Communication between projection services is done using events.
+### Startup projection jobs
 
-```go
-package service1
-
-func example(reg *codec.Registry, bus event.Bus) {
-  // Register the events of the projection service into a registry.
-  projection.RegisterService(reg)
-
-  svc := projection.NewService(bus)
-
-  // Given some named schedules
-  var schedules map[string]projection.Schedule
-
-  // When registering them in the projection service
-  for name, s := range schedules {
-    svc.Register(name, s)
-  }
-}
-
-package service2
-
-func example(bus event.Bus) {
-  svc := projection.NewService(bus)
-
-  // Then another service that uses the same underlying event bus can
-  // trigger the registered schedules
-  err := svc.Trigger(context.TODO(), "foo")
-}
-```
-
-## Extensions
-
-### Projection progress
-
-_TBD_
-
-### Projection guards
-
-_TBD_
+Consider making your projection [`ProgressAware`](#progressaware) if you want to
+use the `Startup()` option when subscribing to a schedule. This can hugely
+improve the query performance of the initial projection job because the job can
+optimize its queries using the progress time provided by the `ProgressAware`
+interface. If your projection does not implement `ProgressAware`, then the
+initial projection job will query the entire history of the configured events,
+which – _depending on the size of your event store_ – could take a long time.

@@ -13,7 +13,7 @@ type Trigger struct {
 	Reset bool
 
 	// If provided, overrides the query that is used to fetch events that are
-	// applied onto projections.
+	// applied to projections.
 	Query event.Query
 
 	// If provided, overrides the query that is used to extract events from a
@@ -39,7 +39,7 @@ func NewTrigger(opts ...TriggerOption) Trigger {
 }
 
 // Reset returns a TriggerOption that resets projections before applying events
-// onto them. Resetting a projection is done by first resetting the progress of
+// to them. Resetting a projection is done by first resetting the progress of
 // the projection (if it implements progressor). Then, if the projection has a
 // `Reset()` method, that method is called to allow for custom reset logic.
 func Reset(reset bool) TriggerOption {

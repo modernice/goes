@@ -18,7 +18,7 @@ type Target[Data any] interface {
 }
 
 // A ProgressAware projection keeps track of its projection progress in terms of
-// the time and ids of the last applied events. When applying events onto a
+// the time and ids of the last applied events. When applying events to a
 // projection with projection.Apply(), only those events with a later time than
 // the current progress time are applied to the projection.
 //
@@ -75,7 +75,7 @@ func (p *Progressor) SetProgress(t time.Time, ids ...uuid.UUID) {
 
 // A Resetter is a projection that can reset its state. projections that
 // implement Resetter can be reset by projection jobs before applying events
-// onto the projection. projection jobs reset a projection if the WithReset()
+// to the projection. projection jobs reset a projection if the WithReset()
 // option was used to create the job.
 type Resetter interface {
 	// Reset should implement any custom logic to reset the state of a projection.
@@ -84,18 +84,18 @@ type Resetter interface {
 
 // Guard can be implemented by projections to "guard" the projection from
 // illegal events. If a projection implements Guard, GuardProjection(evt)
-// is called for every event that should be applied onto the projection to
+// is called for every event that should be applied to the projection to
 // determine if the event is allows to be applied. If GuardProjection(evt)
 // returns false, the event is not applied.
 //
 // QueryGuard implements Guard.
 type Guard interface {
-	// GuardProjection determines whether an event is allowed to be applied onto a projection.
+	// GuardProjection determines whether an event is allowed to be applied to a projection.
 	GuardProjection(event.Event) bool
 }
 
 // QueryGuard is a Guard that uses an event query to determine if an event is
-// allowed to be applied onto a projection.
+// allowed to be applied to a projection.
 //
 //	type MyProjection struct {
 //		projection.QueryGuard
@@ -109,7 +109,7 @@ type Guard interface {
 type QueryGuard query.Query
 
 // GuardProjection tests the Guard's Query against a given event and returns
-// whether the event is allowed to be applied onto the projection.
+// whether the event is allowed to be applied to the projection.
 func (g QueryGuard) GuardProjection(evt event.Event) bool {
 	return query.Test(query.Query(g), evt)
 }

@@ -16,7 +16,7 @@ type Guard struct {
 type Option func(*Guard)
 
 // Event returns an Option that specifies the guard for the given event. The
-// projection system will call the guard before applying the given event onto a
+// projection system will call the guard before applying the given event to a
 // projection and only applies the event if the guard returns true. If the data
 // of an event cannot be casted to the provided type, the event will not be
 // applied.
@@ -33,7 +33,7 @@ func Event[Data any](name string, guard func(event.Of[Data]) bool) Option {
 }
 
 // Any returns an Option that specifies the guard for the given event. The
-// projection system will call the guard before applying the given event onto a
+// projection system will call the guard before applying the given event to a
 // projection and only applies the event if the guard returns true. If the data
 // of an event cannot be casted to the provided type, the event will not be
 // applied.
@@ -52,7 +52,7 @@ func New(opts ...Option) *Guard {
 	return &g
 }
 
-// GuardProjection returns true if the given event should be applied onto the projection.
+// GuardProjection returns true if the given event should be applied to the projection.
 func (g *Guard) GuardProjection(evt event.Event) bool {
 	if guard, ok := g.guards[evt.Name()]; ok {
 		return guard(evt)
