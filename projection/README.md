@@ -28,8 +28,8 @@ func example(target projection.Target, events []event.Event) {
 
 The `Apply()` function also supports the following optional APIs:
 
-- [`ProgressAware`](#progress-aware)
-- [`Guard`](#guards)
+- [`ProgressAware`](#projection-progress)
+- [`Guard`](#projection-guards)
 
 ### Example – Lookup table
 
@@ -356,3 +356,13 @@ func example(bus event.Bus) {
   err := svc.Trigger(context.TODO(), "foo")
 }
 ```
+
+## Extensions
+
+### Projection progress
+
+_TBD_
+
+### Projection guards
+
+_TBD_
