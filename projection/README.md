@@ -314,6 +314,26 @@ func example(s projection.Schedule) {
 }
 ```
 
+You can override the query that is used by the job's `Aggregates()` helper to
+improve its query performance:
+
+```go
+package example
+
+func example(s projection.Schedule) {
+	s.Subscribe(context.TODO(), func(ctx projection.Job) error {
+		// We want to modify the underlying event query of this call.
+		refs, errs, err := ctx.Aggregates(ctx)
+	})
+
+	s.Trigger(context.TODO(), projection.AggregateQuery(query.New(
+		// query "foo" and "bar" events from which the aggregate data
+		// will be extracted
+		query.Name("foo", "bar"),
+	)))
+}
+```
+
 Alternatively, you can use the `NewJob()` constructor to create a job manually
 without using a schedule:
 
@@ -570,3 +590,40 @@ optimize its queries using the progress time provided by the `ProgressAware`
 interface. If your projection does not implement `ProgressAware`, then the
 initial projection job will query the entire history of the configured events,
 which – _depending on the size of your event store_ – could take a long time.
+
+### Projection finalization
+
+Avoid long-running function calls in the event appliers. Move such calls to a
+finalizer method on your projection and call it after applying the job, like this:
+
+```go
+package example
+
+type Foo struct { ... }
+
+func (*Foo) ApplyEvent(event.Event) {}
+
+func (f *Foo) finalize(ctx context.Context, dep SomeDependency) error {
+	// do stuff
+	if err := dep.Do(ctx, "..."); err != nil {
+		return err
+	}
+	// do more stuff
+	return nil
+}
+
+func example(s projection.Schedule) {
+	var foo Foo
+	var dep SomeDependency
+
+	s.Subscribe(context.TODO(), func(ctx projection.Job) error {
+		if err := ctx.Apply(ctx, &foo); err != nil {
+			return err
+		}
+
+		return foo.finalize(ctx, dep)
+	})
+}
+```
+
+> TODO: Implement finalization queue to allow for batch finalization.
