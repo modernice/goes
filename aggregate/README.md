@@ -1,6 +1,6 @@
 # Aggregates
 
-Package `aggregate` provides the framework for building event-sourced aggregates.
+Package `aggregate` provides a framework for building event-sourced aggregates.
 It builds on top of the [event system](../event), so make sure to read the event
 documentation first before reading further.
 

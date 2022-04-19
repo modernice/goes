@@ -163,7 +163,7 @@ type List struct {
 
 func NewList(id uuid.UUID) *List {
 	list := &List{
-		Base: 			 aggregate.New("list", id),
+		Base: aggregate.New("list", id),
 		BaseHandler: handler.NewBase(),
 	}
 

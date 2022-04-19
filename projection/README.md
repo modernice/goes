@@ -1,282 +1,332 @@
 # Projections
 
-The `projection` package provides the boilerplate to create and apply
-projections from [events](../event).
+Package `projection` provides a framework for building and managing projections.
 
+## Introduction
 
-## Projections
-
-### Event Applier
-
-The basic interface that a projection type needs to implement is the
-`projection.EventApplier` interface, which defines a single
-`ApplyEvent(event.Event)` method. A projection only needs to be able to apply
-events onto itself. Additional behavior can be added using [extensions](
-#extensions).
+A projection is any type that implements the `Target` interface. A projection
+target can apply events onto itself to _project its state._
 
 ```go
 package projection
 
-// An EventApplier applies events onto itself to build the projection state.
-type EventApplier interface {
+type Target interface {
 	ApplyEvent(event.Event)
 }
 ```
 
-### Apply Events
+To build the projection state, you can use the `Apply()` function provided by
+this package. Each of the provided events will be applied onto the target:
 
-Given a projection type that has an `ApplyEvent(event.Event)` method, you can
-use the `projection.Apply()` method to apply a given set of events onto the
-projection. Given a basic projection `p` that does not implement any
-[extensions](#extensions), this does the same as iterating over the given events
-and manually calling `p.ApplyEvent(evt)`.
+```go
+package example
+
+func example(target projection.Target, events []event.Event) {
+	projection.Apply(target, events)
+}
+```
+
+The `Apply()` function also supports the following optional APIs:
+
+- [`ProgressAware`](#progress-aware)
+- [`Guard`](#guards)
+
+### Example – Lookup table
+
+This example shows how to implement a lookup table for email addresses of
+registered users. Each time a `"user_registered"` event occurs, the lookup table
+is updated:
 
 ```go
 package example
 
 import (
-  "log"
-  "github.com/modernice/goes/event"
-  "github.com/modernice/goes/projection"
+	"sync"
+	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/helper/pick"
 )
 
-type Foo struct {}
-
-func (f *Foo) ApplyEvent(evt event.Event) {
-  log.Printf("Event applied: %v", evt.Name())
+// Emails is a thread-safe lookup table for email addresses <> user ids.
+type Emails struct {
+	mux sync.RWMutex
+	users map[string]uuid.UUID // map[EMAIL]USER_ID
+	emails map[uuid.UUID]string // map[USER_ID]EMAIL
 }
 
-func example() {
-  var events []event.Event // e.g. fetched from event store
-  var foo Foo // Instantiate your projection type
+// NewEmails returns the lookup table for email addresses <> user ids.
+func NewEmails() *Emails {
+	return &Emails{
+		users: make(map[string]uuid.UUID),
+		emails: make(map[uuid.UUID]string),
+	}
+}
 
-  err := projection.Apply(&foo, events)
-  // handle err
+// UserID returns the id of the user with the given email address.
+func (emails *Emails) UserID(email string) (uuid.UUID, bool) {
+	emails.mux.RLock()
+	defer emails.mux.RUnlock()
+	id, ok := emails.users[email]
+	return id, ok
+}
+
+// Email returns the email address of the user with the given id.
+func (emails *Emails) Email(userID uuid.UUID) (string, bool) {
+	emails.mux.RLock()
+	defer emails.mux.RUnlock()
+	email, ok := emails.emails[userID]
+	return email, ok
+}
+
+// ApplyEvent implements projection.Target.
+func (emails *Emails) ApplyEvent(evt event.Event) {
+	emails.mux.Lock()
+	defer emails.mux.Unlock()
+
+	switch evt.Name() {
+	case "user_registered":
+		userID := pick.AggregateID(evt)
+		email := evt.Data().(string)
+		emails.users[email] = userID
+		emails.emails[userID] = email
+	case "user_deleted":
+		userID := pick.AggregateID(evt)
+		if email, ok := emails.emails[userID]; ok {
+			delete(emails.users, email)
+		}
+		delete(emails.emails, userID)
+	}
 }
 ```
-
-### Extensions
-
-A projection type may implement additional interfaces that extend or modify the
-projection behavior of a projection. Read the documentation of these interfaces
-for more information on how to use them:
-
-- `projection.Progressing`
-- `projection.Resetter`
-- `projection.Guard`
-- `projection.HistoryDependent`
 
 ## Scheduling
 
-Projection schedules trigger projection jobs based on the schedule type. goes
-provides two types of projection schedules:
+Given the example above, the lookup table would never be automatically populated.
+Typically, you want a projection to be updated with every published event within
+a specified set of events. Using the lookup table as an example, it should be
+updated on every published `"user_registered"` and `"user_deleted"` event.
+This can be achieved using a [continuous schedule](#continuous).
 
-- Continuous
-- Periodic
+### Continuous
 
-### Continuous Schedule
-
-The continuous schedule subscribes to a given set of events and triggers a
-projection job every time one of those events is published over the underlying
-event bus.
+The continuous schedule subscribes to events over an event bus to trigger
+[projection jobs](#projection-jobs) when events of a specified set are
+published. The projection job can be applied onto a projection to update its
+state.
 
 ```go
 package example
 
-import (
-  "github.com/modernice/goes/event"
-  "github.com/modernice/goes/projection/schedule"
-)
-
-type Foo struct {}
-
-func (f *Foo) ApplyEvent(evt event.Event) { ... }
+// ... previous code ...
 
 func example(bus event.Bus, store event.Store) {
-  eventNames := []string{"example.foo", "example.bar", "example.foobar"}
-  s := schedule.Continuously(bus, store, eventNames)
+	emails := NewEmails()
 
-  var foo Foo
+	s := schedule.Continuously(bus, store, []string{
+		"user_registered",
+		"user_deleted",
+	})
 
-  errs, err := s.Subscribe(context.TODO(), func(ctx projection.Job) error {
-    // Every time the schedule triggers a job, this function is called.
-    // The provided projection.Job provides an `Apply` method, which applies
-    // the published events onto the passed projection `&foo`.
-    return ctx.Apply(ctx, &foo)
-  })
-  if err != nil {
-    log.Fatalf("subscribe to projection schedule: %w", err)
-  }
+	errs, err := s.Subscribe(context.TODO(), func(ctx projection.Job) error {
+		// Apply the projection job onto the projection.
+		return ctx.Apply(ctx, emails)
+	})
 
-  for err := range errs {
-    log.Printf("projection: %v", err)
-  }
+	if err != nil {
+		panic(fmt.Errorf("subscribe to projection schedule: %w", err))
+	}
+
+	for err := range errs {
+		log.Printf("failed to apply projection: %v", err)
+	}
 }
 ```
 
-The example above subscribes to events with the names "example.foo",
-"example.bar" and "example.foobar". Each time such an event is published, the
-schedule created a `projection.Job` and calls the provided callback function. In
-this example, the callback function just calls the `ctx.Apply()` function, which
-itself calls the `projection.Apply()` function with the events from the projection
-job.
+### Periodic
 
-#### Debounce Jobs
-
-When creating a continuous schedule, the `schedule.Debounce()` option can be
-used to debounce the creation of projection jobs when multiple events are
-published successively within a short time period. Without the debounce option,
-when multiple event are published "at once", one projection job per published
-event would be created, which, depending on the complexity within your callback
-function, can be a performance hit for your application. The debounce option
-ensures that at most one projection job is created within a specified interval.
+A periodic schedule triggers [projection jobs](#projection-jobs) at a
+specified interval. Periodic schedules always fetch the entire history of the
+configured events from the event store to apply onto the projections.
 
 ```go
 package example
 
-import (
-  "log"
-  "github.com/modernice/goes/event"
-  "github.com/modernice/goes/projection/schedule"
-)
-
-func example(bus event.Bus, store event.Store) {
-  eventNames := []string{"example.foo", "example.bar"}
-  s := schedule.Continuously(bus, store, eventNames, schedule.Debounce(time.Second))
-  s.Subscribe(context.TODO(), func(ctx projection.Job) error {
-    log.Println("This function should be called only once.")
-    return nil
-  })
-
-  // Two events published "at once" but only 1 projection job that provides
-  // both events will be created & triggered.
-  bus.Publish(context.TODO(), event.New("example.foo", ...))
-  bus.Publish(context.TODO(), event.New("example.bar", ...))
-}
-```
-
-### Periodic Schedule
-
-The periodic schedule does not subscribe to events over an event bus. Instead,
-it triggers a projection job in a fixed interval and fetches the entire event
-stream of the configured events from the event store within the triggered
-projection jobs.
-
-```go
-package example
-
-import (
-  "github.com/modernice/goes/event"
-  "github.com/modernice/goes/projection/schedule"
-)
-
-type Foo struct {}
-
-func (f *Foo) ApplyEvent(evt event.Event) { ... }
+// ... previous code ...
 
 func example(store event.Store) {
-  eventNames := []string{"example.foo", "example.bar", "example.foobar"}
-  s := schedule.Periodically(store, eventNames)
+	emails := NewEmails()
 
-  var foo Foo
+	// Trigger a projection job every hour.
+	s := schedule.Periodically(store, time.Hour, []string{
+		"user_registered",
+		"user_deleted",
+	})
 
-  errs, err := s.Subscribe(context.TODO(), func(ctx projection.Job) error {
-    // ALL "example.foo", "example.bar" and "example.foobar" events are
-    // fetched from the event store and applied onto &foo.
-    return ctx.Apply(ctx, &foo)
-  })
-  if err != nil {
-    log.Fatalf("subscribe to projection schedule: %w", err)
-  }
+	errs, err := s.Subscribe(context.TODO(), func(ctx projectio.Job) error {
+		return ctx.Apply(ctx, emails)
+	})
 
-  for err := range errs {
-    log.Printf("projection: %v", err)
-  }
+	if err != nil {
+		panic(fmt.Errorf("subscribe to projection schedule: %w", err))
+	}
+
+	for err := range errs {
+		log.Printf("failed to apply projection: %v", err)
+	}
 }
 ```
 
-### Projection Jobs
+## Projection jobs
 
-A projection job provides additional query helpers to extract event and
-aggregate information from the events in the job. All query functions of the
-`projection.Job` use caching to avoid querying the underlying event stream
-unnecessarily. Jobs are thread-safe, which means that they can be applied
-concurrently onto multiple projections if needed.
+Jobs are typically created by schedules when triggering a projection update.
+A job can be applied onto projections to update their state by applying the
+events that are configured in the job. Depending on the schedule that triggered
+the job, the job may fetch events on-the-fly from the event store when applied
+onto a projection.
+
+A job provides additional query helpers to extract event and aggregate
+information from the events in the job. All query functions of a `Job` use
+caching to avoid querying the underlying event stream unnecessarily.
+Jobs are thread-safe, which means that they can be applied concurrently onto
+multiple projections.
 
 ```go
 package example
 
+// ... previous code ...
+
 func example(s projection.Schedule) {
-  var foo Foo
+	emails := NewEmails()
 
   errs, err := s.Subscribe(context.TODO(), func(ctx projection.Job) error {
     // Query all events of the job.
     events, errs, err := ctx.Events(ctx)
 
     // Query all events of the job that belong to one of the given aggregate names.
-    events, errs, err := ctx.EventsOf(ctx, "example.foobar")
+    events, errs, err := ctx.EventsOf(ctx, "user")
 
-    // Query all events of the job that would be applied onto the given projection type.
-    events, errs, err := ctx.EventsFor(ctx, &foo)
+    // Query all events of the job that would be applied onto the given projection.
+    events, errs, err := ctx.EventsFor(ctx, emails)
 
     // Extract all aggregates from the job's events as aggregate.Refs.
     refs, errs, err := ctx.Aggregates(ctx)
 
     // Extract all aggregates with one of the given names from the job's events
     // as aggregate.Refs.
-    refs, errs, err := ctx.Aggregates(ctx, "example.foobar")
+    refs, errs, err := ctx.Aggregates(ctx, "user")
 
     // Extract the first UUID of the aggregate with the given name from the events
     // of the job.
-    id, err := ctx.Aggregate(ctx, "example.foobar")
+    id, err := ctx.Aggregate(ctx, "user")
 
     return nil
   })
   if err != nil {
-    log.Fatalf("subscribe to projection schedule: %w", err)
+    log.Fatalf("subscribe to projection schedule: %v", err)
   }
 
   for err := range errs {
-    log.Printf("projection: %w", err)
+    log.Printf("failed to project: %v", err)
   }
 }
 ```
 
-#### Trigger Jobs
+
+### Manually trigger a job
 
 Both continuous and periodic schedules can be manually triggered at any time
-using the `projection.Schedule.Trigger()` method. Manually triggered schedules
-always create projection jobs that fetch/query the entire event history of the
-configured events when applied onto a projection. This is also true for
-continuous schedules, which normally only apply the published events that
-triggered the schedule.
+using the `Schedule.Trigger()` method.
+
+When triggering a continuous schedule, if no custom event query is provided to
+the trigger, the entire history of the configured events is fetched from the
+event store, just like it's done within periodic schedules.
 
 ```go
 package example
 
 func example(s projection.Schedule) {
-  errs, err := s.Subscribe(context.TODO(), func(ctx projection.Job) error {
-    log.Println("Schedule triggered.")
-
-    // This fetches the entire event history of the events configured
-    // in the schedule, even for continuous schedules (but only when
-    // triggered manually).
-    events, errs, err := ctx.Events(ctx)
-
-    return nil
-  })
-  // handle err & errs
-
-  err := s.Trigger(context.TODO())
-  // handle err
+	if err := s.Trigger(context.TODO()); err != nil {
+		panic(fmt.Error("failed to trigger projection: %w", err))
+	}
 }
 ```
 
-## Projection Service
+Alternatively, you can use the `NewJob()` constructor to create a job manually
+without using a schedule:
 
-The `projection.Service` implements an event-driven projection service, which
-allows projection schedules to be triggered from another service/process than it
-was defined in.
+```go
+package example
+
+// ... previous code ...
+
+func example(store event.Store) {
+	emails := NewEmails()
+
+	job := projection.NewJob(context.TODO(), store, query.New(
+		query.Name("user_registered", "user_deleted"),
+	))
+
+	if err := job.Apply(context.TODO(), emails); err != nil {
+		panic(fmt.Errorf("apply projection job: %w", err))
+	}
+}
+```
+
+## Generic helpers
+
+Applying events within the `ApplyEvent` function is the most straightforward way
+to implement a projection but can become quite messy if a projection depends on
+many events.
+
+goes provides type-safe, generic helpers that allow you to setup an event
+applier function for each individual event. This is what the lookup example
+looks like using generics:
+
+```go
+package example
+
+type Emails struct {
+	*projection.Base // implements convenience methods
+
+	mux sync.RWMutex
+	users map[string]uuid.UUID // map[EMAIL]USER_ID
+	emails map[uuid.UUID]string // map[USER_ID]EMAIL
+}
+
+func NewEmails() *Emails {
+	emails := &Emails{Base: projection.New()}
+
+	event.ApplyWith(emails, emails.userRegistered, "user_registered")
+	event.ApplyWith(emails, emails.userDeleted, "user_deleted")
+
+	return emails
+}
+
+func (emails *Emails) userRegistered(evt event.Of[string]) {
+	emails.mux.Lock()
+	defer emails.mux.Unlock()
+
+	userID := pick.AggregateID(evt)
+	email := evt.Data().(string)
+	emails.users[email] = userID
+	emails.emails[userID] = email
+}
+
+func (emails *Emails) userDeleted(evt event.Event) {
+	emails.mux.Lock()
+	defer emails.mux.Unlock()
+
+	userID := pick.AggregateID(evt)
+	if email, ok := emails.emails[userID]; ok {
+		delete(emails.users, email)
+	}
+	delete(emails.emails, userID)
+}
+```
+
+## Projection service
+
+The projection service allows projections to be triggered from external services
+/ processes. Communication between projection services is done using events.
 
 ```go
 package service1
@@ -287,7 +337,7 @@ func example(reg *codec.Registry, bus event.Bus) {
 
   svc := projection.NewService(bus)
 
-  // Given some schedules with names for each of them
+  // Given some named schedules
   var schedules map[string]projection.Schedule
 
   // When registering them in the projection service
@@ -301,8 +351,8 @@ package service2
 func example(bus event.Bus) {
   svc := projection.NewService(bus)
 
-  // Another service that uses the same underlying event bus can
-  // trigger the registered projection schedules
+  // Then another service that uses the same underlying event bus can
+  // trigger the registered schedules
   err := svc.Trigger(context.TODO(), "foo")
 }
 ```
