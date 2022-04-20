@@ -152,6 +152,68 @@ func TestBeforeHandle_wildcard(t *testing.T) {
 	}
 }
 
+func TestAfterHandle(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eventReg := test.NewEncoder()
+	eventBus := eventbus.New()
+	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
+	commandBus := cmdbus.New(eventReg, eventBus)
+	repo := repository.New(eventStore)
+
+	var afterHandleCalled bool
+	h := handler.New(NewHandlerAggregateOpts(handler.AfterHandle(func(command.Ctx[string]) {
+		afterHandleCalled = true
+	}, "foo")), repo, commandBus)
+
+	errs, err := h.Handle(ctx)
+	if err != nil {
+		t.Fatalf("Handle() failed with %q", err)
+	}
+	go testutil.PanicOn(errs)
+
+	cmd := command.New("foo", "bar")
+	if err := commandBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+		t.Fatalf("dispatch command: %v", err)
+	}
+
+	if !afterHandleCalled {
+		t.Fatalf("AfterHandle() callback should have been called")
+	}
+}
+
+func TestAfterHandle_wildcard(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eventReg := test.NewEncoder()
+	eventBus := eventbus.New()
+	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
+	commandBus := cmdbus.New(eventReg, eventBus)
+	repo := repository.New(eventStore)
+
+	var afterHandleCalled bool
+	h := handler.New(NewHandlerAggregateOpts(handler.AfterHandle(func(command.Ctx[string]) {
+		afterHandleCalled = true
+	})), repo, commandBus)
+
+	errs, err := h.Handle(ctx)
+	if err != nil {
+		t.Fatalf("Handle() failed with %q", err)
+	}
+	go testutil.PanicOn(errs)
+
+	cmd := command.New("foo", "bar")
+	if err := commandBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+		t.Fatalf("dispatch command: %v", err)
+	}
+
+	if !afterHandleCalled {
+		t.Fatalf("AfterHandle() callback should have been called")
+	}
+}
+
 type HandlerAggregate struct {
 	*aggregate.Base
 	*handler.BaseHandler

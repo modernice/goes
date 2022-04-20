@@ -40,12 +40,17 @@ import (
 type BaseHandler struct {
 	handlers     map[string]func(command.Context) error
 	beforeHandle map[string][]func(command.Context) error
+	afterHandle  map[string][]func(command.Context)
 }
 
 // Option is an option for the BaseHandler.
 type Option func(*BaseHandler)
 
-// BeforeHandle returns an Option that
+// BeforeHandle returns an Option that registers the provided function to be
+// called before a command is handled. If the provided function returns a
+// non-nil error, the command will not be handled. If command names are provided,
+// the function will only be called for these commands; otherwise it will be
+// called for every command.
 func BeforeHandle[Payload any](fn func(command.Ctx[Payload]) error, commands ...string) Option {
 	return func(h *BaseHandler) {
 		if len(commands) == 0 {
@@ -60,12 +65,31 @@ func BeforeHandle[Payload any](fn func(command.Ctx[Payload]) error, commands ...
 	}
 }
 
+// AfterHandle returns an Option that registers the provided function to be
+// called after a command was handled. If command names are provided, the
+// function will only be called for these commands; otherwise it will be
+// called for every command.
+func AfterHandle[Payload any](fn func(command.Ctx[Payload]), commands ...string) Option {
+	return func(h *BaseHandler) {
+		if len(commands) == 0 {
+			commands = append(commands, "*")
+		}
+
+		for _, cmd := range commands {
+			h.afterHandle[cmd] = append(h.afterHandle[cmd], func(ctx command.Context) {
+				fn(command.CastContext[Payload](ctx))
+			})
+		}
+	}
+}
+
 // NewBase returns a new *BaseHandler that can be embedded into an aggregate to
 // implement the aggregate interface.
 func NewBase(opts ...Option) *BaseHandler {
 	h := &BaseHandler{
 		handlers:     make(map[string]func(command.Context) error),
 		beforeHandle: make(map[string][]func(command.Context) error),
+		afterHandle:  make(map[string][]func(command.Ctx[any])),
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -100,7 +124,15 @@ func (base *BaseHandler) HandleCommand(ctx command.Context) error {
 		}
 	}
 
-	return handler(ctx)
+	if err := handler(ctx); err != nil {
+		return err
+	}
+
+	for _, fn := range append(base.afterHandle["*"], base.afterHandle[ctx.Name()]...) {
+		fn(ctx)
+	}
+
+	return nil
 }
 
 // Aggregate is an aggregate that handles commands by itself.
