@@ -1,48 +1,14 @@
 # goes - Event-Sourcing Framework
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/modernice/goes.svg)](https://pkg.go.dev/github.com/modernice/goes)
+[![Test](https://github.com/modernice/goes/actions/workflows/test.yml/badge.svg)](https://github.com/modernice/goes/actions/workflows/test.yml)
 
-> This documentation is a work in progress. If you need help understanding the
-components of this library, feel free [open an issue](
-http://github.com/modernice/goes/issues) or [start a discussion](
-http://github.com/modernice/goes/discussions). Feedback is always welcome.
+`goes` is a collection of interfaces, tools, and backend implementations that
+allow you to write event-sourced applicatios in Go.
 
-`goes` is a collection of interfaces, tools and backend implementations that
-allow you to write event-sourced applications in Go.
-
-## Introduction
-
-This documentation assumes knowledge of
-
-- Event-Sourcing,
-- Domain-Driven Design,
-- and CQRS.
-
-Please make [yourself familiar with these concepts](
-https://github.com/heynickc/awesome-ddd) before reading further.
-
-### Features
-
-- Distributed Event Bus (using [NATS Core](http://nats.io) / [NATS JetStream](
-  https://docs.nats.io/nats-concepts/jetstream))
-- Distributed, event-driven Command Bus
-- Event Store ([In-Memory](./event/eventstore) or
-  [MongoDB](./backend/mongo))
-- Projections
-- SAGAs
-- [Authorization Module](./contrib/auth)
-
-### To-Do
-
-- Testing Tools
-  - Aggregates
-  - Commands
-  - Projections
-- Development Tooling
-  - Event Store CLI/UI
-  - Projection CLI/UI
-- Documentation
-  - Examples / Guides
+If you have any questions or feedback, feel free to [open an issue](
+https://github.com/modernice/goes/issues/new) or [start a discussion](
+https://github.com/modernice/goes/discussions).
 
 ## Getting Started
 
@@ -57,56 +23,40 @@ go get github.com/modernice/goes/...@<commit-hash>
 
 ### Examples
 
-[Here is a small example of a simple To-Do app.](./examples/todo)
+- [To-Do App](./examples/todo)
 
-### Guides
+## Introduction
 
-- [~~Setup Events~~ (To-Do)](./examples/setupevents)
-- [~~Publish & Subscribe to Events~~ (To-Do)](./examples/pubsubevent)
-- [~~Create & Test an Aggregate~~ (To-Do)](./examples/aggregate)
-- [~~Setup Commands~~ (To-Do)](./examples/setupcommands)
-- [~~Dispatch & Subscribe to Commands~~ (To-Do)](./examples/pubsubcommand)
-- [~~Create Projections~~ (To-Do)](./examples/projections)
+This documentation assumes knowledge of [CQRS](
+https://martinfowler.com/bliki/CQRS.html), [event-sourcing](
+https://martinfowler.com/eaaDev/EventSourcing.html), and other
+[related concepts](https://github.com/heynickc/awesome-ddd). Please make
+yourself familiar with these before reading further.
+
+### Features
+
+- Event Store Implementations ([In-Memory](./event/eventstore),
+	[MongoDB](./backend/mongo))
+- Distributed Event Bus ([NATS Core](https://nats.io) /
+	[NATS JetStream](https://docs.nats.io/nats-concepts/jetstream))
+- Distributed, event-driven Command Bus
+- [Aggregate Framework](./aggregate)
+- [Projection Framework](./projection)
+- [SAGAs](./saga)
+- Pre-built Modules
+	- [Authorization Module](./contrib/auth)
 
 ## Components
 
-goes consists of multiple components that, when used together, provide a CQRS
-and Event-Sourcing framework. Read a component's README for usage guides.
+goes provides incrementally adoptable components that together form a complete
+framework for building event-sourced applications. Read a component's README for
+a guide on how to use it.
 
-### Event System
-
-[github.com/modernice/goes/event](./event)
-
-goes defines and implements a unified event system for both application events
-and aggregate events.
-
-### Aggregates
-
-[github.com/modernice/goes/aggregate](./aggregate)
-
-goes provides utilities to create event-sourced aggregates that build on top of
-the event system.
-
-### Command System
-
-[github.com/modernice/goes/command](./command)
-
-goes implements a distributed command bus that communicates between processes
-over the event system.
-
-### Projections
-
-[github.com/modernice/goes/projection](./projection)
-
-The `projection` package provides utilities for creating and managing
-projections over events.
-
-### SAGAs
-
-[github.com/modernice/goes/saga](./saga)
-
-The `saga` package implements a SAGA coordinator / process manager for more
-complex multi-step transactions.
+- [Event System](./event)
+- [Command System](./command)
+- [Aggregate Framework](./aggregate)
+- [Projection Framework](./projection)
+- [SAGAs](./saga)
 
 ## Backends
 
@@ -123,7 +73,7 @@ complex multi-step transactions.
 
 ## Contributing
 
-_TBD (Contributions welcome)_
+_TBD_
 
 ## License
 
