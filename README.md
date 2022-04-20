@@ -77,4 +77,4 @@ _TBD_
 
 ## License
 
-[MIT](./LICENSE)
+[Apache License, Version 2.0](./LICENSE)
