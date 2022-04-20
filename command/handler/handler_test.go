@@ -55,7 +55,7 @@ func TestOf_Handle(t *testing.T) {
 	commandBus := cmdbus.New(eventReg, eventBus)
 	repo := repository.New(eventStore)
 
-	h := handler.New(NewHandlerAggregate, repo, commandBus)
+	h := handler.New(NewHandlerAggregateOpts(), repo, commandBus)
 
 	errs, err := h.Handle(ctx)
 	if err != nil {
@@ -88,6 +88,70 @@ func TestOf_Handle(t *testing.T) {
 	}
 }
 
+func TestBeforeHandle(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eventReg := test.NewEncoder()
+	eventBus := eventbus.New()
+	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
+	commandBus := cmdbus.New(eventReg, eventBus)
+	repo := repository.New(eventStore)
+
+	var beforeHandleCalled bool
+	h := handler.New(NewHandlerAggregateOpts(handler.BeforeHandle(func(command.Ctx[string]) error {
+		beforeHandleCalled = true
+		return nil
+	}, "foo")), repo, commandBus)
+
+	errs, err := h.Handle(ctx)
+	if err != nil {
+		t.Fatalf("Handle() failed with %q", err)
+	}
+	go testutil.PanicOn(errs)
+
+	cmd := command.New("foo", "bar")
+	if err := commandBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+		t.Fatalf("dispatch command: %v", err)
+	}
+
+	if !beforeHandleCalled {
+		t.Fatalf("BeforeHandle() callback should have been called")
+	}
+}
+
+func TestBeforeHandle_wildcard(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	eventReg := test.NewEncoder()
+	eventBus := eventbus.New()
+	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
+	commandBus := cmdbus.New(eventReg, eventBus)
+	repo := repository.New(eventStore)
+
+	var beforeHandleCalled bool
+	h := handler.New(NewHandlerAggregateOpts(handler.BeforeHandle(func(command.Ctx[string]) error {
+		beforeHandleCalled = true
+		return nil
+	})), repo, commandBus)
+
+	errs, err := h.Handle(ctx)
+	if err != nil {
+		t.Fatalf("Handle() failed with %q", err)
+	}
+	go testutil.PanicOn(errs)
+
+	cmd := command.New("foo", "bar")
+	if err := commandBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+		t.Fatalf("dispatch command: %v", err)
+	}
+
+	if !beforeHandleCalled {
+		t.Fatalf("BeforeHandle() callback should have been called")
+	}
+}
+
 type HandlerAggregate struct {
 	*aggregate.Base
 	*handler.BaseHandler
@@ -96,10 +160,16 @@ type HandlerAggregate struct {
 	BarVal string
 }
 
-func NewHandlerAggregate(id uuid.UUID) *HandlerAggregate {
+func NewHandlerAggregateOpts(opts ...handler.Option) func(uuid.UUID) *HandlerAggregate {
+	return func(id uuid.UUID) *HandlerAggregate {
+		return NewHandlerAggregate(id, opts...)
+	}
+}
+
+func NewHandlerAggregate(id uuid.UUID, opts ...handler.Option) *HandlerAggregate {
 	a := &HandlerAggregate{
 		Base:        aggregate.New("handler", id),
-		BaseHandler: handler.NewBase(),
+		BaseHandler: handler.NewBase(opts...),
 	}
 
 	event.ApplyWith(a, a.foo, "foo")

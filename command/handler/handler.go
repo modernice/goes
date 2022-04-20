@@ -38,15 +38,39 @@ import (
 // BaseHandler is not named Base to avoid name collisions with the
 // aggregate.Base type.
 type BaseHandler struct {
-	handlers map[string]func(command.Context) error
+	handlers     map[string]func(command.Context) error
+	beforeHandle map[string][]func(command.Context) error
+}
+
+// Option is an option for the BaseHandler.
+type Option func(*BaseHandler)
+
+// BeforeHandle returns an Option that
+func BeforeHandle[Payload any](fn func(command.Ctx[Payload]) error, commands ...string) Option {
+	return func(h *BaseHandler) {
+		if len(commands) == 0 {
+			commands = append(commands, "*")
+		}
+
+		for _, cmd := range commands {
+			h.beforeHandle[cmd] = append(h.beforeHandle[cmd], func(ctx command.Context) error {
+				return fn(command.CastContext[Payload](ctx))
+			})
+		}
+	}
 }
 
 // NewBase returns a new *BaseHandler that can be embedded into an aggregate to
 // implement the aggregate interface.
-func NewBase() *BaseHandler {
-	return &BaseHandler{
-		handlers: make(map[string]func(command.Context) error),
+func NewBase(opts ...Option) *BaseHandler {
+	h := &BaseHandler{
+		handlers:     make(map[string]func(command.Context) error),
+		beforeHandle: make(map[string][]func(command.Context) error),
 	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 // RegisterHandler registers a command handler for the given command name.
@@ -65,10 +89,18 @@ func (base *BaseHandler) CommandNames() []string {
 
 // HandleCommand executes the command handler on the given command.
 func (base *BaseHandler) HandleCommand(ctx command.Context) error {
-	if handler, ok := base.handlers[ctx.Name()]; ok {
-		return handler(ctx)
+	handler, ok := base.handlers[ctx.Name()]
+	if !ok {
+		return fmt.Errorf("no handler registered for %q command", ctx.Name())
 	}
-	return fmt.Errorf("no handler registered for %q command", ctx.Name())
+
+	for _, fn := range append(base.beforeHandle["*"], base.beforeHandle[ctx.Name()]...) {
+		if err := fn(ctx); err != nil {
+			return fmt.Errorf("before handle: %w", err)
+		}
+	}
+
+	return handler(ctx)
 }
 
 // Aggregate is an aggregate that handles commands by itself.
