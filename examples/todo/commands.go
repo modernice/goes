@@ -2,14 +2,15 @@ package todo
 
 import (
 	"context"
-	"log"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
-	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/command/handler"
 )
 
+// Commands
 const (
 	AddTaskCmd    = "todo.list.add_task"
 	RemoveTaskCmd = "todo.list.remove_task"
@@ -38,33 +39,9 @@ func RegisterCommands(r *codec.GobRegistry) {
 	codec.GobRegister[[]string](r, DoneTaskCmd)
 }
 
-// HandleCommands handles commands until ctx is canceled. Any asynchronous
-// errors that happen during the command handling are reported to the returned
-// error channel.
-func HandleCommands(ctx context.Context, bus command.Bus, lists ListRepository) <-chan error {
-	addErrors := command.MustHandle(ctx, bus, AddTaskCmd, func(ctx command.Ctx[string]) error {
-		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
-			log.Printf("Handling %q command ...", ctx.Name())
-			defer list.print()
-			return list.Add(ctx.Payload())
-		})
-	})
-
-	removeErrors := command.MustHandle(ctx, bus, RemoveTaskCmd, func(ctx command.Ctx[string]) error {
-		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
-			log.Printf("Handling %q command ...", ctx.Name())
-			defer list.print()
-			return list.Remove(ctx.Payload())
-		})
-	})
-
-	doneErrors := command.MustHandle(ctx, bus, DoneTaskCmd, func(ctx command.Ctx[[]string]) error {
-		return lists.Use(ctx, ctx.AggregateID(), func(list *List) error {
-			log.Printf("Handling %q command ...", ctx.Name())
-			defer list.print()
-			return list.Done(ctx.Payload()...)
-		})
-	})
-
-	return streams.FanInContext(ctx, addErrors, removeErrors, doneErrors)
+// HandleCommands handles todo list commands that are dispatched over the
+// provided command bus until ctx is canceled. Command errors are sent into
+// the returned error channel.
+func HandleCommands(ctx context.Context, bus command.Bus, repo aggregate.Repository) <-chan error {
+	return handler.New(New, repo, bus).MustHandle(ctx)
 }

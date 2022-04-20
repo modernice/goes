@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
 )
 
-// Counter provides the number of active, removed and archived tasks.
+// Counter is a read model that provides the number of active, removed, and archived tasks.
 type Counter struct {
 	*projection.Base
 
@@ -62,14 +63,19 @@ func (c *Counter) Project(
 	store event.Store,
 	opts ...schedule.ContinuousOption,
 ) (<-chan error, error) {
-	s := schedule.Continuously(bus, store, TaskEvents[:], opts...)
+	s := schedule.Continuously(bus, store, ListEvents[:], opts...)
 
 	errs, err := s.Subscribe(ctx, func(ctx projection.Job) error {
-		log.Println("Applying job ...")
+		c.print()
+		defer c.print()
+
+		start := time.Now()
+		log.Println("[Counter] Applying projection job ...")
+		defer func() { log.Printf("[Counter] Applied projection job. (%s)", time.Since(start)) }()
 
 		c.Lock()
 		defer c.Unlock()
-		defer c.print()
+
 		return ctx.Apply(ctx, c)
 	})
 	if err != nil {
@@ -94,5 +100,7 @@ func (c *Counter) tasksDone(evt event.Of[[]string]) {
 }
 
 func (c *Counter) print() {
+	c.RLock()
+	defer c.RUnlock()
 	log.Printf("[Counter] Active: %d, Removed: %d, Archived: %d", c.active, c.removed, c.archived)
 }

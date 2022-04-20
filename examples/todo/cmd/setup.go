@@ -14,6 +14,7 @@ import (
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/examples/todo"
 )
 
@@ -30,7 +31,7 @@ func (s *Setup) Events(ctx context.Context) (_ event.Bus, _ event.Store, _ *code
 	todo.RegisterEvents(r)
 
 	bus := nats.NewEventBus(r)
-	store := mongo.NewEventStore(r)
+	store := eventstore.WithBus(mongo.NewEventStore(r), bus)
 
 	return bus, store, r, func() {
 		log.Printf("Disconnecting from NATS ...")

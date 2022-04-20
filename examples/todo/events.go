@@ -4,23 +4,25 @@ import (
 	"github.com/modernice/goes/codec"
 )
 
+// Events
 const (
 	TaskAdded   = "todo.list.task_added"
 	TaskRemoved = "todo.list.task_removed"
 	TasksDone   = "todo.list.tasks_done"
 )
 
-var TaskEvents = [...]string{
+// ListEvents are all events of a todo list.
+var ListEvents = [...]string{
 	TaskAdded,
 	TaskRemoved,
 	TasksDone,
 }
 
-// TaskRemovedEvent is the event data for TaskRemoved.
+// TaskRemovedEvent is the event data for the TaskRemoved event.
 //
-// You can use any type as event data. In this example the event data is a
-// struct. If you look below you can see that the TaskAdded and TasksDone events
-// use other types for their event data.
+// You can use any type as event data. In this case, the event data is a struct.
+// The event data types for the TaskAdded and TasksDone events are `string` and
+// `[]string` respectively.
 type TaskRemovedEvent struct{ Task string }
 
 // RegisterEvents registers events into a registry.

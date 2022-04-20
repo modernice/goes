@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/command"
+	"github.com/modernice/goes/command/handler"
 	"github.com/modernice/goes/event"
 )
 
@@ -15,6 +17,7 @@ const ListAggregate = "todo.list"
 // List is a "todo" list.
 type List struct {
 	*aggregate.Base
+	*handler.BaseHandler
 
 	tasks   []string
 	archive []string
@@ -22,12 +25,31 @@ type List struct {
 
 // New returns the "todo" list with the given id.
 func New(id uuid.UUID) *List {
-	list := &List{Base: aggregate.New(ListAggregate, id)}
+	var list *List
+	list = &List{
+		Base: aggregate.New(ListAggregate, id),
+		BaseHandler: handler.NewBase(
+			handler.BeforeHandle(func(ctx command.Context) error {
+				log.Printf("Handling %q command ... [list=%s]", ctx.Name(), id)
+				return nil
+			}),
+			handler.AfterHandle(func(command.Context) {
+				list.print()
+			}),
+		),
+	}
 
 	// Register the event appliers for each of the aggregate events.
 	event.ApplyWith(list, list.add, TaskAdded)
 	event.ApplyWith(list, list.remove, TaskRemoved)
 	event.ApplyWith(list, list.done, TasksDone)
+
+	// Register the commands handlers.
+	command.ApplyWith(list, list.Add, AddTaskCmd)
+	command.ApplyWith(list, list.Remove, RemoveTaskCmd)
+	command.ApplyWith(list, func(tasks []string) error {
+		return list.Done(tasks...)
+	}, DoneTaskCmd)
 
 	return list
 }

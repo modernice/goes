@@ -8,6 +8,7 @@ services:
     environment:
       NATS_URL: nats://eventbus:4222
       MONGO_URL: mongodb://eventstore:27017
+      TODO_DEBOUNCE: ${TODO_DEBOUNCE}
     depends_on:
       - eventbus
       - eventstore

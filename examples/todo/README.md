@@ -1,17 +1,18 @@
-# Example: To-Do List
+# Example – To-Do App
 
-This example uses a "todo list" to show how to define and test an event-sourced
-aggregate and commands for the aggregate.
+This example shows how to implement a "todo list" app. The app consists of a
+"todo" server and a client that sends commands to the server.
 
-- `events.go` defines the events of the list
-- `commands.go` defines and handles commands that can be dispatched by other
-	services
-- `list.go` implements the "todo list" aggregate
-- `repos.go` defines the repositories
-- `cmd/server` is the todo server
-- `cmd/client` is an example client that dispatches commands to the server
+- [`list.go`](./list.go) implements the "todo list" aggregate
+- [`events.go`](./events.go) defines and registers the "todo list" events
+- [`commands.go`](./commands.go) defines and registers the "todo list" commands
+- [`counter.go`](./counter.go) implements a read model projection
+- [`cmd/server`](./cmd/server) is the server app
+- [`cmd/client`](./cmd/client) is the client app
 
-## Used Backends
+## Details
+
+### Backends
 
 - NATS Core (Event Bus)
 - MongoDB (Event Store)
@@ -20,6 +21,17 @@ aggregate and commands for the aggregate.
 
 Requires Docker.
 
+### Default setup
+
 ```sh
 make build && make up
+```
+
+### Debounced projection
+
+This setup sets the `TODO_DEBOUNCE` environment variable to `1s`, resulting in
+a single "batch"-update of the `Counter` projection.
+
+```sh
+make build && make debounce
 ```
