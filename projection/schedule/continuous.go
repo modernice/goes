@@ -13,6 +13,20 @@ import (
 	"github.com/modernice/goes/projection"
 )
 
+// The maximum debounce duration for which DefaultDebounceCap is used as the
+// wait cap. For higher debounce durations, the wait cap is computed by doubling
+// the duration. If the DebounceCap() option is provided to a schedule, this
+// value is ignored.
+const defaultDebounceBarrier = 2500 * time.Millisecond
+
+// DefaultDebounceCap is the default debounce cap if the DebounceCap() option is
+// not provided and the provided debounce duration is <= 2.5s.
+//
+// If the provided debounce duration is > 2.5s, the cap is set to the double of
+// the duration. For example, a debounce duration of 3s will have a cap of 6s if
+// the DebounceCap() option is not provided.
+var DefaultDebounceCap = 5 * time.Second
+
 // Continuous is a projection Schedule that creates projection Jobs on every
 // specified published event:
 //
@@ -26,8 +40,10 @@ import (
 type Continuous struct {
 	*schedule
 
-	bus      event.Bus
-	debounce time.Duration
+	bus                    event.Bus
+	debounce               time.Duration
+	debounceCap            time.Duration
+	debounceCapManuallySet bool
 }
 
 // ContinuousOption is an option for the Continuous schedule.
@@ -58,6 +74,22 @@ func Debounce(d time.Duration) ContinuousOption {
 	}
 }
 
+// DebounceCap returns a ContinuousOption that specifies the maximum wait time
+// (cap) before force-triggering a projection job that was deferred by the
+// Debounce() option.
+//
+// By default, the maximum wait time is determined by this heuristic: If the
+// duration provided to the Debounce() option is <= 2.5s, the wait cap is set to
+// DefaultDebounceCap, which is 5s. Otherwise the cap is computed by doubling
+// the duration provided to Debounce(). For example, a debounce duration of 3s
+// will have a cap of 6s.
+func DebounceCap(cap time.Duration) ContinuousOption {
+	return func(c *Continuous) {
+		c.debounceCap = cap
+		c.debounceCapManuallySet = true
+	}
+}
+
 // Continuously returns a Continuous schedule that, when subscribed to,
 // subscribes to events with the given eventNames to create projection Jobs
 // for those events.
@@ -73,12 +105,14 @@ func Debounce(d time.Duration) ContinuousOption {
 //	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"}, schedule.Debounce(time.Second))
 func Continuously(bus event.Bus, store event.Store, eventNames []string, opts ...ContinuousOption) *Continuous {
 	c := Continuous{
-		schedule: newSchedule(store, eventNames),
-		bus:      bus,
+		schedule:    newSchedule(store, eventNames),
+		bus:         bus,
+		debounceCap: DefaultDebounceCap,
 	}
 	for _, opt := range opts {
 		opt(&c)
 	}
+
 	return &c
 }
 
@@ -171,19 +205,37 @@ func (schedule *Continuous) handleEvents(
 
 	var mux sync.Mutex
 	var buf []event.Event
-	var debounce *time.Timer
+	var debounce, debounceCap *time.Timer
+	var jobCreated bool
 
-	defer func() {
+	clearDebounce := func() {
 		mux.Lock()
 		defer mux.Unlock()
+
+		jobCreated = false
+
 		if debounce != nil {
 			debounce.Stop()
+			debounce = nil
 		}
-	}()
+
+		if debounceCap != nil {
+			debounceCap.Stop()
+			debounceCap = nil
+		}
+	}
+
+	defer clearDebounce()
 
 	createJob := func() {
+		defer clearDebounce()
+
 		mux.Lock()
 		defer mux.Unlock()
+
+		if jobCreated {
+			return
+		}
 
 		events := make([]event.Event, len(buf))
 		copy(events, buf)
@@ -201,31 +253,44 @@ func (schedule *Continuous) handleEvents(
 		}
 
 		buf = buf[:0]
-		debounce = nil
+		jobCreated = true
 	}
 
 	addEvent := func(evt event.Event) {
-		mux.Lock()
-
-		if debounce != nil {
-			debounce.Stop()
-			debounce = nil
-		}
+		clearDebounce()
 
 		buf = append(buf, evt)
 
 		if schedule.debounce <= 0 {
-			mux.Unlock()
 			createJob()
 			return
 		}
 
+		mux.Lock()
 		defer mux.Unlock()
 
-		if schedule.debounce > 0 {
-			debounce = time.AfterFunc(schedule.debounce, createJob)
+		debounce = time.AfterFunc(schedule.debounce, createJob)
+
+		if cap := schedule.computeDebounceCap(); cap > 0 {
+			debounceCap = time.AfterFunc(cap, createJob)
 		}
 	}
 
 	streams.ForEach(ctx, addEvent, fail, events, errs)
+}
+
+func (s *Continuous) computeDebounceCap() time.Duration {
+	if s.debounceCap <= 0 {
+		return 0
+	}
+
+	if s.debounceCapManuallySet {
+		return s.debounceCap
+	}
+
+	if s.debounce <= defaultDebounceBarrier {
+		return s.debounceCap
+	}
+
+	return s.debounce * 2
 }

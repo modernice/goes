@@ -2,6 +2,7 @@ package schedule_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -83,7 +84,7 @@ L:
 	proj.ExpectApplied(t, events[:3]...)
 }
 
-func TestContinuous_Subscribe_Debounce(t *testing.T) {
+func TestDebounce(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -141,6 +142,72 @@ L:
 	}
 
 	proj.ExpectApplied(t, events[:3]...)
+}
+
+func TestDebounceCap(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus := eventbus.New()
+	store := eventstore.New()
+
+	schedule := schedule.Continuously(
+		bus,
+		store,
+		[]string{"foo", "bar", "baz"},
+		schedule.Debounce(time.Second),
+		schedule.DebounceCap(100*time.Millisecond),
+	)
+
+	proj := projectiontest.NewMockProjection()
+	applyErrors := make(chan error)
+	appliedJobs := make(chan projection.Job, 4)
+
+	errs, err := schedule.Subscribe(ctx, func(job projection.Job) error {
+		if err := job.Apply(job, proj); err != nil {
+			applyErrors <- err
+		}
+		appliedJobs <- job
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Subscribe failed with %q", err)
+	}
+
+	events := []event.Event{
+		event.New[any]("foo", test.FooEventData{}),
+		event.New[any]("bar", test.FooEventData{}),
+		event.New[any]("baz", test.FooEventData{}),
+		event.New[any]("foobar", test.FooEventData{}),
+	}
+
+	start := time.Now()
+	go func() {
+		for _, evt := range events {
+			time.Sleep(50 * time.Millisecond)
+			if err := bus.Publish(ctx, evt); err != nil {
+				panic(fmt.Errorf("publish event: %v", err))
+			}
+		}
+	}()
+
+	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		t.Fatalf("timed out")
+	case err := <-errs:
+		t.Fatal(err)
+	case err := <-applyErrors:
+		t.Fatal(err)
+	case <-appliedJobs:
+		took := time.Since(start)
+
+		if took >= 300*time.Millisecond {
+			t.Fatalf("DebounceCap() should have triggered the job after ~100ms")
+		}
+	}
 }
 
 func TestContinuous_Subscribe_Progressor(t *testing.T) {
