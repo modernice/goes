@@ -44,6 +44,10 @@ func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (r
 	var err error
 
 	subject := bus.subjectFunc(event)
+	if event == "*" {
+		subject = ">"
+	}
+
 	if queue := bus.queueFunc(event); queue != "" {
 		nsub, err = bus.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
 			msgs <- msg.Data

@@ -5,7 +5,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 WORKDIR /build/examples/todo
-RUN CGO_ENABLED=0 go build -tags timetzdata -o ./server ./cmd/server
+RUN CGO_ENABLED=0 go build -o ./server ./cmd/server
 
 FROM alpine
 

@@ -6,17 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
-	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
-	"github.com/modernice/goes/internal/env"
 	"github.com/nats-io/nats.go"
 )
 
@@ -45,14 +41,11 @@ type EventBus struct {
 	url         string
 	pullTimeout time.Duration
 
-	subjectFunc    func(eventName string) (subject string)
-	queueFunc      func(eventName string) (queue string)
-	durableFunc    func(subject string, queue string) string
-	streamNameFunc func(subject, queue string) string
+	subjectFunc func(eventName string) (subject string)
+	queueFunc   func(eventName string) (queue string)
 
 	conn     *nats.Conn
 	natsOpts []nats.Option
-	subOpts  []nats.SubOpt
 	driver   Driver
 
 	onceConnect sync.Once
@@ -101,6 +94,11 @@ func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
 	bus.init()
 
 	return bus
+}
+
+// Connection returns the underlying *nats.Conn.
+func (bus *EventBus) Connection() *nats.Conn {
+	return bus.conn
 }
 
 // Connects connects to NATS.
@@ -198,35 +196,8 @@ func (bus *EventBus) Subscribe(ctx context.Context, names ...string) (<-chan eve
 	return bus.fanInEvents(rcpts), fanInErrors(rcpts), nil
 }
 
-func (bus *EventBus) init(opts ...EventBusOption) error {
+func (bus *EventBus) init(opts ...EventBusOption) {
 	var envOpts []EventBusOption
-	if env.Bool("NATS_QUEUE_GROUP_BY_EVENT") {
-		envOpts = append(envOpts, QueueGroupByEvent())
-	}
-
-	if queue := env.String("NATS_QUEUE_GROUP"); queue != "" {
-		envOpts = append(envOpts, QueueGroup(queue))
-	}
-
-	if service := env.String("NATS_LOAD_BALANCER"); service != "" {
-		envOpts = append(envOpts, WithLoadBalancer(service))
-	}
-
-	if prefix := strings.TrimSpace(env.String("NATS_SUBJECT_PREFIX")); prefix != "" {
-		envOpts = append(envOpts, SubjectPrefix(prefix))
-	}
-
-	if env.String("NATS_PULL_TIMEOUT") != "" {
-		if d, err := env.Duration("NATS_PULL_TIMEOUT"); err == nil {
-			envOpts = append(envOpts, PullTimeout(d))
-		} else {
-			panic(fmt.Errorf(
-				"init: parse environment variable %q: %w",
-				"NATS_PULL_TIMEOUT",
-				err,
-			))
-		}
-	}
 
 	opts = append(envOpts, opts...)
 	for _, opt := range opts {
@@ -241,24 +212,9 @@ func (bus *EventBus) init(opts ...EventBusOption) error {
 		bus.subjectFunc = defaultSubjectFunc
 	}
 
-	// Note: Only used by JetStream driver.
-	if bus.streamNameFunc == nil {
-		bus.streamNameFunc = defaultStreamNameFunc
-	}
-
-	if bus.durableFunc == nil {
-		fn, err := envDurableNameFunc()
-		if err != nil {
-			return fmt.Errorf("parse durable name from env: %w", err)
-		}
-		bus.durableFunc = fn
-	}
-
 	if bus.driver == nil {
 		bus.driver = Core()
 	}
-
-	return nil
 }
 
 func (bus *EventBus) natsURL() string {
@@ -350,57 +306,4 @@ func discardErrors(rcpts ...recipient) {
 			}
 		}(rcpt)
 	}
-}
-
-func defaultSubjectFunc(eventName string) string {
-	return replaceDots(eventName)
-}
-
-// // Concatenates the subject and queue name together with an underscore.
-// // If queue is an empty string, defaultSubjectFunc(subject) is returned.
-// func defaultDurableNameFunc(subject, queue string) string {
-// 	if queue == "" {
-// 		return replaceDots(subject)
-// 	}
-// 	return replaceDots(fmt.Sprintf("%s_%s", subject, queue))
-// }
-
-func envDurableNameFunc() (func(string, string) string, error) {
-	type data struct {
-		Subject string
-		Queue   string
-	}
-
-	nameTpl := os.Getenv("NATS_DURABLE_NAME")
-	if nameTpl == "" {
-		return nonDurable, nil
-	}
-
-	tpl, err := template.New("").Parse(nameTpl)
-	if err != nil {
-		return nil, fmt.Errorf("parse template: %w", err)
-	}
-
-	return func(subject, queue string) string {
-		var buf strings.Builder
-		if err := tpl.Execute(&buf, data{Subject: subject, Queue: queue}); err != nil {
-			log.Printf("[goes/backend/nats.EventBus] Failed to execute template on `NATS_DURABLE_NAME` environment variable: %v", err)
-			log.Printf("[goes/backend/nats.EventBus] Falling back to non-durable subscription.")
-
-			return nonDurable(subject, queue)
-		}
-		return buf.String()
-	}, nil
-}
-
-func nonDurable(string, string) string { return "" }
-
-func noQueue(string) (q string) { return }
-
-// Just returns the subject. If the user provides a custom streamNameFunc, the
-// queue name is provided, but we don't want to use it here because subjects are
-// always just event names and we cannot create multiple JetStream streams with
-// the same subjects, so using the queue group here would not really work.
-func defaultStreamNameFunc(subject, _ string) string {
-	return subject
 }

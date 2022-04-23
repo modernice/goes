@@ -26,7 +26,7 @@ func main() {
 	ctx, cancel := setup.Context()
 	defer cancel()
 
-	ebus, estore, ereg, disconnect := setup.Events(ctx)
+	ebus, estore, ereg, disconnect := setup.Events(ctx, "server")
 	defer disconnect()
 
 	cbus, _ := setup.Commands(ereg.Registry, ebus)

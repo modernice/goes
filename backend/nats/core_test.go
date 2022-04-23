@@ -13,7 +13,8 @@ import (
 
 func TestEventBus_Core(t *testing.T) {
 	t.Run("Core", func(t *testing.T) {
-		eventbustest.Run(t, newCoreEventBus)
+		eventbustest.RunCore(t, newCoreEventBus)
+		eventbustest.RunWildcard(t, newCoreEventBus)
 		testEventBus(t, newCoreEventBus)
 	})
 }

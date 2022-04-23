@@ -6,7 +6,7 @@ var replacer = strings.NewReplacer(
 	".", "_",
 	">", "_",
 	"*", "_",
-	" ", "_",
+	// " ", "_",
 )
 
 func replaceDots(s string) string {

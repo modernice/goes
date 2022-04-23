@@ -70,7 +70,7 @@ func (c *Counter) Project(
 		defer c.print()
 
 		start := time.Now()
-		log.Println("[Counter] Applying projection job ...")
+		log.Printf("[Counter] Applying projection job ...")
 		defer func() { log.Printf("[Counter] Applied projection job. (%s)", time.Since(start)) }()
 
 		c.Lock()

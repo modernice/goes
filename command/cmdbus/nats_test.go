@@ -24,8 +24,9 @@ func TestBus_NATS_Core(t *testing.T) {
 		ereg,
 		nats.Use(nats.Core()),
 		nats.URL(os.Getenv("NATS_URL")),
+		nats.SubjectPrefix("cmdbus:"),
 	)
-	testNATSBus(t, bus)
+	testNATSBus(t, bus, bus)
 }
 
 func TestBus_NATS_JetStream(t *testing.T) {
@@ -37,11 +38,37 @@ func TestBus_NATS_JetStream(t *testing.T) {
 		ereg,
 		nats.Use(nats.JetStream()),
 		nats.URL(os.Getenv("JETSTREAM_URL")),
+		nats.SubjectPrefix("cmdbus_js:"),
 	)
-	testNATSBus(t, bus)
+	defer cleanup(bus)
+	testNATSBus(t, bus, bus)
 }
 
-func testNATSBus(t *testing.T, ebus *nats.EventBus) {
+func TestBus_NATS_JetStream_Durable(t *testing.T) {
+	ereg := codec.New()
+	cmdbus.RegisterEvents(ereg)
+	enc := codec.Gob(codec.New())
+	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
+	subBus := nats.NewEventBus(
+		ereg,
+		nats.Use(nats.JetStream(nats.Durable("cmdbus_sub"))),
+		nats.URL(os.Getenv("JETSTREAM_URL")),
+		nats.SubjectPrefix("cmdbus_durable:"),
+	)
+	pubBus := nats.NewEventBus(
+		ereg,
+		nats.Use(nats.JetStream(nats.Durable("cmdbus_pub"))),
+		nats.URL(os.Getenv("JETSTREAM_URL")),
+		nats.SubjectPrefix("cmdbus_durable:"),
+	)
+
+	defer cleanup(subBus)
+	defer cleanup(pubBus)
+
+	testNATSBus(t, subBus, pubBus)
+}
+
+func testNATSBus(t *testing.T, subEventBus, pubEventBus *nats.EventBus) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -49,8 +76,8 @@ func testNATSBus(t *testing.T, ebus *nats.EventBus) {
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.Gob(codec.New())
 	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
-	subBus := cmdbus.New(enc.Registry, ebus, cmdbus.AssignTimeout(0))
-	pubBus := cmdbus.New(enc.Registry, ebus, cmdbus.AssignTimeout(0))
+	subBus := cmdbus.New(enc.Registry, subEventBus, cmdbus.AssignTimeout(0))
+	pubBus := cmdbus.New(enc.Registry, pubEventBus, cmdbus.AssignTimeout(0))
 
 	commands, errs, err := subBus.Subscribe(ctx, "foo-cmd")
 	if err != nil {
@@ -107,5 +134,21 @@ L:
 
 	if len(handled) != 10 {
 		t.Fatalf("Command should have been handled %d times; got %d", 10, len(handled))
+	}
+}
+
+func cleanup(bus *nats.EventBus) {
+	js, err := bus.Connection().JetStream()
+	if err != nil {
+		return
+	}
+
+	streams := js.StreamNames()
+	for stream := range streams {
+		consumers := js.ConsumerNames(stream)
+		for cons := range consumers {
+			js.DeleteConsumer(stream, cons)
+		}
+		js.DeleteStream(stream)
 	}
 }

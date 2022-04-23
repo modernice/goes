@@ -26,7 +26,7 @@ func RunWildcard(t *testing.T, newBus EventBusFactory, opts ...Option) {
 		sub := Sub(str, errs)
 
 		ex := Expect(ctx)
-		ex.Events(sub, 200*time.Millisecond, "foo", "bar", "baz")
+		ex.Events(sub, 500*time.Millisecond, "foo", "bar", "baz")
 
 		events := []event.Event{
 			event.New("foo", "foobar").Any(),

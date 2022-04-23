@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/google/uuid"
@@ -14,29 +13,100 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// JetStream returns the NATS JetStream Driver:
-//
-//	bus := NewEventBus(enc, Use(JetStream()))
-//
-// Consumer Subscriptions
-//
-// Consumer subscriptions are given the following options by default:
-//	- DeliverPolicy: DeliverNew
-//	- AckPolicy: AckAll
-//
-// You can add custom options using the SubOpts option:
-//
-//	bus := NewEventBus(enc, Use(JetStream()), SubOpts(nats.DeliverAll(), nats.AckNone()))
-func JetStream() Driver {
-	return &jetStream{
-		subs: make(map[string]*subscription),
+const jetStreamDriverName = "jetstream"
+
+var (
+	// DefaultStream is the default JetStream stream name to use/create if no
+	// explicit name is provided using the StreamName() option.
+	DefaultStream = "goes"
+)
+
+var (
+	// ErrStreamExists is returned when the JetStream driver tries to create a
+	// stream that already exists with a different configuration.
+	ErrStreamExists = errors.New("stream already exists with a different configuration")
+
+	// ErrConsumerExists is returned when the JetStream driver tries to create a
+	// consumer that already exists with a different configuration.
+	ErrConsumerExists = errors.New("consumer already exists with a different configuration")
+)
+
+// JetStreamOption is an option for the JetStream driver.
+type JetStreamOption func(*jetStream)
+
+// StreamName returns a JetStreamOption that specifies the stream name that is
+// created by the JetStream driver. The default stream name is "goes".
+func StreamName(stream string) JetStreamOption {
+	return func(js *jetStream) {
+		js.stream = stream
 	}
 }
 
-const jetStreamDriverName = "jetstream"
+// DurableFunc returns an option that makes JetStream consumers / subscriptions
+// durable. When creating a consumer, the provided function is called with the
+// event name and queue group (see QueueGroup and LoadBalancer options) to
+// generate the durable name. If the event is the wildcard "*", it is passed as
+// "$all". Similarly, if the queue group is an empty string, it is passed as
+// "$noqueue". Any ".", "*", or ">" characters in the returned durable name will
+// be replaced by "_".
+//
+// The JetStream driver creates one consumer / subscription per event.
+//
+// Read more about durable subscriptions:
+// https://docs.nats.io/nats-concepts/jetstream/consumers#durable-name
+func DurableFunc(fn func(event, queue string) string) JetStreamOption {
+	return func(js *jetStream) {
+		js.durableFunc = func(event, queue string) string {
+			return replacer.Replace(fn(event, queue))
+		}
+	}
+}
+
+// Durable returns an option that makes JetStream consumers / subscriptions
+// durable (see DurableFunc). The durable name is formatted like this:
+//	fmt.Sprintf("%s:%s:%s", prefix, queue, event)
+func Durable(prefix string) JetStreamOption {
+	return DurableFunc(func(event, queue string) string {
+		return fmt.Sprintf("%s:%s:%s", prefix, queue, event)
+	})
+}
+
+// SubOpts returns an option that adds custom nats.SubOpts when creating
+// a JetStream subscription.
+func SubOpts(opts ...nats.SubOpt) JetStreamOption {
+	return func(js *jetStream) {
+		js.subOpts = append(js.subOpts, opts...)
+	}
+}
+
+// JetStream returns the NATS JetStream Driver:
+//
+//	bus := NewEventBus(enc, Use(JetStream()))
+func JetStream(opts ...JetStreamOption) Driver {
+	js := &jetStream{
+		subs: make(map[string]*subscription),
+	}
+	for _, opt := range opts {
+		opt(js)
+	}
+
+	if js.stream == "" {
+		js.stream = DefaultStream
+	}
+
+	if js.durableFunc == nil {
+		js.durableFunc = nonDurable
+	}
+
+	return js
+}
 
 type jetStream struct {
 	sync.RWMutex
+
+	stream      string
+	subOpts     []nats.SubOpt
+	durableFunc func(subject string, queue string) string
 
 	ctx  nats.JetStreamContext
 	subs map[string]*subscription
@@ -53,18 +123,12 @@ func (js *jetStream) init(bus *EventBus) (err error) {
 }
 
 func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string) (recipient, error) {
-	// If a subscription for that event already exists, return it.
+	// If a subscription already exists for the event, return it.
 	if sub, ok := js.subscription(event); ok {
 		return sub.subscribe(ctx)
 	}
 
 	msgs := make(chan []byte)
-
-	subject := bus.subjectFunc(event)
-	queue := bus.queueFunc(event)
-	durableName := bus.durableFunc(subject, queue)
-
-	stream := streamName(bus, event, subject, queue)
 
 	// Check if the subscription was created by another subscriber in the
 	// meantime and return the subscription if it exists.
@@ -74,38 +138,81 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 		return sub.subscribe(ctx)
 	}
 
-	if err := js.ensureStream(ctx, stream, subject); err != nil {
+	if err := js.ensureStream(ctx); err != nil {
 		return recipient{}, fmt.Errorf("ensure stream: %w", err)
 	}
 
-	opts := []nats.SubOpt{
-		nats.BindStream(stream),
-		nats.DeliverNew(),
-		nats.AckAll(),
-	}
-	if durableName != "" {
-		opts = append(opts, nats.Durable(durableName))
+	queue := bus.queueFunc(normalizeEvent(event))
+	durableName := js.durableFunc(normalizeEvent(event), normalizeQueue(queue))
+
+	userProvidedSubject := bus.subjectFunc(event)
+	subject := jsSubscribeSubject(userProvidedSubject, event)
+
+	// By default, we let JetStream create an ephemeral consumer. If the user
+	// provides a durable name or queue group, we create a durable consumer.
+	var consumerName string
+	if durableName != "" || queue != "" {
+		consumerName = jsConsumerName(durableName, queue, event)
+		if err := js.ensureConsumer(ctx, bus, consumerName, event, subject, queue); err != nil {
+			return recipient{}, fmt.Errorf("ensure consumer: %w", err)
+		}
 	}
 
-	opts = append(opts, bus.subOpts...)
+	nsub, err := js.natsSubscribe(
+		ctx,
+		msgs,
+		event,
+		subject,
+		queue,
+		consumerName,
+		js.makeSubOpts(consumerName)...,
+	)
+	if err != nil {
+		return recipient{}, err
+	}
+
+	return js.addRecipient(ctx, bus, event, nsub, msgs)
+}
+
+func (js *jetStream) natsSubscribe(
+	ctx context.Context,
+	msgs chan<- []byte,
+	event,
+	subject,
+	queue,
+	consumerName string,
+	opts ...nats.SubOpt,
+) (*nats.Subscription, error) {
+	handleMsg := func(msg *nats.Msg) {
+		select {
+		case <-ctx.Done():
+		case msgs <- msg.Data:
+		}
+	}
 
 	var nsub *nats.Subscription
-	handleMsg := func(msg *nats.Msg) { msgs <- msg.Data }
 
+	var err error
 	if queue != "" {
-		var err error
-		nsub, err = js.ctx.QueueSubscribe(subject, queue, handleMsg, opts...)
-		if err != nil {
-			return recipient{}, fmt.Errorf("subscribe with queue group: %w [event=%v, subject=%v, queue=%v, consumer=%v]", err, event, subject, queue, durableName)
+		if nsub, err = js.ctx.QueueSubscribe(subject, queue, handleMsg, opts...); err != nil {
+			err = fmt.Errorf(
+				"subscribe: %w [event=%v, subject=%v, queue=%v, consumer=%v, mode=push]",
+				err, event, subject, queue, consumerName,
+			)
 		}
 	} else {
-		var err error
-		nsub, err = js.ctx.Subscribe(subject, handleMsg, opts...)
-		if err != nil {
-			return recipient{}, fmt.Errorf("subscribe: %w [event=%v, subject=%v, queue=%v, consumer=%v]", err, event, subject, queue, durableName)
+		if nsub, err = js.ctx.Subscribe(subject, handleMsg, opts...); err != nil {
+			err = fmt.Errorf(
+				"subscribe: %w [event=%v, subject=%v, queue=%v, consumer=%v, mode=push]",
+				err, event, subject, queue, consumerName,
+			)
 		}
 	}
 
+	return nsub, err
+}
+
+func (js *jetStream) addRecipient(ctx context.Context, bus *EventBus, event string, nsub *nats.Subscription, msgs chan []byte) (recipient, error) {
 	sub := newSubscription(event, bus, nsub, msgs)
 	js.subs[event] = sub
 
@@ -124,30 +231,6 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 	}()
 
 	return rcpt, nil
-}
-
-func (js *jetStream) ensureStream(ctx context.Context, streamName, subject string) error {
-	_, err := js.ctx.StreamInfo(streamName)
-	if err == nil {
-		// TODO(bounoable): Validate the stream config and return an error if it
-		// doesn't match.
-		return nil
-	}
-
-	if !errors.Is(err, nats.ErrStreamNotFound) {
-		return fmt.Errorf("get stream info: %w [stream=%v]", err, streamName)
-	}
-
-	subjects := []string{subject}
-
-	if _, err := js.ctx.AddStream(&nats.StreamConfig{
-		Name:     streamName,
-		Subjects: subjects,
-	}); err != nil {
-		return fmt.Errorf("add stream: %w [name=%v, subjects=%v]", err, streamName, subjects)
-	}
-
-	return nil
 }
 
 func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
@@ -176,12 +259,6 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 	}
 
 	subject := bus.subjectFunc(env.Name)
-	queue := bus.queueFunc(evt.Name())
-	streamName := streamName(bus, evt.Name(), subject, queue)
-
-	if err := js.ensureStream(ctx, streamName, subject); err != nil {
-		return fmt.Errorf("ensure stream: %w", err)
-	}
 
 	var opts []nats.PubOpt
 	if id := evt.ID(); id != uuid.Nil {
@@ -195,6 +272,67 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 	return nil
 }
 
+func (js *jetStream) ensureStream(ctx context.Context) error {
+	info, err := js.ctx.StreamInfo(js.stream)
+	if err == nil {
+		if info.Config.Name != js.stream {
+			return fmt.Errorf("%w: stream name mismatch: %q != %q", ErrConsumerExists, info.Config.Name, js.stream)
+		}
+
+		if len(info.Config.Subjects) != 1 || info.Config.Subjects[0] != "*" {
+			return fmt.Errorf("%w: subjects mismatch: %v != %v", ErrConsumerExists, info.Config.Subjects, []string{"*"})
+		}
+
+		return nil
+	}
+
+	if !errors.Is(err, nats.ErrStreamNotFound) {
+		return fmt.Errorf("get stream info: %w [stream=%v]", err, js.stream)
+	}
+
+	subjects := []string{"*"}
+
+	if _, err := js.ctx.AddStream(&nats.StreamConfig{
+		Name:     js.stream,
+		Subjects: subjects,
+	}); err != nil {
+		return fmt.Errorf("add stream: %w [name=%v, subjects=%v]", err, js.stream, subjects)
+	}
+
+	return nil
+}
+
+func (js *jetStream) ensureConsumer(ctx context.Context, bus *EventBus, name, eventName, subject, queue string) error {
+	if info, err := js.ctx.ConsumerInfo(js.stream, name); err == nil {
+		if info.Stream != js.stream {
+			return fmt.Errorf("%w: stream name mismatch: %q != %q", ErrConsumerExists, info.Stream, js.stream)
+		}
+
+		if info.Config.FilterSubject != subject {
+			return fmt.Errorf("%w: subject mismatch: %q != %q", ErrConsumerExists, info.Config.FilterSubject, subject)
+		}
+
+		return nil
+	}
+
+	deliverSubject := jsDeliverSubject(bus, eventName, name)
+
+	cfg := nats.ConsumerConfig{
+		Durable:        name,
+		DeliverSubject: deliverSubject,
+		DeliverPolicy:  nats.DeliverAllPolicy,
+		DeliverGroup:   queue,
+		AckPolicy:      nats.AckAllPolicy,
+		FilterSubject:  subject,
+	}
+
+	if _, err := js.ctx.AddConsumer(js.stream, &cfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (js *jetStream) subscription(event string) (*subscription, bool) {
 	js.RLock()
 	defer js.RUnlock()
@@ -202,25 +340,56 @@ func (js *jetStream) subscription(event string) (*subscription, bool) {
 	return sub, ok
 }
 
-// replaces illegal stream name characters with "_".
-func streamName(bus *EventBus, event, subject, queue string) string {
-	// bus.streamNameFunc uses either the user-provided StreamNameFunc option to
-	// generate the stream names or falls back to the defaultStreamNameFunc,
-	// which just returns the subject as it is.
-	name := replacer.Replace(bus.streamNameFunc(subject, queue))
-
-	// If the user provided a StreamNameFunc that returns an empty string, we
-	// fall back to the defaultStreamNameFunc and print a warning that the
-	// option was overriden.
-	if name == "" {
-		name = replacer.Replace(defaultStreamNameFunc(subject, queue))
-
-		log.Printf(
-			"[goes/backend/nats.jetStream] User-provided StreamNameFunc returned an empty string. "+
-				"Using default stream name %q. [event=%v, subject=%v, queue=%v]",
-			name, event, subject, queue,
-		)
+func (js *jetStream) makeSubOpts(consumerName string) []nats.SubOpt {
+	// Bind to an existing consumer.
+	if consumerName != "" {
+		return append([]nats.SubOpt{nats.Bind(js.stream, consumerName)}, js.subOpts...)
 	}
 
-	return name
+	// Let NATS create an ephemeral consumer.
+	return append([]nats.SubOpt{
+		nats.BindStream(js.stream),
+		nats.DeliverNew(),
+		nats.AckAll(),
+	}, js.subOpts...)
 }
+
+func jsConsumerName(durable, queue, eventName string) string {
+	if durable != "" {
+		return durable
+	}
+	eventName = normalizeEvent(eventName)
+	if queue == "" {
+		return replacer.Replace(eventName)
+	}
+	return replacer.Replace(fmt.Sprintf("%s_%s", queue, eventName))
+}
+
+func jsDeliverSubject(bus *EventBus, event, consumer string) string {
+	event = normalizeEvent(event)
+	subject := bus.subjectFunc(event)
+	return fmt.Sprintf("%s.%s.deliver", consumer, subject)
+}
+
+func normalizeEvent(event string) string {
+	if event == "*" {
+		return "$all"
+	}
+	return event
+}
+
+func jsSubscribeSubject(subject, event string) string {
+	if event == "*" {
+		return ">"
+	}
+	return subject
+}
+
+func normalizeQueue(queue string) string {
+	if queue == "" {
+		return "$noqueue"
+	}
+	return queue
+}
+
+func nonDurable(string, string) string { return "" }

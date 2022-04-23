@@ -14,16 +14,17 @@ import (
 
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/helper/streams"
 	"github.com/nats-io/nats.go"
 )
 
-func TestQueueGroupByFunc(t *testing.T) {
+func TestQueueGroup(t *testing.T) {
 	enc := test.NewEncoder()
 
 	// given 5 "foo" subscribers
 	subs := make([]<-chan event.Event, 5)
 	for i := range subs {
-		bus := NewEventBus(enc, QueueGroupByFunc(func(eventName string) string {
+		bus := NewEventBus(enc, QueueGroup(func(eventName string) string {
 			return fmt.Sprintf("bar.%s", eventName)
 		}))
 
@@ -69,10 +70,7 @@ func TestQueueGroupByFunc(t *testing.T) {
 	}
 	wg.Wait()
 
-	var received []event.Event
-	for evt := range receivedChan {
-		received = append(received, evt)
-	}
+	received, _ := streams.Drain(context.Background(), receivedChan)
 
 	if len(received) != 1 {
 		t.Fatal(fmt.Errorf("expected exactly 1 subscriber to receive an event; %d subscribers received it", len(received)))
@@ -80,18 +78,6 @@ func TestQueueGroupByFunc(t *testing.T) {
 
 	if !event.Equal(received[0], evt.Any().Event()) {
 		t.Fatal(fmt.Errorf("received event doesn't match published event\npublished: %v\n\nreceived: %v", evt, received[0]))
-	}
-}
-
-func TestQueueGroupByEvent(t *testing.T) {
-	bus := NewEventBus(test.NewEncoder(), QueueGroupByEvent())
-	names := []string{"foo", "bar", "baz"}
-	for _, name := range names {
-		t.Run(name, func(t *testing.T) {
-			if queue := bus.queueFunc(name); queue != name {
-				t.Fatal(fmt.Errorf("expected queueFunc to return %q; got %q", name, queue))
-			}
-		})
 	}
 }
 
@@ -197,27 +183,19 @@ func TestSubjectPrefix(t *testing.T) {
 
 func TestDurableFunc(t *testing.T) {
 	// default durable name
-	bus := NewEventBus(test.NewEncoder())
-	if got := bus.durableFunc("foo", "bar"); got != "" {
+	js := JetStream().(*jetStream)
+	if got := js.durableFunc("foo", "bar"); got != "" {
 		t.Fatal(fmt.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", "", got))
 	}
 
 	// custom durable func
-	bus = NewEventBus(test.NewEncoder(), DurableFunc(func(subject, queue string) string {
-		return fmt.Sprintf("prefix.%s.%s", subject, queue)
-	}))
+	js = JetStream(DurableFunc(func(event, queue string) string {
+		return fmt.Sprintf("prefix.%s.%s", event, queue)
+	})).(*jetStream)
 
-	want := "prefix.foo.bar"
-	if got := bus.durableFunc("foo", "bar"); got != want {
+	want := "prefix_foo_bar"
+	if got := js.durableFunc("foo", "bar"); got != want {
 		t.Fatal(fmt.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", want, got))
-	}
-}
-
-func TestDurable(t *testing.T) {
-	bus := NewEventBus(test.NewEncoder(), Durable("foo-dur"))
-	want := "foo-dur"
-	if got := bus.durableFunc("foo", "bar"); got != want {
-		t.Errorf("expected bus.durableFunc(%q, %q) to return %q; got %q", "foo", "bar", want, got)
 	}
 }
 

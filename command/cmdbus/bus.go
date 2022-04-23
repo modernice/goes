@@ -554,9 +554,9 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 	data := evt.Data()
 
 	// if the bus is not waiting for the execution of the command, return
-	b.subMux.RLock()
+	b.dispatchMux.RLock()
 	cmd, ok := b.assigned[data.ID]
-	b.subMux.RUnlock()
+	b.dispatchMux.RUnlock()
 	if !ok {
 		return
 	}
@@ -568,8 +568,8 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 		close(cmd.accepted)
 	}
 
-	b.subMux.Lock()
-	defer b.subMux.Unlock()
+	b.dispatchMux.Lock()
+	defer b.dispatchMux.Unlock()
 
 	// and remove the command from assigned commands
 	delete(b.assigned, data.ID)
