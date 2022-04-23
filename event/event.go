@@ -10,6 +10,9 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
+// All is a special event name that matches all events.
+const All = "*"
+
 // Event is an event with arbitrary data.
 type Event = Of[any]
 

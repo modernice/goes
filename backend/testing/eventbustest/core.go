@@ -14,32 +14,36 @@ import (
 // EventBusFactory creates an event.Bus from an codec.Encoding.
 type EventBusFactory func(codec.Encoding) event.Bus
 
-// Run tests all functions of the event bus.
-func Run(t *testing.T, newBus EventBusFactory) {
+// RunCore tests all functions of the event bus.
+func RunCore(t *testing.T, newBus EventBusFactory, opts ...Option) {
 	t.Run("Basic", func(t *testing.T) {
-		Basic(t, newBus)
+		Basic(t, newBus, opts...)
 	})
 	t.Run("SubscribeMultipleEvents", func(t *testing.T) {
-		SubscribeMultipleEvents(t, newBus)
+		SubscribeMultipleEvents(t, newBus, opts...)
 	})
 	t.Run("SubscribeCanceledContext", func(t *testing.T) {
-		SubscribeCanceledContext(t, newBus)
+		SubscribeCanceledContext(t, newBus, opts...)
 	})
 	t.Run("CancelSubscription", func(t *testing.T) {
-		CancelSubscription(t, newBus)
+		CancelSubscription(t, newBus, opts...)
 	})
 	t.Run("PublishMultipleEvents", func(t *testing.T) {
-		PublishMultipleEvents(t, newBus)
+		PublishMultipleEvents(t, newBus, opts...)
 	})
 }
 
 // Basic tests the basic functionality of an event bus. The test is successful if
 // multiple subscribers of the same event receive the event when it is published.
-func Basic(t *testing.T, newBus EventBusFactory) {
+func Basic(t *testing.T, newBus EventBusFactory, opts ...Option) {
+	cfg := configure(opts...)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	bus := newBus(enc)
+
+	defer cfg.Cleanup(t, bus)
 
 	// Given 10 subscribers of "foo" events
 	subs := make([]Subscription, 10)
@@ -75,11 +79,15 @@ func Basic(t *testing.T, newBus EventBusFactory) {
 	ex.Apply(t)
 }
 
-func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
+func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory, opts ...Option) {
+	cfg := configure(opts...)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	bus := newBus(enc)
+
+	defer cfg.Cleanup(t, bus)
 
 	// Given a subscriber of "foo", "bar" and "baz" events
 	events, errs, err := bus.Subscribe(ctx, "foo", "bar", "baz")
@@ -106,12 +114,16 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory) {
 	ex.Apply(t)
 }
 
-func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
+func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory, opts ...Option) {
+	cfg := configure(opts...)
+
 	// Given a canceled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	bus := newBus(enc)
+
+	defer cfg.Cleanup(t, bus)
 
 	// Given a "foo" subscriber
 	events, errs, err := bus.Subscribe(ctx, "foo")
@@ -131,11 +143,15 @@ func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory) {
 	ex.Apply(t)
 }
 
-func CancelSubscription(t *testing.T, newBus EventBusFactory) {
+func CancelSubscription(t *testing.T, newBus EventBusFactory, opts ...Option) {
+	cfg := configure(opts...)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	bus := newBus(enc)
+
+	defer cfg.Cleanup(t, bus)
 
 	// Given a "foo" subscriber
 	events, errs, err := bus.Subscribe(ctx, "foo")
@@ -172,11 +188,15 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory) {
 	ex.Apply(t)
 }
 
-func PublishMultipleEvents(t *testing.T, newBus EventBusFactory) {
+func PublishMultipleEvents(t *testing.T, newBus EventBusFactory, opts ...Option) {
+	cfg := configure(opts...)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	bus := newBus(enc)
+
+	defer cfg.Cleanup(t, bus)
 
 	// Given a "foo", "bar", "baz" subscriber
 	sub := MustSub(bus.Subscribe(ctx, "foo", "bar", "baz"))

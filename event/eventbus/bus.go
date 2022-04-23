@@ -123,12 +123,19 @@ func (bus *chanbus) subscribe(ctx context.Context, name string) (recipient, erro
 
 func (bus *chanbus) work() {
 	for evt := range bus.queue {
-		bus.RLock()
-		sub, ok := bus.events[evt.Name()]
-		bus.RUnlock()
-		if !ok {
-			continue
-		}
+		bus.publish(evt)
+	}
+}
+
+func (bus *chanbus) publish(evt event.Event) {
+	bus.publishTo(evt.Name(), evt)
+	bus.publishTo("*", evt)
+}
+
+func (bus *chanbus) publishTo(name string, evt event.Event) {
+	bus.RLock()
+	defer bus.RUnlock()
+	if sub, ok := bus.events[name]; ok {
 		sub.events <- evt
 	}
 }
