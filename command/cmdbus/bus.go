@@ -74,9 +74,9 @@ type Bus struct {
 	assignTimeout  time.Duration
 	receiveTimeout time.Duration
 
-	enc       codec.Encoding
-	bus       event.Bus
-	handlerID uuid.UUID
+	enc codec.Encoding
+	bus event.Bus
+	id  uuid.UUID
 
 	errs chan error
 	fail func(error)
@@ -137,7 +137,7 @@ func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
 		receiveTimeout: DefaultReceiveTimeout,
 		enc:            enc,
 		bus:            events,
-		handlerID:      uuid.New(),
+		id:             uuid.New(),
 	}
 	for _, opt := range opts {
 		opt(b)
@@ -390,8 +390,8 @@ func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 
 	// otherwise request to become the handler of the command
 	requestEvent := event.New(CommandRequested, CommandRequestedData{
-		ID:        data.ID,
-		HandlerID: b.handlerID,
+		ID:    data.ID,
+		BusID: b.id,
 	})
 
 	if err := b.bus.Publish(b.Context(), requestEvent.Any()); err != nil {
@@ -434,12 +434,12 @@ func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 
 	// and assign the command to the handler that requested to handle it
 	assignEvent := event.New(CommandAssigned, CommandAssignedData{
-		ID:        data.ID,
-		HandlerID: data.HandlerID,
+		ID:    data.ID,
+		BusID: data.BusID,
 	})
 
 	if err := b.bus.Publish(b.Context(), assignEvent.Any()); err != nil {
-		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandRequested] Failed to assign %q command to handler %q: %w", cmd.cmd.Name(), data.HandlerID, err))
+		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandRequested] Failed to assign %q command to handler %q: %w", cmd.cmd.Name(), data.BusID, err))
 		return
 	}
 
@@ -459,10 +459,15 @@ func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 	// otherwise remove the command from the requested commands
 	delete(b.requested, data.ID)
 
+	// if the command was assigned to another bus, return
+	if b.id != data.BusID {
+		return
+	}
+
 	// and accept the command
 	acceptEvt := event.New(CommandAccepted, CommandAcceptedData{
-		ID:        data.ID,
-		HandlerID: data.HandlerID,
+		ID:    data.ID,
+		BusID: data.BusID,
 	})
 
 	if err := b.bus.Publish(b.Context(), acceptEvt.Any()); err != nil {

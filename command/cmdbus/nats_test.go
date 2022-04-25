@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/codec"
@@ -27,6 +28,82 @@ func TestBus_NATS_Core(t *testing.T) {
 		nats.SubjectPrefix("cmdbus:"),
 	)
 	testNATSBus(t, bus, bus)
+}
+
+func TestBus_NATS_Core_SingleBusReceivesEvent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ereg := codec.New()
+	cmdbus.RegisterEvents(ereg)
+	enc := codec.Gob(codec.New())
+	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
+
+	ebus1 := nats.NewEventBus(
+		ereg,
+		nats.Use(nats.Core()),
+		nats.URL(os.Getenv("NATS_URL")),
+		nats.SubjectPrefix("cmdbus:"),
+	)
+	ebus2 := nats.NewEventBus(
+		ereg,
+		nats.Use(nats.Core()),
+		nats.URL(os.Getenv("NATS_URL")),
+		nats.SubjectPrefix("cmdbus:"),
+	)
+
+	epubBus := nats.NewEventBus(
+		ereg,
+		nats.Use(nats.Core()),
+		nats.URL(os.Getenv("NATS_URL")),
+		nats.SubjectPrefix("cmdbus:"),
+	)
+
+	bus1, _, _ := newBusWith(ctx, enc.Registry, ebus1, cmdbus.ReceiveTimeout(0))
+	bus2, _, _ := newBusWith(ctx, enc.Registry, ebus2, cmdbus.ReceiveTimeout(0))
+	pubBus, _, _ := newBusWith(ctx, enc.Registry, epubBus, cmdbus.AssignTimeout(0))
+
+	commands1, errs1, err := bus1.Subscribe(ctx, "foo-cmd")
+	if err != nil {
+		t.Fatalf("failed to subscribe to bus1: %v", err)
+	}
+
+	commands2, errs2, err := bus2.Subscribe(ctx, "foo-cmd")
+	if err != nil {
+		t.Fatalf("failed to subscribe to bus2: %v", err)
+	}
+
+	newCmd := func() command.Command { return command.New("foo-cmd", mockPayload{}).Any() }
+	dispatchError := make(chan error)
+
+	go func() {
+		if err := pubBus.Dispatch(ctx, newCmd(), dispatch.Sync()); err != nil {
+			dispatchError <- err
+		}
+	}()
+
+	var count int
+	timeout := time.NewTimer(200 * time.Millisecond)
+	defer timeout.Stop()
+	for {
+		select {
+		case err := <-errs1:
+			t.Fatalf("bus1: %v", err)
+		case err := <-errs2:
+			t.Fatalf("bus2: %v", err)
+		case err := <-dispatchError:
+			t.Fatalf("dispatch: %v", err)
+		case <-commands1:
+			count++
+		case <-commands2:
+			count++
+		case <-timeout.C:
+			if count != 1 {
+				t.Fatalf("command should have been received by exactly 1 bus; received by %d", count)
+			}
+			return
+		}
+	}
 }
 
 func TestBus_NATS_JetStream(t *testing.T) {

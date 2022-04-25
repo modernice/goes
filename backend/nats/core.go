@@ -43,17 +43,12 @@ func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (r
 	var nsub *nats.Subscription
 	var err error
 
-	subject := bus.subjectFunc(event)
-	if event == "*" {
-		subject = ">"
-	}
+	subject := subscribeSubject(bus.subjectFunc(event), event)
 
 	if queue := bus.queueFunc(event); queue != "" {
-		nsub, err = bus.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
-			msgs <- msg.Data
-		})
+		nsub, err = bus.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) { msgs <- msg.Data })
 		if err != nil {
-			return recipient{}, fmt.Errorf("subscribe with queue group: %w [subject=%v queue=%v]", err, subject, queue)
+			return recipient{}, fmt.Errorf("subscribe with queue group: %w [subject=%v, queue=%v]", err, subject, queue)
 		}
 	} else {
 		nsub, err = bus.conn.Subscribe(subject, func(msg *nats.Msg) { msgs <- msg.Data })

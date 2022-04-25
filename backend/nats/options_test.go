@@ -8,76 +8,66 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal/slice"
 	"github.com/nats-io/nats.go"
 )
 
-func TestQueueGroup(t *testing.T) {
+func TestLoadBalancer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	enc := test.NewEncoder()
 
-	// given 5 "foo" subscribers
-	subs := make([]<-chan event.Event, 5)
-	for i := range subs {
-		bus := NewEventBus(enc, QueueGroup(func(eventName string) string {
-			return fmt.Sprintf("bar.%s", eventName)
-		}))
-
-		events, errs, err := bus.Subscribe(context.Background(), "foo")
-		if err != nil {
-			t.Fatal(fmt.Errorf("[%d] subscribe to %q events: %w", i, "foo", err))
-		}
-		subs[i] = events
-
-		go func() {
-			for err := range errs {
-				panic(err)
-			}
-		}()
+	// given 5 event buses with the same queue group
+	buses := make([]*EventBus, 5)
+	for i := range buses {
+		buses[i] = NewEventBus(enc, LoadBalancer("queue"))
 	}
 
+	// that are subscribed to "foo" events
+	var subErrors []<-chan error
+	subEvents := slice.Map(buses, func(bus *EventBus) <-chan event.Event {
+		events, errs, err := bus.Subscribe(ctx, "foo")
+		if err != nil {
+			t.Fatalf("subscribe to %q events: %v", "foo", err)
+		}
+		subErrors = append(subErrors, errs)
+		return events
+	})
+	errs := streams.FanInAll(subErrors...)
+	events := streams.FanInAll(subEvents...)
+
+	// and a publisher bus
 	pubBus := NewEventBus(enc)
 
-	// when a "foo" event is published
-	evt := event.New("foo", test.FooEventData{})
-	err := pubBus.Publish(context.Background(), evt.Any())
-	if err != nil {
-		t.Fatal(fmt.Errorf("publish event %v: %w", evt, err))
+	// when we publish an event via the publisher bus
+	evt := event.New("foo", test.FooEventData{A: "foo"})
+	if err := pubBus.Publish(ctx, evt.Any()); err != nil {
+		t.Fatalf("publish event: %v", err)
 	}
 
-	// only 1 subscriber should received the event
-	receivedChan := make(chan event.Event, len(subs))
-	var wg sync.WaitGroup
-	wg.Add(len(subs))
-	go func() {
-		defer close(receivedChan)
-		wg.Wait()
-	}()
-	for _, events := range subs {
-		go func(events <-chan event.Event) {
-			defer wg.Done()
-			select {
-			case evt := <-events:
-				receivedChan <- evt
-			case <-time.After(100 * time.Millisecond):
+	// it should be received by a single subscribed bus
+	var count int
+	timeout := time.NewTimer(200 * time.Millisecond)
+	defer timeout.Stop()
+	for {
+		select {
+		case err := <-errs:
+			t.Fatal(err)
+		case <-events:
+			count++
+		case <-timeout.C:
+			if count != 1 {
+				t.Fatalf("event should have been received by 1 bus; received by %d", count)
 			}
-		}(events)
-	}
-	wg.Wait()
-
-	received, _ := streams.Drain(context.Background(), receivedChan)
-
-	if len(received) != 1 {
-		t.Fatal(fmt.Errorf("expected exactly 1 subscriber to receive an event; %d subscribers received it", len(received)))
-	}
-
-	if !event.Equal(received[0], evt.Any().Event()) {
-		t.Fatal(fmt.Errorf("received event doesn't match published event\npublished: %v\n\nreceived: %v", evt, received[0]))
+			return
+		}
 	}
 }
 

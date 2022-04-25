@@ -49,20 +49,20 @@ type CommandDispatchedData struct {
 
 // CommandRequestedData is the event Data for the CommandRequested Event.
 type CommandRequestedData struct {
-	ID        uuid.UUID
-	HandlerID uuid.UUID
+	ID    uuid.UUID
+	BusID uuid.UUID
 }
 
 // CommandAssignedData is the event Data for the CommandAssigned Event.
 type CommandAssignedData struct {
-	ID        uuid.UUID
-	HandlerID uuid.UUID
+	ID    uuid.UUID
+	BusID uuid.UUID
 }
 
 // CommandAcceptedData is the event Data for the CommandAccepted Event.
 type CommandAcceptedData struct {
-	ID        uuid.UUID
-	HandlerID uuid.UUID
+	ID    uuid.UUID
+	BusID uuid.UUID
 }
 
 // CommandExecutedData is the event Data for the CommandExecuted Event.

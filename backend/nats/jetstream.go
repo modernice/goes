@@ -146,7 +146,7 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 	durableName := js.durableFunc(normalizeEvent(event), normalizeQueue(queue))
 
 	userProvidedSubject := bus.subjectFunc(event)
-	subject := jsSubscribeSubject(userProvidedSubject, event)
+	subject := subscribeSubject(userProvidedSubject, event)
 
 	// By default, we let JetStream create an ephemeral consumer. If the user
 	// provides a durable name or queue group, we create a durable consumer.
@@ -376,13 +376,6 @@ func normalizeEvent(event string) string {
 		return "$all"
 	}
 	return event
-}
-
-func jsSubscribeSubject(subject, event string) string {
-	if event == "*" {
-		return ">"
-	}
-	return subject
 }
 
 func normalizeQueue(queue string) string {
