@@ -209,7 +209,15 @@ func (js *jetStream) natsSubscribe(
 		}
 	}
 
-	return nsub, err
+	if err != nil {
+		return nsub, err
+	}
+
+	if err := nsub.SetPendingLimits(-1, -1); err != nil {
+		return nsub, fmt.Errorf("SetPendingLimits(-1, -1) on nats subscription: %w", err)
+	}
+
+	return nsub, nil
 }
 
 func (js *jetStream) addRecipient(ctx context.Context, bus *EventBus, event string, nsub *nats.Subscription, msgs chan []byte) (recipient, error) {

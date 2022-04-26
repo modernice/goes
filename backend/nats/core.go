@@ -57,6 +57,10 @@ func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (r
 		}
 	}
 
+	if err := nsub.SetPendingLimits(-1, -1); err != nil {
+		return recipient{}, fmt.Errorf("SetPendingLimits(-1, -1) on nats subscription: %w", err)
+	}
+
 	sub := newSubscription(event, bus, nsub, msgs)
 	core.subs[event] = sub
 
