@@ -1,4 +1,4 @@
-//go:build nats
+//go:build nats && !github
 
 package cmdbus_test
 

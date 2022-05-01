@@ -39,7 +39,7 @@ services:
       context: ..
       dockerfile: .docker/github.Dockerfile
       args:
-        TAGS: nats,mongo
+        TAGS: nats,mongo,github
     environment:
       - NATS_URL=nats://nats:4222
       - JETSTREAM_URL=nats://jetstream:4222
