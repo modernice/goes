@@ -14,10 +14,14 @@ import (
 // New returns a thread-safe in-memory event store. The provided events are
 // immediately inserted into the store.
 func New(events ...event.Event) event.Store {
-	return &memstore{
+	store := &memstore{
 		idMap:  make(map[uuid.UUID]event.Event),
 		events: events,
 	}
+	for _, evt := range events {
+		store.idMap[evt.ID()] = evt
+	}
+	return store
 }
 
 var (
