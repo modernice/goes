@@ -13,6 +13,10 @@ import (
 
 // New returns a thread-safe in-memory event store. The provided events are
 // immediately inserted into the store.
+//
+// This event store is not production ready. It is intended to be used for
+// testing and prototyping. In production, use the MongoDB event store instead.
+// TODO(bounoable): List other event store implementations when they are ready.
 func New(events ...event.Event) event.Store {
 	store := &memstore{
 		idMap:  make(map[uuid.UUID]event.Event),
