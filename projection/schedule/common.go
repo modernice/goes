@@ -52,31 +52,6 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 // fetch the events from the event store while filters are applied afterwards
 // (in-memory). events must test against every provided filter to be included in
 // the projection Job.
-//
-// Projection guards
-//
-// A projection may provide a projection guard, which is just an event query.
-// When a projection provides a guard (a `ProjectionFilter() []event.Query`
-// method), that guard is automatically added as a filter when a Job queries
-// Events for that projection:
-//
-//	type guardedProjection struct {
-//		projection.Guard
-//	}
-//
-//	schedule := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
-//
-//	schedule.Subscribe(context.TODO(), func(job projection.Job) error {
-//		proj := &guardedProjection{
-//			Guard: projection.Guard(query.New(query.Name("foo", "bar"))),
-//		}
-//
-//		// job.Apply queries "foo", "bar" & "baz" events, then filters them
-//		// using the projection.Guard so that only "foo" & "bar" are applied.
-//		return job.Apply(job, proj)
-//	})
-//
-//	schedule.Trigger(context.TODO())
 func (schedule *schedule) Trigger(ctx context.Context, opts ...projection.TriggerOption) error {
 	schedule.triggersMux.RLock()
 	triggers := make([]chan projection.Trigger, len(schedule.triggers))

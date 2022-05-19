@@ -19,7 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func TestSnapshotStore(t *testing.T) {
+func TestEventStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
 		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
 			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
@@ -37,7 +37,7 @@ func TestSnapshotStore(t *testing.T) {
 	})
 }
 
-func TestStore_Insert_versionError(t *testing.T) {
+func TestEventStore_Insert_versionError(t *testing.T) {
 	enc := etest.NewEncoder()
 	s := mongo.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
 
