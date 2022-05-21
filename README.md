@@ -46,7 +46,7 @@ yourself familiar with these before reading further.
 - Pre-built Modules
 	- [Authorization Module](./contrib/auth)
 
-## Components
+### Components
 
 goes provides incrementally adoptable components that together form a complete
 framework for building event-sourced applications. Read a component's README for
@@ -58,15 +58,15 @@ a guide on how to use it.
 - [Projection Framework](./projection)
 - [SAGAs](./saga)
 
-## Backends
+### Backends
 
-### Event Bus
+#### Event Bus
 
 - [Channels (In-Memory)](./event/eventbus/chabus.go)
 - [NATS Core](./backend/nats)
 - [NATS JetStream](./backend/nats)
 
-### Event Store
+#### Event Store
 
 - [In-Memory](./event/eventstore/memstore.go)
 - [MongoDB](./backend/mongo)
