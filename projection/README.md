@@ -584,12 +584,19 @@ func (emails *Emails) userDeleted(evt event.Event) {
 ### Startup projection jobs
 
 Consider making your projection [`ProgressAware`](#progressaware) if you want to
-use the `Startup()` option when subscribing to a schedule. This can hugely
-improve the query performance of the initial projection job because the job can
-optimize its queries using the progress time provided by the `ProgressAware`
-interface. If your projection does not implement `ProgressAware`, then the
-initial projection job will query the entire history of the configured events,
-which – _depending on the size of your event store_ – could take a long time.
+use the `Startup()` option when subscribing to a schedule. When combined with
+the `AggregateQuery()` TriggerOption, this can hugely improve the query
+performance of the initial projection job because the job can optimize its
+queries when applying a projection job to projection targets, using the progress
+time provided by the `ProgressAware` interface. If your projection does not
+implement `ProgressAware`, then the initial projection job will query the entire
+history of the configured events, which – _depending on the size of your event
+store_ – could take a long time.
+
+Additionally, when providing an optimized query to the `AggregateQuery()` option,
+the `Aggregates()` helper of the projection job can extract the aggregates from
+using the provided query, instead of the default query that queries the entirety
+of the configured events.
 
 ### Projection finalization
 
