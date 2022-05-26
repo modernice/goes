@@ -562,7 +562,7 @@ func (emails *Emails) userRegistered(evt event.Of[string]) {
 	defer emails.mux.Unlock()
 
 	userID := pick.AggregateID(evt)
-	email := evt.Data().(string)
+	email := evt.Data()
 	emails.users[email] = userID
 	emails.emails[userID] = email
 }

@@ -136,8 +136,6 @@ func example(bus command.Bus) {
 }
 ```
 
-Using a `Bus` to handle commands is quite l
-
 ### Aggregate-based command handler
 
 For commands that act on aggregates, you can use the command handler provided by
