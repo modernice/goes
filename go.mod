@@ -12,7 +12,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/modernice/goes/api/proto v0.0.0-20220521164434-edf80700d524
-	github.com/nats-io/nats.go v1.15.0
+	github.com/nats-io/nats.go v1.16.0
 	github.com/spf13/cobra v1.4.0
 	go.mongodb.org/mongo-driver v1.9.1
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
