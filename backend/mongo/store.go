@@ -30,6 +30,7 @@ type EventStore struct {
 	dbname            string
 	entriesCol        string
 	statesCol         string
+	noIndex           bool
 	transactions      bool
 	validateVersions  bool
 	additionalIndices []mongo.IndexModel
@@ -171,6 +172,14 @@ func Transactions(tx bool) EventStoreOption {
 func ValidateVersions(v bool) EventStoreOption {
 	return func(s *EventStore) {
 		s.validateVersions = v
+	}
+}
+
+// NoIndex returns an option to completely disable index creation when
+// connecting to the event bus.
+func NoIndex(ni bool) EventStoreOption {
+	return func(es *EventStore) {
+		es.noIndex = ni
 	}
 }
 
@@ -553,6 +562,11 @@ func (s *EventStore) connectOnce(ctx context.Context, opts ...*options.ClientOpt
 		if err = s.connect(ctx, opts...); err != nil {
 			return
 		}
+
+		if s.noIndex {
+			return
+		}
+
 		if err = s.ensureIndexes(ctx); err != nil {
 			err = fmt.Errorf("ensure indexes: %w", err)
 			return
