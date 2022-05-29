@@ -182,10 +182,7 @@ func TestDeleteAggregate_CustomEvent(t *testing.T) {
 		}),
 	))
 
-	awaitCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-
-	str, errs := event.Must(eventbus.Await[any](awaitCtx, ebus, "custom.deleted"))
+	str, errs := event.Must(eventbus.Await[any](ctx, ebus, "custom.deleted"))
 
 	if err := pubBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 		t.Fatalf("dispatch command: %v", err)

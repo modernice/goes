@@ -51,15 +51,18 @@ func TestHandler_Handle(t *testing.T) {
 		}
 	}()
 
-	select {
-	case err, ok := <-errs:
-		if !ok {
-			t.Fatalf("error channel shouldn't be closed!")
-		}
-		t.Fatal(err)
-	case h := <-handled:
-		if h.ID() != cmd.ID() || h.Name() != cmd.Name() || !reflect.DeepEqual(h.Payload(), cmd.Payload()) {
-			t.Fatalf("handled Command differs from dispatched Command. want=%v got=%v", cmd, h)
+	for {
+		select {
+		case err, ok := <-errs:
+			if ok {
+				t.Fatal(err)
+				break
+			}
+			break
+		case h := <-handled:
+			if h.ID() != cmd.ID() || h.Name() != cmd.Name() || !reflect.DeepEqual(h.Payload(), cmd.Payload()) {
+				t.Fatalf("handled Command differs from dispatched Command. want=%v got=%v", cmd, h)
+			}
 		}
 	}
 }
