@@ -5,4 +5,5 @@ WORKDIR /github
 COPY go.mod go.sum /github/
 RUN go mod download
 COPY . .
-CMD go test -v -race -tags=$TAGS ./...
+RUN go install gotest.tools/gotestsum@latest
+CMD gotestsum --rerun-fails=3 --packages=./... -- -race -tags=$TAGS

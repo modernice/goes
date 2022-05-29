@@ -14,9 +14,11 @@ jobs:
       !startsWith(github.event.head_commit.message, 'docs') &&
       !contains(github.event.head_commit.message, 'skip ci') &&
       !contains(github.event.head_commit.message, 'ci skip')
+
     steps:
     - name: Cancel Previous Runs
       uses: styfle/cancel-workflow-action@0.9.1
+      if: ${{ !env.ACT }}
       with:
           access_token: ${{ github.token }}
 

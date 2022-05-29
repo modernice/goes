@@ -160,13 +160,14 @@ func TestAfterHandle(t *testing.T) {
 	eventReg := test.NewEncoder()
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(eventReg, eventBus)
+	pubBus := cmdbus.New(eventReg, eventBus)
+	subBus := cmdbus.New(eventReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var afterHandleCalled bool
 	h := handler.New(NewHandlerAggregateOpts(handler.AfterHandle(func(command.Ctx[string]) {
 		afterHandleCalled = true
-	}, "foo")), repo, commandBus)
+	}, "foo")), repo, subBus)
 
 	errs, err := h.Handle(ctx)
 	if err != nil {
@@ -175,7 +176,7 @@ func TestAfterHandle(t *testing.T) {
 	go testutil.PanicOn(errs)
 
 	cmd := command.New("foo", "bar")
-	if err := commandBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+	if err := pubBus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
 		t.Fatalf("dispatch command: %v", err)
 	}
 

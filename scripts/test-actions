@@ -23,4 +23,4 @@ if [[ -z $GITHUB_PAT ]]; then
 	exit 1
 fi
 
-act -s GITHUB_TOKEN=$GITHUB_PAT
+act -s GITHUB_TOKEN=$GITHUB_PAT -j test
