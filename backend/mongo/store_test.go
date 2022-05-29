@@ -5,7 +5,9 @@ package mongo_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -22,7 +24,7 @@ import (
 func TestEventStore(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
 		eventstoretest.Run(t, "mongostore", func(enc codec.Encoding) event.Store {
-			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
+			return mongotest.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")), mongo.Database(nextEventDatabase()))
 		})
 	})
 
@@ -32,9 +34,17 @@ func TestEventStore(t *testing.T) {
 				enc,
 				mongo.URL(os.Getenv("MONGOREPLSTORE_URL")),
 				mongo.Transactions(true),
+				mongo.Database(nextEventDatabase()),
 			)
 		})
 	})
+}
+
+var evtDBID uint64
+
+func nextEventDatabase() string {
+	id := atomic.AddUint64(&evtDBID, 1)
+	return fmt.Sprintf("events_%d", id)
 }
 
 func TestEventStore_Insert_versionError(t *testing.T) {

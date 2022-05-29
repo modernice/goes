@@ -19,8 +19,9 @@ import (
 func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, ebus)
-	h := command.NewHandler[any](bus)
+	subBus := cmdbus.New(enc, ebus)
+	pubBus := cmdbus.New(enc, ebus)
+	h := command.NewHandler[any](subBus)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -39,15 +40,10 @@ func TestHandler_Handle(t *testing.T) {
 		t.Fatalf("failed to register handler: %v", err)
 	}
 
-	dispatchError := make(chan error)
-
 	cmd := command.New("foo-cmd", mockPayload{})
 	go func() {
-		if err := bus.Dispatch(ctx, cmd.Any()); err != nil {
-			select {
-			case <-ctx.Done():
-			case dispatchError <- fmt.Errorf("dispatch Command: %w", err):
-			}
+		if err := pubBus.Dispatch(ctx, cmd.Any()); err != nil {
+			panic(fmt.Errorf("dispatch command: %w", err))
 		}
 	}()
 
@@ -63,6 +59,7 @@ func TestHandler_Handle(t *testing.T) {
 			if h.ID() != cmd.ID() || h.Name() != cmd.Name() || !reflect.DeepEqual(h.Payload(), cmd.Payload()) {
 				t.Fatalf("handled Command differs from dispatched Command. want=%v got=%v", cmd, h)
 			}
+			return
 		}
 	}
 }
