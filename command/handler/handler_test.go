@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
@@ -19,7 +20,7 @@ import (
 )
 
 func TestBaseHandler_HandleCommand(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	a := NewHandlerAggregate(uuid.New())
@@ -46,7 +47,7 @@ func TestBaseHandler_HandleCommand(t *testing.T) {
 }
 
 func TestOf_Handle(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	eventReg := test.NewEncoder()
@@ -89,7 +90,7 @@ func TestOf_Handle(t *testing.T) {
 }
 
 func TestBeforeHandle(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	eventReg := test.NewEncoder()
@@ -121,7 +122,7 @@ func TestBeforeHandle(t *testing.T) {
 }
 
 func TestBeforeHandle_wildcard(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	eventReg := test.NewEncoder()
@@ -153,7 +154,7 @@ func TestBeforeHandle_wildcard(t *testing.T) {
 }
 
 func TestAfterHandle(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	eventReg := test.NewEncoder()
@@ -184,7 +185,7 @@ func TestAfterHandle(t *testing.T) {
 }
 
 func TestAfterHandle_wildcard(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	eventReg := test.NewEncoder()

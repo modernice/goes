@@ -6,6 +6,10 @@ generate:
 test:
 	go test ./...
 
+.PHONY: test-race
+test-race:
+	go test -race ./...
+
 .PHONY: nats-test
 nats-test:
 	docker-compose -f .docker/nats-test.yml up --build --abort-on-container-exit --remove-orphans; \
