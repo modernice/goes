@@ -1,0 +1,26 @@
+#!/bin/bash
+
+ROOT=$(git rev-parse --show-toplevel)
+RED='\033[0;31m'
+BOLD='\033[1m'
+UNBOLD='\033[22m'
+RESET='\033[0m'
+
+error() {
+	echo -e "${RED}$1${RESET}"
+}
+
+bold() {
+	echo -e "${BOLD}$1${UNBOLD}"
+}
+
+if [[ -f $ROOT/dev.env ]]; then
+	source $ROOT/dev.env
+fi
+
+if [[ -z $GITHUB_PAT ]]; then
+	error "Missing $(bold GITHUB_PAT) environment variable."
+	exit 1
+fi
+
+act -s GITHUB_TOKEN=$GITHUB_PAT

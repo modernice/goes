@@ -10,6 +10,10 @@ test:
 test-race:
 	go test -race ./...
 
+.PHONY: test-actions
+test-actions:
+	@./scripts/test-actions || true
+
 .PHONY: nats-test
 nats-test:
 	docker-compose -f .docker/nats-test.yml up --build --abort-on-container-exit --remove-orphans; \
