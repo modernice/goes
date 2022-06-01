@@ -49,7 +49,7 @@ func nextEventDatabase() string {
 
 func TestEventStore_Insert_versionError(t *testing.T) {
 	enc := etest.NewEncoder()
-	s := mongo.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")))
+	s := mongo.NewEventStore(enc, mongo.URL(os.Getenv("MONGOSTORE_URL")), mongo.Database(nextEventDatabase()))
 
 	if _, err := s.Connect(context.Background()); err != nil {
 		t.Fatalf("failed to connect to mongodb: %v", err)
