@@ -599,9 +599,45 @@ func (s *EventStore) connect(ctx context.Context, opts ...*options.ClientOptions
 }
 
 func (s *EventStore) ensureIndexes(ctx context.Context) error {
+	type existingIndex struct {
+		Name string
+	}
+
 	models := append(indices.EventStoreCore(), s.additionalIndices...)
-	_, err := s.entries.Indexes().CreateMany(ctx, models)
-	return err
+	cur, err := s.entries.Indexes().List(ctx)
+	if err != nil {
+		return fmt.Errorf("list existing indexes: %w", err)
+	}
+	var indexes []bson.M
+	if err := cur.All(ctx, &indexes); err != nil {
+		return fmt.Errorf("index cursor: %w", err)
+	}
+	defer cur.Close(ctx)
+
+	indexNames := make(map[string]bool)
+	for cur.Next(ctx) {
+		var idx existingIndex
+		if err := cur.Decode(&idx); err != nil {
+			return fmt.Errorf("decode existing index: %w", err)
+		}
+		indexNames[idx.Name] = true
+	}
+
+	for _, model := range models {
+		if model.Options == nil {
+			continue
+		}
+
+		if indexNames[*model.Options.Name] {
+			continue
+		}
+
+		if _, err := s.entries.Indexes().CreateOne(ctx, model); err != nil {
+			return fmt.Errorf("create %q index: %w", *model.Options.Name, err)
+		}
+	}
+
+	return nil
 }
 
 func (e entry) event(enc codec.Encoding) (event.Event, error) {
