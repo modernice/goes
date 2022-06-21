@@ -13,7 +13,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/modernice/goes/api/proto v0.0.0-20220521164434-edf80700d524
 	github.com/nats-io/nats.go v1.16.0
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.5.0
 	go.mongodb.org/mongo-driver v1.9.1
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	google.golang.org/genproto v0.0.0-20220525015930-6ca3db687a9d
