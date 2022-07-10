@@ -75,6 +75,7 @@ a guide on how to use it.
 
 - [In-Memory](./event/eventstore/memstore.go)
 - [MongoDB](./backend/mongo)
+- [Postgres](./backend/postgres) (Beta)
 
 ## Contributing
 
