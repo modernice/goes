@@ -73,7 +73,7 @@ type CommandExecutedData struct {
 }
 
 // RegisterEvents registers the command events into a Registry.
-func RegisterEvents(r *codec.Registry) {
+func RegisterEvents(r codec.Registerer) {
 	codec.Register[CommandDispatchedData](r, CommandDispatched)
 	codec.Register[CommandRequestedData](r, CommandRequested)
 	codec.Register[CommandAssignedData](r, CommandAssigned)
