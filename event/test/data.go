@@ -24,6 +24,7 @@ func NewEncoder() *codec.Registry {
 	r := codec.New()
 	codec.Register[FooEventData](r, "foo")
 	codec.Register[BarEventData](r, "bar")
+	codec.Register[BazEventData](r, "baz")
 	codec.Register[FoobarEventData](r, "foobar")
 	return r
 }

@@ -30,6 +30,11 @@ mongo-test:
 	@docker-compose -f .docker/mongo-test.yml up --build --abort-on-container-exit --remove-orphans; \
 	docker-compose -f .docker/mongo-test.yml down --remove-orphans
 
+.PHONY: postgres-test
+postgres-test:
+	@docker-compose -f .docker/postgres-test.yml up --build --abort-on-container-exit --remove-orphans; \
+	docker-compose -f .docker/postgres-test.yml down --remove-orphans
+
 .PHONY: coverage
 coverage:
 	@docker-compose -f .docker/coverage.yml up --build --abort-on-container-exit --remove-orphans; \

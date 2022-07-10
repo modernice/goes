@@ -27,6 +27,12 @@ services:
     image: mongo
     command: ["--quiet", "--logpath", "/dev/null", "--bind_ip_all"]
 
+  postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
   test:
     depends_on:
       - nats
@@ -35,11 +41,12 @@ services:
       - mongostore_replicaset
       - mongostore_replicaset_init
       - mongosnap
+      - postgres
     build:
       context: ..
       dockerfile: .docker/coverage.Dockerfile
       args:
-        TAGS: nats,mongo
+        TAGS: nats,mongo,postgres
     environment:
       - NATS_URL=nats://nats:4222
       - JETSTREAM_URL=nats://jetstream:4222
@@ -47,5 +54,6 @@ services:
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
       - MONGOSNAP_URL=mongodb://mongosnap:27017
       - MONGOMODEL_URL=mongodb://mongostore_replicaset:27017
+      - POSTGRES_EVENTSTORE=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
     volumes:
       - ../out:/coverage/out

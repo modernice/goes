@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/event/test"
 )
 
 func RunWildcard(t *testing.T, newBus EventBusFactory, opts ...Option) {
@@ -26,12 +27,12 @@ func RunWildcard(t *testing.T, newBus EventBusFactory, opts ...Option) {
 		sub := Sub(str, errs)
 
 		ex := Expect(ctx)
-		ex.Events(sub, 500*time.Millisecond, "foo", "bar", "baz")
+		ex.Events(sub, 900*time.Millisecond, "foo", "bar", "baz")
 
 		events := []event.Event{
-			event.New("foo", "foobar").Any(),
-			event.New("bar", "foobar").Any(),
-			event.New("baz", "foobar").Any(),
+			event.New("foo", test.FooEventData{}).Any(),
+			event.New("bar", test.BarEventData{}).Any(),
+			event.New("baz", test.BazEventData{}).Any(),
 		}
 
 		if err := bus.Publish(ctx, events...); err != nil {

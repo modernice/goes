@@ -22,7 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/x/mongo/driver"
 )
 
-// EventStore is the MongoDB event.Store.
+// EventStore is a MongoDB event store.
 type EventStore struct {
 	enc               codec.Encoding
 	url               string

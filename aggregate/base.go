@@ -65,6 +65,14 @@ func (b *Base) RegisterEventHandler(eventName string, handle func(event.Event)) 
 	b.handlers[eventName] = handle
 }
 
+// Ref returns a Ref to the given aggregate.
+func (b *Base) Ref() Ref {
+	return Ref{
+		Name: b.Name,
+		ID:   b.ID,
+	}
+}
+
 // ModelID implements goes/persistence/model.Model. This allows *Base to be used
 // as a TypedAggregate for the type parameter of a TypedRepository.
 func (b *Base) ModelID() uuid.UUID {
@@ -89,6 +97,12 @@ func (b *Base) AggregateName() string {
 // AggregateVersion returns the aggregate version.
 func (b *Base) AggregateVersion() int {
 	return b.Version
+}
+
+// CurrentVersion returns the version of the aggregate with respect to the
+// uncommitted changes/events.
+func (b *Base) CurrentVersion() int {
+	return b.AggregateVersion() + len(b.AggregateChanges())
 }
 
 // AggregateChanges returns the recorded changes.

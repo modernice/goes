@@ -1,6 +1,6 @@
 {
   "go.buildFlags": [
-    "-tags=nats,mongo"
+    "-tags=nats,mongo,postgres"
   ],
   "protoc": {
     "options": ["-I ./api/proto"]

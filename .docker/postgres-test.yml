@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  test:
+    depends_on:
+      - postgres
+    build:
+      context: ..
+      dockerfile: .docker/tag-test.Dockerfile
+      args:
+        TAGS: postgres
+    environment:
+      - POSTGRES_EVENTSTORE=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable

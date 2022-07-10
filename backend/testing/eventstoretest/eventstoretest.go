@@ -559,13 +559,17 @@ func makeStore(newStore EventStoreFactory, events ...event.Event) (event.Store, 
 }
 
 func runQuery(s event.Store, q event.Query) ([]event.Event, error) {
-	events, _, err := s.Query(context.Background(), q)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*stdtime.Second)
+	defer cancel()
+
+	events, errs, err := s.Query(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("expected store.Query to succeed; got %w", err)
 	}
-	result, err := streams.Drain(context.Background(), events)
+	result, err := streams.Drain(ctx, events, errs)
 	if err != nil {
-		return nil, fmt.Errorf("expected cursor.All to succeed; got %w", err)
+		return nil, fmt.Errorf("expected streams.Drain to succeed; got %w", err)
 	}
+
 	return result, nil
 }

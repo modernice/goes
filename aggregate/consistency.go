@@ -27,7 +27,9 @@ type ConsistencyError struct {
 	// Kind is the kind of incosistency.
 	Kind ConsistencyKind
 	// Aggregate is the handled aggregate.
-	Aggregate Aggregate
+	Aggregate Ref
+	// CurrentVersion is the current version of the aggregate.
+	CurrentVersion int
 	// Events are the tested events.
 	Events []event.Event
 	// EventIndex is the index of the event that caused the Error.
@@ -71,6 +73,10 @@ func IsConsistencyError(err error) bool {
 // inconsistency.
 func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events Events) error {
 	id, name, _ := a.Aggregate()
+	ref := Ref{
+		Name: name,
+		ID:   id,
+	}
 	version := currentVersion(a)
 	cv := version
 	var prev event.Event
@@ -85,26 +91,29 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 		eid, ename, ev := evt.Aggregate()
 		if eid != id {
 			return &ConsistencyError{
-				Kind:       InconsistentID,
-				Aggregate:  a,
-				Events:     aevents,
-				EventIndex: i,
+				Kind:           InconsistentID,
+				Aggregate:      ref,
+				CurrentVersion: currentVersion(a),
+				Events:         aevents,
+				EventIndex:     i,
 			}
 		}
 		if ename != name {
 			return &ConsistencyError{
-				Kind:       InconsistentName,
-				Aggregate:  a,
-				Events:     aevents,
-				EventIndex: i,
+				Kind:           InconsistentName,
+				Aggregate:      ref,
+				CurrentVersion: currentVersion(a),
+				Events:         aevents,
+				EventIndex:     i,
 			}
 		}
 		if ev != cv+1 {
 			return &ConsistencyError{
-				Kind:       InconsistentVersion,
-				Aggregate:  a,
-				Events:     aevents,
-				EventIndex: i,
+				Kind:           InconsistentVersion,
+				Aggregate:      ref,
+				CurrentVersion: currentVersion(a),
+				Events:         aevents,
+				EventIndex:     i,
 			}
 		}
 		if hasPrev {
@@ -112,10 +121,11 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 			prevNano := prev.Time().UnixNano()
 			if nano <= prevNano {
 				return &ConsistencyError{
-					Kind:       InconsistentTime,
-					Aggregate:  a,
-					Events:     aevents,
-					EventIndex: i,
+					Kind:           InconsistentTime,
+					Aggregate:      ref,
+					CurrentVersion: currentVersion(a),
+					Events:         aevents,
+					EventIndex:     i,
 				}
 			}
 		}
@@ -150,9 +160,7 @@ func (err *ConsistencyError) Error() string {
 		aname string
 	)
 
-	if err.Aggregate != nil {
-		aid, aname, _ = err.Aggregate.Aggregate()
-	}
+	aid, aname, _ = err.Aggregate.Aggregate()
 
 	switch err.Kind {
 	case InconsistentID:
@@ -168,7 +176,7 @@ func (err *ConsistencyError) Error() string {
 	case InconsistentVersion:
 		return fmt.Sprintf(
 			"consistency: %q event has invalid AggregateVersion. want=%d got=%d",
-			evt.Name(), currentVersion(err.Aggregate)+1+err.EventIndex, v,
+			evt.Name(), err.CurrentVersion+1+err.EventIndex, v,
 		)
 	case InconsistentTime:
 		return fmt.Sprintf(
@@ -194,7 +202,7 @@ func (k ConsistencyKind) String() string {
 	case InconsistentVersion:
 		return "<InconsistentVersion>"
 	case InconsistentTime:
-		return "<InconsitentTime>"
+		return "<InconsistentTime>"
 	default:
 		return "<UnknownInconsistency>"
 	}
