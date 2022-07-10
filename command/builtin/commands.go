@@ -24,6 +24,6 @@ func DeleteAggregate(name string, id uuid.UUID) command.Cmd[DeleteAggregatePaylo
 }
 
 // RegisterCommands registers the built-in commands into a command registry.
-func RegisterCommands(r *codec.Registry) {
+func RegisterCommands(r codec.Registerer) {
 	codec.Register[DeleteAggregatePayload](r, DeleteAggregateCmd)
 }
