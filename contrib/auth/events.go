@@ -37,12 +37,11 @@ type PermissionRevokedData struct {
 }
 
 // RegisterEvents registers the events of the auth package into a registry.
-func RegisterEvents(r *codec.Registry) {
-	gr := codec.Gob(r)
-	codec.GobRegister[ActorIdentifiedData](gr, ActorIdentified)
-	codec.GobRegister[RoleIdentifiedData](gr, RoleIdentified)
-	codec.GobRegister[[]uuid.UUID](gr, RoleGiven)
-	codec.GobRegister[[]uuid.UUID](gr, RoleRemoved)
-	codec.GobRegister[PermissionGrantedData](gr, PermissionGranted)
-	codec.GobRegister[PermissionRevokedData](gr, PermissionRevoked)
+func RegisterEvents(r codec.Registerer) {
+	codec.Register[ActorIdentifiedData](r, ActorIdentified)
+	codec.Register[RoleIdentifiedData](r, RoleIdentified)
+	codec.Register[[]uuid.UUID](r, RoleGiven)
+	codec.Register[[]uuid.UUID](r, RoleRemoved)
+	codec.Register[PermissionGrantedData](r, PermissionGranted)
+	codec.Register[PermissionRevokedData](r, PermissionRevoked)
 }

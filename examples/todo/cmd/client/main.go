@@ -20,7 +20,7 @@ func main() {
 	ebus, _, ereg, disconnect := setup.Events(ctx, "client")
 	defer disconnect()
 
-	cbus, _ := setup.Commands(ereg.Registry, ebus)
+	cbus, _ := setup.Commands(ereg, ebus)
 
 	// Wait a bit to ensure that the todo server is running before dispatching commands.
 	<-time.After(3 * time.Second)

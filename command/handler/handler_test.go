@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
@@ -50,10 +51,13 @@ func TestOf_Handle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	eventReg := test.NewEncoder()
+	// eventReg := test.NewEncoder()
 	eventBus := eventbus.New()
+	cmdReg := codec.New()
+	codec.Register[string](cmdReg, "foo")
+	codec.Register[string](cmdReg, "bar")
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(eventReg, eventBus)
+	commandBus := cmdbus.New(cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	h := handler.New(NewHandlerAggregateOpts(), repo, commandBus)
@@ -93,10 +97,11 @@ func TestBeforeHandle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	eventReg := test.NewEncoder()
+	cmdReg := codec.New()
+	codec.Register[string](cmdReg, "foo")
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(eventReg, eventBus)
+	commandBus := cmdbus.New(cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var beforeHandleCalled bool
@@ -125,10 +130,11 @@ func TestBeforeHandle_wildcard(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	eventReg := test.NewEncoder()
+	cmdReg := codec.New()
+	codec.Register[string](cmdReg, "foo")
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(eventReg, eventBus)
+	commandBus := cmdbus.New(cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var beforeHandleCalled bool
@@ -157,11 +163,12 @@ func TestAfterHandle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	eventReg := test.NewEncoder()
+	cmdReg := codec.New()
+	codec.Register[string](cmdReg, "foo")
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	pubBus := cmdbus.New(eventReg, eventBus)
-	subBus := cmdbus.New(eventReg, eventBus)
+	pubBus := cmdbus.New(cmdReg, eventBus)
+	subBus := cmdbus.New(cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var afterHandleCalled bool
@@ -189,10 +196,11 @@ func TestAfterHandle_wildcard(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	eventReg := test.NewEncoder()
+	cmdReg := codec.New()
+	codec.Register[string](cmdReg, "foo")
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(eventReg, eventBus)
+	commandBus := cmdbus.New(cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var afterHandleCalled bool

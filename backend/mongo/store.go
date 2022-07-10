@@ -1,7 +1,6 @@
 package mongo
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -372,10 +371,11 @@ func (s *EventStore) insert(ctx context.Context, events []event.Event) error {
 
 	docs := make([]any, len(events))
 	for i, evt := range events {
-		var data bytes.Buffer
-		if err := s.enc.Encode(&data, evt.Name(), evt.Data()); err != nil {
+		b, err := s.enc.Marshal(evt.Data())
+		if err != nil {
 			return fmt.Errorf("encode %q event data: %w", evt.Name(), err)
 		}
+
 		id, name, v := evt.Aggregate()
 		docs[i] = entry{
 			ID:               evt.ID(),
@@ -385,7 +385,7 @@ func (s *EventStore) insert(ctx context.Context, events []event.Event) error {
 			AggregateName:    name,
 			AggregateID:      id,
 			AggregateVersion: v,
-			Data:             data.Bytes(),
+			Data:             b,
 		}
 	}
 	if _, err := s.entries.InsertMany(ctx, docs); err != nil {
@@ -641,7 +641,7 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 }
 
 func (e entry) event(enc codec.Encoding) (event.Event, error) {
-	data, err := enc.Decode(bytes.NewReader(e.Data), e.Name)
+	data, err := enc.Unmarshal(e.Data, e.Name)
 	if err != nil {
 		return nil, fmt.Errorf("decode %q event data: %w", e.Name, err)
 	}

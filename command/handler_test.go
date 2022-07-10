@@ -166,7 +166,7 @@ L:
 }
 
 func newEncoder() codec.Encoding {
-	reg := codec.Gob(codec.New())
-	reg.GobRegister("foo-cmd", func() any { return mockPayload{} })
+	reg := codec.New()
+	codec.Register[mockPayload](reg, "foo-cmd")
 	return reg
 }

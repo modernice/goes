@@ -119,12 +119,10 @@ type Schedule interface {
 	Trigger(context.Context, ...TriggerOption) error
 }
 
-// RegisterService register the projection service events into an event
-// registry.
-func RegisterService(r *codec.Registry) {
-	gob := codec.Gob(r)
-	gob.GobRegister(Triggered, func() any { return TriggeredData{} })
-	gob.GobRegister(TriggerAccepted, func() any { return TriggerAcceptedData{} })
+// RegisterService register the projection service events into an event registry.
+func RegisterService(r codec.Registerer) {
+	codec.Register[TriggeredData](r, Triggered)
+	codec.Register[TriggerAcceptedData](r, TriggerAccepted)
 }
 
 // ServiceOption is an option for creating a Service.

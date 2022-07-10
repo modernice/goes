@@ -19,8 +19,8 @@ import (
 func TestBus_NATS_Core(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
+	enc := codec.New()
+	codec.Register[mockPayload](enc, "foo-cmd")
 	bus := nats.NewEventBus(
 		ereg,
 		nats.Use(nats.Core()),
@@ -36,8 +36,8 @@ func TestBus_NATS_Core_SingleBusReceivesEvent(t *testing.T) {
 
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
+	enc := codec.New()
+	codec.Register[mockPayload](enc, "foo-cmd")
 
 	ebus1 := nats.NewEventBus(
 		ereg,
@@ -59,9 +59,9 @@ func TestBus_NATS_Core_SingleBusReceivesEvent(t *testing.T) {
 		nats.SubjectPrefix("cmdbus:"),
 	)
 
-	bus1, _, _ := newBusWith(ctx, enc.Registry, ebus1, cmdbus.ReceiveTimeout(0))
-	bus2, _, _ := newBusWith(ctx, enc.Registry, ebus2, cmdbus.ReceiveTimeout(0))
-	pubBus, _, _ := newBusWith(ctx, enc.Registry, epubBus, cmdbus.AssignTimeout(0))
+	bus1, _, _ := newBusWith(ctx, enc, ebus1, cmdbus.ReceiveTimeout(0))
+	bus2, _, _ := newBusWith(ctx, enc, ebus2, cmdbus.ReceiveTimeout(0))
+	pubBus, _, _ := newBusWith(ctx, enc, epubBus, cmdbus.AssignTimeout(0))
 
 	commands1, errs1, err := bus1.Subscribe(ctx, "foo-cmd")
 	if err != nil {
@@ -109,8 +109,8 @@ func TestBus_NATS_Core_SingleBusReceivesEvent(t *testing.T) {
 func TestBus_NATS_JetStream(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
+	enc := codec.New()
+	codec.Register[mockPayload](enc, "foo-cmd")
 	bus := nats.NewEventBus(
 		ereg,
 		nats.Use(nats.JetStream()),
@@ -124,8 +124,8 @@ func TestBus_NATS_JetStream(t *testing.T) {
 func TestBus_NATS_JetStream_Durable(t *testing.T) {
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
+	enc := codec.New()
+	codec.Register[mockPayload](enc, "foo-cmd")
 	subBus := nats.NewEventBus(
 		ereg,
 		nats.Use(nats.JetStream(nats.Durable("cmdbus_sub"))),
@@ -151,10 +151,10 @@ func testNATSBus(t *testing.T, subEventBus, pubEventBus *nats.EventBus) {
 
 	ereg := codec.New()
 	cmdbus.RegisterEvents(ereg)
-	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() any { return mockPayload{} })
-	subBus := cmdbus.New(enc.Registry, subEventBus, cmdbus.AssignTimeout(0))
-	pubBus := cmdbus.New(enc.Registry, pubEventBus, cmdbus.AssignTimeout(0))
+	enc := codec.New()
+	codec.Register[mockPayload](enc, "foo-cmd")
+	subBus := cmdbus.New(enc, subEventBus, cmdbus.AssignTimeout(0))
+	pubBus := cmdbus.New(enc, pubEventBus, cmdbus.AssignTimeout(0))
 
 	commands, errs, err := subBus.Subscribe(ctx, "foo-cmd")
 	if err != nil {

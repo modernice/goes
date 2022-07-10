@@ -84,16 +84,15 @@ func RevokeFromRole(roleID uuid.UUID, ref aggregate.Ref, actions ...string) comm
 }
 
 // RegisterCommands registers the commands of the auth package into a registry.
-func RegisterCommands(r *codec.Registry) {
-	gr := codec.Gob(r)
-	codec.GobRegister[any](gr, IdentifyActorCmd)
-	codec.GobRegister[string](gr, IdentifyRoleCmd)
-	codec.GobRegister[[]uuid.UUID](gr, GiveRoleToCmd)
-	codec.GobRegister[[]uuid.UUID](gr, RemoveRoleFromCmd)
-	codec.GobRegister[grantActorPayload](gr, GrantToActorCmd)
-	codec.GobRegister[revokeActorPayload](gr, RevokeFromActorCmd)
-	codec.GobRegister[grantRolePayload](gr, GrantToRoleCmd)
-	codec.GobRegister[revokeRolePayload](gr, RevokeFromRoleCmd)
+func RegisterCommands(r codec.Registerer) {
+	codec.Register[any](r, IdentifyActorCmd)
+	codec.Register[string](r, IdentifyRoleCmd)
+	codec.Register[[]uuid.UUID](r, GiveRoleToCmd)
+	codec.Register[[]uuid.UUID](r, RemoveRoleFromCmd)
+	codec.Register[grantActorPayload](r, GrantToActorCmd)
+	codec.Register[revokeActorPayload](r, RevokeFromActorCmd)
+	codec.Register[grantRolePayload](r, GrantToRoleCmd)
+	codec.Register[revokeRolePayload](r, RevokeFromRoleCmd)
 }
 
 // HandleCommands handles commands until ctx is canceled.

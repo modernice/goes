@@ -2,7 +2,6 @@
 package cmdbus
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -239,8 +238,8 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 
 	cfg := dispatch.Configure(opts...)
 
-	var load bytes.Buffer
-	if err := b.enc.Encode(&load, cmd.Name(), cmd.Payload()); err != nil {
+	load, err := b.enc.Marshal(cmd.Payload())
+	if err != nil {
 		return fmt.Errorf("encode payload: %w", err)
 	}
 
@@ -251,7 +250,7 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 		Name:          cmd.Name(),
 		AggregateName: name,
 		AggregateID:   id,
-		Payload:       load.Bytes(),
+		Payload:       load,
 	})
 
 	if err := b.bus.Publish(ctx, evt.Any()); err != nil {
@@ -399,9 +398,9 @@ func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 		return
 	}
 
-	load, err := b.enc.Decode(bytes.NewReader(data.Payload), data.Name)
+	load, err := b.enc.Unmarshal(data.Payload, data.Name)
 	if err != nil {
-		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandDispatched] Failed to decode %q command: %w", data.Name, err))
+		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandDispatched] Failed to decode %q command: %w\n%s", data.Name, err, data.Payload))
 		return
 	}
 

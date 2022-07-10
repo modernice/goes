@@ -24,7 +24,7 @@ Requires Docker.
 ### Default setup
 
 ```sh
-make build && make up
+make build && make default
 ```
 
 ### Debounced projection

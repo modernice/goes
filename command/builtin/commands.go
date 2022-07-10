@@ -24,9 +24,6 @@ func DeleteAggregate(name string, id uuid.UUID) command.Cmd[DeleteAggregatePaylo
 }
 
 // RegisterCommands registers the built-in commands into a command registry.
-//
-// TODO(bounoable): Implement other encodings than gob.
 func RegisterCommands(r *codec.Registry) {
-	gob := codec.Gob(r)
-	gob.GobRegister(DeleteAggregateCmd, func() any { return DeleteAggregatePayload{} })
+	codec.Register[DeleteAggregatePayload](r, DeleteAggregateCmd)
 }

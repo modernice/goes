@@ -414,13 +414,11 @@ func TestBus_SingleBusReceivesEvent(t *testing.T) {
 }
 
 func newBus(ctx context.Context, opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
-	enc := codec.Gob(codec.New())
-	enc.GobRegister("foo-cmd", func() any {
-		return mockPayload{}
-	})
+	enc := codec.New()
+	codec.Register[mockPayload](enc, "foo-cmd")
 	ebus := eventbus.New()
 
-	return newBusWith(ctx, enc.Registry, ebus, opts...)
+	return newBusWith(ctx, enc, ebus, opts...)
 }
 
 func newBusWith(ctx context.Context, reg *codec.Registry, ebus event.Bus, opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {

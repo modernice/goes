@@ -2,95 +2,187 @@ package codec_test
 
 import (
 	"bytes"
-	"errors"
-	"io"
+	"encoding/gob"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/modernice/goes/codec"
+	"github.com/modernice/goes/event"
 )
 
-var _ codec.Encoding = (*codec.Registry)(nil)
-
-func TestRegistry_Encode_ErrNotFound(t *testing.T) {
-	reg := codec.New()
-
-	var w bytes.Buffer
-	if err := reg.Encode(&w, "foo", mockDataA{}); !errors.Is(err, codec.ErrNotFound) {
-		t.Fatalf("Encode() should fail with %q when data is not registered; got %v", codec.ErrNotFound, err)
-	}
+type FooData struct {
+	Foo string
+	Bar int
 }
 
-func TestRegistry_Encode_Decode(t *testing.T) {
-	reg := codec.New()
+type BarData struct {
+	Foo string
+	Bar int
+}
 
-	codec.Register[mockDataA](
-		reg,
-		"foo",
-		// Register an Encoder that purely uses the mockDataA.A field to encode
-		// the data.
-		codec.EncoderFunc[mockDataA](func(w io.Writer, data mockDataA) error {
-			_, err := w.Write([]byte(data.A))
-			return err
-		}),
-		// Register a Decoder that uses the single string to re-create the data.
-		codec.DecoderFunc[mockDataA](func(r io.Reader) (mockDataA, error) {
-			b, err := io.ReadAll(r)
-			if err != nil {
-				return mockDataA{}, err
-			}
-			return mockDataA{A: string(b)}, nil
-		}),
-	)
-
-	var buf bytes.Buffer
-	val := "the-a-value"
-	data := mockDataA{A: val}
-	if err := reg.Encode(&buf, "foo", data); err != nil {
-		t.Fatalf("Encode() failed with %q", err)
+func (data BarData) Marshal() ([]byte, error) {
+	var out bytes.Buffer
+	if err := gob.NewEncoder(&out).Encode(data); err != nil {
+		return nil, fmt.Errorf("gob encode data: %v", err)
 	}
+	return out.Bytes(), nil
+}
 
-	got := buf.String()
-	if got != val {
-		t.Fatalf("string form of encoded value should be %q; is %q", val, got)
-	}
+func (data *BarData) Unmarshal(b []byte) error {
+	return gob.NewDecoder(bytes.NewReader(b)).Decode(data)
+}
 
-	r := bytes.NewReader([]byte(val))
+func TestRegistry_Marshal_Unmarshal_default(t *testing.T) {
+	r := codec.New()
+	codec.Register[FooData](r, "foo")
 
-	decoded, err := reg.Decode(r, "foo")
+	evt := event.New("foo", FooData{"hello", 123})
+
+	b, err := r.Marshal(evt.Data())
 	if err != nil {
-		t.Fatalf("Decode() failed with %q", err)
+		t.Fatalf("failed to marshal event data: %v", err)
 	}
 
-	if decoded.(mockDataA) != data {
-		t.Fatalf("decoded data should be %v; is %v\n%s", data, decoded, cmp.Diff(data, decoded))
+	jsonb, err := json.Marshal(evt.Data())
+	if err != nil {
+		t.Fatalf("failed to marshal event data as json: %v", err)
+	}
+
+	if !bytes.Equal(b, jsonb) {
+		t.Fatalf("marshaled event data does not match json data.\n%s", cmp.Diff(jsonb, b))
+	}
+
+	decoded, err := r.Unmarshal(b, "foo")
+	if err != nil {
+		t.Fatalf("failed to unmarshal event data: %v", err)
+	}
+
+	decodedt, ok := decoded.(FooData)
+	if !ok {
+		t.Fatalf("decoded event data is not of type %T", decodedt)
+	}
+
+	if decodedt != evt.Data() {
+		t.Fatalf("decoded event data does not match original event data.\n%s", cmp.Diff(decodedt, evt.Data()))
 	}
 }
 
-func TestRegistry_New_ErrMissingFactory(t *testing.T) {
-	reg := codec.New()
+func TestRegistry_Marshal_Unmarshal_custom(t *testing.T) {
+	r := codec.New()
+	codec.Register[BarData](r, "bar")
 
-	if _, err := reg.New("foo"); !errors.Is(err, codec.ErrMissingFactory) {
-		t.Fatalf("New() should fail with %q for data that has no factory function; got %v", codec.ErrMissingFactory, err)
+	evt := event.New("bar", BarData{"hello", 123})
+
+	b, err := r.Marshal(evt.Data())
+	if err != nil {
+		t.Fatalf("failed to marshal event data: %v", err)
+	}
+
+	var encoded bytes.Buffer
+	if err := gob.NewEncoder(&encoded).Encode(evt.Data()); err != nil {
+		t.Fatalf("failed to marshal event data as gob: %v", err)
+	}
+
+	gobb := encoded.Bytes()
+
+	if !bytes.Equal(b, gobb) {
+		t.Fatalf("marshaled event data does not match gob data.\n%s", cmp.Diff(gobb, b))
+	}
+
+	decoded, err := r.Unmarshal(b, "bar")
+	if err != nil {
+		t.Fatalf("failed to unmarshal event data: %v", err)
+	}
+
+	decodedt, ok := decoded.(BarData)
+	if !ok {
+		t.Fatalf("decoded event data is not of type %T", decodedt)
+	}
+
+	if decodedt != evt.Data() {
+		t.Fatalf("decoded event data does not match original event data.\n%s", cmp.Diff(decodedt, evt.Data()))
 	}
 }
 
 func TestRegistry_New(t *testing.T) {
-	reg := codec.Gob(codec.New())
+	r := codec.New()
+	codec.Register[FooData](r, "foo")
 
-	var want mockDataA
-	codec.GobRegister[mockDataA](reg, "foo")
-
-	data, err := reg.New("foo")
+	d, err := r.New("foo")
 	if err != nil {
-		t.Fatalf("New() failed with %q", err)
+		t.Fatalf("failed to create new data: %v", err)
 	}
 
-	if data.(mockDataA) != want {
-		t.Fatalf("New() should return %v; got %v\n%s", want, data, cmp.Diff(want, data))
+	td, ok := d.(*FooData)
+	if !ok {
+		t.Fatalf("created data is not of type %T", td)
+	}
+
+	var want FooData
+	if *td != want {
+		t.Fatalf("created data should be zero value %v, got %v", want, td)
 	}
 }
 
-type mockDataA struct {
-	A string
+func TestDefault(t *testing.T) {
+	r := codec.New(codec.Default(
+		func(data any) ([]byte, error) {
+			var buf bytes.Buffer
+			err := gob.NewEncoder(&buf).Encode(data)
+			return buf.Bytes(), err
+		},
+		func(b []byte, data any) error {
+			return gob.NewDecoder(bytes.NewReader(b)).Decode(data)
+		},
+	))
+
+	codec.Register[FooData](r, "foo")
+
+	evt := event.New("foo", FooData{"hello", 123})
+
+	b, err := r.Marshal(evt.Data())
+	if err != nil {
+		t.Fatalf("failed to marshal event data: %v", err)
+	}
+
+	var encoded bytes.Buffer
+	if err := gob.NewEncoder(&encoded).Encode(evt.Data()); err != nil {
+		t.Fatalf("failed to marshal event data as gob: %v", err)
+	}
+
+	gobb := encoded.Bytes()
+	if !bytes.Equal(gobb, b) {
+		t.Fatalf("marshaled event data does not match gob data.\n%s", cmp.Diff(gobb, b))
+	}
+
+	decoded, err := r.Unmarshal(b, "foo")
+	if err != nil {
+		t.Fatalf("failed to unmarshal event data: %v", err)
+	}
+
+	decodedt, ok := decoded.(FooData)
+	if !ok {
+		t.Fatalf("decoded event data is not of type %T", decodedt)
+	}
+
+	if decodedt != evt.Data() {
+		t.Fatalf("decoded event data does not match original event data.\n%s", cmp.Diff(evt.Data(), decodedt))
+	}
+}
+
+func TestMake(t *testing.T) {
+	r := codec.New()
+	codec.Register[FooData](r, "foo")
+
+	d, err := codec.Make[FooData](r, "foo")
+	if err != nil {
+		t.Fatalf("failed to make %T data: %v", d, err)
+	}
+
+	var want FooData
+	if d != want {
+		t.Fatalf("created data should be zero value %v, got %v", want, d)
+	}
 }

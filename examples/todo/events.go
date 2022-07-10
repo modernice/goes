@@ -1,8 +1,6 @@
 package todo
 
-import (
-	"github.com/modernice/goes/codec"
-)
+import "github.com/modernice/goes/codec"
 
 // Events
 const (
@@ -26,8 +24,8 @@ var ListEvents = [...]string{
 type TaskRemovedEvent struct{ Task string }
 
 // RegisterEvents registers events into a registry.
-func RegisterEvents(r *codec.GobRegistry) {
-	codec.GobRegister[string](r, TaskAdded)
-	codec.GobRegister[TaskRemovedEvent](r, TaskRemoved)
-	codec.GobRegister[[]string](r, TasksDone)
+func RegisterEvents(r codec.Registerer) {
+	codec.Register[string](r, TaskAdded)
+	codec.Register[TaskRemovedEvent](r, TaskRemoved)
+	codec.Register[[]string](r, TasksDone)
 }

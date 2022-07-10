@@ -29,7 +29,7 @@ func main() {
 	ebus, estore, ereg, disconnect := setup.Events(ctx, "server")
 	defer disconnect()
 
-	cbus, _ := setup.Commands(ereg.Registry, ebus)
+	cbus, _ := setup.Commands(ereg, ebus)
 
 	repo := setup.Aggregates(estore)
 

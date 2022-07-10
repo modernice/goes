@@ -24,10 +24,10 @@ func (s *Setup) Context() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGTERM)
 }
 
-func (s *Setup) Events(ctx context.Context, serviceName string) (_ event.Bus, _ event.Store, _ *codec.GobRegistry, disconnect func()) {
+func (s *Setup) Events(ctx context.Context, serviceName string) (_ event.Bus, _ event.Store, _ *codec.Registry, disconnect func()) {
 	log.Printf("Setting up events ...")
 
-	r := codec.Gob(event.NewRegistry())
+	r := event.NewRegistry()
 	todo.RegisterEvents(r)
 
 	bus, disconnect := s.EventBus(ctx, r, serviceName)
@@ -48,10 +48,10 @@ func (s *Setup) EventBus(ctx context.Context, enc codec.Encoding, serviceName st
 	}
 }
 
-func (s *Setup) Commands(ereg *codec.Registry, ebus event.Bus) (command.Bus, *codec.GobRegistry) {
+func (s *Setup) Commands(ereg *codec.Registry, ebus event.Bus) (command.Bus, *codec.Registry) {
 	log.Printf("Setting up commands ...")
 
-	r := codec.Gob(command.NewRegistry())
+	r := command.NewRegistry()
 	todo.RegisterCommands(r)
 
 	cmdbus.RegisterEvents(ereg)

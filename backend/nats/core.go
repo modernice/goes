@@ -82,12 +82,10 @@ func (core *core) subscribe(ctx context.Context, bus *EventBus, event string) (r
 }
 
 func (core *core) publish(ctx context.Context, bus *EventBus, evt event.Event) error {
-	var buf bytes.Buffer
-	if err := bus.enc.Encode(&buf, evt.Name(), evt.Data()); err != nil {
+	b, err := bus.enc.Marshal(evt.Data())
+	if err != nil {
 		return fmt.Errorf("encode event data: %w [event=%v, type(data)=%T]", err, evt.Name(), evt.Data())
 	}
-
-	b := buf.Bytes()
 
 	id, name, v := evt.Aggregate()
 
@@ -101,7 +99,7 @@ func (core *core) publish(ctx context.Context, bus *EventBus, evt event.Event) e
 		AggregateVersion: v,
 	}
 
-	buf = bytes.Buffer{}
+	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(env); err != nil {
 		return fmt.Errorf("encode envelope: %w", err)
 	}

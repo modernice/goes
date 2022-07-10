@@ -1,191 +1,156 @@
 package codec
 
 import (
-	"bytes"
-	"errors"
+	"encoding/json"
 	"fmt"
-	"io"
+	"reflect"
 	"sync"
 )
 
-var (
-	// ErrNotFound is returned when trying to encode/decode data which hasn't
-	// been registered into a registry.
-	ErrNotFound = errors.New("encoding not found. forgot to register?")
+var _ Encoding = &Registry{}
 
-	// ErrMissingFactory is returned when trying to instantiate data for which
-	// no factory function was provided.
-	ErrMissingFactory = errors.New("missing factory for data. forgot to register?")
-)
+// Encoding can be used to encode registered data types to and from bytes.
+type Encoding interface {
+	Marshal(any) ([]byte, error)
+	Unmarshal([]byte, string) (any, error)
+}
 
-// A Registry provides the Encoders and Decoders for event data or command
-// payloads. Use the Register method to register the Encoder and Decoder for a
-// specific type.
-//
-// You likely don't want to use this registry directly, as it requires you to
-// define an Encoder and Decoder for every registered type/name. You can for
-// example wrap this *Registry in a *GobRegistry to use encoding/gob for
-// encoding and decoding data:
-//
-// Register
-//
-//	type fooData struct { ... }
-//	reg := Gob(New())
-//	reg.GobRegister("foo", func() any { return fooData{}})
-//
-// Encode
-//
-//	var w io.Writer
-//	err := reg.Encode(w, "foo", someData{...})
-//
-// Decode
-//
-//	var r io.Reader
-//	err := reg.Decode(r, "foo")
+// Registerer is implemented by Registry to allow for registering of data types.
+type Registerer interface {
+	Register(string, func() any)
+}
+
+// Registry is a registry of data types. A Registry marshals and unmarshals
+// event data and command payloads.
 type Registry struct {
-	sync.RWMutex
-
-	encoders  map[string]Encoder[any]
-	decoders  map[string]Decoder[any]
-	factories map[string]func() any
+	mux               sync.RWMutex
+	factories         map[string]func() any
+	fallbackMarshal   func(any) ([]byte, error)
+	fallbackUnmarshal func([]byte, any) error
 }
 
-// Make creates and returns a new instance of the data that is registered under
-// the given name. If no factory function was provided for this data,
-// ErrMissingFactory is returned. If the data cannot be casted to D, an error
-// is returned.
+// Marshaler can be implemented by data types to override the default marshaler.
+type Marshaler interface {
+	Marshal() ([]byte, error)
+}
+
+// Unmarshaler can be implemented by data types to override the default unmarshaler.
+type Unmarshaler interface {
+	Unmarshal([]byte) error
+}
+
+// Option is an option for the Registry.
+type Option func(*Registry)
+
+// Default returns an Option that configures the default marshaler and
+// unmarshaler functions to be used when data types do not override the
+// default marshaler and unmarshaler.
+func Default(marshal func(any) ([]byte, error), unmarshal func([]byte, any) error) Option {
+	if marshal == nil || unmarshal == nil {
+		panic("default marshal and unmarshal functions must not be nil")
+	}
+
+	return func(r *Registry) {
+		r.fallbackMarshal = marshal
+		r.fallbackUnmarshal = unmarshal
+	}
+}
+
+// New returns a new Registry for encoding and decoding of event data or command payloads.
+func New(opts ...Option) *Registry {
+	r := &Registry{
+		factories:         make(map[string]func() any),
+		fallbackMarshal:   json.Marshal,
+		fallbackUnmarshal: json.Unmarshal,
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+// Register registers the data type with the given name. The provided factory
+// function is used to initialize the data type when needed. Call the
+// package-level Register function instead to register using a generic type:
+//	var r *codec.Registry
+//	codec.Register[FooData](r, "foo")
+func (r *Registry) Register(name string, factory func() any) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
+	r.factories[name] = factory
+}
+
+// New initializes the data type that is registered under the given name and
+// returns a pointer to the data.
+func (r *Registry) New(name string) (any, error) {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+	f, ok := r.factories[name]
+	if !ok {
+		return nil, fmt.Errorf("no data type registered for name %q", name)
+	}
+	return f(), nil
+}
+
+// Marshal marshals the provided data to a byte slice.
+func (r *Registry) Marshal(data any) ([]byte, error) {
+	if m, ok := data.(Marshaler); ok {
+		return m.Marshal()
+	}
+	return r.fallbackMarshal(data)
+}
+
+// Unmarshal unmarshals the provided bytes to the data type that is registered
+// under the given name.
+func (r *Registry) Unmarshal(b []byte, name string) (any, error) {
+	f, ok := r.factories[name]
+	if !ok {
+		return nil, fmt.Errorf("no data type registered for name %q", name)
+	}
+
+	ptr := f()
+
+	if m, ok := ptr.(Unmarshaler); ok {
+		if err := m.Unmarshal(b); err != nil {
+			return nil, err
+		}
+		return resolve(ptr), nil
+	}
+
+	if err := r.fallbackUnmarshal(b, ptr); err != nil {
+		return resolve(ptr), err
+	}
+
+	return resolve(ptr), nil
+}
+
+// resolves a pointer to the underlying data type.
+func resolve(p any) any {
+	return reflect.ValueOf(p).Elem().Interface()
+}
+
+// Register registers the generic data type under the given name.
+func Register[D any](r Registerer, name string) {
+	r.Register(name, func() any {
+		var out D
+		return &out
+	})
+}
+
+// Make initializes the data that is registered under the given name.
+// If the data type is not the provided generic type, an error is returned.
 func Make[D any](r *Registry, name string) (D, error) {
-	var zero D
-
-	r.RLock()
-	defer r.RUnlock()
-
-	if makeFunc, ok := r.factories[name]; ok && makeFunc != nil {
-		d := makeFunc()
-		if v, ok := d.(D); ok {
-			return v, nil
-		} else {
-			return zero, fmt.Errorf("cannot cast %T to %T", d, v)
-		}
+	d, err := r.New(name)
+	if err != nil {
+		var zero D
+		return zero, err
 	}
 
-	return zero, ErrMissingFactory
-}
-
-// Register registers the encoding for events with the given name.
-func Register[D any, Enc Encoder[D], Dec Decoder[D]](r *Registry, name string, enc Enc, dec Dec) {
-	registerWithFactoryFunc[D](r, name, enc, dec, func() any {
-		var v D
-		return v
-	})
-}
-
-func registerWithFactoryFunc[D any, Enc Encoder[D], Dec Decoder[D]](r *Registry, name string, enc Enc, dec Dec, fn func() any) {
-	r.Lock()
-	defer r.Unlock()
-
-	r.encoders[name] = EncoderFunc[any](func(w io.Writer, data any) error {
-		return enc.Encode(w, data.(D))
-	})
-
-	r.decoders[name] = DecoderFunc[any](func(r io.Reader) (any, error) {
-		return dec.Decode(r)
-	})
-
-	r.factories[name] = fn
-}
-
-// Encode encodes the data that is registered under the given name using the
-// registered Encoder. If no Encoder is registered for the given name, an error
-// that unwraps to ErrNotFound is returned.
-func Encode[D any](r *Registry, w io.Writer, name string, data D) error {
-	r.RLock()
-	defer r.RUnlock()
-
-	if err := encodeCustomMarshaler(w, data); !errors.Is(err, errNotCustomMarshaler) {
-		return err
+	resolved := resolve(d)
+	out, ok := resolved.(D)
+	if !ok {
+		return out, fmt.Errorf("data is not of type %T", out)
 	}
 
-	if enc, ok := r.encoders[name]; ok {
-		return enc.Encode(w, data)
-	}
-
-	return fmt.Errorf("get encoder: %w [name=%v]", ErrNotFound, name)
-}
-
-// Decode decodes the data that is registered under the given name using the
-// registered Decoder. If no Decoder is registered for the give name, an error
-// that unwraps to ErrNotFound is returned.
-func Decode[D any](r *Registry, in io.Reader, name string) (D, error) {
-	var zero D
-
-	r.RLock()
-	defer r.RUnlock()
-
-	if _, ok := r.factories[name]; ok {
-		data, err := Make[D](r, name)
-		if err != nil {
-			return zero, err
-		}
-
-		var buf bytes.Buffer
-		in = io.TeeReader(in, &buf)
-
-		if err := decodeCustomMarshaler(in, &data); err != errNotCustomMarshaler {
-			if err != nil {
-				err = fmt.Errorf("custom unmarshaler: %w", err)
-			}
-			return data, err
-		}
-
-		in = &buf
-	}
-
-	if dec, ok := r.decoders[name]; ok {
-		decoded, err := dec.Decode(in)
-		if err != nil {
-			return zero, err
-		}
-		return decoded.(D), nil
-	}
-
-	return zero, fmt.Errorf("get decoder: %w [name=%v]", ErrNotFound, name)
-}
-
-// New returns a new Registry.
-func New() *Registry {
-	return &Registry{
-		encoders:  make(map[string]Encoder[any]),
-		decoders:  make(map[string]Decoder[any]),
-		factories: make(map[string]func() any),
-	}
-}
-
-// // Register registers the given Encoder and Decoder under the given name.
-// // When reg.Encode is called, the provided Encoder is be used to encode the
-// // given data. When reg.Decode is called, the provided Decoder is used. The
-// // makeFunc is required for custom data unmarshalers to work.
-// func (reg *Registry) Register(name string, enc Encoder[any], dec Decoder[any], val any) {
-// 	Register(reg, name, val, enc, dec)
-// }
-
-// Encode encodes the data that is registered under the given name using the
-// registered Encoder. If no Encoder is registered for the given name, an error
-// that unwraps to ErrNotFound is returned.
-func (reg *Registry) Encode(w io.Writer, name string, data any) error {
-	return Encode(reg, w, name, data)
-}
-
-// Decode decodes the data that is registered under the given name using the
-// registered Decoder. If no Decoder is registered for the give name, an error
-// that unwraps to ErrNotFound is returned.
-func (reg *Registry) Decode(r io.Reader, name string) (any, error) {
-	return Decode[any](reg, r, name)
-}
-
-// New creates and returns a new instance of the data that is registered under
-// the given name. If no factory function was provided for this data,
-// ErrMissingFactory is returned.
-func (reg *Registry) New(name string) (any, error) {
-	return Make[any](reg, name)
+	return out, nil
 }

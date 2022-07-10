@@ -33,10 +33,10 @@ func DoneTasks(listID uuid.UUID, tasks ...string) command.Cmd[[]string] {
 }
 
 // RegisterCommands registers commands into a registry.
-func RegisterCommands(r *codec.GobRegistry) {
-	codec.GobRegister[string](r, AddTaskCmd)
-	codec.GobRegister[string](r, RemoveTaskCmd)
-	codec.GobRegister[[]string](r, DoneTaskCmd)
+func RegisterCommands(r codec.Registerer) {
+	codec.Register[string](r, AddTaskCmd)
+	codec.Register[string](r, RemoveTaskCmd)
+	codec.Register[[]string](r, DoneTaskCmd)
 }
 
 // HandleCommands handles todo list commands that are dispatched over the

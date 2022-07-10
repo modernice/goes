@@ -123,7 +123,7 @@ func (sub *subscription) send(bus *EventBus, msg []byte) error {
 		return fmt.Errorf("gob decode envelope: %w", err)
 	}
 
-	data, err := bus.enc.Decode(bytes.NewReader(env.Data), env.Name)
+	data, err := bus.enc.Unmarshal(env.Data, env.Name)
 	if err != nil {
 		return fmt.Errorf("decode event data: %w [event=%v]", err, env.Name)
 	}
