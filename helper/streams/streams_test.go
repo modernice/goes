@@ -10,6 +10,47 @@ import (
 	"github.com/modernice/goes/helper/streams"
 )
 
+func TestNewConcurrent(t *testing.T) {
+	str, push, _close := streams.NewConcurrent(1, 2, 3)
+
+	go func() {
+		defer _close()
+		push(context.TODO(), 5, 9)
+		push(context.TODO(), -3)
+	}()
+
+	vals, err := streams.All(str)
+	if err != nil {
+		t.Fatalf("drain stream: %v", err)
+	}
+
+	want := []int{1, 2, 3, 5, 9, -3}
+	if !cmp.Equal(want, vals) {
+		t.Fatalf("stream returned wrong values\n%s", cmp.Diff(want, vals))
+	}
+}
+
+func TestConcurrent(t *testing.T) {
+	str := make(chan int)
+	push := streams.Concurrent(str)
+
+	go func() {
+		defer close(str)
+		push(context.TODO(), 5)
+		push(context.TODO(), 9, -3)
+	}()
+
+	vals, err := streams.All(str)
+	if err != nil {
+		t.Fatalf("drain stream: %v", err)
+	}
+
+	want := []int{5, 9, -3}
+	if !cmp.Equal(want, vals) {
+		t.Fatalf("stream returned wrong values\n%s", cmp.Diff(want, vals))
+	}
+}
+
 func TestBefore(t *testing.T) {
 	original := []event.Event{
 		event.New("foo", test.FooEventData{}).Any(),

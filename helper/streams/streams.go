@@ -2,6 +2,7 @@ package streams
 
 import (
 	"context"
+	"sync"
 )
 
 // New returns a channel that is filled with the given values. The channel is
@@ -17,6 +18,64 @@ func New[T any](in []T) <-chan T {
 	return out
 }
 
+// NewConcurrent creates a channel of the given type and returns the channel and
+// a `push` function. The `push` function tries to push a value into the channel
+// and accepts a Context to cancel the push operation. The returned `close`
+// function closes the channel when called. The `close` function is thread-safe
+// and may be called multiple times. If values are provided to NewConcurrent,
+// the buffer of the channel is set to the number of values and the values are
+// pushed into the channel before returning.
+//
+//  str, push, close := NewConcurrent(1, 2, 3)
+//  push(context.TODO(), 4, 5, 6)
+//	vals, err := All(str)
+//	// handle err
+//	// vals == []int{1, 2, 3, 4, 5, 6}
+//
+// Use the Concurrent function to create a `push` function for an existing channel.
+func NewConcurrent[T any](vals ...T) (_ <-chan T, _push func(context.Context, ...T) error, _close func()) {
+	var mux sync.Mutex
+	var closed bool
+	out := make(chan T, len(vals))
+	push := Concurrent(out)
+	push(context.Background(), vals...)
+	return out, push, func() {
+		mux.Lock()
+		defer mux.Unlock()
+		if closed {
+			return
+		}
+		close(out)
+		closed = true
+	}
+}
+
+// Concurrent returns a `push` function for the provided channel.
+// The `push` function tries to push values into the channel and accepts
+// a Context that can cancel the push operation.
+func Concurrent[T any](c chan T) func(context.Context, ...T) error {
+	return func(ctx context.Context, vals ...T) error {
+		for _, v := range vals {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case c <- v:
+			}
+		}
+		return nil
+	}
+}
+
+// ConcurrentContext returns a `push` function for the provided channel.
+// The `push` function tries to push values into the channel and uses the
+// provided Context that can cancel push operations.
+func ConcurrentContext[T any](ctx context.Context, c chan T) func(...T) error {
+	push := Concurrent(c)
+	return func(vals ...T) error {
+		return push(ctx, vals...)
+	}
+}
+
 // Drain drains the given channel and returns its elements.
 //
 // Drain accepts optional error channels which will cause Drain to fail on any
@@ -30,6 +89,12 @@ func Drain[T any](ctx context.Context, in <-chan T, errs ...<-chan error) ([]T, 
 	out := make([]T, 0, len(in))
 	err := Walk(ctx, func(v T) error { out = append(out, v); return nil }, in, errs...)
 	return out, err
+}
+
+// All drains the given channel and returns its elements.
+// All is an alias for Drain(context.Background(), in, errs...).
+func All[T any](in <-chan T, errs ...<-chan error) ([]T, error) {
+	return Drain(context.Background(), in, errs...)
 }
 
 // Walk receives from the given channel until it and and all provided error
