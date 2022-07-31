@@ -25,7 +25,9 @@ var (
 // events. The lookup table is populated by events that implment the Data
 // interface. A *Lookup is thread-safe.
 type Lookup struct {
-	schedule *schedule.Continuous
+	scheduleOpts []schedule.ContinuousOption
+	applyEvent   func(event.Event)
+	schedule     *schedule.Continuous
 
 	mux       sync.RWMutex
 	providers map[string]*provider
@@ -33,6 +35,8 @@ type Lookup struct {
 	once  sync.Once
 	ready chan struct{}
 }
+
+type Option func(*Lookup)
 
 // Data is the interface that must be implemented by events that want to
 // populate the lookup table. The Provider that is passed to ProvideLookup
@@ -99,16 +103,45 @@ func Contains[Value any](ctx context.Context, l lookup, aggregateName, key strin
 	return ok
 }
 
+// ScheduleOptions returns an Option that configures the continuous schedule
+// that is created by the lookup.
+func ScheduleOptions(opts ...schedule.ContinuousOption) Option {
+	return func(l *Lookup) {
+		l.scheduleOpts = append(l.scheduleOpts, opts...)
+	}
+}
+
+// ApplyEventsWith returns an Option that overrides the default function that
+// applies events to the lookup table. When an event is applied, the provided
+// function is called with the event as its first argument and the original
+// event applier function as its second argument.
+func ApplyEventsWith(fn func(evt event.Event, original func(event.Event))) Option {
+	return func(l *Lookup) {
+		l.applyEvent = func(evt event.Event) {
+			fn(evt, l.defaultApplyEvent)
+		}
+	}
+}
+
 // New returns a new lookup table. The lookup table becomes ready after the
 // first projection job has been applied. Use the l.Ready() method of the
 // returned *Lookup to wait for the lookup table to become ready. Use l.Run()
 // to start the projection of the lookup table.
-func New(store event.Store, bus event.Bus, events []string, opts ...schedule.ContinuousOption) *Lookup {
+func New(store event.Store, bus event.Bus, events []string, opts ...Option) *Lookup {
 	l := &Lookup{
-		schedule:  schedule.Continuously(bus, store, events, opts...),
 		providers: make(map[string]*provider),
 		ready:     make(chan struct{}),
 	}
+	for _, opt := range opts {
+		opt(l)
+	}
+
+	l.schedule = schedule.Continuously(bus, store, events, l.scheduleOpts...)
+
+	if l.applyEvent == nil {
+		l.applyEvent = func(e event.Event) { l.defaultApplyEvent(e) }
+	}
+
 	return l
 }
 
@@ -227,6 +260,10 @@ func (l *Lookup) ApplyJob(ctx projection.Job) error {
 
 // ApplyEvent implements projection.EventApplier.
 func (l *Lookup) ApplyEvent(evt event.Event) {
+	l.applyEvent(evt)
+}
+
+func (l *Lookup) defaultApplyEvent(evt event.Event) {
 	data, ok := evt.Data().(Data)
 	if !ok {
 		return
