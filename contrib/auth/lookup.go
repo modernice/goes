@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection/lookup"
-	"github.com/modernice/goes/projection/schedule"
 )
 
 const (
@@ -25,7 +24,7 @@ type LookupTable struct {
 var lookupEvents = [...]string{ActorIdentified, RoleIdentified}
 
 // NewLookup returns a new lookup for aggregate ids of actors.
-func NewLookup(store event.Store, bus event.Bus, opts ...schedule.ContinuousOption) *LookupTable {
+func NewLookup(store event.Store, bus event.Bus, opts ...lookup.Option) *LookupTable {
 	return &LookupTable{Lookup: lookup.New(store, bus, lookupEvents[:], opts...)}
 }
 
