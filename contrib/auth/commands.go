@@ -101,6 +101,7 @@ func HandleCommands(
 	bus command.Bus,
 	actorRepos ActorRepositories,
 	roles RoleRepository,
+	lookup Lookup,
 ) (<-chan error, error) {
 	identifyActorErrors := command.MustHandle(ctx, bus, IdentifyActorCmd, func(ctx command.Context) error {
 		id := ctx.Payload()
@@ -121,6 +122,10 @@ func HandleCommands(
 	})
 
 	identifyRoleErrors := command.MustHandle(ctx, bus, IdentifyRoleCmd, func(ctx command.Ctx[string]) error {
+		if id, ok := lookup.Role(ctx, ctx.Payload()); ok {
+			return fmt.Errorf("role %q already exists with id %s", ctx.Payload(), id)
+		}
+
 		return roles.Use(ctx, ctx.AggregateID(), func(r *Role) error {
 			return r.Identify(ctx.Payload())
 		})
