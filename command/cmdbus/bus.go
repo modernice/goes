@@ -92,7 +92,6 @@ type dispatcher struct {
 	cmd             command.Command
 	cfg             command.DispatchConfig
 	accepted        chan struct{}
-	received        chan struct{}
 	dispatchAborted chan struct{}
 	out             chan error
 }
