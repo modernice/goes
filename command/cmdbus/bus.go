@@ -79,6 +79,8 @@ type Bus struct {
 
 	errs chan error
 	fail func(error)
+
+	debug bool
 }
 
 type subscription struct {
@@ -124,6 +126,13 @@ func DrainTimeout(dur time.Duration) Option {
 	return ReceiveTimeout(dur)
 }
 
+// Debug returns an Option that toggles the debug mode of the command bus.
+func Debug(debug bool) Option {
+	return func(b *Bus) {
+		b.debug = debug
+	}
+}
+
 // New returns an event-driven command bus.
 func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
 	b := &Bus{
@@ -155,6 +164,8 @@ func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
 // has been called, Run will be called automtically and the errors are logged to
 // stderr.
 func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
+	b.debugLog("starting command bus ...")
+
 	errs, err := b.Handler.Run(ctx)
 	if err != nil {
 		return errs, err
@@ -162,6 +173,8 @@ func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 
 	b.errs, b.fail = concurrent.Errors(ctx)
 	out, _ := streams.FanIn(b.errs, errs)
+
+	b.debugLog("command bus started ...")
 
 	return out, nil
 }
@@ -227,12 +240,15 @@ func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
 // 	log.Println(fmt.Sprintf("Error: %v", err))
 func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) (err error) {
+	b.debugLog("dispatching %q command ...", cmd.Name())
+
 	if !b.Running() {
 		errs, err := b.Run(context.Background())
 		if err != nil {
 			return err
 		}
 
+		b.debugLog("logging errors from command bus to stderr ...")
 		go logErrors(errs)
 	}
 
@@ -252,6 +268,8 @@ func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command
 		AggregateID:   id,
 		Payload:       load,
 	})
+
+	b.debugLog("publishing %q event ...", evt.Name())
 
 	if err := b.bus.Publish(ctx, evt.Any()); err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
@@ -335,6 +353,7 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Ct
 			return nil, nil, err
 		}
 
+		b.debugLog("logging errors from command bus to stderr ...")
 		go logErrors(errs)
 	}
 
@@ -393,6 +412,9 @@ func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 		BusID: b.id,
 	})
 
+	b.debugLog("requesting to become the handler for %q command ... [id=%s]", data.Name, data.ID)
+	b.debugLog("publishing %q event ...", evt.Name())
+
 	if err := b.bus.Publish(b.Context(), requestEvent.Any()); err != nil {
 		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandDispatched] Failed to request %q command: %w", data.Name, err))
 		return
@@ -408,9 +430,13 @@ func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 }
 
 func (b *Bus) handles(name string) bool {
+	b.debugLog("checking if %q command is handled by this bus ...", name)
 	b.subMux.RLock()
 	defer b.subMux.RUnlock()
 	_, ok := b.subscriptions[name]
+	if ok {
+		b.debugLog("this bus handles %q commands", name)
+	}
 	return ok
 }
 
@@ -436,6 +462,8 @@ func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 		ID:    data.ID,
 		BusID: data.BusID,
 	})
+
+	b.debugLog("publishing %q event ...", evt.Name())
 
 	if err := b.bus.Publish(b.Context(), assignEvent.Any()); err != nil {
 		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandRequested] Failed to assign %q command to handler %q: %w", cmd.cmd.Name(), data.BusID, err))
@@ -468,6 +496,8 @@ func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 		ID:    data.ID,
 		BusID: data.BusID,
 	})
+
+	b.debugLog("publishing %q event ...", acceptEvt.Name())
 
 	if err := b.bus.Publish(b.Context(), acceptEvt.Any()); err != nil {
 		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandAssigned] Failed to accept %q command: %w", cmd.Name(), err))
@@ -518,6 +548,8 @@ func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg finish.Conf
 		Runtime: cfg.Runtime,
 		Error:   errmsg,
 	})
+
+	b.debugLog("publishing %q event ...", evt.Name())
 
 	if err := b.bus.Publish(ctx, evt.Any()); err != nil {
 		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
@@ -615,6 +647,12 @@ func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 
 	// otherwise close the error channel of the dispatcher
 	close(cmd.out)
+}
+
+func (b *Bus) debugLog(format string, vals ...any) {
+	if b.debug {
+		log.Printf("[goes/command/cmdbus.Bus@debugLog] "+format, vals...)
+	}
 }
 
 // logging errors to stderr if the command bus was started by Dispatch() or Subscribe().
