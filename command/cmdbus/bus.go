@@ -412,7 +412,7 @@ func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 	})
 
 	b.debugLog("requesting to become the handler for %q command ... [id=%s]", data.Name, data.ID)
-	b.debugLog("publishing %q event ...", evt.Name())
+	b.debugLog("publishing %q event ...", requestEvent.Name())
 
 	if err := b.bus.Publish(b.Context(), requestEvent.Any()); err != nil {
 		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandDispatched] Failed to request %q command: %w", data.Name, err))
@@ -462,7 +462,7 @@ func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 		BusID: data.BusID,
 	})
 
-	b.debugLog("publishing %q event ...", evt.Name())
+	b.debugLog("publishing %q event ...", assignEvent.Name())
 
 	if err := b.bus.Publish(b.Context(), assignEvent.Any()); err != nil {
 		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandRequested] Failed to assign %q command to handler %q: %w", cmd.cmd.Name(), data.BusID, err))
