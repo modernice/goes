@@ -2,10 +2,10 @@ package event
 
 import (
 	"sort"
-	stdtime "time"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/modernice/goes/event/query/time"
+	qtime "github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/internal/xtime"
 )
@@ -13,6 +13,7 @@ import (
 // All is a special event name that matches all events.
 const All = "*"
 
+// #region event
 // Event is an event with arbitrary data.
 type Event = Of[any]
 
@@ -51,7 +52,7 @@ type Of[Data any] interface {
 	// Name returns the name of the event.
 	Name() string
 	// Time returns the time of the event.
-	Time() stdtime.Time
+	Time() time.Time
 	// Data returns the event data.
 	Data() Data
 
@@ -60,6 +61,8 @@ type Of[Data any] interface {
 	// an aggregate event.
 	Aggregate() (id uuid.UUID, name string, version int)
 }
+
+// #endregion event
 
 // Option is an event option.
 type Option func(*Evt[any])
@@ -73,7 +76,7 @@ type Evt[D any] struct {
 type Data[D any] struct {
 	ID               uuid.UUID
 	Name             string
-	Time             stdtime.Time
+	Time             time.Time
 	Data             D
 	AggregateName    string
 	AggregateID      uuid.UUID
@@ -88,7 +91,7 @@ func ID(id uuid.UUID) Option {
 }
 
 // Time returns an Option that overrides the auto-generated timestamp of an event.
-func Time(t stdtime.Time) Option {
+func Time(t time.Time) Option {
 	return func(evt *Evt[any]) {
 		evt.D.Time = t
 	}
@@ -118,10 +121,11 @@ func Previous[Data any](prev Of[Data]) Option {
 // and set as the event id. Its time is set to now.
 //
 // Available options:
+//
 //	ID(uuid.UUID): Provide a custom event id
 //	Time(time.Time): Provide a custom event time
 //	Aggregate(string, uuid.UUID, int): Put the event into the event stream of an aggregate
-// 	Previous(event.Event): Put the event into the event stream of an aggregate
+//	Previous(event.Event): Put the event into the event stream of an aggregate
 //	based on its previous event
 func New[D any](name string, data D, opts ...Option) Evt[D] {
 	evt := Evt[any]{D: Data[any]{
@@ -211,7 +215,7 @@ func (evt Evt[D]) Name() string {
 }
 
 // Time returns the event time.
-func (evt Evt[D]) Time() stdtime.Time {
+func (evt Evt[D]) Time() time.Time {
 	return evt.D.Time
 }
 
@@ -379,7 +383,7 @@ func uuidsContains(ids []uuid.UUID, id uuid.UUID) bool {
 	return false
 }
 
-func timesContains(times []stdtime.Time, t stdtime.Time) bool {
+func timesContains(times []time.Time, t time.Time) bool {
 	for _, v := range times {
 		if v.Equal(t) {
 			return true
@@ -397,7 +401,7 @@ func intsContains(ints []int, i int) bool {
 	return false
 }
 
-func testTimeRanges(ranges []time.Range, t stdtime.Time) bool {
+func testTimeRanges(ranges []qtime.Range, t time.Time) bool {
 	for _, r := range ranges {
 		if r.Includes(t) {
 			return true
@@ -406,14 +410,14 @@ func testTimeRanges(ranges []time.Range, t stdtime.Time) bool {
 	return false
 }
 
-func testMinTimes(min stdtime.Time, t stdtime.Time) bool {
+func testMinTimes(min time.Time, t time.Time) bool {
 	if t.Equal(min) || t.After(min) {
 		return true
 	}
 	return false
 }
 
-func testMaxTimes(max stdtime.Time, t stdtime.Time) bool {
+func testMaxTimes(max time.Time, t time.Time) bool {
 	if t.Equal(max) || t.Before(max) {
 		return true
 	}

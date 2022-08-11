@@ -10,6 +10,7 @@ import (
 	"github.com/modernice/goes/event/query/version"
 )
 
+// #region sortings
 const (
 	// SortTime sorts events by time.
 	SortTime = Sorting(iota)
@@ -28,6 +29,9 @@ const (
 	SortDesc
 )
 
+// #endregion sortings
+
+// #region store
 // A Store provides persistence for events.
 type Store interface {
 	// Insert inserts events into the store.
@@ -53,6 +57,9 @@ type Store interface {
 	Delete(context.Context, ...Event) error
 }
 
+// #endregion store
+
+// #region query
 // A Query can be used to query events from an event store. Each of the query's
 // methods that return a non-nil filter are considered when filtering events.
 // Different (non-nil) filters must all be fulfilled by an event to be included
@@ -99,6 +106,8 @@ type Query interface {
 	Sortings() []SortOptions
 }
 
+// #endregion query
+
 // AggregateRef is a reference to a specific aggregate, identified by its name
 // and id.
 type AggregateRef struct {
@@ -119,6 +128,7 @@ type Sorting int
 type SortDirection int
 
 // CompareSorting compares a and b based on the given sorting and returns
+//
 //	-1 if a < b
 //	0 is a == b
 //	1 if a > b
@@ -149,6 +159,7 @@ func CompareSorting[A, B any](s Sorting, a Of[A], b Of[B]) (cmp int8) {
 }
 
 // Compare compares a and b based on the given sorting and returns
+//
 //	-1 if a < b
 //	0 is a == b
 //	1 if a > b
@@ -196,6 +207,7 @@ func (ref AggregateRef) Split() (uuid.UUID, string) {
 }
 
 // String returns the string representation of the aggregate:
+//
 //	"NAME(ID)"
 func (ref AggregateRef) String() string {
 	return fmt.Sprintf("%s(%s)", ref.Name, ref.ID)

@@ -2,6 +2,7 @@ package event
 
 import "context"
 
+// #region bus
 // Bus is the pub-sub client for events.
 type Bus interface {
 	Publisher
@@ -25,6 +26,8 @@ type Subscriber interface {
 	// and the returned channels are closed.
 	Subscribe(ctx context.Context, names ...string) (<-chan Event, <-chan error, error)
 }
+
+// #endregion bus
 
 // Must can be used to panic on failed event subscriptions:
 //
