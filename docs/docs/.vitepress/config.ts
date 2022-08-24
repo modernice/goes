@@ -4,6 +4,9 @@ export default defineConfig({
   title: 'goes',
   description: 'Event-Sourcing Framework for Go.',
 
+  // TODO(bounoable): Disable after completing the documentation.
+  ignoreDeadLinks: true,
+
   themeConfig: {
     siteTitle: 'goes',
 
