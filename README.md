@@ -14,16 +14,8 @@ https://github.com/modernice/goes/discussions).
 
 ### Installation
 
-goes is not yet versioned because the API still changes too often. Install from
-the main branch or from specific commit hash, and make sure to install nested
-modules with `/...`
-
 ```sh
-go get github.com/modernice/goes/...@main
-```
-
-```sh
-go get github.com/modernice/goes/...@<commit-hash>
+go get github.com/modernice/goes/...
 ```
 
 ### Examples
