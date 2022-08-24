@@ -14,7 +14,9 @@ https://github.com/modernice/goes/discussions).
 ## Getting Started
 
 [Read the documentation](https://goes.modernice.dev) to get started. It's still
-a work-in-progress but the best place to get started with development.
+a work-in-progress but the best place to get started with development. You can
+also take a look at the ["To-Do" example](./examples/todo), which implements a
+simple event-sourced app that works distributedly.
 
 ## Contributing
 
