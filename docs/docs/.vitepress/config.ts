@@ -1,6 +1,6 @@
 import { defineConfig, HeadConfig } from 'vitepress'
 
-const domain = String(process.env.DOCS_DOMAIN || 'https://goes.modernice.dev')
+const domain = String(process.env.DOCS_DOMAIN || 'goes.modernice.dev')
 
 const extensions = ['outbound-links']
 
