@@ -6,11 +6,12 @@
   "author": "Saman Hosseini <saman@modernice.ltd>",
   "license": "MIT",
   "scripts": {
-    "dev": "vitepress dev docs",
+    "dev": "DOCS_DOMAIN=http://localhost:3000 vitepress dev docs --port 3000",
     "build": "vitepress build docs",
     "serve": "vitepress serve docs"
   },
   "devDependencies": {
+    "@types/node": "^18.7.13",
     "postcss-nesting": "^10.1.10",
     "tailwindcss": "^3.1.8",
     "ts-node": "^10.9.1",

@@ -1,6 +1,7 @@
 lockfileVersion: 5.4
 
 specifiers:
+  '@types/node': ^18.7.13
   postcss-nesting: ^10.1.10
   tailwindcss: ^3.1.8
   ts-node: ^10.9.1
@@ -9,9 +10,10 @@ specifiers:
   vue: ^3.2.37
 
 devDependencies:
+  '@types/node': 18.7.13
   postcss-nesting: 10.1.10
   tailwindcss: 3.1.8_ts-node@10.9.1
-  ts-node: 10.9.1_typescript@4.7.4
+  ts-node: 10.9.1_57uwcby55h6tzvkj3v5sfcgxoe
   typescript: 4.7.4
   vitepress: 1.0.0-alpha.10
   vue: 3.2.37
@@ -270,6 +272,10 @@ packages:
 
   /@tsconfig/node16/1.0.3:
     resolution: {integrity: sha512-yOlFc+7UtL/89t2ZhjPvvB/DeAr3r+Dq58IgzsFkOAvVC6NMJXmCGjbptdXdR9qsX7pKcTL+s87FtYREi2dEEQ==}
+    dev: true
+
+  /@types/node/18.7.13:
+    resolution: {integrity: sha512-46yIhxSe5xEaJZXWdIBP7GU4HDTG8/eo0qd9atdiL+lFpA03y8KS+lkTN834TWJj5767GbWv4n/P6efyTFt1Dw==}
     dev: true
 
   /@types/web-bluetooth/0.0.15:
@@ -951,7 +957,7 @@ packages:
     dependencies:
       lilconfig: 2.0.6
       postcss: 8.4.16
-      ts-node: 10.9.1_typescript@4.7.4
+      ts-node: 10.9.1_57uwcby55h6tzvkj3v5sfcgxoe
       yaml: 1.10.2
     dev: true
 
@@ -1120,7 +1126,7 @@ packages:
       is-number: 7.0.0
     dev: true
 
-  /ts-node/10.9.1_typescript@4.7.4:
+  /ts-node/10.9.1_57uwcby55h6tzvkj3v5sfcgxoe:
     resolution: {integrity: sha512-NtVysVPkxxrwFGUUxGYhfux8k78pQB3JqYBXlLRZgdGUqTO5wU/UyHop5p70iEbGhB7q5KmiZiU0Y3KlJrScEw==}
     hasBin: true
     peerDependencies:
@@ -1139,6 +1145,7 @@ packages:
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.3
+      '@types/node': 18.7.13
       acorn: 8.8.0
       acorn-walk: 8.2.0
       arg: 4.1.3

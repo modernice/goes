@@ -1,4 +1,27 @@
-import { defineConfig } from 'vitepress'
+import { defineConfig, HeadConfig } from 'vitepress'
+
+const domain = String(process.env.DOCS_DOMAIN || 'https://goes.modernice.dev')
+
+const extensions = ['outbound-links']
+
+if (domain.includes('localhost')) {
+  extensions.push('local')
+}
+
+const plausibleScript = `https://plausible.io/js/plausible.${extensions.join(
+  '.'
+)}.js`
+
+const head: HeadConfig[] = [
+  [
+    'script',
+    {
+      src: plausibleScript,
+      defer: '',
+      'data-domain': domain,
+    },
+  ],
+]
 
 export default defineConfig({
   title: 'goes',
@@ -6,6 +29,8 @@ export default defineConfig({
 
   // TODO(bounoable): Disable after completing the documentation.
   ignoreDeadLinks: true,
+
+  head,
 
   themeConfig: {
     siteTitle: 'goes',
