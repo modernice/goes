@@ -71,71 +71,80 @@ export default defineConfig({
           text: 'Aggregates',
           collapsible: true,
           items: [
-            { text: 'Introduction', link: '/guide/aggregates/' },
             {
-              text: 'Creating an Aggregate',
-              link: '/guide/aggregates/#creating-an-aggregate',
+              text: 'README',
+              link: '/guide/aggregates/readme.md',
             },
-            { text: 'Repositories', link: '/guide/aggregates/repositories' },
-            {
-              text: 'Event Handling',
-              link: '/guide/aggregates/event-handling',
-            },
-            {
-              text: 'Command Handling',
-              link: '/guide/aggregates/command-handling',
-            },
+            // {
+            //   text: 'Introduction',
+            //   link: '/guide/aggregates/',
+            // },
+            // {
+            //   text: 'Creating an Aggregate',
+            //   link: '/guide/aggregates/create',
+            // },
+            // { text: 'Repositories', link: '/guide/aggregates/repositories' },
+            // {
+            //   text: 'Event Handling',
+            //   link: '/guide/aggregates/event-handling',
+            // },
+            // {
+            //   text: 'Command Handling',
+            //   link: '/guide/aggregates/command-handling',
+            // },
           ],
         },
         {
           text: 'Projections',
           collapsible: true,
           items: [
-            { text: 'Introduction', link: '/guide/projections/' },
-            { text: 'Scheduling', link: '/guide/projections/scheduling' },
-            { text: 'Projection Jobs', link: '/guide/projections/jobs' },
-            { text: 'Projection Service', link: '/guide/projections/service' },
-            {
-              text: 'Best Practices',
-              link: '/guide/projections/best-practices',
-            },
+            { text: 'README', link: '/guide/projections/readme' },
+            // { text: 'Introduction', link: '/guide/projections/' },
+            // { text: 'Scheduling', link: '/guide/projections/scheduling' },
+            // { text: 'Projection Jobs', link: '/guide/projections/jobs' },
+            // { text: 'Projection Service', link: '/guide/projections/service' },
+            // {
+            //   text: 'Best Practices',
+            //   link: '/guide/projections/best-practices',
+            // },
           ],
         },
         {
           text: 'Commands',
           collapsible: true,
           items: [
-            { text: 'Introduction', link: '/guide/commands/' },
-            {
-              text: 'Defining Commands',
-              link: '/guide/commands/#defining-commands',
-            },
-            {
-              text: 'Command Registry',
-              link: '/guide/command/command-registry',
-            },
-            { text: 'Command Bus', link: '/guide/commands/command-bus' },
-            {
-              text: 'Command Handling',
-              link: '/guide/commands/command-handling',
-            },
+            { text: 'README', link: '/guide/commands/readme' },
+            // { text: 'Introduction', link: '/guide/commands/' },
+            // {
+            //   text: 'Defining Commands',
+            //   link: '/guide/commands/#defining-commands',
+            // },
+            // {
+            //   text: 'Command Registry',
+            //   link: '/guide/command/command-registry',
+            // },
+            // { text: 'Command Bus', link: '/guide/commands/command-bus' },
+            // {
+            //   text: 'Command Handling',
+            //   link: '/guide/commands/command-handling',
+            // },
           ],
         },
         {
           text: 'Process Manages / SAGAs',
           collapsible: true,
-          items: [{ text: 'TODO', link: '/' }],
+          items: [{ text: 'README', link: '/guide/process-managers/readme' }],
         },
         {
           text: 'Tools & Helpers',
           collapsible: true,
           collapsed: true,
           items: [
-            { text: 'Aggregate Lookup', link: '/guide/tools/aggregate-lookup' },
-            {
-              text: 'Streaming Helpers',
-              link: '/guide/tools/streaming-helpers',
-            },
+            // { text: 'Aggregate Lookup', link: '/guide/tools/aggregate-lookup' },
+            // {
+            //   text: 'Streaming Helpers',
+            //   link: '/guide/tools/streaming-helpers',
+            // },
           ],
         },
         {
@@ -149,34 +158,40 @@ export default defineConfig({
           collapsible: true,
           collapsed: true,
           items: [
-            { text: 'Authorization', link: '/guide/modules/authorization' },
+            // { text: 'Authorization', link: '/guide/modules/authorization' },
           ],
         },
         {
-          text: 'Backends – Event Bus',
-          collapsible: true,
-          collapsed: true,
-          items: [
-            { text: 'In-Memory', link: '/guide/backends/event-bus/nats' },
-            { text: 'NATS', link: '/guide/backends/event-bus/nats' },
-          ],
-        },
-        {
-          text: 'Backends – Event Store',
+          text: 'Backends',
           collapsible: true,
           collapsed: true,
           items: [
             {
-              text: 'In-Memory',
-              link: '/guide/backends/event-store/nats',
+              text: 'Event Bus',
+              items: [
+                {
+                  text: 'In-Memory',
+                  link: '/guide/backends/event-bus/in-memory',
+                },
+                { text: 'NATS', link: '/guide/backends/event-bus/nats' },
+              ],
             },
             {
-              text: 'MongoDB',
-              link: '/guide/backends/event-store/mongodb',
-            },
-            {
-              text: 'Postgres',
-              link: '/guide/backends/event-store/postgres',
+              text: 'Event Store',
+              items: [
+                {
+                  text: 'In-Memory',
+                  link: '/guide/backends/event-store/in-memory',
+                },
+                {
+                  text: 'MongoDB',
+                  link: '/guide/backends/event-store/mongodb',
+                },
+                {
+                  text: 'Postgres',
+                  link: '/guide/backends/event-store/postgres',
+                },
+              ],
             },
           ],
         },
