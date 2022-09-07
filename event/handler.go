@@ -22,6 +22,29 @@ type Registerer interface {
 	RegisterEventHandler(eventName string, handler func(Event))
 }
 
+// Handlers is a map of event names to event handlers. Handlers can be embedded
+// into structs to implement [Registerer]. [*github.com/modernice/goes/aggregate.Base]
+// embeds Handlers to allow for convenient registration of event handlers.
+type Handlers map[string][]func(Event)
+
+// RegisterEventHandler implements [Registerer].
+func (h Handlers) RegisterEventHandler(eventName string, handler func(Event)) {
+	h[eventName] = append(h[eventName], handler)
+}
+
+// EventHandlers returns the handlers for the given event.
+func (h Handlers) EventHandlers(eventName string) []func(Event) {
+	return h[eventName]
+}
+
+// HandleEvent calls each registered handler of the given [Event].
+func (h Handlers) HandleEvent(evt Event) {
+	handlers := h.EventHandlers(evt.Name())
+	for _, handler := range handlers {
+		handler(evt)
+	}
+}
+
 // RegisterHandler registers the handler for the given event.
 //
 // Example using *aggregate.Base:

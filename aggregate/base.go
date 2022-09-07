@@ -14,17 +14,17 @@ import (
 type Option func(*Base)
 
 // Base can be embedded into aggregates to implement the goes' APIs:
-//	- aggregate.Aggregate
-//	- aggregate.Committer
-//	- repository.ChangeDiscarder
-//	- snapshot.Aggregate
+//   - aggregate.Aggregate
+//   - aggregate.Committer
+//   - repository.ChangeDiscarder
+//   - snapshot.Aggregate
 type Base struct {
 	ID      uuid.UUID
 	Name    string
 	Version int
 	Changes []event.Event
 
-	handlers map[string]func(event.Event)
+	handlers event.Handlers
 }
 
 // Version returns an Option that sets the version of an aggregate.
@@ -39,7 +39,7 @@ func New(name string, id uuid.UUID, opts ...Option) *Base {
 	b := &Base{
 		ID:       id,
 		Name:     name,
-		handlers: make(map[string]func(event.Event)),
+		handlers: make(event.Handlers),
 	}
 	for _, opt := range opts {
 		opt(b)
@@ -61,8 +61,8 @@ func New(name string, id uuid.UUID, opts ...Option) *Base {
 //
 //	func (f *Foo) applyFoo(event.Of[string]) {}
 //	func (f *Foo) applyBar(event.Of[int]) {}
-func (b *Base) RegisterEventHandler(eventName string, handle func(event.Event)) {
-	b.handlers[eventName] = handle
+func (b *Base) RegisterEventHandler(eventName string, handler func(event.Event)) {
+	b.handlers.RegisterEventHandler(eventName, handler)
 }
 
 // Ref returns a Ref to the given aggregate.
@@ -134,10 +134,12 @@ func (b *Base) DiscardChanges() {
 	b.Changes = b.Changes[:0]
 }
 
-// ApplyEvent calls the event applier that was registered for the given event.
+// ApplyEvent calls the registered event appliers for the given event.
 func (b *Base) ApplyEvent(evt event.Event) {
-	if handler, ok := b.handlers[evt.Name()]; ok {
-		handler(evt)
+	if handlers, ok := b.handlers[evt.Name()]; ok {
+		for _, handler := range handlers {
+			handler(evt)
+		}
 	}
 }
 
