@@ -13,8 +13,7 @@ type Registerer interface {
 }
 
 // Handlers is a map of event names to command handlers. Handlers can be embedded
-// into structs to implement [Registerer]. [*github.com/modernice/goes/aggregate.Base]
-// embeds Handlers to allow for convenient registration of command handlers.
+// into structs to implement [Registerer].
 type Handlers map[string]func(Context) error
 
 // RegisterCommandHandler implements [Registerer].
