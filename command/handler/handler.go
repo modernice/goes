@@ -37,15 +37,20 @@ import (
 //
 // BaseHandler is not named Base to avoid name collisions with the
 // aggregate.Base type.
-type BaseHandler struct {
+type Base struct {
 	command.Handlers
 
 	beforeHandle map[string][]func(command.Context) error
 	afterHandle  map[string][]func(command.Context)
 }
 
+// BaseHandler is an alias for Base.
+//
+// Deprecated: Use Base instead.
+type BaseHandler = Base
+
 // Option is an option for the BaseHandler.
-type Option func(*BaseHandler)
+type Option func(*Base)
 
 // BeforeHandle returns an Option that registers the provided function to be
 // called before a command is handled. If the provided function returns a
@@ -167,7 +172,7 @@ type Of[A Aggregate] struct {
 // The provided newFunc is used to instantiate the aggregates and to initially
 // extract from the aggregate which commands it handles.
 //
-// Under the hood, a generic *command.Handler is used.
+// Under the hood, a generic [*command.Handler] is used.
 func New[A Aggregate](newFunc func(uuid.UUID) A, repo aggregate.Repository, bus command.Bus) *Of[A] {
 	if newFunc == nil {
 		panic("[goes/command.NewHandlerOf] newFunc is nil")
