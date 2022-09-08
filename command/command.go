@@ -2,7 +2,7 @@ package command
 
 import (
 	"github.com/google/uuid"
-	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/event"
 )
 
 // Command is a command with arbitrary payload.
@@ -26,7 +26,7 @@ type Of[Payload any] interface {
 	Payload() Payload
 
 	// Aggregate returns the aggregate this command acts on.
-	Aggregate() aggregate.Ref
+	Aggregate() event.AggregateRef
 }
 
 // Option is an option for creating a command.
@@ -101,8 +101,8 @@ func (cmd Cmd[P]) Payload() P {
 }
 
 // Aggregate returns the aggregate that the command acts on.
-func (cmd Cmd[P]) Aggregate() aggregate.Ref {
-	return aggregate.Ref{
+func (cmd Cmd[P]) Aggregate() event.AggregateRef {
+	return event.AggregateRef{
 		Name: cmd.Data.AggregateName,
 		ID:   cmd.Data.AggregateID,
 	}

@@ -98,6 +98,11 @@ func NewBase(opts ...Option) *BaseHandler {
 	return h
 }
 
+// RegisterCommandHandler implements command.Registerer.
+func (base *BaseHandler) RegisterCommandHandler(name string, handler func(command.Context) error) {
+	base.Handlers.RegisterCommandHandler(name, handler)
+}
+
 // CommandNames returns the commands that this handler (usually an aggregate) handles.
 func (base *BaseHandler) CommandNames() []string {
 	names := make([]string, 0, len(base.Handlers))

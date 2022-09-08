@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/internal/xtime"
@@ -24,8 +25,12 @@ type Base struct {
 	Version int
 	Changes []event.Event
 
-	handlers event.Handlers
+	eventHandlers
+	commandHandlers
 }
+
+type eventHandlers = event.Handlers
+type commandHandlers = command.Handlers
 
 // Version returns an Option that sets the version of an aggregate.
 func Version(v int) Option {
@@ -37,32 +42,15 @@ func Version(v int) Option {
 // New returns a new base aggregate.
 func New(name string, id uuid.UUID, opts ...Option) *Base {
 	b := &Base{
-		ID:       id,
-		Name:     name,
-		handlers: make(event.Handlers),
+		ID:              id,
+		Name:            name,
+		eventHandlers:   make(eventHandlers),
+		commandHandlers: make(commandHandlers),
 	}
 	for _, opt := range opts {
 		opt(b)
 	}
 	return b
-}
-
-// RegisterEventHandler registers the event applier for the given event.
-//
-// This method implements event.Registerer, so that the following can be done:
-//
-//	type Foo struct { *aggregate.Base }
-//
-//	func NewFoo(id uuid.UUID) *Foo {
-//		foo := &Foo{Base: aggregate.New("foo", id)}
-//		event.ApplyWith(foo, foo.applyFoo, "foo")
-//		event.ApplyWith(foo, foo.applyBar, "bar")
-//	}
-//
-//	func (f *Foo) applyFoo(event.Of[string]) {}
-//	func (f *Foo) applyBar(event.Of[int]) {}
-func (b *Base) RegisterEventHandler(eventName string, handler func(event.Event)) {
-	b.handlers.RegisterEventHandler(eventName, handler)
 }
 
 // Ref returns a Ref to the given aggregate.
@@ -136,11 +124,7 @@ func (b *Base) DiscardChanges() {
 
 // ApplyEvent calls the registered event appliers for the given event.
 func (b *Base) ApplyEvent(evt event.Event) {
-	if handlers, ok := b.handlers[evt.Name()]; ok {
-		for _, handler := range handlers {
-			handler(evt)
-		}
-	}
+	b.eventHandlers.HandleEvent(evt)
 }
 
 // SetVersion manually sets the version of the aggregate.
