@@ -12,69 +12,92 @@ type Registerer interface {
 	RegisterCommandHandler(commandName string, handler func(Context) error)
 }
 
+// Handlers is a map of event names to command handlers. Handlers can be embedded
+// into structs to implement [Registerer]. [*github.com/modernice/goes/aggregate.Base]
+// embeds Handlers to allow for convenient registration of command handlers.
+type Handlers map[string]func(Context) error
+
+// RegisterCommandHandler implements [Registerer].
+func (h Handlers) RegisterCommandHandler(commandName string, handler func(Context) error) {
+	h[commandName] = handler
+}
+
+// CommandHandlers returns the handlers for the given command.
+func (h Handlers) CommandHandler(commandName string) func(Context) error {
+	return h[commandName]
+}
+
+// HandleEvent calls the registered handler of the given [Command].
+func (h Handlers) HandleCommand(ctx Context) error {
+	if handler := h.CommandHandler(ctx.Name()); handler != nil {
+		return handler(ctx)
+	}
+	return fmt.Errorf("no handler registered for command %q", ctx.Name())
+}
+
 // RegisterHandler registers the handler for the given command.
 //
-//	type Foo struct {
-//		*aggregate.Base
-//		*handler.BaseHandler
+//		type Foo struct {
+//			*aggregate.Base
+//			*handler.BaseHandler
 //
-//		Foo string
-//		Bar string
-//		Baz string
-//	}
-//
-//	type FooEvent { Foo string }
-//	type BarEvent { Bar string }
-//	type BazEvent { Bar string }
-//
-//	func NewFoo(id uuid.UUID) *Foo  {
-//		foo := &Foo{
-//			Base: aggregate.New("foo", id),
-//          Handler: handler.NewBase(),
+//			Foo string
+//			Bar string
+//			Baz string
 //		}
 //
-//	    // Register event appliers.
-//		event.ApplyWith(foo, foo.foo, "foo")
-//		event.ApplyWith(foo, foo.bar, "bar")
-//		event.ApplyWith(foo, foo.baz, "baz")
+//		type FooEvent { Foo string }
+//		type BarEvent { Bar string }
+//		type BazEvent { Bar string }
 //
-//      // Register command handlers.
-//		command.HandleWith(foo, func(ctx command.Ctx[string]) {
-//			return foo.Foo(ctx.Payload())
-//		}, "foo")
-//		command.HandleWith(foo, func(ctx command.Ctx[string]) {
-//			return foo.Bar(ctx.Payload())
-//		}, "bar")
-//		command.HandleWith(foo, func(ctx command.Ctx[string]) {
-//			return foo.Baz(ctx.Payload())
-//		}, "baz")
+//		func NewFoo(id uuid.UUID) *Foo  {
+//			foo := &Foo{
+//				Base: aggregate.New("foo", id),
+//	         Handler: handler.NewBase(),
+//			}
 //
-//		return foo
-//	}
+//		    // Register event appliers.
+//			event.ApplyWith(foo, foo.foo, "foo")
+//			event.ApplyWith(foo, foo.bar, "bar")
+//			event.ApplyWith(foo, foo.baz, "baz")
 //
-//	func (f *Foo) Foo(input string) error {
-//		aggregate.Next(f, "foo", FooEvent{Foo: input})
-//  }
+//	     // Register command handlers.
+//			command.HandleWith(foo, func(ctx command.Ctx[string]) {
+//				return foo.Foo(ctx.Payload())
+//			}, "foo")
+//			command.HandleWith(foo, func(ctx command.Ctx[string]) {
+//				return foo.Bar(ctx.Payload())
+//			}, "bar")
+//			command.HandleWith(foo, func(ctx command.Ctx[string]) {
+//				return foo.Baz(ctx.Payload())
+//			}, "baz")
 //
-//	func (f *Foo) foo(e event.Of[FooEvent]) {
-//		f.Foo = e.Data().Foo
-//	}
+//			return foo
+//		}
 //
-//	func (f *Foo) Bar(input string) error {
-//		aggregate.Next(f, "bar", BarEvent{Bar: input})
-//  }
+//		func (f *Foo) Foo(input string) error {
+//			aggregate.Next(f, "foo", FooEvent{Foo: input})
+//	 }
 //
-//	func (f *Foo) bar(e event.Of[BarEvent]) {
-//		f.Bar = e.Data().Bar
-//	}
+//		func (f *Foo) foo(e event.Of[FooEvent]) {
+//			f.Foo = e.Data().Foo
+//		}
 //
-//	func (f *Foo) Baz(input string) error {
-//		aggregate.Next(f, "baz", BazEvent{Baz: input})
-//  }
+//		func (f *Foo) Bar(input string) error {
+//			aggregate.Next(f, "bar", BarEvent{Bar: input})
+//	 }
 //
-//	func (f *Foo) baz(e event.Of[BazEvent]) {
-//		f.Baz = e.Data().Baz
-//	}
+//		func (f *Foo) bar(e event.Of[BarEvent]) {
+//			f.Bar = e.Data().Bar
+//		}
+//
+//		func (f *Foo) Baz(input string) error {
+//			aggregate.Next(f, "baz", BazEvent{Baz: input})
+//	 }
+//
+//		func (f *Foo) baz(e event.Of[BazEvent]) {
+//			f.Baz = e.Data().Baz
+//		}
 func RegisterHandler[Payload any](r Registerer, commandName string, handler func(Ctx[Payload]) error) {
 	r.RegisterCommandHandler(commandName, func(ctx Context) error {
 		if casted, ok := TryCastContext[Payload](ctx); ok {

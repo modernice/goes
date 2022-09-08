@@ -7,21 +7,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/command"
+	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
 )
 
-// BaseHandler can be embedded into an aggregate to implement the aggregate
-// interface. Provided methods are
-//	- RegisterCommandHandler(string, func(command.Context) error)
-//	- CommandNames() []string
-//	- HandleCommand(command.Context) error
+// BaseHandler can be embedded into an aggregate to implement [command.Registerer].
+//   - RegisterCommandHandler(string, func(command.Context) error)
+//   - CommandNames() []string
+//   - HandleCommand(command.Context) error
 //
 // BaseHandler allows to do the following:
 //
 //	type MyAggregate struct {
-//    *aggregate.Base
-//    *handler.BaseHandler
-//  }
+//	   	*aggregate.Base
+//		*handler.BaseHandler
+//	}
 //
 //	func New(id uuid.UUID) *MyAggregate {
 //		foo := &MyAggregate{
@@ -38,7 +38,8 @@ import (
 // BaseHandler is not named Base to avoid name collisions with the
 // aggregate.Base type.
 type BaseHandler struct {
-	handlers     map[string]func(command.Context) error
+	command.Handlers
+
 	beforeHandle map[string][]func(command.Context) error
 	afterHandle  map[string][]func(command.Context)
 }
@@ -87,7 +88,7 @@ func AfterHandle[Payload any](fn func(command.Ctx[Payload]), commands ...string)
 // implement the aggregate interface.
 func NewBase(opts ...Option) *BaseHandler {
 	h := &BaseHandler{
-		handlers:     make(map[string]func(command.Context) error),
+		Handlers:     make(command.Handlers),
 		beforeHandle: make(map[string][]func(command.Context) error),
 		afterHandle:  make(map[string][]func(command.Ctx[any])),
 	}
@@ -97,15 +98,10 @@ func NewBase(opts ...Option) *BaseHandler {
 	return h
 }
 
-// RegisterHandler registers a command handler for the given command name.
-func (base *BaseHandler) RegisterCommandHandler(commandName string, handler func(command.Context) error) {
-	base.handlers[commandName] = handler
-}
-
 // CommandNames returns the commands that this handler (usually an aggregate) handles.
 func (base *BaseHandler) CommandNames() []string {
-	names := make([]string, 0, len(base.handlers))
-	for name := range base.handlers {
+	names := make([]string, 0, len(base.Handlers))
+	for name := range base.Handlers {
 		names = append(names, name)
 	}
 	return names
@@ -113,12 +109,12 @@ func (base *BaseHandler) CommandNames() []string {
 
 // HandleCommand executes the command handler on the given command.
 func (base *BaseHandler) HandleCommand(ctx command.Context) error {
-	handler, ok := base.handlers[ctx.Name()]
+	handler, ok := base.Handlers[ctx.Name()]
 	if !ok {
 		return fmt.Errorf("no handler registered for %q command", ctx.Name())
 	}
 
-	for _, fn := range append(base.beforeHandle["*"], base.beforeHandle[ctx.Name()]...) {
+	for _, fn := range append(base.beforeHandle[event.All], base.beforeHandle[ctx.Name()]...) {
 		if err := fn(ctx); err != nil {
 			return fmt.Errorf("before handle: %w", err)
 		}
@@ -135,14 +131,14 @@ func (base *BaseHandler) HandleCommand(ctx command.Context) error {
 	return nil
 }
 
-// Aggregate is an aggregate that handles commands by itself.
+// Aggregate is an aggregate that handles commands.
 type Aggregate interface {
 	aggregate.Aggregate
 
 	// CommandNames returns the commands that the aggregate handles.
 	CommandNames() []string
 
-	// HandleCommand executes the command handler of the given command.
+	// HandleCommand executes the command handler for a command.
 	HandleCommand(command.Context) error
 }
 
