@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/modernice/goes/helper/pick"
+	"golang.org/x/exp/maps"
 )
 
 // A Registerer is a type that can register handlers for different commands.
@@ -19,6 +20,11 @@ type Handlers map[string]func(Context) error
 // RegisterCommandHandler implements [Registerer].
 func (h Handlers) RegisterCommandHandler(commandName string, handler func(Context) error) {
 	h[commandName] = handler
+}
+
+// CommandNames returns the registered command names.
+func (h Handlers) CommandNames() []string {
+	return maps.Keys(h)
 }
 
 // CommandHandlers returns the handlers for the given command.
