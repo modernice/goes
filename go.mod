@@ -13,7 +13,7 @@ require (
 	github.com/jackc/pgx/v4 v4.17.2
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/modernice/goes/api/proto v0.0.0-20220623123549-6e30dac7a640
-	github.com/nats-io/nats.go v1.16.0
+	github.com/nats-io/nats.go v1.17.0
 	github.com/spf13/cobra v1.5.0
 	go.mongodb.org/mongo-driver v1.10.2
 	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
