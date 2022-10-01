@@ -10,7 +10,11 @@ import (
 // A JSONRegistry allows registering data into a Registry using factory
 // functions. Data that is registered via a JSONRegistry will be encoded and
 // decoded using the encoding/json package.
-type JSONRegistry struct{ *Registry }
+type JSONRegistry struct {
+	*Registry
+
+	useMapstructure bool
+}
 
 // JSON wraps the given Registry in a JSONRegistry. The JSONRegistry provides a
 // JSONRegister function to register data using a factory function.
@@ -30,6 +34,10 @@ func JSONRegister[T any](r *JSONRegistry, name string) {
 		jsonEncoder[T]{},
 		jsonDecoder[T]{name: name, makeFunc: func() (v T) { return v }},
 	)
+}
+
+func (reg *JSONRegistry) UseMapstructure(use bool) {
+	reg.useMapstructure = use
 }
 
 // JSONRegister registers data with the given name into the underlying registry.
@@ -52,14 +60,20 @@ func (jsonEncoder[T]) Encode(w io.Writer, data T) error {
 }
 
 type jsonDecoder[T any] struct {
-	name     string
-	makeFunc func() T
+	name            string
+	makeFunc        func() T
+	useMapstructure bool
 }
 
 func (dec jsonDecoder[T]) Decode(r io.Reader) (T, error) {
 	data := dec.makeFunc()
 
-	untyped := make(map[string]any)
+	if !dec.useMapstructure {
+		err := json.NewDecoder(r).Decode(&data)
+		return data, err
+	}
+
+	untyped := make(map[string]interface{})
 
 	if err := json.NewDecoder(r).Decode(&untyped); err != nil {
 		return data, err
