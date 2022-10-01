@@ -81,6 +81,7 @@ func New(opts ...Option) *Registry {
 // Register registers the data type with the given name. The provided factory
 // function is used to initialize the data type when needed. Call the
 // package-level Register function instead to register using a generic type:
+//
 //	var r *codec.Registry
 //	codec.Register[FooData](r, "foo")
 func (r *Registry) Register(name string, factory func() any) {
@@ -159,6 +160,17 @@ func (r *Registry) Unmarshal(b []byte, name string) (any, error) {
 	}
 
 	return resolve(ptr), nil
+}
+
+// Map returns all registered factory functions, mapped to the registered name.
+func (r *Registry) Map() map[string]func() any {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+	out := make(map[string]func() any, len(r.factories))
+	for k, v := range r.factories {
+		out[k] = v
+	}
+	return out
 }
 
 // resolves a pointer to the underlying data type.
