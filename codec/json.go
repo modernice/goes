@@ -1,7 +1,9 @@
 package codec
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/mitchellh/mapstructure"
@@ -13,7 +15,8 @@ import (
 type JSONRegistry struct {
 	*Registry
 
-	useMapstructure bool
+	useMapstructure    bool
+	ignoreDecodeErrors bool
 }
 
 // JSON wraps the given Registry in a JSONRegistry. The JSONRegistry provides a
@@ -40,6 +43,10 @@ func (reg *JSONRegistry) UseMapstructure(use bool) {
 	reg.useMapstructure = use
 }
 
+func (reg *JSONRegistry) IgnoreDecodeErrors(ignore bool) {
+	reg.ignoreDecodeErrors = ignore
+}
+
 // JSONRegister registers data with the given name into the underlying registry.
 // makeFunc is used create instances of the data and encoding/json will be used
 // to encode and decode the data returned by makeFunc.
@@ -48,7 +55,12 @@ func (r *JSONRegistry) JSONRegister(name string, makeFunc func() any) {
 		r.Registry,
 		name,
 		jsonEncoder[any]{},
-		jsonDecoder[any]{name: name, makeFunc: makeFunc},
+		jsonDecoder[any]{
+			name:            name,
+			makeFunc:        makeFunc,
+			useMapstructure: r.useMapstructure,
+			ignoreErrors:    r.ignoreDecodeErrors,
+		},
 		makeFunc,
 	)
 }
@@ -63,24 +75,45 @@ type jsonDecoder[T any] struct {
 	name            string
 	makeFunc        func() T
 	useMapstructure bool
+	ignoreErrors    bool
 }
 
 func (dec jsonDecoder[T]) Decode(r io.Reader) (T, error) {
 	data := dec.makeFunc()
 
-	if !dec.useMapstructure {
-		err := json.NewDecoder(r).Decode(&data)
+	b, err := io.ReadAll(r)
+	if err != nil {
 		return data, err
+	}
+
+	if !dec.useMapstructure {
+		if err := json.NewDecoder(bytes.NewReader(b)).Decode(&data); err != nil {
+			if dec.ignoreErrors {
+				return data, nil
+			}
+
+			return data, err
+		}
 	}
 
 	untyped := make(map[string]interface{})
 
-	if err := json.NewDecoder(r).Decode(&untyped); err != nil {
-		return data, err
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&untyped); err != nil {
+		if !dec.ignoreErrors {
+			return data, err
+		}
 	}
 
 	if err := mapstructure.Decode(untyped, &data); err != nil {
-		return data, err
+		if !dec.ignoreErrors {
+			return data, fmt.Errorf("mapstructure: %w", err)
+		}
+
+		if err := json.NewDecoder(bytes.NewReader(b)).Decode(&data); err != nil {
+			if !dec.ignoreErrors {
+				return data, fmt.Errorf("json decode: %w", err)
+			}
+		}
 	}
 
 	return data, nil
