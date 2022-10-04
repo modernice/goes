@@ -129,7 +129,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](ref Ref, currentVer
 				EventIndex:     i,
 			}
 		}
-		if hasPrevEvent && !cfg.ignoreTime && ev <= prevVersion {
+		if hasPrevEvent && ev <= prevVersion {
 			return &ConsistencyError{
 				Kind:           InconsistentVersion,
 				Aggregate:      ref,
@@ -138,7 +138,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](ref Ref, currentVer
 				EventIndex:     i,
 			}
 		}
-		if hasPrevEvent {
+		if hasPrevEvent && !cfg.ignoreTime {
 			nano := evt.Time().UnixNano()
 			prevNano := prevEvent.Time().UnixNano()
 			if nano <= prevNano {
