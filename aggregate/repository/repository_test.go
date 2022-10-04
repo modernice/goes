@@ -42,10 +42,10 @@ func TestRepository_Save(t *testing.T) {
 		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 3)),
 	}
 
-	flushed := make(chan struct{})
+	var flushed bool
 	foo := test.NewFoo(aggregateID, test.CommitFunc(func(flush func()) {
 		flush()
-		close(flushed)
+		flushed = true
 	}))
 
 	foo.RecordChange(events...)
@@ -54,13 +54,8 @@ func TestRepository_Save(t *testing.T) {
 		t.Fatalf("expected r.Save to succeed; got %#v", err)
 	}
 
-	select {
-	case <-time.After(500 * time.Millisecond):
-		t.Fatalf("didn't flush after %s", 500*time.Millisecond)
-	case _, ok := <-flushed:
-		if ok {
-			t.Fatalf("flushed should be closed")
-		}
+	if !flushed {
+		t.Fatalf("changes not committed")
 	}
 }
 

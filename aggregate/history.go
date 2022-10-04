@@ -20,7 +20,10 @@ type History interface {
 // If the aggregate implements Committer, a.RecordChange(events) and a.Commit()
 // are called before returning.
 func ApplyHistory[Events ~[]event.Of[any]](a Aggregate, events Events) error {
-	if err := ValidateConsistency(a, events); err != nil {
+	id, name, _ := a.Aggregate()
+	version := UncommittedVersion(a)
+
+	if err := ValidateConsistency(Ref{Name: name, ID: id}, version, events); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 

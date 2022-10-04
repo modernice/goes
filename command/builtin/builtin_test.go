@@ -70,7 +70,7 @@ func TestDeleteAggregate(t *testing.T) {
 	}
 
 	if aggregate.UncommittedVersion(foo) != 3 {
-		t.Fatalf("AggregateVersion() should return %d; got %d", 3, foo.AggregateVersion())
+		t.Fatalf("UncommitedVersion() should return %d; got %d", 3, aggregate.UncommittedVersion(foo))
 	}
 
 	if err := repo.Save(ctx, foo); err != nil {

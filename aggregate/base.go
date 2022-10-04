@@ -194,7 +194,12 @@ func Next[Data any](a Aggregate, name string, data Data, opts ...event.Option) e
 // recorded changes.
 func UncommittedVersion(a Aggregate) int {
 	_, _, v := a.Aggregate()
-	return v + len(a.AggregateChanges())
+	if changes := a.AggregateChanges(); len(changes) > 0 {
+		if ev := pick.AggregateVersion(changes[len(changes)-1]); ev > v {
+			return ev
+		}
+	}
+	return v
 }
 
 // NextVersion returns the version that the next event of the aggregate must have.

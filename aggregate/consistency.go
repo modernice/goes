@@ -28,7 +28,7 @@ type ConsistencyError struct {
 	Kind ConsistencyKind
 	// Aggregate is the handled aggregate.
 	Aggregate Ref
-	// CurrentVersion is the current version of the aggregate.
+	// CurrentVersion is the current version of the aggregate (without the tested changes).
 	CurrentVersion int
 	// Events are the tested events.
 	Events []event.Event
@@ -57,27 +57,12 @@ func IsConsistencyError(err error) bool {
 	return false
 }
 
-// Validate tests the consistency of the given events against the given aggregate.
+// Validate tests the consistency of aggregate changes (events).
 //
-// An event e is invalid if e.AggregateName() doesn't match a.AggregateName(),
-// e.AggregateID() doesn't match a.AggregateID() or if e.AggregateVersion()
-// doesn't match the position in events relative to a.AggregateVersion(). This
-// means that events[0].AggregateVersion() must equal a.AggregateVersion() + 1,
-// events[1].AggregateVersion() must equal a.AggregateVersion() + 2 etc.
-//
-// An event a is also invalid if its time is equal to or after the time of the
-// previous event.
-//
-// The first event e in events that is invalid causes Validate to return an
-// *Error containing the Kind of inconsistency and the event that caused the
-// inconsistency.
-func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events Events) error {
-	id, name, _ := a.Aggregate()
-	ref := Ref{
-		Name: name,
-		ID:   id,
-	}
-
+// The provided events are valid if they are correctly sorted by both version
+// and time. No two events may have the same version or time, and their versions
+// must be greater than 0.
+func ValidateConsistency[Data any, Events ~[]event.Of[Data]](ref Ref, currentVersion int, events Events) error {
 	aevents := make([]event.Event, len(events))
 	for i, evt := range events {
 		aevents[i] = event.Any(evt)
@@ -87,24 +72,22 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 	var prevEvent event.Event
 	var prevVersion int
 
-	cv := currentVersion(a)
-
 	for i, evt := range aevents {
 		eid, ename, ev := evt.Aggregate()
-		if eid != id {
+		if eid != ref.ID {
 			return &ConsistencyError{
 				Kind:           InconsistentID,
 				Aggregate:      ref,
-				CurrentVersion: cv,
+				CurrentVersion: currentVersion,
 				Events:         aevents,
 				EventIndex:     i,
 			}
 		}
-		if ename != name {
+		if ename != ref.Name {
 			return &ConsistencyError{
 				Kind:           InconsistentName,
 				Aggregate:      ref,
-				CurrentVersion: cv,
+				CurrentVersion: currentVersion,
 				Events:         aevents,
 				EventIndex:     i,
 			}
@@ -113,16 +96,16 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 			return &ConsistencyError{
 				Kind:           InconsistentVersion,
 				Aggregate:      ref,
-				CurrentVersion: cv,
+				CurrentVersion: currentVersion,
 				Events:         aevents,
 				EventIndex:     i,
 			}
 		}
-		if ev <= cv {
+		if ev <= currentVersion {
 			return &ConsistencyError{
 				Kind:           InconsistentVersion,
 				Aggregate:      ref,
-				CurrentVersion: cv,
+				CurrentVersion: currentVersion,
 				Events:         aevents,
 				EventIndex:     i,
 			}
@@ -131,7 +114,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 			return &ConsistencyError{
 				Kind:           InconsistentVersion,
 				Aggregate:      ref,
-				CurrentVersion: cv,
+				CurrentVersion: currentVersion,
 				Events:         aevents,
 				EventIndex:     i,
 			}
@@ -143,7 +126,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 				return &ConsistencyError{
 					Kind:           InconsistentTime,
 					Aggregate:      ref,
-					CurrentVersion: cv,
+					CurrentVersion: currentVersion,
 					Events:         aevents,
 					EventIndex:     i,
 				}
@@ -195,8 +178,8 @@ func (err *ConsistencyError) Error() string {
 		)
 	case InconsistentVersion:
 		return fmt.Sprintf(
-			"consistency: %q event has invalid AggregateVersion. want=%d got=%d",
-			evt.Name(), err.CurrentVersion+1+err.EventIndex, v,
+			"consistency: %q event has invalid AggregateVersion. want >=%d got=%d",
+			evt.Name(), err.CurrentVersion+1, v,
 		)
 	case InconsistentTime:
 		return fmt.Sprintf(
@@ -228,7 +211,7 @@ func (k ConsistencyKind) String() string {
 	}
 }
 
-func currentVersion(a Aggregate) int {
-	_, _, v := a.Aggregate()
-	return v + len(a.AggregateChanges())
-}
+// func currentVersion(a Aggregate) int {
+// 	_, _, v := a.Aggregate()
+// 	return v + len(a.AggregateChanges())
+// }

@@ -36,6 +36,8 @@ type Repository struct {
 	afterInsert    []func(context.Context, aggregate.Aggregate) error
 	onFailedInsert []func(context.Context, aggregate.Aggregate, error) error
 	onDelete       []func(context.Context, aggregate.Aggregate) error
+
+	validateConsistency bool
 }
 
 // WithSnapshots returns an Option that add a Snapshot Store to a Repository.
@@ -62,6 +64,15 @@ func WithSnapshots(store snapshot.Store, s snapshot.Schedule) Option {
 	return func(r *Repository) {
 		r.snapshots = store
 		r.snapSchedule = s
+	}
+}
+
+// ValidateConsistency returns an Option that configures a [Repository] to
+// validate the consistency of aggregate events before inserting the events into
+// the event store. Defaults to true.
+func ValidateConsistency(validate bool) Option {
+	return func(r *Repository) {
+		r.validateConsistency = validate
 	}
 }
 
@@ -114,7 +125,10 @@ func New(store event.Store, opts ...Option) *Repository {
 }
 
 func newRepository(store event.Store, opts ...Option) *Repository {
-	r := &Repository{store: store}
+	r := &Repository{
+		store:               store,
+		validateConsistency: true,
+	}
 	for _, opt := range opts {
 		opt(r)
 	}
@@ -124,6 +138,14 @@ func newRepository(store event.Store, opts ...Option) *Repository {
 // Save saves the changes to an aggregate into the underlying event store and
 // flushes its changes afterwards (by calling a.FlushChanges).
 func (r *Repository) Save(ctx context.Context, a aggregate.Aggregate) error {
+	if r.validateConsistency {
+		id, name, version := a.Aggregate()
+		ref := aggregate.Ref{Name: name, ID: id}
+		if err := aggregate.ValidateConsistency(ref, version, a.AggregateChanges()); err != nil {
+			return fmt.Errorf("validate consistency: %w", err)
+		}
+	}
+
 	var snap bool
 	if r.snapSchedule != nil && r.snapSchedule.Test(a) {
 		snap = true

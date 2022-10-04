@@ -99,22 +99,22 @@ func Sorted(v bool) Option {
 //
 // An example for correctly ordered events (with IsSorted disabled):
 //
-// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-// 	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-// 	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-// 	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-// 	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+//	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
+//	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
+//	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+//	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
+//	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
+//	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
+//	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
+//	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+//	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+//	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
+//	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
+//	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
+//	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
+//	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
+//	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
+//	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
 func Grouped(v bool) Option {
 	return func(opts *options) {
 		opts.isGrouped = v
@@ -324,7 +324,7 @@ func (s *stream) sortEvents() {
 
 		if s.validateConsistency {
 			a := aggregate.New(j.name, j.id)
-			if err := aggregate.ValidateConsistency(a, events); err != nil {
+			if err := aggregate.ValidateConsistency(a.Ref(), a.AggregateVersion(), events); err != nil {
 				s.outErrors <- err
 				continue
 			}
