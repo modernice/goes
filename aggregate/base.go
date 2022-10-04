@@ -214,9 +214,10 @@ func nextTime(a Aggregate) time.Time {
 	}
 
 	latestTime := changes[len(changes)-1].Time()
+	latestTimeTrunc := latestTime.Truncate(0)
 	nowTrunc := now.Truncate(0)
 
-	if nowTrunc.Equal(latestTime) || nowTrunc.Before(latestTime.Truncate(0)) {
+	if nowTrunc.Equal(latestTimeTrunc) || nowTrunc.Before(latestTimeTrunc) {
 		return changes[len(changes)-1].Time().Add(time.Nanosecond)
 	}
 
