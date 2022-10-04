@@ -23,7 +23,7 @@ func ApplyHistory[Events ~[]event.Of[any]](a Aggregate, events Events) error {
 	id, name, _ := a.Aggregate()
 	version := UncommittedVersion(a)
 
-	if err := ValidateConsistency(Ref{Name: name, ID: id}, version, events); err != nil {
+	if err := ValidateConsistency(Ref{Name: name, ID: id}, version, events, IgnoreTime(true)); err != nil {
 		return fmt.Errorf("validate consistency: %w", err)
 	}
 

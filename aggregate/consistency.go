@@ -57,12 +57,31 @@ func IsConsistencyError(err error) bool {
 	return false
 }
 
+// ConsistencyOption is an option for consistency validation.
+type ConsistencyOption func(*consistencyValidation)
+
+// IgnoreTime returns a ConsistencyOption that disables validation of event times.
+func IgnoreTime(ignore bool) ConsistencyOption {
+	return func(cfg *consistencyValidation) {
+		cfg.ignoreTime = ignore
+	}
+}
+
+type consistencyValidation struct {
+	ignoreTime bool
+}
+
 // Validate tests the consistency of aggregate changes (events).
 //
 // The provided events are valid if they are correctly sorted by both version
 // and time. No two events may have the same version or time, and their versions
 // must be greater than 0.
-func ValidateConsistency[Data any, Events ~[]event.Of[Data]](ref Ref, currentVersion int, events Events) error {
+func ValidateConsistency[Data any, Events ~[]event.Of[Data]](ref Ref, currentVersion int, events Events, opts ...ConsistencyOption) error {
+	var cfg consistencyValidation
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	aevents := make([]event.Event, len(events))
 	for i, evt := range events {
 		aevents[i] = event.Any(evt)
@@ -110,7 +129,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](ref Ref, currentVer
 				EventIndex:     i,
 			}
 		}
-		if hasPrevEvent && ev <= prevVersion {
+		if hasPrevEvent && !cfg.ignoreTime && ev <= prevVersion {
 			return &ConsistencyError{
 				Kind:           InconsistentVersion,
 				Aggregate:      ref,
