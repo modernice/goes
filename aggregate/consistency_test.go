@@ -93,7 +93,7 @@ func TestValidate_version(t *testing.T) {
 		want      func(*aggregate.Base, []event.Event) *aggregate.ConsistencyError
 	}{
 		{
-			name: "version too low #1",
+			name: "zero version event",
 			events: []event.Event{
 				event.New[any]("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 0), event.Time(now)),
 				event.New[any]("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1), event.Time(now.Add(time.Nanosecond))),
@@ -141,23 +141,6 @@ func TestValidate_version(t *testing.T) {
 					CurrentVersion: a.CurrentVersion(),
 					Events:         events,
 					EventIndex:     0,
-				}
-			},
-		},
-		{
-			name: "version skipped",
-			events: []event.Event{
-				event.New[any]("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1), event.Time(now)),
-				event.New[any]("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 3), event.Time(now.Add(time.Nanosecond))),
-				event.New[any]("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 4), event.Time(now.Add(time.Millisecond))),
-			},
-			want: func(a *aggregate.Base, events []event.Event) *aggregate.ConsistencyError {
-				return &aggregate.ConsistencyError{
-					Kind:           aggregate.InconsistentVersion,
-					Aggregate:      a.Ref(),
-					CurrentVersion: a.CurrentVersion(),
-					Events:         events,
-					EventIndex:     1,
 				}
 			},
 		},

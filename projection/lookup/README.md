@@ -58,7 +58,7 @@ func (u *User) Register(
 		return errors.New("email address is already in use")
 	}
 
-	aggregate.NextEvent(u, UserRegistered, email)
+	aggregate.Next(u, UserRegistered, email)
 }
 
 func (u *User) register(e event.Of[string]) {

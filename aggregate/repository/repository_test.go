@@ -118,9 +118,9 @@ func TestRepository_Fetch(t *testing.T) {
 	aggregateID := uuid.New()
 
 	org := test.NewFoo(aggregateID)
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
 	events := org.AggregateChanges()
 
 	r := repository.New(eventstore.New())
@@ -163,11 +163,11 @@ func TestRepository_FetchVersion(t *testing.T) {
 	aggregateID := uuid.New()
 
 	org := test.NewFoo(aggregateID)
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
 	events := org.AggregateChanges()
 
 	r := repository.New(eventstore.New())
@@ -257,9 +257,9 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 	aggregateID := uuid.New()
 
 	org := test.NewFoo(aggregateID)
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
 
 	r := repository.New(eventstore.New())
 	if err := r.Save(context.Background(), org); err != nil {
@@ -286,9 +286,9 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 
 func TestRepository_Delete(t *testing.T) {
 	foo := test.NewFoo(uuid.New())
-	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
-	aggregate.NextEvent(foo, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(foo, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(foo, "foo", etest.FooEventData{A: "foo"})
+	aggregate.Next(foo, "foo", etest.FooEventData{A: "foo"})
 	changes := foo.AggregateChanges()
 
 	s := eventstore.New(changes...)

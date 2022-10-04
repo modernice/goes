@@ -28,9 +28,9 @@ func TestRepository_Use_Retry(t *testing.T) {
 	foo := newRetryer()
 
 	events := []event.Event{
-		aggregate.NextEvent(foo, "foo", etest.FooEventData{}).Any(),
-		aggregate.NextEvent(foo, "foo", etest.FooEventData{}).Any(),
-		aggregate.NextEvent(foo, "foo", etest.FooEventData{}).Any(),
+		aggregate.Next(foo, "foo", etest.FooEventData{}).Any(),
+		aggregate.Next(foo, "foo", etest.FooEventData{}).Any(),
+		aggregate.Next(foo, "foo", etest.FooEventData{}).Any(),
 	}
 
 	aggregate.ApplyHistory(foo, events)

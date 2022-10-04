@@ -319,7 +319,7 @@ func (ma *mockAggregate) ApplyEvent(evt event.Event) {
 }
 
 func newMockEvent(a aggregate.Aggregate, foo int) event.Event {
-	return aggregate.NextEvent[any](a, "foobar", test.FoobarEventData{A: foo})
+	return aggregate.Next[any](a, "foobar", test.FoobarEventData{A: foo})
 }
 
 type customDeletedEvent struct {

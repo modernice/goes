@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/stream"
@@ -129,34 +130,6 @@ func TestStream_multipleAggregates_unsorted(t *testing.T) {
 	}
 }
 
-func TestStream_inconsistent(t *testing.T) {
-	as, _ := xaggregate.Make(1)
-	am := xaggregate.Map(as)
-	events := xevent.Make("foo", etest.FooEventData{}, 10, xevent.ForAggregate(as...), xevent.SkipVersion(3))
-
-	es := streams.New(events)
-	str, errs := stream.New(context.Background(), es)
-
-	res, err := drain(str, errs, 3*time.Second, makeFactory(am))
-
-	if len(res) != 0 {
-		t.Fatalf("stream should return no aggregates; got %d:\n\n%#v\n\n", len(res), res)
-	}
-
-	var cerr *aggregate.ConsistencyError
-	if !errors.As(err, &cerr) {
-		t.Fatalf("stream should return an error of type %T; got %T", cerr, err)
-	}
-
-	if pick.AggregateID(cerr.Aggregate) != pick.AggregateID(as[0]) {
-		t.Errorf("cerr.Aggregate should be %#v; got %#v", as[0], cerr.Aggregate)
-	}
-
-	if cerr.Event() != events[2] {
-		t.Errorf("cerr.Event should return %#v; got %#v", events[2], cerr.Event())
-	}
-}
-
 func TestSorted(t *testing.T) {
 	as, _ := xaggregate.Make(1)
 	am := xaggregate.Map(as)
@@ -184,8 +157,10 @@ func TestSorted(t *testing.T) {
 		t.Errorf("cerr.Aggregate should be %#v; got %#v", as[0], cerr.Aggregate)
 	}
 
-	if cerr.Event() != events[0] {
-		t.Errorf("cerr.Event should return %#v; got %#v", events[0], cerr.Event())
+	// Second event should be the invalid one, because the first event is
+	// allowed to have a version greater than 1.
+	if cerr.Event() != events[1] {
+		t.Errorf("cerr.Event returned wrong event\n%s", cmp.Diff(events[1], cerr.Event()))
 	}
 }
 
@@ -318,7 +293,7 @@ func TestWithSoftDeleted(t *testing.T) {
 	aggregate.Next(bar, "soft_deleted", softDeletedEvent{})
 
 	for _, other := range other {
-		aggregate.NextEvent(other, "foo", etest.FooEventData{})
+		aggregate.Next(other, "foo", etest.FooEventData{})
 	}
 
 	var events []event.Event

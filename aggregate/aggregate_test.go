@@ -135,7 +135,7 @@ func TestUncommittedVersion(t *testing.T) {
 func TestNextEvent(t *testing.T) {
 	a := aggregate.New("foo", uuid.New(), aggregate.Version(3))
 	data := etest.FooEventData{A: "foo"}
-	evt := aggregate.NextEvent(a, "bar", data)
+	evt := aggregate.Next(a, "bar", data)
 
 	id, name, v := evt.Aggregate()
 

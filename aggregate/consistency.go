@@ -77,15 +77,17 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 		Name: name,
 		ID:   id,
 	}
-	version := currentVersion(a)
-	cv := version
-	var prev event.Event
-	var hasPrev bool
 
 	aevents := make([]event.Event, len(events))
 	for i, evt := range events {
 		aevents[i] = event.Any(evt)
 	}
+
+	var hasPrevEvent bool
+	var prevEvent event.Event
+	var prevVersion int
+
+	cv := currentVersion(a)
 
 	for i, evt := range aevents {
 		eid, ename, ev := evt.Aggregate()
@@ -93,7 +95,7 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 			return &ConsistencyError{
 				Kind:           InconsistentID,
 				Aggregate:      ref,
-				CurrentVersion: currentVersion(a),
+				CurrentVersion: cv,
 				Events:         aevents,
 				EventIndex:     i,
 			}
@@ -102,36 +104,54 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](a Aggregate, events
 			return &ConsistencyError{
 				Kind:           InconsistentName,
 				Aggregate:      ref,
-				CurrentVersion: currentVersion(a),
+				CurrentVersion: cv,
 				Events:         aevents,
 				EventIndex:     i,
 			}
 		}
-		if ev != cv+1 {
+		if ev <= 0 {
 			return &ConsistencyError{
 				Kind:           InconsistentVersion,
 				Aggregate:      ref,
-				CurrentVersion: currentVersion(a),
+				CurrentVersion: cv,
 				Events:         aevents,
 				EventIndex:     i,
 			}
 		}
-		if hasPrev {
+		if ev <= cv {
+			return &ConsistencyError{
+				Kind:           InconsistentVersion,
+				Aggregate:      ref,
+				CurrentVersion: cv,
+				Events:         aevents,
+				EventIndex:     i,
+			}
+		}
+		if hasPrevEvent && ev <= prevVersion {
+			return &ConsistencyError{
+				Kind:           InconsistentVersion,
+				Aggregate:      ref,
+				CurrentVersion: cv,
+				Events:         aevents,
+				EventIndex:     i,
+			}
+		}
+		if hasPrevEvent {
 			nano := evt.Time().UnixNano()
-			prevNano := prev.Time().UnixNano()
+			prevNano := prevEvent.Time().UnixNano()
 			if nano <= prevNano {
 				return &ConsistencyError{
 					Kind:           InconsistentTime,
 					Aggregate:      ref,
-					CurrentVersion: currentVersion(a),
+					CurrentVersion: cv,
 					Events:         aevents,
 					EventIndex:     i,
 				}
 			}
 		}
-		prev = evt
-		hasPrev = true
-		cv++
+		prevEvent = evt
+		prevVersion = ev
+		hasPrevEvent = true
 	}
 	return nil
 }
