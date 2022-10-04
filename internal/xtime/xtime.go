@@ -21,6 +21,11 @@ func init() {
 	}
 }
 
+// SupportsNanoseconds returns whether the machine supports nanosecond precision.
+func SupportsNanoseconds() bool {
+	return supportsNanoseconds
+}
+
 // Now returns the current Time with nanosecond precision. On machines that
 // natively provide nanosecond precision Now just returns time.Now(). Otherwise
 // Now takes a bit slower path using the monotonic time to calculate the
@@ -36,5 +41,5 @@ func Now() time.Time {
 	now2 := time.Now()
 	diff := now2.Sub(now)
 
-	return now.Add(diff)
+	return now.Add(diff + time.Microsecond)
 }

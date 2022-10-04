@@ -215,6 +215,16 @@ func nextTime(a Aggregate) time.Time {
 	now := xtime.Now()
 
 	if len(changes) == 0 {
+		// If the machine does not support nanosecond precision, and the
+		// aggregate has no prior uncommited changes, we cannot check that the
+		// time is at least 1 nanosecond after the previous event. In this case,
+		// we add 1 microsecond to the time and sleep until that time.
+		if !xtime.SupportsNanoseconds() && len(a.AggregateChanges()) == 0 {
+			out := now.Add(time.Microsecond)
+			time.Sleep(time.Until(out))
+			return out
+		}
+
 		return now
 	}
 
@@ -223,7 +233,9 @@ func nextTime(a Aggregate) time.Time {
 	nowTrunc := now.Truncate(0)
 
 	if nowTrunc.Equal(latestTimeTrunc) || nowTrunc.Before(latestTimeTrunc) {
-		return changes[len(changes)-1].Time().Add(time.Nanosecond)
+		out := changes[len(changes)-1].Time().Add(time.Nanosecond)
+		time.Sleep(time.Until(out))
+		return out
 	}
 
 	return now
