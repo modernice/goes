@@ -19,7 +19,7 @@ require (
 	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	google.golang.org/genproto v0.0.0-20220708155623-50e5f4832e73
-	google.golang.org/grpc v1.50.0
+	google.golang.org/grpc v1.50.1
 	google.golang.org/protobuf v1.28.1
 )
 
