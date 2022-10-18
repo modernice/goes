@@ -72,6 +72,7 @@ type Bus struct {
 
 	assignTimeout  time.Duration
 	receiveTimeout time.Duration
+	filters        []func(command.Command) bool
 
 	enc codec.Encoding
 	bus event.Bus
@@ -132,6 +133,18 @@ func Debug(debug bool) Option {
 	}
 }
 
+// Filter returns an Option that adds a filter to the command bus. Filters allow
+// you to restrict the commands that are handled by the bus: By default, the bus
+// handles all commands that it's subscribed to. Filters are called before the
+// bus assigns itself as the handler of a command. If any of the registered
+// filters returns false for a command, the command will not be handled by the
+// bus.
+func Filter(fn func(command.Command) bool) Option {
+	return func(b *Bus) {
+		b.filters = append(b.filters, fn)
+	}
+}
+
 // New returns an event-driven command bus.
 func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
 	b := &Bus{
@@ -181,7 +194,7 @@ func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 // Dispatch dispatches a Command to the appropriate handler (Command Bus) using
 // the underlying event Bus to communicate between b and the other Command Buses.
 //
-// How it works
+// # How it works
 //
 // Dispatch first publishes a CommandDispatched event with the Command Payload
 // encoded in the event Data. Every Command Bus that is currently subscribed to
@@ -203,7 +216,7 @@ func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 // publishes a final CommandAccepted event to tell the Bus b that the Command
 // arrived at its Handler.
 //
-// Errors
+// # Errors
 //
 // By default, the error returned by Dispatch doesn't give any information about
 // the execution of the Command because the Bus returns as soon as another Bus
@@ -224,7 +237,7 @@ func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 //		log.Println(execError.Err)
 //	}
 //
-// Execution result
+// # Execution result
 //
 // By default, Dispatch does not return information about the execution of a
 // Command, but a report.Reporter can be provided with the dispatch.Report()
@@ -232,12 +245,13 @@ func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 // synchronous.
 //
 // Example:
+//
 //	var rep report.Report
 //	var cmd command.Command
 //	err := b.Dispatch(context.TODO(), cmd, dispatch.Report(&rep))
-// 	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
+//	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
-// 	log.Println(fmt.Sprintf("Error: %v", err))
+//	log.Println(fmt.Sprintf("Error: %v", err))
 func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) (err error) {
 	b.debugLog("dispatching %q command ...", cmd.Name())
 
@@ -385,11 +399,10 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Ct
 		b.subMux.Lock()
 		defer b.subMux.Unlock()
 
+		close(out)
+		close(errs)
+
 		for _, name := range names {
-			if sub, ok := b.subscriptions[name]; ok {
-				close(sub.commands)
-				close(sub.errs)
-			}
 			delete(b.subscriptions, name)
 		}
 	}()
@@ -400,8 +413,16 @@ func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Ct
 func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 	data := evt.Data()
 
+	load, err := b.enc.Unmarshal(data.Payload, data.Name)
+	if err != nil {
+		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandDispatched] Failed to decode %q command: %w\n%s", data.Name, err, data.Payload))
+		return
+	}
+
+	cmd := command.New(data.Name, load, command.ID(data.ID), command.Aggregate(data.AggregateName, data.AggregateID))
+
 	// if the bus does not handle the dispatched command, return
-	if !b.handles(data.Name) {
+	if !b.handles(cmd) {
 		return
 	}
 
@@ -419,24 +440,28 @@ func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 		return
 	}
 
-	load, err := b.enc.Unmarshal(data.Payload, data.Name)
-	if err != nil {
-		b.fail(fmt.Errorf("[goes/command/cmdbus.Bus@commandDispatched] Failed to decode %q command: %w\n%s", data.Name, err, data.Payload))
-		return
-	}
-
-	b.requested[data.ID] = command.New(data.Name, load, command.ID(data.ID), command.Aggregate(data.AggregateName, data.AggregateID))
+	b.requested[data.ID] = cmd
 }
 
-func (b *Bus) handles(name string) bool {
-	b.debugLog("checking if %q command is handled by this bus ...", name)
+func (b *Bus) handles(cmd command.Command) bool {
+	b.debugLog("checking if %q command is handled by this bus ...", cmd.Name())
 	b.subMux.RLock()
 	defer b.subMux.RUnlock()
-	_, ok := b.subscriptions[name]
-	if ok {
-		b.debugLog("this bus handles %q commands", name)
+	if _, ok := b.subscriptions[cmd.Name()]; !ok {
+		b.debugLog("this bus does not handle %q commands", cmd.Name())
+		return false
 	}
-	return ok
+
+	b.debugLog("this bus handles %q commands", cmd.Name())
+
+	for _, fn := range b.filters {
+		if !fn(cmd) {
+			b.debugLog("filtered out %q command", cmd.Name())
+			return false
+		}
+	}
+
+	return true
 }
 
 func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {

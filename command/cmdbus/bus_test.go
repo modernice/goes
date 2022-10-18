@@ -18,6 +18,7 @@ import (
 	"github.com/modernice/goes/command/finish"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
+	"github.com/modernice/goes/internal/testutil"
 )
 
 type mockPayload struct {
@@ -413,9 +414,45 @@ func TestBus_SingleBusReceivesEvent(t *testing.T) {
 	}
 }
 
+func TestFilter(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	subBus, ebus, ereg := newBus(
+		ctx,
+		cmdbus.Filter(func(cmd command.Command) bool {
+			return cmd.Name() != "foo-cmd"
+		}),
+	)
+
+	commands, errs, err := subBus.Subscribe(ctx, "foo-cmd", "bar-cmd")
+	if err != nil {
+		t.Fatalf("failed to subscribe: %v", err)
+	}
+	go testutil.PanicOn(errs)
+	go func() {
+		for ctx := range commands {
+			ctx.Finish(ctx)
+		}
+	}()
+
+	pubBus, _, _ := newBusWith(ctx, ereg, ebus, cmdbus.AssignTimeout(500*time.Millisecond))
+
+	fooCmd := command.New("foo-cmd", mockPayload{})
+	if err := pubBus.Dispatch(ctx, fooCmd.Any(), dispatch.Sync()); !errors.Is(err, cmdbus.ErrAssignTimeout) {
+		t.Fatalf("dispatch should have timed out with %q; got %q", cmdbus.ErrAssignTimeout, err)
+	}
+
+	barCmd := command.New("bar-cmd", mockPayload{})
+	if err := pubBus.Dispatch(ctx, barCmd.Any(), dispatch.Sync()); err != nil {
+		t.Fatalf("dispatch should not have failed: %v", err)
+	}
+}
+
 func newBus(ctx context.Context, opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
 	enc := codec.New()
 	codec.Register[mockPayload](enc, "foo-cmd")
+	codec.Register[mockPayload](enc, "bar-cmd")
 	ebus := eventbus.New()
 
 	return newBusWith(ctx, enc, ebus, opts...)
