@@ -543,23 +543,21 @@ func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 		timeout = timer.C
 	}
 
-	go func() {
+	select {
+	case <-b.Context().Done():
+	case <-timeout:
 		select {
 		case <-b.Context().Done():
-		case <-timeout:
-			select {
-			case <-b.Context().Done():
-			case sub.errs <- fmt.Errorf("dropping %q command: %w", cmd.Name(), ErrReceiveTimeout):
-			}
-		case sub.commands <- command.NewContext[any](
-			b.Context(),
-			cmd,
-			command.WhenDone(func(ctx context.Context, cfg finish.Config) error {
-				return b.markDone(ctx, cmd, cfg)
-			}),
-		):
+		case sub.errs <- fmt.Errorf("dropping %q command: %w", cmd.Name(), ErrReceiveTimeout):
 		}
-	}()
+	case sub.commands <- command.NewContext[any](
+		b.Context(),
+		cmd,
+		command.WhenDone(func(ctx context.Context, cfg finish.Config) error {
+			return b.markDone(ctx, cmd, cfg)
+		}),
+	):
+	}
 }
 
 func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg finish.Config) error {

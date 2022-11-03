@@ -244,6 +244,64 @@ func TestAssignTimeout_0(t *testing.T) {
 	}
 }
 
+func TestReceiveTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus, _, _ := newBus(ctx, cmdbus.ReceiveTimeout(100*time.Millisecond))
+
+	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
+	if err != nil {
+		t.Fatalf("failed to subscribe: %v", err)
+	}
+
+	newCmd := func() command.Command { return command.New("foo-cmd", mockPayload{}).Any() }
+	dispatchErrc := make(chan error)
+
+	go func() {
+		for i := 0; i < 3; i++ {
+			if err := bus.Dispatch(context.Background(), newCmd()); err != nil {
+				dispatchErrc <- err
+			}
+		}
+	}()
+
+	var count int
+L:
+	for {
+		select {
+		case err, ok := <-errs:
+			if !ok {
+				errs = nil
+				break
+			}
+			if !errors.Is(err, cmdbus.ErrReceiveTimeout) {
+				t.Fatal(err)
+			}
+		case _, ok := <-commands:
+			if !ok {
+				t.Fatalf("command channel should not be closed")
+			}
+
+			<-time.After(200 * time.Millisecond)
+			count++
+			if count == 2 {
+				break L
+			}
+		}
+	}
+
+	select {
+	case _, ok := <-commands:
+		if !ok {
+			t.Fatalf("command channel should not be closed")
+		}
+		count++
+		t.Fatalf("command channel should only send 2 commands; got %d", count)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func TestReceiveTimeout_0(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
