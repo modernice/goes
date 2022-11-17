@@ -184,6 +184,7 @@ func NoIndex(ni bool) EventStoreOption {
 
 // WithIndices returns an EventStoreOption that creates additional indices for
 // the event collection. Can be used to create builtin edge-case indices:
+//
 //	WithIndices(indices.EventStore.NameAndVersion)
 func WithIndices(models ...mongo.IndexModel) EventStoreOption {
 	return func(s *EventStore) {

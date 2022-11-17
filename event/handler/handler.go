@@ -24,13 +24,13 @@ var ErrRunning = errors.New("event handler is already running")
 //
 //	errs, err := h.Run(context.TODO())
 type Handler struct {
-	bus        event.Bus
-	store      event.Store // optional
+	bus   event.Bus
+	store event.Store // optional
+
+	mux        sync.RWMutex
 	handlers   map[string]func(event.Event)
 	eventNames map[string]struct{}
-
-	mux sync.RWMutex
-	ctx context.Context
+	ctx        context.Context
 }
 
 // Option is a handler option.
@@ -59,11 +59,21 @@ func New(bus event.Bus, opts ...Option) *Handler {
 }
 
 // RegisterEventHandler registers the handler for the given event.
-// Events must be registered before h.Run() is called. events that are
+// Events must be registered before h.Run() is called. Events that are
 // registered after h.Run() has been called, won't be handled.
 func (h *Handler) RegisterEventHandler(name string, fn func(event.Event)) {
+	h.mux.Lock()
+	defer h.mux.Unlock()
 	h.handlers[name] = fn
 	h.eventNames[name] = struct{}{}
+}
+
+// EventHandler returns the event handler for the given event name.
+func (h *Handler) EventHandler(name string) (func(event.Event), bool) {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+	fn, ok := h.handlers[name]
+	return fn, ok
 }
 
 // Context returns the context that was passed to h.Run(). If h.Run() has not
@@ -106,7 +116,7 @@ func (h *Handler) Run(ctx context.Context) (<-chan error, error) {
 
 	go func() {
 		if err := streams.Walk(ctx, func(evt event.Event) error {
-			if fn, ok := h.handlers[evt.Name()]; ok {
+			if fn, ok := h.EventHandler(evt.Name()); ok {
 				fn(evt)
 			}
 			return nil
@@ -136,7 +146,7 @@ func (h *Handler) handleStoredEvents(ctx context.Context, eventNames []string) e
 	}
 
 	return streams.Walk(ctx, func(evt event.Event) error {
-		if fn, ok := h.handlers[evt.Name()]; ok {
+		if fn, ok := h.EventHandler(evt.Name()); ok {
 			fn(evt)
 		}
 		return nil
