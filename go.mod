@@ -15,7 +15,7 @@ require (
 	github.com/modernice/goes/api/proto v0.0.0-20220623123549-6e30dac7a640
 	github.com/nats-io/nats.go v1.21.0
 	github.com/spf13/cobra v1.6.1
-	go.mongodb.org/mongo-driver v1.11.0
+	go.mongodb.org/mongo-driver v1.11.1
 	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	google.golang.org/genproto v0.0.0-20220708155623-50e5f4832e73
