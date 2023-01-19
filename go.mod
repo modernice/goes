@@ -13,7 +13,7 @@ require (
 	github.com/jackc/pgx/v4 v4.17.2
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/modernice/goes/api/proto v0.0.0-20220623123549-6e30dac7a640
-	github.com/nats-io/nats.go v1.22.1
+	github.com/nats-io/nats.go v1.23.0
 	github.com/spf13/cobra v1.6.1
 	go.mongodb.org/mongo-driver v1.11.1
 	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
@@ -48,9 +48,9 @@ require (
 	github.com/xdg-go/scram v1.1.1 // indirect
 	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
-	golang.org/x/net v0.4.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/crypto v0.5.0 // indirect
+	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
 )
