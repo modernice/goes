@@ -427,10 +427,15 @@ func (b *Bus[ErrorCode]) commandDispatched(evt event.Of[CommandDispatchedData]) 
 		return
 	}
 
+	// if the bus does not handle the dispatched command, return
+	if !b.handles(data.Name) {
+		return
+	}
+
 	cmd := command.New(data.Name, load, command.ID(data.ID), command.Aggregate(data.AggregateName, data.AggregateID))
 
-	// if the bus does not handle the dispatched command, return
-	if !b.handles(cmd) {
+	// apply user-defined filters
+	if !b.filterAllows(cmd) {
 		return
 	}
 
@@ -451,24 +456,25 @@ func (b *Bus[ErrorCode]) commandDispatched(evt event.Of[CommandDispatchedData]) 
 	b.requested[data.ID] = cmd
 }
 
-func (b *Bus[ErrorCode]) handles(cmd command.Command) bool {
-	b.debugLog("checking if %q command is handled by this bus ...", cmd.Name())
+func (b *Bus[ErrorCode]) handles(name string) bool {
+	b.debugLog("checking if %q command is handled by this bus ...", name)
 	b.subMux.RLock()
 	defer b.subMux.RUnlock()
-	if _, ok := b.subscriptions[cmd.Name()]; !ok {
-		b.debugLog("this bus does not handle %q commands", cmd.Name())
+	if _, ok := b.subscriptions[name]; !ok {
+		b.debugLog("this bus does not handle %q commands", name)
 		return false
 	}
+	b.debugLog("this bus handles %q commands", name)
+	return true
+}
 
-	b.debugLog("this bus handles %q commands", cmd.Name())
-
+func (b *Bus[ErrorCode]) filterAllows(cmd command.Command) bool {
 	for _, fn := range b.filters {
 		if !fn(cmd) {
 			b.debugLog("filtered out %q command", cmd.Name())
 			return false
 		}
 	}
-
 	return true
 }
 
