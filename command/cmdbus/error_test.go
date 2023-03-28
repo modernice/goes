@@ -12,8 +12,6 @@ import (
 	"github.com/modernice/goes/helper/streams"
 )
 
-type errorCode int
-
 var (
 	errEnriched = command.NewError(10, errors.New("underlying"))
 )

@@ -490,10 +490,7 @@ func (b *Bus[ErrorCode]) commandRequested(evt event.Of[CommandRequestedData]) {
 	delete(b.dispatched, data.ID)
 
 	// and assign the command to the handler that requested to handle it
-	assignEvent := event.New(CommandAssigned, CommandAssignedData{
-		ID:    data.ID,
-		BusID: data.BusID,
-	})
+	assignEvent := event.New(CommandAssigned, CommandAssignedData(data))
 
 	b.debugLog("publishing %q event ...", assignEvent.Name())
 
