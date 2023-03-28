@@ -42,10 +42,10 @@ type ServerOption func(*Server)
 // HandleCommands returns a ServerOption that enables command handling.
 // Specifically, the following methods are enabled:
 //
-//	- GrantToActor()
-//	- GrantToRole()
-//	- RevokeFromRole()
-//	- RevokeFromActor()
+//   - GrantToActor()
+//   - GrantToRole()
+//   - RevokeFromRole()
+//   - RevokeFromActor()
 //
 // When trying to call these methods on a server that doesn't handle commands,
 // the server will return an error. HandleCommands panics if the provided actor
