@@ -69,7 +69,7 @@ type CommandAcceptedData struct {
 type CommandExecutedData struct {
 	ID      uuid.UUID
 	Runtime time.Duration
-	Error   string
+	Error   []byte // the *google.protobuf.Any encoded error
 }
 
 // RegisterEvents registers the command events into a Registry.

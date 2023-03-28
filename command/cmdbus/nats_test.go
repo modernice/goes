@@ -153,8 +153,8 @@ func testNATSBus(t *testing.T, subEventBus, pubEventBus *nats.EventBus) {
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.New()
 	codec.Register[mockPayload](enc, "foo-cmd")
-	subBus := cmdbus.New(enc, subEventBus, cmdbus.AssignTimeout(0))
-	pubBus := cmdbus.New(enc, pubEventBus, cmdbus.AssignTimeout(0))
+	subBus := cmdbus.New[int](enc, subEventBus, cmdbus.AssignTimeout(0))
+	pubBus := cmdbus.New[int](enc, pubEventBus, cmdbus.AssignTimeout(0))
 
 	commands, errs, err := subBus.Subscribe(ctx, "foo-cmd")
 	if err != nil {

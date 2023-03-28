@@ -9,6 +9,22 @@ func Map[In, Out any](in []In, fn func(In) Out) []Out {
 	return out
 }
 
+func MapErr[In, Out any](in []In, fn func(In) (Out, error)) ([]Out, error) {
+	out := make([]Out, len(in))
+	var err error
+	for i, v := range in {
+		out[i], err = fn(v)
+		if err != nil {
+			return out, err
+		}
+	}
+	return out, nil
+}
+
+func IgnoreErr[S []T, T any](s S, err error) S {
+	return s
+}
+
 // Filter filters the input slice using the provided filter function.
 func Filter[T any](in []T, fn func(T) bool) []T {
 	out := make([]T, 0, len(in))

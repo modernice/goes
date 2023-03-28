@@ -57,7 +57,7 @@ func TestOf_Handle(t *testing.T) {
 	codec.Register[string](cmdReg, "foo")
 	codec.Register[string](cmdReg, "bar")
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(cmdReg, eventBus)
+	commandBus := cmdbus.New[int](cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	h := handler.New(NewHandlerAggregateOpts(), repo, commandBus)
@@ -101,7 +101,7 @@ func TestBeforeHandle(t *testing.T) {
 	codec.Register[string](cmdReg, "foo")
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(cmdReg, eventBus)
+	commandBus := cmdbus.New[int](cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var beforeHandleCalled bool
@@ -134,7 +134,7 @@ func TestBeforeHandle_wildcard(t *testing.T) {
 	codec.Register[string](cmdReg, "foo")
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(cmdReg, eventBus)
+	commandBus := cmdbus.New[int](cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var beforeHandleCalled bool
@@ -167,8 +167,8 @@ func TestAfterHandle(t *testing.T) {
 	codec.Register[string](cmdReg, "foo")
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	pubBus := cmdbus.New(cmdReg, eventBus)
-	subBus := cmdbus.New(cmdReg, eventBus)
+	pubBus := cmdbus.New[int](cmdReg, eventBus)
+	subBus := cmdbus.New[int](cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var afterHandleCalled bool
@@ -200,7 +200,7 @@ func TestAfterHandle_wildcard(t *testing.T) {
 	codec.Register[string](cmdReg, "foo")
 	eventBus := eventbus.New()
 	eventStore := eventstore.WithBus(eventstore.New(), eventBus)
-	commandBus := cmdbus.New(cmdReg, eventBus)
+	commandBus := cmdbus.New[int](cmdReg, eventBus)
 	repo := repository.New(eventStore)
 
 	var afterHandleCalled bool

@@ -19,8 +19,8 @@ import (
 func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	subBus := cmdbus.New(enc, ebus)
-	pubBus := cmdbus.New(enc, ebus)
+	subBus := cmdbus.New[int](enc, ebus)
+	pubBus := cmdbus.New[int](enc, ebus)
 	h := command.NewHandler[any](subBus)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -67,7 +67,7 @@ func TestHandler_Handle(t *testing.T) {
 func TestHandler_Handle_error(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, ebus)
+	bus := cmdbus.New[int](enc, ebus)
 	h := command.NewHandler[any](bus)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -100,7 +100,7 @@ func TestHandler_Handle_error(t *testing.T) {
 func TestHandler_Handle_finish(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
-	bus := cmdbus.New(enc, ebus)
+	bus := cmdbus.New[int](enc, ebus)
 	h := command.NewHandler[any](bus)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

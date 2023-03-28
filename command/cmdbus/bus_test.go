@@ -459,7 +459,7 @@ func newBus(ctx context.Context, opts ...cmdbus.Option) (command.Bus, event.Bus,
 }
 
 func newBusWith(ctx context.Context, reg *codec.Registry, ebus event.Bus, opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
-	bus := cmdbus.New(reg, ebus, opts...)
+	bus := cmdbus.New[int](reg, ebus, opts...)
 
 	running := make(chan struct{})
 	go func() {

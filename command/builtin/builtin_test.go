@@ -49,8 +49,8 @@ func TestDeleteAggregate(t *testing.T) {
 	reg := codec.New()
 	builtin.RegisterCommands(reg)
 
-	subBus := cmdbus.New(reg, ebus)
-	pubBus := cmdbus.New(reg, ebus)
+	subBus := cmdbus.New[int](reg, ebus)
+	pubBus := cmdbus.New[int](reg, ebus)
 
 	runErrs, err := subBus.Run(ctx)
 	if err != nil {
@@ -163,8 +163,8 @@ func TestDeleteAggregate_CustomEvent(t *testing.T) {
 	reg := codec.New()
 	builtin.RegisterCommands(reg)
 
-	subBus := cmdbus.New(reg, ebus)
-	pubBus := cmdbus.New(reg, ebus)
+	subBus := cmdbus.New[int](reg, ebus)
+	pubBus := cmdbus.New[int](reg, ebus)
 
 	runErrs, err := subBus.Run(ctx)
 	if err != nil {
@@ -235,8 +235,8 @@ func TestDeleteAggregate_CustomEvent_MatchAll(t *testing.T) {
 	reg := codec.New()
 	builtin.RegisterCommands(reg)
 
-	subBus := cmdbus.New(reg, ebus)
-	pubBus := cmdbus.New(reg, ebus)
+	subBus := cmdbus.New[int](reg, ebus)
+	pubBus := cmdbus.New[int](reg, ebus)
 
 	runErrs, err := subBus.Run(ctx)
 	if err != nil {

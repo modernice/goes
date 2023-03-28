@@ -1,0 +1,15 @@
+syntax = "proto3";
+package goes.command;
+option go_package = "github.com/modernice/goes/api/proto/gen/command;commandpb";
+
+import "google/protobuf/any.proto";
+
+message Error {
+	int64 code = 1;
+	string message = 2;
+	repeated ErrorDetail details = 3;
+}
+
+message ErrorDetail {
+	google.protobuf.Any detail = 1;
+}
