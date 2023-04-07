@@ -282,11 +282,11 @@ func (js *jetStream) ensureStream(ctx context.Context) error {
 	info, err := js.ctx.StreamInfo(js.stream)
 	if err == nil {
 		if info.Config.Name != js.stream {
-			return fmt.Errorf("%w: stream name mismatch: %q != %q", ErrConsumerExists, info.Config.Name, js.stream)
+			return fmt.Errorf("%w: stream name mismatch: %q != %q", ErrStreamExists, info.Config.Name, js.stream)
 		}
 
 		if len(info.Config.Subjects) != 1 || info.Config.Subjects[0] != "*" {
-			return fmt.Errorf("%w: subjects mismatch: %v != %v", ErrConsumerExists, info.Config.Subjects, []string{"*"})
+			return fmt.Errorf("%w: subjects mismatch: %v != %v", ErrStreamExists, info.Config.Subjects, []string{"*"})
 		}
 
 		return nil
