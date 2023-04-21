@@ -16,4 +16,4 @@ if [ -z "$BRANCHES" ]; then
 	exit 0
 fi
 
-git branch -D "$BRANCHES"
+git branch -D $BRANCHES
