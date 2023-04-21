@@ -1,4 +1,5 @@
 .PHONY: docs
+docs:
 	@./scripts/docs.sh
 
 .PHONY: generate
