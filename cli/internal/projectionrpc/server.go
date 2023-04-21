@@ -23,6 +23,12 @@ func NewServer(svc *projection.Service) protoprojection.ProjectionServiceServer 
 	}
 }
 
+// Trigger is a method that triggers a projection schedule. It accepts a
+// context.Context and a *protoprojection.TriggerReq as its arguments. If the
+// request contains the Reset field set to true, the projection will be reset
+// before being triggered. If the trigger is successful, it returns a
+// *protoprojection.TriggerResp with Accepted set to true. Otherwise, it returns
+// an error.
 func (s *server) Trigger(ctx context.Context, req *protoprojection.TriggerReq) (*protoprojection.TriggerResp, error) {
 	var opts []projection.TriggerOption
 	if req.GetReset_() {

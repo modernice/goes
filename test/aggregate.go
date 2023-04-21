@@ -17,6 +17,7 @@ var (
 // aggregate provides the correct aggregateName and AggregateID.
 //
 // Example:
+//
 //	type Foo struct {
 //		*aggregate.Base
 //	}
@@ -55,6 +56,9 @@ type ExpectedChangeError struct {
 	mismatchData []any
 }
 
+// Error returns a string representation of an ExpectedChangeError. It formats
+// the error message based on the expected and actual number of changes, the
+// expected event name, and whether or not event data was provided.
 func (err ExpectedChangeError) Error() string {
 	var eventDataSuffix string
 
@@ -88,6 +92,7 @@ type UnexpectedChangeError struct {
 	EventName string
 }
 
+// Error returns a string representation of UnexpectedChangeError.
 func (err UnexpectedChangeError) Error() string {
 	return fmt.Sprintf("unexpected %q change", err.EventName)
 }

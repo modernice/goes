@@ -100,10 +100,13 @@ func NewContext(parent context.Context, act Action, opts ...ContextOption) Conte
 	return ctx
 }
 
+// ActionContext.Action returns the currently executed Action.
 func (ctx *actionContext) Action() Action {
 	return ctx.act
 }
 
+// Publish publishes the given events via the underlying Event Bus. If no Event
+// Bus is available, Publish returns ErrMissingBus.
 func (ctx *actionContext) Publish(c context.Context, events ...event.Event) error {
 	if ctx.eventBus == nil {
 		return ErrMissingBus
@@ -111,6 +114,9 @@ func (ctx *actionContext) Publish(c context.Context, events ...event.Event) erro
 	return ctx.eventBus.Publish(c, events...)
 }
 
+// Dispatch synchronously dispatches the given Command via the underlying
+// Command Bus. If no Command Bus is available, Dispatch returns ErrMissingBus.
+// [Dispatch]
 func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command, opts ...command.DispatchOption) error {
 	if ctx.commandBus == nil {
 		return ErrMissingBus
@@ -119,6 +125,9 @@ func (ctx *actionContext) Dispatch(c context.Context, cmd command.Command, opts 
 	return ctx.commandBus.Dispatch(c, cmd, opts...)
 }
 
+// Fetch fetches the provided aggregate from the underlying Aggregate
+// Repository. If no aggregate Repository is available, Fetch returns
+// ErrMissingRepository.
 func (ctx *actionContext) Fetch(c context.Context, a aggregate.Aggregate) error {
 	if ctx.repo == nil {
 		return ErrMissingRepository
@@ -126,6 +135,7 @@ func (ctx *actionContext) Fetch(c context.Context, a aggregate.Aggregate) error 
 	return ctx.repo.Fetch(c, a)
 }
 
+// Run executes the Action with the specified name.
 func (ctx *actionContext) Run(c context.Context, name string) error {
 	if ctx.run == nil {
 		return nil

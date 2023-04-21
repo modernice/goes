@@ -63,6 +63,11 @@ type VersionError struct {
 	err error
 }
 
+// Error returns a string representation of a VersionError. A VersionError
+// indicates that the insertion of events failed because at least one of the
+// events has an invalid/inconsistent version. The returned string describes the
+// validation error(s) and includes details about the aggregate's name, UUID,
+// and current version; and the event with the invalid version.
 func (err VersionError) Error() string {
 	if err.err != nil {
 		return fmt.Sprintf("version error: %s", err.err)
@@ -75,6 +80,7 @@ func (err VersionError) Error() string {
 	)
 }
 
+// IsConsistencyError reports whether a VersionError is a consistency error.
 func (err VersionError) IsConsistencyError() bool {
 	return true
 }
@@ -87,10 +93,15 @@ func (err CommandError) CommandError() mongo.CommandError {
 	return mongo.CommandError(err)
 }
 
+//jotbot:ignore
 func (err CommandError) Error() string {
 	return mongo.CommandError(err).Error()
 }
 
+// IsConsistencyError reports whether a CommandError is a consistency error. A
+// CommandError is considered a consistency error if it has an error label
+// indicating that the operation failed due to a transient or unknown
+// transaction error.
 func (err CommandError) IsConsistencyError() bool {
 	return true
 }

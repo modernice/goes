@@ -44,14 +44,23 @@ func NewContext[P any](base context.Context, cmd Of[P], opts ...ContextOption) C
 	return &ctx
 }
 
+// AggregateID returns the UUID of the aggregate associated with the command
+// context.
 func (ctx *cmdctx[P]) AggregateID() uuid.UUID {
 	return ctx.Aggregate().ID
 }
 
+// AggregateName returns the name of the aggregate associated with the command
+// context.
 func (ctx *cmdctx[P]) AggregateName() string {
 	return ctx.Aggregate().Name
 }
 
+// Finish method calls the provided function when the Finish() method of the
+// context is called. It acquires a lock to ensure atomicity and returns nil if
+// the method has already been called. If not, it sets the finished flag and
+// calls the provided function if it exists, passing in the context and
+// finish.Options.
 func (ctx *cmdctx[P]) Finish(c context.Context, opts ...finish.Option) error {
 	ctx.mux.Lock()
 	defer ctx.mux.Unlock()

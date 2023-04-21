@@ -20,6 +20,9 @@ type FoobarEventData struct{ A int }
 // Encoder returned by NewEncoder.
 type UnregisteredEventData struct{ A string }
 
+// NewEncoder returns a *codec.Registry that can be used to encode and decode
+// events. The Encoder returned by NewEncoder is pre-registered with the types
+// FooEventData, BarEventData, BazEventData, and FoobarEventData.
 func NewEncoder() *codec.Registry {
 	r := codec.New()
 	codec.Register[FooEventData](r, "foo")

@@ -25,10 +25,16 @@ type projectionServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
+// NewProjectionServiceClient creates a client stub for the
+// ProjectionServiceClient. The client connects to the server specified by the
+// grpc.ClientConnInterface parameter and can be used to call the Trigger RPC
+// method on the ProjectionServiceServer.
 func NewProjectionServiceClient(cc grpc.ClientConnInterface) ProjectionServiceClient {
 	return &projectionServiceClient{cc}
 }
 
+// Trigger sends a TriggerReq to the ProjectionService server and returns a
+// TriggerResp, along with an error if any.
 func (c *projectionServiceClient) Trigger(ctx context.Context, in *TriggerReq, opts ...grpc.CallOption) (*TriggerResp, error) {
 	out := new(TriggerResp)
 	err := c.cc.Invoke(ctx, "/goes.projection.ProjectionService/Trigger", in, out, opts...)
@@ -50,6 +56,10 @@ type ProjectionServiceServer interface {
 type UnimplementedProjectionServiceServer struct {
 }
 
+// Trigger is a method of the UnimplementedProjectionServiceServer type, which
+// implements the ProjectionServiceServer interface. It returns a nil response
+// and an error with the code codes.Unimplemented and the message "method
+// Trigger not implemented".
 func (UnimplementedProjectionServiceServer) Trigger(context.Context, *TriggerReq) (*TriggerResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Trigger not implemented")
 }
@@ -62,10 +72,18 @@ type UnsafeProjectionServiceServer interface {
 	mustEmbedUnimplementedProjectionServiceServer()
 }
 
+// RegisterProjectionServiceServer registers a ProjectionServiceServer
+// implementation with the given grpc.ServiceRegistrar.
 func RegisterProjectionServiceServer(s grpc.ServiceRegistrar, srv ProjectionServiceServer) {
 	s.RegisterService(&ProjectionService_ServiceDesc, srv)
 }
 
+// _ProjectionService_Trigger_Handler is a function that handles unary RPC calls
+// to the "Trigger" method of the ProjectionServiceServer. It decodes the
+// incoming request into a TriggerReq object, and then calls the Trigger method
+// of the ProjectionServiceServer with the request context and TriggerReq object
+// as arguments. If an interceptor is provided, it will use it to handle the
+// call.
 func _ProjectionService_Trigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TriggerReq)
 	if err := dec(in); err != nil {

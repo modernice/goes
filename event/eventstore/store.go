@@ -39,6 +39,10 @@ type memstore struct {
 	idMap  map[uuid.UUID]event.Event
 }
 
+// Insert inserts one or more
+// [event.Event](https://pkg.go.dev/github.com/modernice/goes/event#Event) into
+// the in-memory event store. If an event with the same ID already exists,
+// Insert returns an error.
 func (s *memstore) Insert(ctx context.Context, events ...event.Event) error {
 	for _, evt := range events {
 		if err := s.insert(ctx, evt); err != nil {
@@ -59,6 +63,8 @@ func (s *memstore) insert(ctx context.Context, evt event.Event) error {
 	return nil
 }
 
+// Find returns the event with the given UUID or errEventNotFound if no such
+// event exists in the store.
 func (s *memstore) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
@@ -68,6 +74,10 @@ func (s *memstore) Find(ctx context.Context, id uuid.UUID) (event.Event, error) 
 	return nil, errEventNotFound
 }
 
+// Query returns a channel of events and a channel of errors. The events channel
+// will emit all events in the store that match the given query. The order of
+// the emitted events is determined by the query's sorting options. If the
+// context is cancelled, the function will return immediately.
 func (s *memstore) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
@@ -97,6 +107,7 @@ func (s *memstore) Query(ctx context.Context, q event.Query) (<-chan event.Event
 	return out, errs, nil
 }
 
+// Delete deletes the provided events from the memory store.
 func (s *memstore) Delete(ctx context.Context, events ...event.Event) error {
 	defer s.reslice()
 	s.mux.Lock()

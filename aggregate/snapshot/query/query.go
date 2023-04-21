@@ -15,6 +15,9 @@ type Query struct {
 	times time.Constraints
 }
 
+// Option is a type that defines a function signature for modifying a builder.
+// It is used to apply filtering options to Snapshot Stores in the query
+// package.
 type Option func(*builder)
 
 type builder struct {

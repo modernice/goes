@@ -43,10 +43,16 @@ type authServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
+// NewAuthServiceClient creates a new client to interact with the AuthService
+// service. It takes a grpc.ClientConnInterface as an argument and returns an
+// AuthServiceClient.
 func NewAuthServiceClient(cc grpc.ClientConnInterface) AuthServiceClient {
 	return &authServiceClient{cc}
 }
 
+// GetPermissions returns the permissions read-model of the given actor. It
+// takes a context.Context, a *common.UUID identifier of the actor and an
+// optional ...grpc.CallOption. It returns a *Permissions object and an error.
 func (c *authServiceClient) GetPermissions(ctx context.Context, in *common.UUID, opts ...grpc.CallOption) (*Permissions, error) {
 	out := new(Permissions)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/GetPermissions", in, out, opts...)
@@ -56,6 +62,9 @@ func (c *authServiceClient) GetPermissions(ctx context.Context, in *common.UUID,
 	return out, nil
 }
 
+// Allows determines whether an actor is allowed to perform a certain action. It
+// takes a context, an *AllowsReq, and grpc.CallOptions as input and returns an
+// *AllowsResp and an error.
 func (c *authServiceClient) Allows(ctx context.Context, in *AllowsReq, opts ...grpc.CallOption) (*AllowsResp, error) {
 	out := new(AllowsResp)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/Allows", in, out, opts...)
@@ -65,6 +74,8 @@ func (c *authServiceClient) Allows(ctx context.Context, in *AllowsReq, opts ...g
 	return out, nil
 }
 
+// LookupActor returns the aggregate id of the actor with the given
+// string-formatted actor id. [LookupActor]
 func (c *authServiceClient) LookupActor(ctx context.Context, in *LookupActorReq, opts ...grpc.CallOption) (*common.UUID, error) {
 	out := new(common.UUID)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/LookupActor", in, out, opts...)
@@ -74,6 +85,7 @@ func (c *authServiceClient) LookupActor(ctx context.Context, in *LookupActorReq,
 	return out, nil
 }
 
+// LookupRole returns the aggregate id of the role with the given name.
 func (c *authServiceClient) LookupRole(ctx context.Context, in *LookupRoleReq, opts ...grpc.CallOption) (*common.UUID, error) {
 	out := new(common.UUID)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/LookupRole", in, out, opts...)
@@ -83,6 +95,10 @@ func (c *authServiceClient) LookupRole(ctx context.Context, in *LookupRoleReq, o
 	return out, nil
 }
 
+// GrantToActor grants the given actor permission to perform the given actions.
+// [authServiceClient.GrantToActor] takes a context, a *GrantRevokeReq message
+// and an optional list of grpc.CallOption. It returns an empty protobuf message
+// and an error, if any.
 func (c *authServiceClient) GrantToActor(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/GrantToActor", in, out, opts...)
@@ -92,6 +108,8 @@ func (c *authServiceClient) GrantToActor(ctx context.Context, in *GrantRevokeReq
 	return out, nil
 }
 
+// GrantToRole grants the given role permission to perform the given actions. It
+// is a method of the AuthServiceClient interface.
 func (c *authServiceClient) GrantToRole(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/GrantToRole", in, out, opts...)
@@ -101,6 +119,9 @@ func (c *authServiceClient) GrantToRole(ctx context.Context, in *GrantRevokeReq,
 	return out, nil
 }
 
+// RevokeFromActor revokes from the given actor the permission to perform the
+// given actions. It is a method of the AuthServiceClient interface that
+// communicates with an authentication service over gRPC.
 func (c *authServiceClient) RevokeFromActor(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/RevokeFromActor", in, out, opts...)
@@ -110,6 +131,8 @@ func (c *authServiceClient) RevokeFromActor(ctx context.Context, in *GrantRevoke
 	return out, nil
 }
 
+// RevokeFromRole revokes from the given role the permission to perform the
+// given actions.
 func (c *authServiceClient) RevokeFromRole(ctx context.Context, in *GrantRevokeReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/goes.contrib.auth.AuthService/RevokeFromRole", in, out, opts...)
@@ -147,27 +170,54 @@ type AuthServiceServer interface {
 type UnimplementedAuthServiceServer struct {
 }
 
+// GetPermissions returns the permissions read-model of the given actor. It
+// takes a context.Context and a *common.UUID as input, and returns a
+// *Permissions and an error as output.
 func (UnimplementedAuthServiceServer) GetPermissions(context.Context, *common.UUID) (*Permissions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPermissions not implemented")
 }
+
+// Allows determines whether an actor is allowed to perform an action. It takes
+// a context.Context, a pointer to an AllowsReq, and an optional list of
+// grpc.CallOptions. It returns a pointer to an AllowsResp and an error.
 func (UnimplementedAuthServiceServer) Allows(context.Context, *AllowsReq) (*AllowsResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Allows not implemented")
 }
+
+// LookupActor returns the aggregate id of the actor with the given
+// string-formatted actor id. It is a method of the
+// UnimplementedAuthServiceServer struct, which is embedded in all
+// implementations of the AuthServiceServer interface for forward compatibility.
 func (UnimplementedAuthServiceServer) LookupActor(context.Context, *LookupActorReq) (*common.UUID, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LookupActor not implemented")
 }
+
+// LookupRole returns the aggregate id of the role with the given name.
 func (UnimplementedAuthServiceServer) LookupRole(context.Context, *LookupRoleReq) (*common.UUID, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LookupRole not implemented")
 }
+
+// GrantToActor is a function implemented by AuthServiceServer interface. It
+// grants the given actor permission to perform the given actions.
 func (UnimplementedAuthServiceServer) GrantToActor(context.Context, *GrantRevokeReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GrantToActor not implemented")
 }
+
+// GrantToRole grants the given role permission to perform the given actions. It
+// is a function in the UnimplementedAuthServiceServer struct.
 func (UnimplementedAuthServiceServer) GrantToRole(context.Context, *GrantRevokeReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GrantToRole not implemented")
 }
+
+// RevokeFromActor revokes from the given actor the permission to perform the
+// given actions. [RevokeFromActor(ctx context.Context, in *GrantRevokeReq, opts
+// ...grpc.CallOption) (*emptypb.Empty, error)]
 func (UnimplementedAuthServiceServer) RevokeFromActor(context.Context, *GrantRevokeReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RevokeFromActor not implemented")
 }
+
+// RevokeFromRole revokes from the given role the permission to perform the
+// given actions.
 func (UnimplementedAuthServiceServer) RevokeFromRole(context.Context, *GrantRevokeReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RevokeFromRole not implemented")
 }
@@ -180,10 +230,16 @@ type UnsafeAuthServiceServer interface {
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
+// RegisterAuthServiceServer registers the given AuthServiceServer to the
+// provided grpc.ServiceRegistrar.
 func RegisterAuthServiceServer(s grpc.ServiceRegistrar, srv AuthServiceServer) {
 	s.RegisterService(&AuthService_ServiceDesc, srv)
 }
 
+// _AuthService_GetPermissions_Handler handles the unary RPC call for getting
+// the permissions read-model of a given actor. It takes a context.Context and a
+// *common.UUID as input and returns *Permissions and an error as output. It is
+// implemented as part of the AuthServiceServer interface.
 func _AuthService_GetPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(common.UUID)
 	if err := dec(in); err != nil {
@@ -202,6 +258,12 @@ func _AuthService_GetPermissions_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+// _AuthService_Allows_Handler is a function that handles requests to check
+// whether an actor is allowed to perform an action. It takes in a context, an
+// AllowsReq message containing the actor ID, the action, and the resource, and
+// optional gRPC call options. It returns an AllowsResp message containing
+// whether the actor is allowed to perform the action and any error encountered
+// during processing.
 func _AuthService_Allows_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AllowsReq)
 	if err := dec(in); err != nil {
@@ -220,6 +282,10 @@ func _AuthService_Allows_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+// _AuthService_LookupActor_Handler is a unary server interceptor for the
+// AuthService service. It takes a context and a LookupActorReq message as input
+// and returns a UUID or an error. This function looks up the aggregate id of
+// the actor with the given string-formatted actor id.
 func _AuthService_LookupActor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LookupActorReq)
 	if err := dec(in); err != nil {
@@ -238,6 +304,11 @@ func _AuthService_LookupActor_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+// _AuthService_LookupRole_Handler is a function that handles the gRPC request
+// for looking up the aggregate id of a role with the given name. It takes in a
+// context.Context object, a pointer to a LookupRoleReq object, and an array of
+// grpc.CallOption objects, and returns a pointer to a common.UUID object and an
+// error.
 func _AuthService_LookupRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LookupRoleReq)
 	if err := dec(in); err != nil {
@@ -256,6 +327,11 @@ func _AuthService_LookupRole_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+// "_AuthService_GrantToActor_Handler" is a function that handles the gRPC
+// request to grant a given actor permission to perform the given actions. It
+// takes in a context.Context object, a *GrantRevokeReq object, a dec function
+// that decodes the request payload into the *GrantRevokeReq object, and an
+// interceptor that executes the RPC. It returns an interface{} and an error.
 func _AuthService_GrantToActor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GrantRevokeReq)
 	if err := dec(in); err != nil {
@@ -274,6 +350,10 @@ func _AuthService_GrantToActor_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+// _AuthService_GrantToRole_Handler handles the granting of permissions to a
+// role in the AuthService service. It takes a context.Context, a
+// *GrantRevokeReq and optional grpc.CallOptions, and returns an *emptypb.Empty
+// and an error.
 func _AuthService_GrantToRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GrantRevokeReq)
 	if err := dec(in); err != nil {
@@ -292,6 +372,11 @@ func _AuthService_GrantToRole_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+// "_AuthService_RevokeFromActor_Handler" is a function that handles the
+// revocation of permissions from an actor in the AuthService service. It takes
+// a context, a *GrantRevokeReq, and optional grpc.CallOptions as input
+// parameters and returns an *emptypb.Empty and an error. This function is
+// automatically generated and should not be edited.
 func _AuthService_RevokeFromActor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GrantRevokeReq)
 	if err := dec(in); err != nil {
@@ -310,6 +395,11 @@ func _AuthService_RevokeFromActor_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+// "_AuthService_RevokeFromRole_Handler" is a function that handles revoking
+// permission from the given role to perform certain actions. It takes a
+// context, a request message of type "GrantRevokeReq", and optional gRPC call
+// options. It returns an empty response message and an error, or just the
+// error.
 func _AuthService_RevokeFromRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GrantRevokeReq)
 	if err := dec(in); err != nil {

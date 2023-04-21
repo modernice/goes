@@ -12,6 +12,10 @@ import (
 	"github.com/modernice/goes/event"
 )
 
+// Expectations provides a way to expect subscribed events and errors. It has
+// methods for expecting nothing to happen, expecting any of the given events to
+// be received, expecting all of the given events to be received, and expecting
+// the event and error channels of a subscription to be closed.
 type Expectations struct {
 	ctx   context.Context
 	once  sync.Once

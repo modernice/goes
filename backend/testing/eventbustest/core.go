@@ -79,6 +79,8 @@ func Basic(t *testing.T, newBus EventBusFactory, opts ...Option) {
 	ex.Apply(t)
 }
 
+// SubscribeMultipleEvents subscribes to multiple events at once and tests if
+// the subscriber receives events published to any of the subscribed events.
 func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory, opts ...Option) {
 	cfg := configure(opts...)
 
@@ -114,6 +116,9 @@ func SubscribeMultipleEvents(t *testing.T, newBus EventBusFactory, opts ...Optio
 	ex.Apply(t)
 }
 
+// SubscribeCanceledContext tests the behavior of a subscription when its
+// context is canceled. The test is successful if the subscription is closed
+// within 50 milliseconds.
 func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory, opts ...Option) {
 	cfg := configure(opts...)
 
@@ -143,6 +148,8 @@ func SubscribeCanceledContext(t *testing.T, newBus EventBusFactory, opts ...Opti
 	ex.Apply(t)
 }
 
+// CancelSubscription cancels a subscription context and ensures that no further
+// events are received by the subscriber.
 func CancelSubscription(t *testing.T, newBus EventBusFactory, opts ...Option) {
 	cfg := configure(opts...)
 
@@ -188,6 +195,11 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory, opts ...Option) {
 	ex.Apply(t)
 }
 
+// PublishMultipleEvents publishes multiple events to the event bus and expects
+// certain subscribers to receive certain events. It takes a *testing.T, an
+// EventBusFactory and optional Options. The test is successful if the "foo" and
+// "baz" events are received by their respective subscribers after being
+// published.
 func PublishMultipleEvents(t *testing.T, newBus EventBusFactory, opts ...Option) {
 	cfg := configure(opts...)
 

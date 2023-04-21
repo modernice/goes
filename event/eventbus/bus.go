@@ -48,6 +48,11 @@ type subscribeJob struct {
 	done chan struct{}
 }
 
+// Subscribe returns channels for receiving events and errors for a given set of
+// event names. It subscribes to the event bus for the specified events and
+// returns channels that will receive all events published to the bus with the
+// matching names. The returned channels will be closed when the context is
+// cancelled or an error occurs.
 func (bus *chanbus) Subscribe(ctx context.Context, events ...string) (<-chan event.Event, <-chan error, error) {
 	ctx, unsubscribeAll := context.WithCancel(ctx)
 	go func() {
@@ -70,6 +75,8 @@ func (bus *chanbus) Subscribe(ctx context.Context, events ...string) (<-chan eve
 	return fanInEvents(ctx, rcpts), fanInErrors(ctx, rcpts), nil
 }
 
+// Publish sends the provided events to all subscribed recipients. It returns an
+// error if the context is canceled while publishing.
 func (bus *chanbus) Publish(ctx context.Context, events ...event.Event) error {
 	done := make(chan struct{})
 	go func() {

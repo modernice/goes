@@ -21,6 +21,9 @@ func RepositoryPermissionFetcher(repo PermissionRepository) PermissionFetcherFun
 // PermissionFetcherFunc allows a function to be used as a PermissionFetcher.
 type PermissionFetcherFunc func(context.Context, uuid.UUID) (PermissionsDTO, error)
 
+// Fetch retrieves permissions for a given actor using the PermissionRepository
+// provided to the RepositoryPermissionFetcher. It returns a PermissionsDTO and
+// an error if any.
 func (fetch PermissionFetcherFunc) Fetch(ctx context.Context, actorID uuid.UUID) (PermissionsDTO, error) {
 	return fetch(ctx, actorID)
 }
@@ -39,6 +42,10 @@ func ClientLookup(client QueryClient) Lookup {
 
 type clientLookup struct{ client QueryClient }
 
+// Actor is a function that implements the Actor method of the Lookup interface.
+// It uses the provided client to lookup actors using their sid identifier. It
+// returns the actor's uuid.UUID and a boolean indicating if the lookup was
+// successful or not.
 func (l clientLookup) Actor(ctx context.Context, sid string) (uuid.UUID, bool) {
 	id, err := l.client.LookupActor(ctx, sid)
 	if err != nil {
@@ -47,6 +54,9 @@ func (l clientLookup) Actor(ctx context.Context, sid string) (uuid.UUID, bool) {
 	return id, true
 }
 
+// Role returns the unique identifier for the role with the specified name,
+// fetched using the provided QueryClient. It is a method of clientLookup type
+// which implements Lookup interface.
 func (l clientLookup) Role(ctx context.Context, name string) (uuid.UUID, bool) {
 	id, err := l.client.LookupRole(ctx, name)
 	if err != nil {

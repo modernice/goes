@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/event/test"
 )
 
+//jotbot:ignore
 func RunWildcard(t *testing.T, newBus EventBusFactory, opts ...Option) {
 	cfg := configure(opts...)
 

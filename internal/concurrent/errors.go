@@ -12,6 +12,9 @@ func Errors(ctx context.Context) (errs chan error, fail func(error)) {
 	return errs, Failer(ctx, errs)
 }
 
+// Failer is a function that returns a function to push an error into a channel.
+// It takes a context and an error channel as arguments, and ensures that the
+// error is pushed into the channel only if the context has not been cancelled.
 func Failer(ctx context.Context, errs chan<- error) func(error) {
 	var mux sync.Mutex
 	var closed bool

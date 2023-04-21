@@ -236,7 +236,7 @@ func CompensateTimeout(d time.Duration) ExecutorOption {
 
 // New returns a reusable Setup that can be safely executed concurrently.
 //
-// Define Actions
+// # Define Actions
 //
 // The core of a SAGA are Actions. Actions are basically just named functions
 // that can be composed to orchestrate the execution flow of a SAGA. Action can
@@ -269,7 +269,7 @@ func CompensateTimeout(d time.Duration) ExecutorOption {
 //	)
 //	// would run "bar", "foo" & "baz" sequentially
 //
-// Compensate Actions
+// # Compensate Actions
 //
 // Every Action a can be assigned a compensating Action c that is called when
 // the SAGA fails. Actions are compensated in reverse order and only failed
@@ -291,6 +291,7 @@ func CompensateTimeout(d time.Duration) ExecutorOption {
 //	)
 //
 // The above Setup would run the following Actions in order:
+//
 //	`foo`, `bar`, `baz`, `compensate-bar`, `compensate-foo`
 //
 // A SAGA that successfully compensated every Action still returns the error
@@ -306,7 +307,7 @@ func CompensateTimeout(d time.Duration) ExecutorOption {
 //		}
 //	}
 //
-// Action Context
+// # Action Context
 //
 // An Action has access to an action.Context that allows the Action to run
 // other Actions in the same SAGA and, depending on the passed ExecutorOptions,
@@ -345,9 +346,9 @@ func New(opts ...Option) Setup {
 
 // Validate validates that a Setup is configured safely and returns an error in
 // the following cases:
-//	- `ErrEmptyName` if an Action has an empty name (or just whitespace)
-//	- `ErrActionNotFound` if the sequence contains an unconfigured Action
-//	- `ErrActionNotFound` if an unknown Action is configured as a compensating Action
+//   - `ErrEmptyName` if an Action has an empty name (or just whitespace)
+//   - `ErrActionNotFound` if the sequence contains an unconfigured Action
+//   - `ErrActionNotFound` if an unknown Action is configured as a compensating Action
 func Validate(s Setup) error {
 	for _, name := range s.Sequence() {
 		if strings.TrimSpace(name) == "" {
@@ -382,24 +383,24 @@ func CompensateError(err error) (*CompensateErr, bool) {
 
 // Execute executes the given Setup.
 //
-// Execution error
+// # Execution error
 //
 // Execution can fail because of multiple reasons. Execute returns an error in
 // the following cases:
 //
-//	- Setup validation fails (see Validate)
-//	- An Action fails and compensation is disabled
-//	- An Action and any of the subsequent compensations fail
+//   - Setup validation fails (see Validate)
+//   - An Action fails and compensation is disabled
+//   - An Action and any of the subsequent compensations fail
 //
 // Compensation is disabled when no compensators are configured.
 //
-// Skip validation
+// # Skip validation
 //
 // Validation of the Setup can be skipped by providing the SkipValidation
 // ExecutorOption, but should only be used when the Setup s is ensured to be
 // valid (e.g. by calling Validate manually beforehand).
 //
-// Reporting
+// # Reporting
 //
 // When a Reporter r is provided using the Report ExecutorOption, Execute will
 // call r.Report with a report.Report which contains detailed information about
@@ -422,14 +423,16 @@ func NewExecutor(opts ...ExecutorOption) *Executor {
 	return &e
 }
 
+// Actions returns the list of configured Actions in the SAGA.
 func (s *setup) Actions() []action.Action {
 	acts := make([]action.Action, len(s.actions))
-	for i, act := range s.actions {
-		acts[i] = act
-	}
+	copy(acts, s.actions)
 	return acts
 }
 
+// Compensators returns a map of action names to their corresponding
+// compensating action names. If an action has no compensator configured, its
+// name will not be included in the returned map.
 func (s *setup) Compensators() map[string]string {
 	m := make(map[string]string, len(s.compensators))
 	for k, v := range s.compensators {
@@ -438,10 +441,15 @@ func (s *setup) Compensators() map[string]string {
 	return m
 }
 
+// Compensator finds and returns the name of the compensating action for the
+// Action with the given name. If Compensator returns an empty string, there is
+// no compensator for the given action configured. [Setup]
 func (s *setup) Compensator(name string) string {
 	return s.compensators[name]
 }
 
+// Sequence is a method of the Setup interface that returns the names of the
+// actions that should be run sequentially.
 func (s *setup) Sequence() []string {
 	if len(s.actions) == 0 {
 		return nil
@@ -454,6 +462,8 @@ func (s *setup) Sequence() []string {
 	return s.sequence
 }
 
+// Action is an interface that represents a SAGA action. It defines a single
+// method, Run, which executes the action's business logic.
 func (s *setup) Action(name string) action.Action {
 	return s.actionMap[name]
 }
@@ -624,10 +634,16 @@ func (e Executor) clone(s Setup) *Executor {
 	return &e
 }
 
+// CompensateErr is returned when the compensation of a failed SAGA fails. The
+// error message contains the original error that triggered the compensation,
+// and the error that occurred while compensating. Use CompensateError to unwrap
+// this error.
 func (err *CompensateErr) Error() string {
 	return err.Err.Error()
 }
 
+// Unwrap returns the wrapped error. This method is implemented to allow errors
+// returned by the Executor to be unwrapped into their underlying errors.
 func (err *CompensateErr) Unwrap() error {
 	return err.Err
 }

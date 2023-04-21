@@ -36,6 +36,8 @@ type Lookup struct {
 	ready chan struct{}
 }
 
+// Option is a type that represents an option for configuring a *Lookup. Options
+// are used as arguments in the constructor function New.
 type Option func(*Lookup)
 
 // Data is the interface that must be implemented by events that want to
@@ -158,6 +160,7 @@ func (l *Lookup) Schedule() *schedule.Continuous {
 }
 
 // Map returns the all values in the lookup table as a nested map, structured as follows:
+//
 //	map[AGGREGATE_NAME]map[AGGREGATE_ID]map[LOOKUP_KEY]LOOKUP_VALUE
 func (l *Lookup) Map() map[string]map[uuid.UUID]map[any]any {
 	l.mux.RLock()
@@ -296,6 +299,12 @@ type provider struct {
 	active *store
 }
 
+// Provide is a method of the Provider interface that allows events to update
+// the lookup table of a specific aggregate. It accepts a string key and an
+// arbitrary value. The value can be any type that is comparable or an
+// interface{} type. If the value is not comparable, it will not be indexed for
+// reverse lookups. If the Provider is created using the *Lookup.Provider
+// method, it will be thread-safe.
 func (p *provider) Provide(key string, val any) {
 	p.Remove(key)
 
@@ -310,6 +319,7 @@ func (p *provider) Provide(key string, val any) {
 	}
 }
 
+// Remove removes the lookup values for the given keys from the Provider.
 func (p *provider) Remove(keys ...string) {
 	if p.mux != nil {
 		p.mux.Lock()

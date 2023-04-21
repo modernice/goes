@@ -79,22 +79,30 @@ func New(a aggregate.Aggregate, opts ...Option) (Snapshot, error) {
 	return &snap, nil
 }
 
+// AggregateID returns the UUID of a Snapshot's aggregate [uuid.UUID].
 func (s snapshot) AggregateID() uuid.UUID {
 	return s.id
 }
 
+// AggregateName returns the name of the aggregate associated with a Snapshot.
 func (s snapshot) AggregateName() string {
 	return s.name
 }
 
+// AggregateVersion returns the version of the aggregate at the time of the
+// snapshot. It is a method of the Snapshot interface.
 func (s snapshot) AggregateVersion() int {
 	return s.version
 }
 
+// Time returns the time of the snapshot. It is a method of the Snapshot
+// interface [snapshot.Snapshot].
 func (s snapshot) Time() time.Time {
 	return s.time
 }
 
+// State represents the encoded state of an aggregate at the time of a snapshot.
+// It is returned by the State() method of a Snapshot.
 func (s snapshot) State() []byte {
 	return s.state
 }

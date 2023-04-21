@@ -194,6 +194,12 @@ func (s *SnapshotStore) Limit(ctx context.Context, name string, id uuid.UUID, v 
 	return e.snapshot()
 }
 
+// Query returns a channel of Snapshots and a channel of errors. It takes a
+// context.Context and a snapshot.Query as parameters. The returned Snapshots
+// match the criteria defined by the snapshot.Query. The order in which
+// Snapshots are returned is determined by the Sortings defined in the
+// snapshot.Query. The channels are closed when there are no more Snapshots or
+// an error occurs, respectively.
 func (s *SnapshotStore) Query(ctx context.Context, q snapshot.Query) (<-chan snapshot.Snapshot, <-chan error, error) {
 	filter := makeSnapshotFilter(q)
 	opts := options.Find()

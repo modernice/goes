@@ -29,6 +29,7 @@ type UUID struct {
 	Bytes []byte `protobuf:"bytes,1,opt,name=bytes,proto3" json:"bytes,omitempty"`
 }
 
+// Reset resets the UUID to its zero value. It sets the Bytes field to nil.
 func (x *UUID) Reset() {
 	*x = UUID{}
 	if protoimpl.UnsafeEnabled {
@@ -38,12 +39,19 @@ func (x *UUID) Reset() {
 	}
 }
 
+// String returns the string representation of the UUID in standard format. It
+// implements the fmt.Stringer interface.
 func (x *UUID) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// ProtoMessage [UUID] is a method that implements the ProtoMessage interface
+// from the Google Protocol Buffers API. It indicates that the UUID message can
+// be marshaled and unmarshaled to and from wire format.
 func (*UUID) ProtoMessage() {}
 
+// ProtoReflect returns the Message instance for this UUID struct type. It
+// implements the protoreflect.ProtoMessage interface.
 func (x *UUID) ProtoReflect() protoreflect.Message {
 	mi := &file_goes_common_uuid_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -61,6 +69,8 @@ func (*UUID) Descriptor() ([]byte, []int) {
 	return file_goes_common_uuid_proto_rawDescGZIP(), []int{0}
 }
 
+// GetBytes returns the byte representation of the UUID. It returns nil if the
+// UUID is nil. [Bytes] is a field of [UUID].
 func (x *UUID) GetBytes() []byte {
 	if x != nil {
 		return x.Bytes
@@ -68,6 +78,10 @@ func (x *UUID) GetBytes() []byte {
 	return nil
 }
 
+// File_goes_common_uuid_proto defines the UUID message type, which represents a
+// Universally Unique Identifier (UUID) as implemented by the
+// github.com/google/uuid package. It contains a single field, Bytes, which is a
+// byte slice representation of the UUID.
 var File_goes_common_uuid_proto protoreflect.FileDescriptor
 
 var file_goes_common_uuid_proto_rawDesc = []byte{

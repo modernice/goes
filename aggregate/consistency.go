@@ -166,6 +166,10 @@ func (err *ConsistencyError) Event() event.Event {
 	return err.Events[err.EventIndex]
 }
 
+// Error returns a string representation of the *ConsistencyError. The returned
+// string describes the inconsistency error in detail, including the invalid
+// AggregateID, AggregateName, AggregateVersion or Time. The method is used to
+// provide an error message for a *ConsistencyError.
 func (err *ConsistencyError) Error() string {
 	evt := err.Event()
 	var (
@@ -215,6 +219,10 @@ func (err *ConsistencyError) IsConsistencyError() bool {
 	return true
 }
 
+// String returns a string representation of the ConsistencyKind
+// [ConsistencyKind]. It returns one of the following strings:
+// "<InconsistentID>", "<InconsistentName>", "<InconsistentVersion>",
+// "<InconsistentTime>", or "<UnknownInconsistency>".
 func (k ConsistencyKind) String() string {
 	switch k {
 	case InconsistentID:

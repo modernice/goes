@@ -333,6 +333,9 @@ func (n *node) setRight(r *node) {
 	r.parent = n
 }
 
+// String returns the string representation of a color. A color is either red or
+// black, represented respectively by the constants [red]etree.red[/red] and
+// [green]etree.black[/green].
 func (c color) String() string {
 	switch c {
 	case black:

@@ -29,6 +29,9 @@ func NewStore() Store {
 	}
 }
 
+// Save saves the given Snapshot to an in-memory store. It takes a
+// context.Context as its first argument and a snapshot.Snapshot as its second
+// argument. It returns an error if the operation fails.
 func (s *store) Save(_ context.Context, snap Snapshot) error {
 	snaps := s.get(snap.AggregateName(), snap.AggregateID())
 	s.Lock()
@@ -37,6 +40,9 @@ func (s *store) Save(_ context.Context, snap Snapshot) error {
 	return nil
 }
 
+// Latest retrieves the latest Snapshot of an Aggregate with a given name and ID
+// from an in-memory Snapshot Store [store.Store]. If no Snapshots for the given
+// Aggregate exist, ErrNotFound is returned.
 func (s *store) Latest(_ context.Context, name string, id uuid.UUID) (Snapshot, error) {
 	snaps := s.get(name, id)
 	if len(snaps) == 0 {
@@ -55,6 +61,9 @@ func (s *store) Latest(_ context.Context, name string, id uuid.UUID) (Snapshot, 
 	return snap, nil
 }
 
+// Version retrieves the Snapshot of an Aggregate with a specific version number
+// [Snapshot, AggregateName, AggregateID]. If the Snapshot doesn't exist,
+// ErrNotFound is returned.
 func (s *store) Version(_ context.Context, name string, id uuid.UUID, v int) (Snapshot, error) {
 	snaps := s.get(name, id)
 	snap, ok := snaps[v]
@@ -64,6 +73,9 @@ func (s *store) Version(_ context.Context, name string, id uuid.UUID, v int) (Sn
 	return snap, nil
 }
 
+// Limit returns a Snapshot with the version number less than or equal to the
+// given version number (v) for the specified aggregate name and ID. If no such
+// Snapshot is found, it returns an ErrNotFound error.
 func (s *store) Limit(_ context.Context, name string, id uuid.UUID, v int) (Snapshot, error) {
 	snaps := s.get(name, id)
 	if len(snaps) == 0 {
@@ -85,6 +97,10 @@ func (s *store) Limit(_ context.Context, name string, id uuid.UUID, v int) (Snap
 	return snap, nil
 }
 
+// Query returns a channel of Snapshots and a channel of errors. It takes a
+// context.Context and a Query as arguments. The channel of Snapshots will
+// contain all the Snapshots that satisfy the Query. The channel of errors will
+// contain any errors that occur during the Query.
 func (s *store) Query(ctx context.Context, q Query) (<-chan Snapshot, <-chan error, error) {
 	var snaps []Snapshot
 	for _, idsnaps := range s.snaps {
@@ -116,6 +132,7 @@ func (s *store) Query(ctx context.Context, q Query) (<-chan Snapshot, <-chan err
 	return out, outErrs, nil
 }
 
+// Delete removes a Snapshot from the in-memory store.
 func (s *store) Delete(_ context.Context, snap Snapshot) error {
 	snaps := s.get(snap.AggregateName(), snap.AggregateID())
 	s.Lock()

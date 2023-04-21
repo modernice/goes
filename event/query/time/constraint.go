@@ -130,18 +130,32 @@ func Includes(c Constraints, t ...time.Time) bool {
 	return true
 }
 
+// Exact returns a Constraint that only allows the exact times to query for. It 
+// takes in a variable number of time.Time values as arguments.
 func (c constraints) Exact() []time.Time {
 	return c.exact
 }
 
+// Ranges represent a slice of time ranges to query for in an event query. It is 
+// a part of the Constraints interface, which defines time constraints for an 
+// event query. Ranges method returns a slice of Range type, where each Range is 
+// defined as a two-element array of time.Time type. The first element 
+// represents the start time of the range and the second element represents the 
+// end time of the range. An event must occur within at least one of these 
+// ranges to be included in the query result.
 func (c constraints) Ranges() []Range {
 	return c.ranges
 }
 
+// Min returns the minimum allowed time to query for. Zero time means this 
+// filter is disabled.
 func (c constraints) Min() time.Time {
 	return c.min
 }
 
+// Max returns the maximum allowed time to query for in a Constraints instance. 
+// A zero time value means that this filter is disabled. All returned times must 
+// be less than or equal to this value to be included in the query result.
 func (c constraints) Max() time.Time {
 	return c.max
 }

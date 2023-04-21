@@ -207,10 +207,14 @@ type authorizer struct {
 	requestContext context.Context
 }
 
+// Lookup returns the aggregate id of the actor with the given actor id. It is a
+// method of the Authorizer interface provided by the Authorize() middleware and
+// is used to authorize actors for the current request.
 func (a *authorizer) Lookup(sid string) (uuid.UUID, bool) {
 	return a.lookup.Actor(a.requestContext, sid)
 }
 
+//jotbot:ignore
 func (a *authorizer) Authorize(actorID uuid.UUID) {
 	a.Lock()
 	defer a.Unlock()

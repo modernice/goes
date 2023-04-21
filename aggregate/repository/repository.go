@@ -27,6 +27,13 @@ var (
 // Option is a repository option.
 type Option func(*Repository)
 
+// Repository provides an event-sourced aggregate repository for persisting and
+// querying aggregates. It uses an event.Store to persist and query aggregates.
+// Repository supports snapshots, hooks for inserting events, and query
+// modifiers. It also supports deleting an aggregate by deleting its events from
+// the event store. Use the Query method to query the event store for events
+// that match a given query and use the returned Histories to build the current
+// state of the queried aggregates.
 type Repository struct {
 	store          event.Store
 	snapshots      snapshot.Store

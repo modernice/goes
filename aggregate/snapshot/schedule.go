@@ -29,6 +29,10 @@ func Every(n int) Schedule {
 	})
 }
 
+// Test determines if the given aggregate should be snapshotted according to the
+// receiver function. It takes an `aggregate.Aggregate` as its argument and
+// returns a `bool`. If the given aggregate should be snapshotted, it returns
+// true; otherwise, it returns false.
 func (fn scheduleFunc) Test(a aggregate.Aggregate) bool {
 	return fn(a)
 }

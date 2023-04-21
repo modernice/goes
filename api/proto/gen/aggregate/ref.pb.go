@@ -31,6 +31,10 @@ type Ref struct {
 	Name string       `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 }
 
+// Reset resets the Ref to its zero value. It is equivalent to assigning a new
+// Ref to the variable. This method is part of the
+// [proto.Message](https://pkg.go.dev/google.golang.org/protobuf/proto#Message)
+// interface.
 func (x *Ref) Reset() {
 	*x = Ref{}
 	if protoimpl.UnsafeEnabled {
@@ -40,12 +44,19 @@ func (x *Ref) Reset() {
 	}
 }
 
+// String returns a string representation of the Ref [Ref]. It is implemented by
+// calling protoimpl.X.MessageStringOf.
 func (x *Ref) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// ProtoMessage *Ref.ProtoMessage() is a method that implements the
+// protoreflect.ProtoMessage interface.
 func (*Ref) ProtoMessage() {}
 
+// ProtoReflect returns the protoreflect.Message associated with Ref. It is used
+// to access metadata about the message and perform reflective operations on the
+// message, such as getting or setting fields.
 func (x *Ref) ProtoReflect() protoreflect.Message {
 	mi := &file_goes_aggregate_ref_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -63,6 +74,9 @@ func (*Ref) Descriptor() ([]byte, []int) {
 	return file_goes_aggregate_ref_proto_rawDescGZIP(), []int{0}
 }
 
+// GetId returns the UUID
+// [common.UUID](https://pkg.go.dev/github.com/modernice/goes/api/proto/gen/common#UUID)
+// of the aggregate reference. If the reference is nil, it returns nil.
 func (x *Ref) GetId() *common.UUID {
 	if x != nil {
 		return x.Id
@@ -70,6 +84,7 @@ func (x *Ref) GetId() *common.UUID {
 	return nil
 }
 
+// GetName returns the name of the aggregate reference.
 func (x *Ref) GetName() string {
 	if x != nil {
 		return x.Name
@@ -77,6 +92,10 @@ func (x *Ref) GetName() string {
 	return ""
 }
 
+// File_goes_aggregate_ref_proto defines a protocol buffer message type for a
+// reference to an aggregate. The Ref message contains an Id field of type
+// [common.UUID](https://pkg.go.dev/github.com/modernice/goes/api/proto/gen/common#UUID)
+// and a Name field of type string.
 var File_goes_aggregate_ref_proto protoreflect.FileDescriptor
 
 var file_goes_aggregate_ref_proto_rawDesc = []byte{

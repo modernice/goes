@@ -80,6 +80,11 @@ func CommitFunc(fn func(flush func())) AggregateOption {
 	}
 }
 
+// ApplyEvent applies an
+// [event](https://pkg.go.dev/github.com/modernice/goes/event#Event) to the
+// testAggregate. If a function is registered for the event name of the event,
+// that function will be called instead. If a function is registered for the
+// empty event name, that function will be called instead.
 func (a *testAggregate) ApplyEvent(evt event.Event) {
 	if fn := a.applyFuncs[evt.Name()]; fn != nil {
 		fn(evt)
@@ -91,6 +96,12 @@ func (a *testAggregate) ApplyEvent(evt event.Event) {
 	}
 }
 
+// RecordChange is a method that allows users to record changes in the state of
+// an aggregate. It takes one or more events as arguments and stores them in the
+// aggregate's uncommitted changes. If a RecordChangeFunc AggregateOption has
+// been set, it will call that function instead of recording the changes
+// directly. The RecordChangeFunc function accepts two arguments: a slice of
+// changes and a track function that can be used to track additional changes.
 func (a *testAggregate) RecordChange(changes ...event.Event) {
 	if a.trackFunc == nil {
 		a.recordChange(changes...)
@@ -103,6 +114,11 @@ func (a *testAggregate) recordChange(changes ...event.Event) {
 	a.Base.RecordChange(changes...)
 }
 
+// Commit commits the changes recorded in the testAggregate. If a commitFunc
+// AggregateOption was provided to NewAggregate or NewFoo, then that function
+// will be called instead of the default commit function. The provided function
+// should accept a flush function that can be called to actually flush the
+// changes.
 func (a *testAggregate) Commit() {
 	if a.commitFunc == nil {
 		a.commit()

@@ -259,24 +259,45 @@ type targetedGranter struct {
 	target aggregate.Ref
 }
 
+// Context returns the context of the underlying *Granter for a TargetedGranter.
 func (tg targetedGranter) Context() context.Context { return tg.ctx }
 
+// `TargetedGranter.Target()` returns the permission `aggregate.Ref` for the
+// granted and revoked permissions. This permission target refers to a specific
+// aggregate that is used for granting or revoking permissions from actors and
+// roles.
 func (tg targetedGranter) Target() aggregate.Ref { return tg.target }
 
+// Lookup returns the Lookup instance that can be used to resolve actor and role
+// ids. It is a method of the TargetedGranter interface.
 func (tg targetedGranter) Lookup() Lookup { return tg.lookup }
 
+// GrantToActor grants the given actor the permission to perform the given
+// actions on the aggregate referenced by Target(). It takes a context.Context,
+// an actorID uuid.UUID, and a variadic string parameter called actions as
+// input. It returns an error. GrantToActor is a method of the TargetedGranter
+// interface.
 func (tg targetedGranter) GrantToActor(ctx context.Context, actorID uuid.UUID, actions ...string) error {
 	return tg.client.GrantToActor(ctx, actorID, tg.target, actions...)
 }
 
+// GrantToRole grants the given role the permission to perform the given actions
+// on the aggregate referenced by Target(). This method is called on a
+// TargetedGranter instance.
 func (tg targetedGranter) GrantToRole(ctx context.Context, roleID uuid.UUID, actions ...string) error {
 	return tg.client.GrantToRole(ctx, roleID, tg.target, actions...)
 }
 
+// RevokeFromActor revokes from the given actor the permission to perform the
+// given actions on the aggregate referenced by Target(). This method is
+// implemented by the TargetedGranter interface.
 func (tg targetedGranter) RevokeFromActor(ctx context.Context, actorID uuid.UUID, actions ...string) error {
 	return tg.client.RevokeFromActor(ctx, actorID, tg.target, actions...)
 }
 
+// RevokeFromRole revokes from the given role the permission to perform the
+// given actions on the aggregate referenced by Target(). It is a method of the
+// TargetedGranter interface.
 func (tg targetedGranter) RevokeFromRole(ctx context.Context, roleID uuid.UUID, actions ...string) error {
 	return tg.client.RevokeFromRole(ctx, roleID, tg.target, actions...)
 }

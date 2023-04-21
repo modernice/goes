@@ -9,6 +9,8 @@ import (
 // ErrNotFound is returned by repositories when a model cannot be found.
 var ErrNotFound = errors.New("model not found")
 
+// ID represents a unique, comparable identifier for a model in the repository.
+// It extends the comparable and fmt.Stringer interfaces.
 type ID interface {
 	comparable
 	fmt.Stringer

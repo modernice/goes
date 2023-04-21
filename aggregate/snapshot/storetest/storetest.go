@@ -582,10 +582,12 @@ type state struct {
 	Foo int
 }
 
+//jotbot:ignore
 func (ss *snapshotter) MarshalSnapshot() ([]byte, error) {
 	return json.Marshal(ss.state)
 }
 
+//jotbot:ignore
 func (ss *snapshotter) UnmarshalSnapshot(b []byte) error {
 	return json.Unmarshal(b, &ss.state)
 }

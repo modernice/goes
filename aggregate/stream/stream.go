@@ -341,10 +341,12 @@ func (s *stream) sortEvents() {
 	}
 }
 
+//jotbot:ignore
 func (a applier) Aggregate() aggregate.Ref {
 	return aggregate.Ref{Name: a.name, ID: a.id}
 }
 
+//jotbot:ignore
 func (a applier) Apply(ag aggregate.Aggregate) {
 	a.apply(ag)
 }

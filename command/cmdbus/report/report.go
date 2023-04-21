@@ -13,6 +13,13 @@ type Report struct {
 	Error   error
 }
 
+// Command represents a command to be executed in a system. It contains an ID,
+// name, aggregate name, aggregate ID, and payload. A Report provides
+// information about the execution of a Command, including the Command itself,
+// runtime duration, and any errors encountered during execution. New creates a
+// new Report with the given Command and options. Options include Runtime to
+// specify the runtime of a Command execution and Error to add the execution
+// error of a Command to a Report.
 type Command struct {
 	ID            uuid.UUID
 	Name          string
@@ -48,6 +55,10 @@ func Error(err error) Option {
 	}
 }
 
+// Report.Report updates the Report instance with the information from the
+// provided Report instance. It creates a new Report based on the Command in the
+// provided Report, and updates the runtime and error information. This method
+// is useful for aggregating multiple Reports into a single Report.
 func (r *Report) Report(rep Report) {
 	*r = New(rep.Command, Runtime(rep.Runtime), Error(rep.Error))
 }

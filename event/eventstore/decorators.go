@@ -30,6 +30,12 @@ type storeWithBus struct {
 	b event.Bus
 }
 
+// Insert inserts the given events into the store and publishes them over the
+// bus. It returns an error if insertion or publishing fails. The insertion and
+// publishing are not performed in a single transaction, which could cause a
+// data loss if the bus fails to publish the events after insertion. To prevent
+// this, check if there exists a solution specific to the used event store
+// implementation.
 func (s *storeWithBus) Insert(ctx context.Context, events ...event.Event) error {
 	if err := s.Store.Insert(ctx, events...); err != nil {
 		return err

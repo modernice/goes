@@ -21,6 +21,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Error represents an error response from a command execution. It contains an
+// error code, a message describing the error, and a list of ErrorDetails
+// [ErrorDetail].
 type Error struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -31,6 +34,8 @@ type Error struct {
 	Details []*ErrorDetail `protobuf:"bytes,3,rep,name=details,proto3" json:"details,omitempty"`
 }
 
+// Reset resets the Error to its zero value. It also resets the message state if
+// unsafe operations are enabled.
 func (x *Error) Reset() {
 	*x = Error{}
 	if protoimpl.UnsafeEnabled {
@@ -40,12 +45,21 @@ func (x *Error) Reset() {
 	}
 }
 
+// String returns a string representation of the Error message. It is generated
+// by the protoimpl library and uses Go's standard fmt package to format the
+// message fields.
 func (x *Error) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// ProtoMessage *Error.ProtoMessage* is a method of the Error struct in the
+// goes/commandpb package. It is implemented as an empty method and is part of
+// the protoreflect.Message interface.
 func (*Error) ProtoMessage() {}
 
+// ProtoReflect returns a protoreflect.Message representing the receiver. This
+// method is used internally by the proto package and should not be called
+// directly.
 func (x *Error) ProtoReflect() protoreflect.Message {
 	mi := &file_goes_command_error_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -63,6 +77,7 @@ func (*Error) Descriptor() ([]byte, []int) {
 	return file_goes_command_error_proto_rawDescGZIP(), []int{0}
 }
 
+// GetCode returns the error code of an Error message.
 func (x *Error) GetCode() int64 {
 	if x != nil {
 		return x.Code
@@ -70,6 +85,8 @@ func (x *Error) GetCode() int64 {
 	return 0
 }
 
+// GetMessage returns the error message string of an Error type [Error]. If the
+// Error is nil, an empty string is returned.
 func (x *Error) GetMessage() string {
 	if x != nil {
 		return x.Message
@@ -77,6 +94,8 @@ func (x *Error) GetMessage() string {
 	return ""
 }
 
+// GetDetails returns a slice of *ErrorDetail containing details about the
+// error. If there are no details, it returns nil.
 func (x *Error) GetDetails() []*ErrorDetail {
 	if x != nil {
 		return x.Details
@@ -84,6 +103,9 @@ func (x *Error) GetDetails() []*ErrorDetail {
 	return nil
 }
 
+// ErrorDetail represents a single detail of an error. It contains a field named
+// Detail that is of type
+// [anypb.Any](https://pkg.go.dev/google.golang.org/protobuf/types/known/anypb#Any).
 type ErrorDetail struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -92,6 +114,7 @@ type ErrorDetail struct {
 	Detail *anypb.Any `protobuf:"bytes,1,opt,name=detail,proto3" json:"detail,omitempty"`
 }
 
+// Reset resets the ErrorDetail to its zero value.
 func (x *ErrorDetail) Reset() {
 	*x = ErrorDetail{}
 	if protoimpl.UnsafeEnabled {
@@ -101,12 +124,22 @@ func (x *ErrorDetail) Reset() {
 	}
 }
 
+// String returns a string representation of the ErrorDetail message. It uses
+// protoimpl.X.MessageStringOf to generate its output.
 func (x *ErrorDetail) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+// ProtoMessage is a method implemented by ErrorDetail that marks the struct as
+// implementing the protoreflect.ProtoMessage interface. This is required for
+// any struct that needs to be serialized or deserialized using Protocol
+// Buffers.
 func (*ErrorDetail) ProtoMessage() {}
 
+// ProtoReflect returns the message's reflection interface, which is used to
+// manipulate protobuf messages dynamically. It returns a protoreflect.Message
+// that implements the Message interface in package
+// [google.golang.org/protobuf/reflect/protoreflect](https://godoc.org/google.golang.org/protobuf/reflect/protoreflect).
 func (x *ErrorDetail) ProtoReflect() protoreflect.Message {
 	mi := &file_goes_command_error_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
@@ -124,6 +157,8 @@ func (*ErrorDetail) Descriptor() ([]byte, []int) {
 	return file_goes_command_error_proto_rawDescGZIP(), []int{1}
 }
 
+// GetDetail returns the Any message contained in the ErrorDetail. It returns
+// nil if the ErrorDetail is nil.
 func (x *ErrorDetail) GetDetail() *anypb.Any {
 	if x != nil {
 		return x.Detail
@@ -131,6 +166,11 @@ func (x *ErrorDetail) GetDetail() *anypb.Any {
 	return nil
 }
 
+// File_goes_command_error_proto defines the Error and ErrorDetail message types
+// used for representing errors in command execution. The Error message type
+// contains an integer code, a string message, and a repeated field of
+// ErrorDetail messages. The ErrorDetail message type contains a
+// google.protobuf.Any field named "detail".
 var File_goes_command_error_proto protoreflect.FileDescriptor
 
 var file_goes_command_error_proto_rawDesc = []byte{

@@ -6,6 +6,9 @@ import (
 	"github.com/modernice/goes/codec"
 )
 
+// ActorIdentified is an event constant that represents the identification of an
+// actor within the authentication system. It is used as a key for registering
+// the event data type ActorIdentifiedData in a codec registry.
 const (
 	ActorIdentified = "goes.contrib.auth.actor.identified"
 
