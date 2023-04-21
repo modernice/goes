@@ -3,7 +3,7 @@
 ROOT=$(git rev-parse --show-toplevel)
 SCRIPTS="$ROOT/scripts"
 
-if [ -f "$ROOT/.env" ]; then
+if [ -f "$ROOT/dev.env" ]; then
 	set -o allexport
 	source "$ROOT/dev.env"
 	set +o allexport
