@@ -24,4 +24,7 @@ if ! command -v jotbot &> /dev/null; then
 	exit 1
 fi
 
+echo "Generating missing documentation ..."
+echo
+
 jotbot "$ROOT"

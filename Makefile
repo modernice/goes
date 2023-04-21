@@ -1,3 +1,6 @@
+.PHONY: docs
+	@./scripts/docs.sh
+
 .PHONY: generate
 generate:
 	@./scripts/generate
