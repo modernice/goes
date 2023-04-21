@@ -1,5 +1,6 @@
 .PHONY: docs
 docs:
+	@./scripts/clear.sh
 	@./scripts/docs.sh
 
 .PHONY: generate
