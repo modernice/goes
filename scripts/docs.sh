@@ -27,4 +27,4 @@ fi
 echo "Generating missing documentation ..."
 echo
 
-jotbot "$ROOT"
+jotbot generate "$ROOT"
