@@ -620,10 +620,6 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("list existing indexes: %w", err)
 	}
-	var indexes []bson.M
-	if err := cur.All(ctx, &indexes); err != nil {
-		return fmt.Errorf("index cursor: %w", err)
-	}
 	defer cur.Close(ctx)
 
 	indexNames := make(map[string]bool)
@@ -633,6 +629,9 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 			return fmt.Errorf("decode existing index: %w", err)
 		}
 		indexNames[idx.Name] = true
+	}
+	if err := cur.Err(); err != nil {
+		return fmt.Errorf("cursor error: %w", err)
 	}
 
 	for _, model := range models {
