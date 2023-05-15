@@ -41,9 +41,9 @@ var EventStore = EventStoreIndices{
 		Options: options.Index().SetName("goes_aname_aid_aversion").
 			SetUnique(true).
 			SetPartialFilterExpression(bson.D{
-				{Key: "aggregateName", Value: bson.D{{Key: "$gt", Value: ""}}},
-				{Key: "aggregateId", Value: bson.D{{Key: "$gt", Value: uuid.UUID{}}}},
-				{Key: "aggregateVersion", Value: bson.D{{Key: "$gt", Value: 0}}},
+				{Key: "aggregateName", Value: bson.D{{Key: "$exists", Value: true}, {Key: "$gt", Value: ""}}},
+				{Key: "aggregateId", Value: bson.D{{Key: "$exists", Value: true}, {Key: "$gt", Value: uuid.UUID{}}}},
+				{Key: "aggregateVersion", Value: bson.D{{Key: "$exists", Value: true}, {Key: "$gt", Value: 0}}},
 			}),
 	},
 
