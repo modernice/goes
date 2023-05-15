@@ -211,10 +211,13 @@ type errorWithDetails struct {
 	details []*command.ErrDetail
 }
 
+// Error returns the error message for an errorWithDetails instance.
 func (err *errorWithDetails) Error() string {
 	return "error with details"
 }
 
+// Details returns the error details of an errorWithDetails instance as a slice
+// of ErrDetail pointers.
 func (err *errorWithDetails) Details() []*command.ErrDetail {
 	return err.details
 }
@@ -223,10 +226,13 @@ type errorWithCode struct {
 	code errorCode
 }
 
+// Error returns the error message of the underlying error in the errorWithCode
+// receiver.
 func (err *errorWithCode) Error() string {
 	return fmt.Sprintf("error with code %d", err.code)
 }
 
+// Code returns the error code associated with the errorWithCode.
 func (err *errorWithCode) Code() errorCode {
 	return err.code
 }

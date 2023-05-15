@@ -26,86 +26,139 @@ type mockAggregate struct {
 	b string
 }
 
+// BenchmarkStream_10A_1E benchmarks the streaming of events for 10 aggregates
+// with 1 event per aggregate.
 func BenchmarkStream_10A_1E(b *testing.B) {
 	benchmark(b, 10, 1)
 }
 
+// BenchmarkStream_10A_10E runs a benchmark for streaming 10 events for each of
+// 10 aggregates with various options such as grouping and sorting.
 func BenchmarkStream_10A_10E(b *testing.B) {
 	benchmark(b, 10, 10)
 }
 
+// BenchmarkStream_10A_100E benchmarks the performance of streaming 100 events
+// for 10 aggregates with various options such as ungrouped and unsorted,
+// grouped and unsorted, or grouped and sorted.
 func BenchmarkStream_10A_100E(b *testing.B) {
 	benchmark(b, 10, 100)
 }
 
+// BenchmarkStream_10A_1000E benchmarks the stream performance with 10
+// aggregates and 1000 events per aggregate. The benchmark runs ungrouped and
+// unsorted, grouped and unsorted, and grouped and sorted scenarios.
 func BenchmarkStream_10A_1000E(b *testing.B) {
 	benchmark(b, 10, 1000)
 }
 
+// BenchmarkStream_10A_10000E benchmarks the streaming of events for 10
+// aggregates with 10000 events per aggregate, with various grouping and sorting
+// options.
 func BenchmarkStream_10A_10000E(b *testing.B) {
 	benchmark(b, 10, 10000)
 }
 
+// BenchmarkStream_10A_100000E benchmarks the stream function with 10 aggregates
+// and 100,000 events.
 func BenchmarkStream_10A_100000E(b *testing.B) {
 	benchmark(b, 10, 100000)
 }
 
+// BenchmarkStream_100A_1E benchmarks the streaming of events for 100 aggregates
+// with 1 event per aggregate.
 func BenchmarkStream_100A_1E(b *testing.B) {
 	benchmark(b, 100, 1)
 }
 
+// BenchmarkStream_100A_10E benchmarks the performance of streaming 10 events
+// for 100 aggregates with various grouping and sorting options.
 func BenchmarkStream_100A_10E(b *testing.B) {
 	benchmark(b, 100, 10)
 }
 
+// BenchmarkStream_100A_100E benchmarks the performance of streaming 100 events
+// for 100 aggregates with various options such as ungrouped and unsorted,
+// grouped and unsorted, or grouped and sorted.
 func BenchmarkStream_100A_100E(b *testing.B) {
 	benchmark(b, 100, 100)
 }
 
+// BenchmarkStream_100A_1000E benchmarks the stream performance with 100
+// aggregates and 1000 events per aggregate, with various grouping and sorting
+// scenarios.
 func BenchmarkStream_100A_1000E(b *testing.B) {
 	benchmark(b, 100, 1000)
 }
 
+// BenchmarkStream_100A_10000E benchmarks the streaming of events for 100
+// aggregates with 10,000 events per aggregate with various grouping and sorting
+// options.
 func BenchmarkStream_100A_10000E(b *testing.B) {
 	benchmark(b, 100, 10000)
 }
 
+// BenchmarkStream_1000A_1E benchmarks the streaming of events for 1000
+// aggregates with 1 event per aggregate, with options for ungrouped and
+// unsorted, grouped and unsorted, and grouped and sorted streams.
 func BenchmarkStream_1000A_1E(b *testing.B) {
 	benchmark(b, 1000, 1)
 }
 
+// BenchmarkStream_1000A_10E benchmarks the streaming of 10 events for 1000
+// aggregates with various grouping and sorting options.
 func BenchmarkStream_1000A_10E(b *testing.B) {
 	benchmark(b, 1000, 10)
 }
 
+// BenchmarkStream_1000A_100E benchmarks the performance of streaming 100 events
+// for 1000 aggregates with various options such as ungrouped and unsorted,
+// grouped and unsorted, or grouped and sorted.
 func BenchmarkStream_1000A_100E(b *testing.B) {
 	benchmark(b, 1000, 100)
 }
 
+// BenchmarkStream_1000A_1000E benchmarks the performance of streaming 1000
+// events for 1000 aggregates with various options such as ungrouped and
+// unsorted, grouped and unsorted, or grouped and sorted.
 func BenchmarkStream_1000A_1000E(b *testing.B) {
 	benchmark(b, 1000, 1000)
 }
 
+// BenchmarkStream_10000A_1E benchmarks the streaming of one event for 10,000
+// aggregates with various grouping and sorting options.
 func BenchmarkStream_10000A_1E(b *testing.B) {
 	benchmark(b, 10000, 1)
 }
 
+// BenchmarkStream_10000A_10E benchmarks the streaming of events for 10,000
+// aggregates with 10 events per aggregate, with various grouping and sorting
+// options.
 func BenchmarkStream_10000A_10E(b *testing.B) {
 	benchmark(b, 10000, 10)
 }
 
+// BenchmarkStream_10000A_100E benchmarks the performance of streaming 100
+// events for 10,000 aggregates with various grouping and sorting options.
 func BenchmarkStream_10000A_100E(b *testing.B) {
 	benchmark(b, 10000, 100)
 }
 
+// BenchmarkStream_100000A_1E measures the performance of streaming 1 event for
+// 100000 different aggregates with options for grouped and sorted streams.
 func BenchmarkStream_100000A_1E(b *testing.B) {
 	benchmark(b, 100000, 1)
 }
 
+// BenchmarkStream_100000A_10E benchmarks the performance of streaming 10 events
+// for 100,000 different aggregates, with options for grouped and sorted
+// streams.
 func BenchmarkStream_100000A_10E(b *testing.B) {
 	benchmark(b, 100000, 10)
 }
 
+// BenchmarkStream_100000A_100E measures the performance of streaming 100000
+// aggregates with 100 events each.
 func BenchmarkStream_100000A_100E(b *testing.B) {
 	benchmark(b, 100000, 100)
 }
@@ -169,6 +222,8 @@ L:
 	_ = gerr
 }
 
+// ApplyEvent applies an event to the mockAggregate. It updates the state of the
+// mockAggregate according to the event's name.
 func (a *mockAggregate) ApplyEvent(evt event.Event) {
 	for i, name := range names {
 		if name != evt.Name() {

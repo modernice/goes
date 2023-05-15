@@ -313,6 +313,7 @@ func newMockAggregate(id uuid.UUID) *mockAggregate {
 	}
 }
 
+// ApplyEvent applies an event to a mockAggregate, updating its state.
 func (ma *mockAggregate) ApplyEvent(evt event.Event) {
 	data := evt.Data().(test.FoobarEventData)
 	ma.Foo += data.A

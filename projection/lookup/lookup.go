@@ -72,6 +72,8 @@ type Provider interface {
 }
 
 type lookup interface {
+	// Lookup returns the lookup value for the given key of the given aggregate, or
+	// false if no value for the key exists.
 	Lookup(context.Context, string, string, uuid.UUID) (any, bool)
 }
 

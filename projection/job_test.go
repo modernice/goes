@@ -491,6 +491,9 @@ func newDelayedEventStore(store event.Store, delay time.Duration) *delayedEventS
 	return &delayedEventStore{Store: store, delay: delay}
 }
 
+// Query retrieves events from the delayedEventStore after the specified delay
+// duration has passed. If the context is cancelled before the delay, an error
+// is returned.
 func (s *delayedEventStore) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
 	timer := time.NewTimer(s.delay)
 	defer timer.Stop()

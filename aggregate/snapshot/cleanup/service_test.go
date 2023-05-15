@@ -137,6 +137,9 @@ func TestService_Stop_errNotStarted(t *testing.T) {
 	}
 }
 
+// MarshalSnapshot encodes the mockState of a mockAggregate into a byte slice
+// using gob encoding. It returns the encoded byte slice and an error if the
+// encoding fails.
 func (a *mockAggregate) MarshalSnapshot() ([]byte, error) {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(a.mockState); err != nil {
@@ -145,6 +148,8 @@ func (a *mockAggregate) MarshalSnapshot() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// UnmarshalSnapshot unmarshals a byte slice into the mockState of a
+// mockAggregate using gob decoding. It returns an error if the decoding fails.
 func (a *mockAggregate) UnmarshalSnapshot(p []byte) error {
 	if err := gob.NewDecoder(bytes.NewReader(p)).Decode(&a.mockState); err != nil {
 		return fmt.Errorf("gob: %w", err)

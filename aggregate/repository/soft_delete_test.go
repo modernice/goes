@@ -107,8 +107,12 @@ func TestRepository_Query_SoftDelete(t *testing.T) {
 
 type softDeletedEvent struct{}
 
+// SoftDelete returns true, indicating that the softDeletedEvent represents a
+// soft deletion of an aggregate.
 func (softDeletedEvent) SoftDelete() bool { return true }
 
 type softRestoredEvent struct{}
 
+// SoftRestore returns true, indicating that the aggregate has been restored
+// from soft deletion.
 func (softRestoredEvent) SoftRestore() bool { return true }

@@ -102,6 +102,8 @@ type Tagger interface {
 type queryWithTags interface {
 	aggregate.Query
 
+	// Tags returns the tags for a queryWithTags. It filters aggregates that
+	// implement Tagger based on their tags.
 	Tags() []string
 }
 
@@ -167,12 +169,12 @@ func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
 // In order for the returned Query to return the correct events, EventQueryOpts
 // needs to rewrite some of the version filters to make sense for an aggregate-
 // specific event.Query:
-// 	- version.Exact is rewritten to version.Max
-// 		(querying for version 10 of an aggregate should return events 1 -> 10)
-// 	- version.Max is passed without modification
-// 	- version.Min is discarded
-// 		(because an aggregate cannot start at a version > 1)
-// 	- version.Ranges is rewritten to version.Max
+//   - version.Exact is rewritten to version.Max
+//     (querying for version 10 of an aggregate should return events 1 -> 10)
+//   - version.Max is passed without modification
+//   - version.Min is discarded
+//     (because an aggregate cannot start at a version > 1)
+//   - version.Ranges is rewritten to version.Max
 func EventQueryOpts(q aggregate.Query) []query.Option {
 	var opts []query.Option
 	if names := q.Names(); len(names) > 0 {

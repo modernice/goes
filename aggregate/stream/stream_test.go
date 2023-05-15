@@ -355,4 +355,6 @@ func makeFactory(am map[uuid.UUID]aggregate.Aggregate) func(string, uuid.UUID) a
 
 type softDeletedEvent struct{}
 
+// SoftDelete marks an aggregate as soft-deleted. When an aggregate is marked as
+// soft-deleted, it will be included in the stream even if it has no events.
 func (softDeletedEvent) SoftDelete() bool { return true }

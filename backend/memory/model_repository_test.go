@@ -135,6 +135,7 @@ type uuidModel struct {
 	Foo string
 }
 
+// ModelID returns the unique identifier of the uuidModel.
 func (m uuidModel) ModelID() uuid.UUID {
 	return m.ID
 }

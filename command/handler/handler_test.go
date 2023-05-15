@@ -224,6 +224,9 @@ func TestAfterHandle_wildcard(t *testing.T) {
 	}
 }
 
+// HandlerAggregate is an aggregate that provides a base implementation for
+// handling commands and events. It allows registering handlers for specific
+// commands and applying events to update the state of the aggregate.
 type HandlerAggregate struct {
 	*aggregate.Base
 	*handler.BaseHandler
@@ -232,12 +235,18 @@ type HandlerAggregate struct {
 	BarVal string
 }
 
+// NewHandlerAggregateOpts returns a function that creates a new
+// HandlerAggregate with the given handler.Options.
 func NewHandlerAggregateOpts(opts ...handler.Option) func(uuid.UUID) *HandlerAggregate {
 	return func(id uuid.UUID) *HandlerAggregate {
 		return NewHandlerAggregate(id, opts...)
 	}
 }
 
+// NewHandlerAggregate creates a new HandlerAggregate with the given UUID and
+// options. The returned HandlerAggregate is capable of handling "foo" and "bar"
+// commands, and updating FooVal and BarVal fields upon successful handling of
+// these commands.
 func NewHandlerAggregate(id uuid.UUID, opts ...handler.Option) *HandlerAggregate {
 	a := &HandlerAggregate{
 		Base:        aggregate.New("handler", id),
@@ -258,6 +267,9 @@ func NewHandlerAggregate(id uuid.UUID, opts ...handler.Option) *HandlerAggregate
 	return a
 }
 
+// Foo applies the given input string to the HandlerAggregate by generating a
+// "foo" event with the input data, calling aggregate.Next, and updating FooVal
+// with the input value.
 func (a *HandlerAggregate) Foo(input string) error {
 	aggregate.Next(a, "foo", test.FooEventData{A: input})
 	return nil
@@ -267,6 +279,9 @@ func (a *HandlerAggregate) foo(evt event.Of[test.FooEventData]) {
 	a.FooVal = evt.Data().A
 }
 
+// Bar updates the BarVal field of HandlerAggregate by generating a "bar" event
+// with the given input data, calling aggregate.Next, and updating BarVal with
+// the input value.
 func (a *HandlerAggregate) Bar(input string) error {
 	aggregate.Next(a, "bar", test.BarEventData{A: input})
 	return nil

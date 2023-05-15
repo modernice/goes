@@ -10,6 +10,9 @@ import (
 	"github.com/modernice/goes/projection"
 )
 
+// WildcardTest represents a test case for checking if an Allower allows or
+// disallows an action on a specified aggregate reference using wildcard
+// permissions.
 type WildcardTest struct {
 	name          string
 	wildcard      aggregate.Ref
@@ -18,6 +21,8 @@ type WildcardTest struct {
 	wantDisallows []WildcardAllowTest
 }
 
+// WildcardAllowTest represents a test case for checking if an [Allower] allows
+// or disallows an action on a specified aggregate reference.
 type WildcardAllowTest struct {
 	ref    aggregate.Ref
 	action string
@@ -297,12 +302,28 @@ func runWildcardTestWithoutGrant[A Allower](t *testing.T, tt WildcardTest, makeA
 	}
 }
 
+// Allower is an interface that defines methods for checking if an action is
+// allowed or disallowed for a specific aggregate reference. It provides Allows
+// and Disallows methods, which return true if the action is allowed or
+// disallowed, respectively, for the given aggregate reference.
 type Allower interface {
+	// Allows checks if the given action is allowed on the specified aggregate
+	// reference. Returns true if the action is allowed, otherwise false.
 	Allows(action string, ref aggregate.Ref) bool
+
+	// Disallows checks if the given action is disallowed on the specified
+	// aggregate.Ref by the Allower. Returns true if the action is disallowed, false
+	// otherwise.
 	Disallows(action string, ref aggregate.Ref) bool
 }
 
+// AllowerGranter is an interface that combines the capabilities of allowing and
+// disallowing actions on specified [aggregate.Ref]s and granting permissions
+// for those actions.
 type AllowerGranter interface {
 	Allower
+	// Grant allows specified actions on the provided aggregate reference for the
+	// implementing type (such as an Actor or Role). If the wildcard aggregate
+	// reference is used, it grants the actions on all aggregate references.
 	Grant(ref aggregate.Ref, actions ...string) error
 }

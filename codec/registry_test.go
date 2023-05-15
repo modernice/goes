@@ -12,16 +12,23 @@ import (
 	"github.com/modernice/goes/event"
 )
 
+// FooData represents a type that contains a string and an integer, used in
+// testing for encoding and decoding data using different codecs.
 type FooData struct {
 	Foo string
 	Bar int
 }
 
+// BarData is a struct type used to encode and decode binary data for events. It
+// implements methods to Marshal and Unmarshal data, and is registered with a
+// codec.Registry during tests.
 type BarData struct {
 	Foo string
 	Bar int
 }
 
+// Marshal returns the gob-encoded byte slice representation of the BarData
+// value.
 func (data BarData) Marshal() ([]byte, error) {
 	var out bytes.Buffer
 	if err := gob.NewEncoder(&out).Encode(data); err != nil {
@@ -30,6 +37,7 @@ func (data BarData) Marshal() ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// Unmarshal decodes a byte slice into a BarData value.
 func (data *BarData) Unmarshal(b []byte) error {
 	return gob.NewDecoder(bytes.NewReader(b)).Decode(data)
 }

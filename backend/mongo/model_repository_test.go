@@ -242,6 +242,7 @@ type basicModel struct {
 	Foo string
 }
 
+// ModelID returns the unique identifier of a basicModel instance.
 func (m basicModel) ModelID() primitive.ObjectID {
 	return m.ID
 }
@@ -251,6 +252,9 @@ type uuidModel struct {
 	Foo string
 }
 
+// ModelID returns the unique identifier of a model instance. It does not
+// describe the type of ModelID, but simply returns the unique identifier
+// associated with the instance.
 func (m uuidModel) ModelID() uuid.UUID {
 	return m.ID
 }

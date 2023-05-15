@@ -119,10 +119,15 @@ func TestLookup_Reverse(t *testing.T) {
 	}
 }
 
+// LookupEvent is a type used in testing the lookup package. It provides a Foo
+// field and implements the ProvideLookup method of the lookup.Provider
+// interface.
 type LookupEvent struct {
 	Foo string
 }
 
+// ProvideLookup adds a lookup value to the provider for the LookupEvent
+// instance.
 func (e LookupEvent) ProvideLookup(p lookup.Provider) {
 	p.Provide("foo", e.Foo)
 }

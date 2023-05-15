@@ -109,6 +109,9 @@ func TestUnmarshal_unmarshaler(t *testing.T) {
 	}
 }
 
+// MarshalSnapshot encodes the mockState of the mockSnapshotter using the gob
+// package and returns the resulting byte slice. Returns an error if encoding
+// fails.
 func (a *mockSnapshotter) MarshalSnapshot() ([]byte, error) {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(a.mockState); err != nil {
@@ -117,6 +120,8 @@ func (a *mockSnapshotter) MarshalSnapshot() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// UnmarshalSnapshot decodes the provided byte slice into the mockState of the
+// mockSnapshotter, using the gob package. Returns an error if decoding fails.
 func (a *mockSnapshotter) UnmarshalSnapshot(p []byte) error {
 	if err := gob.NewDecoder(bytes.NewReader(p)).Decode(&a.mockState); err != nil {
 		return fmt.Errorf("gob: %w", err)

@@ -191,6 +191,11 @@ func TestPermission_granted(t *testing.T) {
 	}
 }
 
+// PermissionTest represents a test suite for middleware that handles
+// authorization and permissions for HTTP requests. It sets up an event bus,
+// event store, actor and permission repositories, and an authorization
+// middleware for testing purposes. It also provides helper functions to create
+// test actors and permissions.
 type PermissionTest struct {
 	bus                 event.Bus
 	store               event.Store

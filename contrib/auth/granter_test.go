@@ -161,6 +161,8 @@ func TestGrantOn(t *testing.T) {
 	gt.ExpectPermissions(ctx, actor.AggregateID(), target, actions)
 }
 
+// GrantTest provides a testing suite for the auth package, allowing tests to be
+// run against the Granter implementation.
 type GrantTest struct {
 	GrantTestOptions
 
@@ -175,10 +177,14 @@ type GrantTest struct {
 	granter   *auth.Granter
 }
 
+// GrantTestOptions specifies options for the GrantTest type.
 type GrantTestOptions struct {
 	decorateBus bool
 }
 
+// NewGrantTest creates a new test suite for the auth package. It sets up an
+// event bus, event store, and permission projector, and provides methods to
+// test granting of permissions to actors and roles.
 func NewGrantTest(t *testing.T) *GrantTest {
 	bus := eventbus.New()
 	store := eventstore.WithBus(eventstore.New(), bus)
@@ -202,6 +208,10 @@ func NewGrantTest(t *testing.T) *GrantTest {
 	}
 }
 
+// Run the GrantTest with the given context and options. It initializes a
+// LookupTable, PermissionProjector, and Granter in order to test the
+// functionality of the auth package. The function expects a context and
+// optional GranterOptions.
 func (gt *GrantTest) Run(ctx context.Context, opts ...auth.GranterOption) {
 	errs, err := gt.lookup.Run(ctx)
 	if err != nil {
@@ -225,6 +235,9 @@ func (gt *GrantTest) Run(ctx context.Context, opts ...auth.GranterOption) {
 	<-gt.granter.Ready()
 }
 
+// ExpectPermissions expects the given actor to be granted the specified actions
+// on the given aggregate, blocking until the actor has been granted all actions
+// or a timeout occurs.
 func (gt *GrantTest) ExpectPermissions(ctx context.Context, actorID uuid.UUID, ref aggregate.Ref, actions []string) {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
@@ -262,6 +275,9 @@ type granterEvent struct {
 	actions  []string
 }
 
+// GrantPermissions grants permissions to an actor or role based on the values
+// of actorID, roleName, and actions contained in the granterEvent. The function
+// uses the TargetedGranter interface to grant permissions.
 func (evt granterEvent) GrantPermissions(g auth.TargetedGranter) error {
 	if evt.actorID != "" {
 		if actorID, ok := g.Lookup().Actor(g.Context(), evt.actorID); ok {

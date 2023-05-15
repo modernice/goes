@@ -806,12 +806,16 @@ type mockState struct {
 	A string
 }
 
+// MarshalSnapshot encodes the mockState of a mockAggregate into a byte slice.
+// It returns the encoded byte slice and any error encountered during encoding.
 func (a *mockAggregate) MarshalSnapshot() ([]byte, error) {
 	var buf bytes.Buffer
 	err := gob.NewEncoder(&buf).Encode(a.mockState)
 	return buf.Bytes(), err
 }
 
+// UnmarshalSnapshot decodes the provided snapshot data and updates the
+// aggregate state with the decoded mockState.
 func (a *mockAggregate) UnmarshalSnapshot(p []byte) error {
 	return gob.NewDecoder(bytes.NewReader(p)).Decode(&a.mockState)
 }

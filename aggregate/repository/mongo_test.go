@@ -65,6 +65,10 @@ func newRetryer() *retryer {
 	}
 }
 
+// RetryUse returns a RetryTrigger and an IsRetryable function for the retryer.
+// The RetryTrigger specifies to retry every 50 milliseconds for a maximum of 4
+// times, and the IsRetryable function checks if an error is a consistency
+// error.
 func (r *retryer) RetryUse() (repository.RetryTrigger, repository.IsRetryable) {
 	return repository.RetryEvery(50*time.Millisecond, 4), aggregate.IsConsistencyError
 }
