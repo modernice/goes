@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/logrusorgru/aurora v2.0.3+incompatible
-	github.com/nats-io/nats.go v1.26.0
+	github.com/nats-io/nats.go v1.27.0
 	github.com/spf13/cobra v1.7.0
 	go.mongodb.org/mongo-driver v1.11.7
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
