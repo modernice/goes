@@ -11,10 +11,12 @@ import (
 	"github.com/modernice/goes/internal/xtime"
 )
 
-// Option is an option for creating an aggregate.
+// Option is a function that configures a [Base] aggregate. It is used as an
+// argument in the New function to customize the created aggregate.
 type Option func(*Base)
 
-// Base can be embedded into aggregates to implement the goes' APIs:
+// Base provides the core of an event-sourced aggregate.
+// When embedded into an aggregate, the aggregate will implement these APIs:
 //   - aggregate.Aggregate
 //   - aggregate.Committer
 //   - repository.ChangeDiscarder
@@ -32,14 +34,17 @@ type Base struct {
 type eventHandlers = event.Handlers
 type commandHandlers = command.Handlers
 
-// Version returns an Option that sets the version of an aggregate.
+// Version is an Option that sets the Version of the Base struct when creating a
+// new aggregate with the New function.
 func Version(v int) Option {
 	return func(b *Base) {
 		b.Version = v
 	}
 }
 
-// New returns a new base aggregate.
+// New creates a new Base aggregate with the specified name and UUID, applying
+// the provided options. The returned Base can be embedded into custom
+// aggregates to provide core functionality for event-sourced aggregates.
 func New(name string, id uuid.UUID, opts ...Option) *Base {
 	b := &Base{
 		ID:              id,
@@ -53,7 +58,7 @@ func New(name string, id uuid.UUID, opts ...Option) *Base {
 	return b
 }
 
-// Ref returns a Ref to the given aggregate.
+// Ref returns a Ref object containing the Name and ID of the aggregate.
 func (b *Base) Ref() Ref {
 	return Ref{
 		Name: b.Name,
@@ -61,51 +66,56 @@ func (b *Base) Ref() Ref {
 	}
 }
 
-// ModelID implements goes/persistence/model.Model. This allows *Base to be used
-// as a TypedAggregate for the type parameter of a TypedRepository.
+// ModelID returns the UUID of the aggregate that the Base is embedded into.
 func (b *Base) ModelID() uuid.UUID {
 	return b.ID
 }
 
-// Aggregate retrns the id, name, and version of the aggregate.
+// Aggregate returns the ID, name, and version of an event-sourced aggregate. It
+// is used to retrieve information about the aggregate without accessing its
+// fields directly.
 func (b *Base) Aggregate() (uuid.UUID, string, int) {
 	return b.ID, b.Name, b.Version
 }
 
-// AggregateID returns the aggregate id.
+// AggregateID returns the UUID of the aggregate associated with the Base
+// struct.
 func (b *Base) AggregateID() uuid.UUID {
 	return b.ID
 }
 
-// AggregateName returns the aggregate name.
+// AggregateName returns the name of the aggregate.
 func (b *Base) AggregateName() string {
 	return b.Name
 }
 
-// AggregateVersion returns the aggregate version.
+// AggregateVersion returns the current version of the aggregate. The version is
+// incremented when events are committed to the aggregate.
 func (b *Base) AggregateVersion() int {
 	return b.Version
 }
 
-// CurrentVersion returns the version of the aggregate with respect to the
-// uncommitted changes/events.
+// CurrentVersion returns the current version of the aggregate, which is the sum
+// of its base version and the number of uncommitted changes.
 func (b *Base) CurrentVersion() int {
 	return b.AggregateVersion() + len(b.AggregateChanges())
 }
 
-// AggregateChanges returns the recorded changes.
+// AggregateChanges returns the uncommitted changes (events) of the
+// event-sourced aggregate. These are the events that have been recorded but not
+// yet committed to the event store.
 func (b *Base) AggregateChanges() []event.Event {
 	return b.Changes
 }
 
-// RecordChange records applied changes to the aggregate.
+// RecordChange appends the provided events to the Changes slice of the Base
+// aggregate.
 func (b *Base) RecordChange(events ...event.Event) {
 	b.Changes = append(b.Changes, events...)
 }
 
-// Commit clears the recorded changes and sets the aggregate version to the
-// version of the last recorded change. The recorded changes must be sorted by
-// event version.
+// Commit updates the aggregate version to the version of its latest change and
+// clears the changes. If there are no changes, nothing is done.
 func (b *Base) Commit() {
 	if len(b.Changes) == 0 {
 		return
@@ -114,15 +124,15 @@ func (b *Base) Commit() {
 	b.Changes = b.Changes[:0]
 }
 
-// DiscardChanges discards the recorded changes. The aggregate repository calls
-// this method when retrying a failed Repository.Use() call. Note that this
-// method does not discard any state changs that were applied to the aggregate;
-// it only discards recorded changes.
+// DiscardChanges resets the list of recorded changes to an empty state,
+// effectively discarding any uncommitted changes made to the aggregate.
 func (b *Base) DiscardChanges() {
 	b.Changes = b.Changes[:0]
 }
 
-// ApplyEvent calls the registered event appliers for the given event.
+// ApplyEvent applies the given event to the aggregate by calling the
+// appropriate event handler registered for the event's name. The event must
+// have been created with the aggregate's ID, name, and version.
 func (b *Base) ApplyEvent(evt event.Event) {
 	b.eventHandlers.HandleEvent(evt)
 }
@@ -134,12 +144,16 @@ func (b *Base) SetVersion(v int) {
 	b.Version = v
 }
 
-// Sort sorts aggregates and returns the sorted aggregates.
+// Sort sorts the given Aggregates ([]Aggregate) according to the specified
+// Sorting and SortDirection. The sorted Aggregates are returned as a new slice
+// without modifying the input slice.
 func Sort(as []Aggregate, s Sorting, dir SortDirection) []Aggregate {
 	return SortMulti(as, SortOptions{Sort: s, Dir: dir})
 }
 
-// SortMulti sorts aggregates by multiple fields and returns the sorted aggregates.
+// SortMulti sorts a slice of Aggregates by multiple SortOptions in the order
+// they are provided. If two Aggregates have the same value for a SortOption,
+// the next SortOption in the list is used to determine their order.
 func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 	sorted := make([]Aggregate, len(as))
 	copy(sorted, as)
@@ -162,10 +176,11 @@ func NextEvent[D any](a Aggregate, name string, data D, opts ...event.Option) ev
 	return Next(a, name, data, opts...)
 }
 
-// Next creates, applies and returns the next event for the given aggregate.
-//
-//	var foo aggregate.Aggregate
-//	evt := aggregate.Next(foo, "name", <data>, ...)
+// Next creates a new event with the provided name and data, applies it to the
+// given aggregate, and records the change if the aggregate implements the
+// Committer interface. The event is assigned the next available version and a
+// timestamp that is guaranteed to be at least 1 nanosecond after the previous
+// event.
 func Next[Data any](a Aggregate, name string, data Data, opts ...event.Option) event.Evt[Data] {
 	aid, aname, _ := a.Aggregate()
 
@@ -190,8 +205,9 @@ func Next[Data any](a Aggregate, name string, data Data, opts ...event.Option) e
 	return evt
 }
 
-// UncommittedVersion returns the version of the aggregate after committing the
-// recorded changes.
+// UncommittedVersion returns the version of the given Aggregate after applying
+// all uncommitted changes. It takes into account both the current version and
+// any uncommitted events to calculate the resulting version.
 func UncommittedVersion(a Aggregate) int {
 	_, _, v := a.Aggregate()
 	if changes := a.AggregateChanges(); len(changes) > 0 {
@@ -202,7 +218,8 @@ func UncommittedVersion(a Aggregate) int {
 	return v
 }
 
-// NextVersion returns the version that the next event of the aggregate must have.
+// NextVersion returns the next version number for the given Aggregate, taking
+// into account both its committed and uncommitted changes.
 func NextVersion(a Aggregate) int {
 	return UncommittedVersion(a) + 1
 }

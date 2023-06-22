@@ -1,4 +1,3 @@
-// Package ref provides utilities for working with aggregate.Ref.
 package ref
 
 import (
@@ -6,7 +5,9 @@ import (
 	"github.com/modernice/goes/aggregate"
 )
 
-// Names returns the names of the given aggregates.
+// Names returns a slice of unique names of the given aggregate references. The
+// order of names in the returned slice is the order in which they appear in the
+// input.
 func Names(refs ...aggregate.Ref) []string {
 	var names []string
 	found := make(map[string]bool)
@@ -23,7 +24,8 @@ func Names(refs ...aggregate.Ref) []string {
 	return names
 }
 
-// IDs returns the UUIDs of the given aggregates.
+// IDs returns a slice of unique UUIDs extracted from the provided
+// [aggregate.Ref]s. It ignores any empty (uuid.Nil) IDs.
 func IDs(refs ...aggregate.Ref) []uuid.UUID {
 	var ids []uuid.UUID
 	found := make(map[uuid.UUID]bool)
@@ -40,7 +42,8 @@ func IDs(refs ...aggregate.Ref) []uuid.UUID {
 	return ids
 }
 
-// Aggregates returne the UUIDs of the given aggregates that have the given name.
+// Aggregates filters the provided [aggregate.Ref] slice by the given name, and
+// returns a slice of unique [uuid.UUID] IDs of the matching aggregates.
 func Aggregates(name string, refs ...aggregate.Ref) []uuid.UUID {
 	var ids []uuid.UUID
 	found := make(map[uuid.UUID]bool)

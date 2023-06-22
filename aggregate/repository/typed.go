@@ -8,75 +8,67 @@ import (
 	"github.com/modernice/goes/helper/pick"
 )
 
-// TypedRepository implements aggregate.TypedRepository. Use Typed to create a
-// typed repository from an underlying repository.
-//
-//	type Foo struct { *aggregate.Base }
-//	func NewFoo(id uuid.UUID) *Foo { return &Foo{Base: aggregate.New("foo", id)} }
-//
-//	var repo aggregate.Repository
-//	typed := repository.Typed(repo, NewFoo)
-//
-// Now you can use the typed repository like this:
-//
-//	foo, err := typed.Fetch(context.TODO(), uuid.UUID{...})
-//
-// For comparison, using an untyped repository:
-//
-//	var foo Foo
-//	err := repo.Fetch(context.TODO(), &foo)
+// TypedRepository is a wrapper around aggregate.Repository that works with
+// specific typed aggregates. It provides methods to save, fetch, query, and
+// delete typed aggregates and utilizes an aggregate factory function to
+// instantiate aggregates when needed.
 type TypedRepository[Aggregate aggregate.TypedAggregate] struct {
 	repo aggregate.Repository
 	make func(uuid.UUID) Aggregate
 }
 
-// Typed returns a TypedRepository for the given generic aggregate type. The
-// provided makeFunc is used to initialize aggregates when querying from the
-// event store.
-//
-//	type Foo struct { *aggregate.Base }
-//	func NewFoo(id uuid.UUID) *Foo { return &Foo{Base: aggregate.New("foo", id)} }
-//
-//	var repo aggregate.Repository
-//	typed := repository.Typed(repo, NewFoo)
+// Typed returns a new TypedRepository for the provided aggregate.Repository and
+// makeFunc. The makeFunc is used to create new instances of the typed Aggregate
+// with a given UUID when fetching them from the underlying
+// aggregate.Repository.
 func Typed[Aggregate aggregate.TypedAggregate](r aggregate.Repository, makeFunc func(uuid.UUID) Aggregate) *TypedRepository[Aggregate] {
 	return &TypedRepository[Aggregate]{repo: r, make: makeFunc}
 }
 
-// NewOf is an alias for Typed.
+// NewOf creates a new TypedRepository for the specified
+// aggregate.TypedAggregate using the provided aggregate.Repository and factory
+// function to instantiate Aggregates with a given UUID.
 func NewOf[Aggregate aggregate.TypedAggregate](r aggregate.Repository, makeFunc func(uuid.UUID) Aggregate) *TypedRepository[Aggregate] {
 	return Typed(r, makeFunc)
 }
 
-// Repository returns the underlying, untyped aggregate.Repository.
+// Repository returns the underlying aggregate.Repository of the
+// TypedRepository.
 func (r *TypedRepository[Aggregate]) Repository() aggregate.Repository {
 	return r.repo
 }
 
-// NewFunc returns the underlying constructor function for the aggregate of
-// this repository.
+// NewFunc returns the function that creates a new typed Aggregate with the
+// given UUID. This function is used by the TypedRepository to instantiate
+// Aggregates when fetching them from the underlying aggregate.Repository.
 func (r *TypedRepository[Aggregate]) NewFunc() func(uuid.UUID) Aggregate {
 	return r.make
 }
 
-// Save implements aggregate.TypedRepository.Save.
+// Save stores the given Aggregate in the repository and returns an error if the
+// operation fails.
 func (r *TypedRepository[Aggregate]) Save(ctx context.Context, a Aggregate) error {
 	return r.repo.Save(ctx, a)
 }
 
-// Fetch implements aggregate.TypedRepository.Fetch.
+// Fetch retrieves the latest version of an Aggregate with the given UUID from
+// the repository, returning the fetched Aggregate and any error encountered.
 func (r *TypedRepository[Aggregate]) Fetch(ctx context.Context, id uuid.UUID) (Aggregate, error) {
 	out := r.make(id)
 	return out, r.repo.Fetch(ctx, out)
 }
 
-// FetchVersion implements aggregate.TypedRepository.FetchVersion.
+// FetchVersion retrieves an Aggregate with the specified ID and version from
+// the TypedRepository, returning an error if it cannot be fetched.
 func (r *TypedRepository[Aggregate]) FetchVersion(ctx context.Context, id uuid.UUID, version int) (Aggregate, error) {
 	out := r.make(id)
 	return out, r.repo.FetchVersion(ctx, out, version)
 }
 
-// Query implements aggregate.TypedRepository.Query.
+// Query retrieves Aggregates from the underlying aggregate.Repository that
+// match the specified aggregate.Query. It returns channels for receiving the
+// Aggregates and any errors encountered during the query, as well as an error
+// if the query itself cannot be executed.
 func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Query) (<-chan Aggregate, <-chan error, error) {
 	str, errs, err := r.repo.Query(ctx, q)
 	if err != nil {
@@ -91,16 +83,6 @@ func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Quer
 
 			a := r.make(ref.ID)
 
-			// The query returned an aggregate that doesn't match the aggregate
-			// type of the repository, so we discard it.
-			//
-			// TODO(bounoable): Maybe automatically add the aggregate name
-			// filter to queries? We could theoretically determine the name of
-			// the repository's aggregate using the provided makeFunc and then
-			// add the query filter:
-			//
-			//	name := pick.AggregateName(r.make())
-			//	q := query.New(query.AggregateName(name), ...)
 			if pick.AggregateName(a) != ref.Name {
 				continue
 			}
@@ -118,13 +100,15 @@ func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Quer
 	return out, errs, nil
 }
 
-// Use implements aggregate.TypedRepository.Use.
+// Use retrieves an Aggregate with the specified ID from the TypedRepository,
+// applies the given function to it, and returns any error encountered during
+// this process.
 func (r *TypedRepository[Aggregate]) Use(ctx context.Context, id uuid.UUID, fn func(Aggregate) error) error {
 	a := r.make(id)
 	return r.repo.Use(ctx, a, func() error { return fn(a) })
 }
 
-// Delete implements aggregate.TypedRepository.Delete.
+// Delete removes the specified Aggregate from the repository.
 func (r *TypedRepository[Aggregate]) Delete(ctx context.Context, a Aggregate) error {
 	return r.repo.Delete(ctx, a)
 }

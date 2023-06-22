@@ -7,45 +7,49 @@ import (
 	"time"
 )
 
-// Retryer is an aggregate that can retry a failed Repository.Use() operation.
-// If the RetryUse() method of the aggregate returns a non-nil RetryTrigger rt,
-// failed Repository.Use() calls will be retried until rt.next() returns a
-// non-nil error. The returned IsRetryable function is used to determine if the
-// error that made Repository.Use() fail is retryable.
-//
-// The following example retries calls that failed due to consistency errors.
-// It is retried every second, up to 3 times before giving up. If the call does
-// not succeed after 3 tries, the error of the last attempt is returned to the
-// caller.
-//
-//	type Foo struct { *aggregate.Base }
-//	func (f *Foo) RetryUse() (rt repository.RetryTrigger, isRetryable repository.IsRetryable) {
-//	  return repository.RetryEvery(time.Second, 3), aggregate.IsConsistencyError
-//	}
+// Retryer is an interface for providing a retry mechanism in operations. It
+// consists of a RetryTrigger, which determines the timing of the next attempt,
+// and an IsRetryable function, which checks if an error should be retried.
 type Retryer interface {
+	// RetryUse returns a RetryTrigger and an IsRetryable function for use in
+	// retrying operations. The RetryTrigger determines the next attempt's timing,
+	// and the IsRetryable function checks if an error is retryable.
 	RetryUse() (RetryTrigger, IsRetryable)
 }
 
-// A RetryTrigger triggers a retry of Repository.Use().
+// RetryTrigger is an interface that defines a method for determining the next
+// attempt's timing in a retryable operation. It is used in conjunction with
+// [IsRetryable] to implement custom retry strategies within a [Retryer]
+// interface.
 type RetryTrigger interface{ next(context.Context) error }
 
-// RetryTriggerFunc allows a function to be used as a RetryTrigger.
+// RetryTriggerFunc is a function type that implements the RetryTrigger
+// interface, allowing users to define custom logic for determining the timing
+// of retry attempts in a Retryer. It takes a context as an input and returns an
+// error if any occurs during its execution.
 type RetryTriggerFunc func(context.Context) error
 
 func (fn RetryTriggerFunc) next(ctx context.Context) error { return fn(ctx) }
 
-// IsRetryable is a function that determines if an error within a
-// Reposistory.Use() call is retryable.
+// IsRetryable is a function type that determines if an error should trigger a
+// retry. It returns true if the error is considered retryable, and false
+// otherwise. It is typically used in conjunction with [RetryTrigger] to
+// implement custom retry strategies in a [Retryer] interface.
 type IsRetryable func(error) bool
 
-// A ChangeDiscarder discards changes to the aggregate. The DiscardChanges()
-// method is called each time a Repository.Use() call is retried for the
-// aggregate.
+// ChangeDiscarder is an interface that provides a method for discarding changes
+// in a repository.
 type ChangeDiscarder interface {
+	// DiscardChanges discards any changes made to the underlying data within the
+	// ChangeDiscarder, effectively reverting it to its original state before the
+	// changes were made.
 	DiscardChanges()
 }
 
-// RetryEvery returns a RetryTrigger that retries every interval up to maxTries.
+// RetryEvery returns a RetryTrigger that retries an operation at a fixed
+// interval for a specified number of maxTries. The operation will be retried
+// until the maximum number of tries is reached, or the provided context is
+// canceled.
 func RetryEvery(interval time.Duration, maxTries int) RetryTrigger {
 	tries := 1
 	return RetryTriggerFunc(func(ctx context.Context) error {
@@ -66,10 +70,10 @@ func RetryEvery(interval time.Duration, maxTries int) RetryTrigger {
 	})
 }
 
-// RetryApprox returns a RetryTrigger that retries approximately every interval
-// up to maxTries. The provided deviation is used to randomize the interval. If
-// the interval is 1s and deviation is 100ms, then the retry is triggered after
-// somewhere between 900ms to 1100ms.
+// RetryApprox creates a RetryTrigger that retries an operation with a
+// randomized interval between attempts. The interval is calculated by adding a
+// random percentage of deviation to the base interval, and the maximum number
+// of attempts is specified by maxTries.
 func RetryApprox(interval, deviation time.Duration, maxTries int) RetryTrigger {
 	tries := 1
 	return RetryTriggerFunc(func(ctx context.Context) error {

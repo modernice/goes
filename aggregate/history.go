@@ -6,19 +6,25 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// A History provides the event history of an aggregate. A History can be
-// applied to an aggregate to rebuild its current state.
+// History represents an interface for managing the application and consistency
+// of events on an Aggregate. It provides methods to reference the associated
+// Aggregate and apply changes to it.
 type History interface {
-	// Aggregate returns the reference to the aggregate of this history.
+	// Aggregate returns the Ref of the aggregate to which this History belongs. It
+	// also applies the history to the given Aggregate, ensuring that events are
+	// applied in a consistent manner.
 	Aggregate() Ref
 
-	// Apply applies the history to the aggregate to rebuild its current state.
+	// Apply applies the history of events to the given Aggregate, ensuring
+	// consistency and updating the Aggregate's state accordingly. If the Aggregate
+	// implements the Committer interface, changes are recorded and committed.
 	Apply(Aggregate)
 }
 
-// ApplyHistory applies an event stream to an aggregate to reconstruct its state.
-// If the aggregate implements Committer, a.RecordChange(events) and a.Commit()
-// are called before returning.
+// ApplyHistory applies a sequence of events to the given Aggregate, ensuring
+// consistency before applying. If the Aggregate implements the Committer
+// interface, changes are recorded and committed after applying the events.
+// Returns an error if consistency validation fails.
 func ApplyHistory[Events ~[]event.Of[any]](a Aggregate, events Events) error {
 	id, name, _ := a.Aggregate()
 	version := UncommittedVersion(a)

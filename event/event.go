@@ -64,15 +64,19 @@ type Of[Data any] interface {
 
 // #endregion event
 
-// Option is an event option.
 type Option func(*Evt[any])
 
-// Evt is the event implementation.
+// Evt is a concrete implementation of the Of interface, representing an event
+// with specific data type and associated metadata such as the event's ID, name,
+// time, and aggregate information. Evt can be used to create, manipulate, and
+// test events in a type-safe manner.
 type Evt[D any] struct {
 	D Data[D]
 }
 
-// Data contains the fields of an Evt.
+// Data is a struct that holds event information such as its unique ID, name,
+// time, and arbitrary data. Additionally, it contains aggregate-related fields
+// like AggregateName, AggregateID, and AggregateVersion.
 type Data[D any] struct {
 	ID               uuid.UUID
 	Name             string
@@ -83,21 +87,24 @@ type Data[D any] struct {
 	AggregateVersion int
 }
 
-// ID returns an Option that overrides the auto-generated UUID of an event.
+// ID returns the unique identifier of the event.
 func ID(id uuid.UUID) Option {
 	return func(evt *Evt[any]) {
 		evt.D.ID = id
 	}
 }
 
-// Time returns an Option that overrides the auto-generated timestamp of an event.
+// Time sets the time of an event to the provided time value. It is an Option
+// function used when creating a new event with the New function.
 func Time(t time.Time) Option {
 	return func(evt *Evt[any]) {
 		evt.D.Time = t
 	}
 }
 
-// Aggregate returns an Option that puts an event into the event stream of an aggregate.
+// Aggregate returns the id, name, and version of the aggregate that the event
+// belongs to. If the event is not an aggregate event, it should return zero
+// values.
 func Aggregate(id uuid.UUID, name string, version int) Option {
 	return func(evt *Evt[any]) {
 		evt.D.AggregateName = name
@@ -106,9 +113,9 @@ func Aggregate(id uuid.UUID, name string, version int) Option {
 	}
 }
 
-// Previous returns an Option that puts an event into the event stream of an
-// aggregate. If prev provides non-zero aggregate data, the created event will
-// have the same data but with its version increased by 1.
+// Previous sets the aggregate information for an event based on the provided
+// previous event, incrementing the aggregate version by 1. It returns an Option
+// to be used when creating a new event with New.
 func Previous[Data any](prev Of[Data]) Option {
 	id, name, v := prev.Aggregate()
 	if id != uuid.Nil {
@@ -117,16 +124,9 @@ func Previous[Data any](prev Of[Data]) Option {
 	return Aggregate(id, name, v)
 }
 
-// New creates an event with the given name and data. A random UUID is generated
-// and set as the event id. Its time is set to now.
-//
-// Available options:
-//
-//	ID(uuid.UUID): Provide a custom event id
-//	Time(time.Time): Provide a custom event time
-//	Aggregate(string, uuid.UUID, int): Put the event into the event stream of an aggregate
-//	Previous(event.Event): Put the event into the event stream of an aggregate
-//	based on its previous event
+// New creates a new event with the specified name and data, applying any
+// provided options such as ID, Time, or Aggregate information. It returns an
+// Evt struct containing the event data and metadata.
 func New[D any](name string, data D, opts ...Option) Evt[D] {
 	evt := Evt[any]{D: Data[any]{
 		ID:   uuid.New(),
@@ -151,10 +151,9 @@ func New[D any](name string, data D, opts ...Option) Evt[D] {
 	}
 }
 
-// Equal compares events to determine if they're equal. Two events are equal if
-// their ids, names, times, and data are equal. Equality of time.Times is
-// checked using a.Time().Equal(b.Time()) for the two events a and b. Event data
-// is compared using the "==" equality operator.
+// Equal returns true if all provided events have the same ID, name, time, data,
+// and aggregate information. It returns false otherwise. If less than two
+// events are provided, it returns true.
 func Equal(events ...Of[any]) bool {
 	if len(events) < 2 {
 		return true
@@ -181,12 +180,16 @@ func Equal(events ...Of[any]) bool {
 	return true
 }
 
-// Sort sorts events and returns the sorted events.
+// Sort sorts the provided events according to the specified Sorting and
+// SortDirection, returning a new slice of sorted events.
 func Sort[Events ~[]Of[D], D any](events Events, sort Sorting, dir SortDirection) Events {
 	return SortMulti(events, SortOptions{Sort: sort, Dir: dir})
 }
 
-// SortMulti sorts events by multiple fields and returns the sorted events.
+// SortMulti sorts a slice of events based on the provided sort options, in the
+// order they appear. If multiple events have the same value for a specified
+// sort option, they will be sorted based on the next sort option in the list.
+// If all sort options are equal, the original order is preserved.
 func SortMulti[Events ~[]Of[D], D any](events Events, sorts ...SortOptions) Events {
 	sorted := make(Events, len(events))
 	copy(sorted, events)
@@ -204,51 +207,56 @@ func SortMulti[Events ~[]Of[D], D any](events Events, sorts ...SortOptions) Even
 	return sorted
 }
 
-// ID returns the event id.
+// ID returns the unique identifier of the event.
 func (evt Evt[D]) ID() uuid.UUID {
 	return evt.D.ID
 }
 
-// Name returns the event name.
+// Name returns the name of the event.
 func (evt Evt[D]) Name() string {
 	return evt.D.Name
 }
 
-// Time returns the event time.
+// Time returns the time at which the event was raised.
 func (evt Evt[D]) Time() time.Time {
 	return evt.D.Time
 }
 
-// Data returns the event data.
+// Data returns the event data of the Evt.
 func (evt Evt[D]) Data() D {
 	return evt.D.Data
 }
 
-// Aggregate returns the aggregate of the stream that the event is a part of,
-// or zero values if the event is not an aggregate event.
+// Aggregate returns the id, name, and version of the aggregate that the event
+// belongs to. If the event is not an aggregate event, it returns zero values.
 func (evt Evt[D]) Aggregate() (uuid.UUID, string, int) {
 	return evt.D.AggregateID, evt.D.AggregateName, evt.D.AggregateVersion
 }
 
-// Any returns the event with its data type set to `any`.
+// Any converts an event with a specific data type (Of[Data]) to an event with
+// the generic any data type (Evt[any]).
 func (evt Evt[D]) Any() Evt[any] {
 	return Any[D](evt)
 }
 
-// Event returns the event as an interface.
+// Event returns the unique id, name, user-provided event data, and the time at
+// which the event was raised. If the Aggregate method of an event returns
+// non-zero values, the event is considered to belong to the event stream of
+// that aggregate.
 func (evt Evt[D]) Event() Of[D] {
 	return evt
 }
 
-// Any casts the event data of the given event to `any`.
+// Any returns an Evt[any] that is a copy of the given Of[Data] event with its
+// data type erased. This can be useful when working with heterogeneous event
+// lists where the specific data type is not important.
 func Any[Data any](evt Of[Data]) Evt[any] {
 	return Cast[any](evt)
 }
 
-// Cast casts the type paramater of given event to the type `To`. Cast panics if
-// the event data is not a `To`.
-//
-// Use TryCast to test if the event data can be casted to `To`.
+// Cast converts an event with data of type From to an event with data of type
+// To. The new event has the same ID, name, time, and aggregate information as
+// the original event, but the data is cast to the specified To type.
 func Cast[To, From any](evt Of[From]) Evt[To] {
 	return New(
 		evt.Name(),
@@ -259,8 +267,9 @@ func Cast[To, From any](evt Of[From]) Evt[To] {
 	)
 }
 
-// TryCast casts the type paramater of given event to the type `To`. Cast
-// returns false if the event data cannot be casted to `To`.
+// TryCast attempts to cast an event with data of type From to an event with
+// data of type To. It returns the casted event and a boolean value indicating
+// whether the casting was successful or not.
 func TryCast[To, From any](evt Of[From]) (Evt[To], bool) {
 	data, ok := any(evt.Data()).(To)
 	if !ok {
@@ -276,7 +285,10 @@ func TryCast[To, From any](evt Of[From]) (Evt[To], bool) {
 	), true
 }
 
-// Expand returns an Evt from an interface.
+// Expand converts an Of[Data] event into an Evt[Data] event, preserving the
+// event's properties. If the input event is already of type Evt[Data], it is
+// returned directly. Otherwise, a new Evt[Data] event is created with the same
+// properties as the input event.
 func Expand[D any](evt Of[D]) Evt[D] {
 	if evt, ok := evt.(Evt[D]); ok {
 		return evt
@@ -284,8 +296,6 @@ func Expand[D any](evt Of[D]) Evt[D] {
 	return New(evt.Name(), evt.Data(), ID(evt.ID()), Time(evt.Time()), Aggregate(evt.Aggregate()))
 }
 
-// Test tests an event against a query and returns whether the query would
-// include the event in its result.
 func Test[Data any](q Query, evt Of[Data]) bool {
 	if q == nil {
 		return true

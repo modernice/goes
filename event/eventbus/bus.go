@@ -8,7 +8,9 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// New returns a thread-safe in-memory event bus.
+// New creates and returns a new event.Bus backed by a channel-based
+// implementation. The returned event.Bus allows subscribing to events,
+// publishing events, and managing event subscriptions.
 func New() event.Bus {
 	bus := &chanbus{
 		events: make(map[string]*eventSubscription),
@@ -48,15 +50,12 @@ type subscribeJob struct {
 	done chan struct{}
 }
 
-// Subscribe returns channels for receiving events and errors for a given set of
-// event names. It subscribes to the event bus for the specified events and
-// returns channels that will receive all events published to the bus with the
-// matching names. The returned channels will be closed when the context is
-// cancelled or an error occurs.
+// Subscribe creates a subscription for the specified events and returns
+// channels for receiving the events and errors. The subscription is
+// automatically unsubscribed when the provided context is canceled.
 func (bus *chanbus) Subscribe(ctx context.Context, events ...string) (<-chan event.Event, <-chan error, error) {
 	ctx, unsubscribeAll := context.WithCancel(ctx)
 	go func() {
-		// Will never happen, but makes the linter happy.
 		<-bus.done
 		unsubscribeAll()
 	}()
@@ -75,8 +74,8 @@ func (bus *chanbus) Subscribe(ctx context.Context, events ...string) (<-chan eve
 	return fanInEvents(ctx, rcpts), fanInErrors(ctx, rcpts), nil
 }
 
-// Publish sends the provided events to all subscribed recipients. It returns an
-// error if the context is canceled while publishing.
+// Publish sends the provided events to the event bus. It returns an error if
+// the context is canceled before all events are published.
 func (bus *chanbus) Publish(ctx context.Context, events ...event.Event) error {
 	done := make(chan struct{})
 	go func() {

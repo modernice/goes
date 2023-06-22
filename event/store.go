@@ -12,126 +12,140 @@ import (
 
 // #region sortings
 const (
-	// SortTime sorts events by time.
+	// SortTime is a Sorting option that sorts events by their timestamp, with
+	// earlier events coming before later events.
 	SortTime = Sorting(iota)
-	// SortAggregateName sorts events by aggregate name.
+
+	// SortAggregateName is a Sorting value that sorts events by their aggregate
+	// name in a Query. Events with the same aggregate name are considered equal
+	// when sorting with this value.
 	SortAggregateName
-	// SortAggregateID sorts events by aggregate id.
+
+	// SortAggregateID is a Sorting option that sorts events based on the
+	// lexicographical order of their aggregate ID.
 	SortAggregateID
-	// SortAggregateVersion sorts events by aggregate version.
+
+	// SortAggregateVersion is a Sorting option that sorts events based on their
+	// aggregate version, with lower versions coming first.
 	SortAggregateVersion
 )
 
 const (
-	// SortAsc sorts events in ascending order.
+	// SortAsc is a SortDirection constant that represents sorting in ascending
+	// order. Use it with Sorting and SortOptions to specify the desired sort
+	// direction when querying events from an event store.
 	SortAsc = SortDirection(iota)
-	// SortDesc sorts events in descending order.
+
+	// SortDesc is a SortDirection that indicates the order of sorting should be in
+	// descending order when comparing values.
 	SortDesc
 )
 
 // #endregion sortings
 
 // #region store
-// A Store provides persistence for events.
+//
+// Store is an interface that provides methods for managing Event storage,
+// including insertion, retrieval, querying, and deletion of events.
+// Implementations should handle the storage and retrieval of events according
+// to the provided Query constraints, such as filtering by aggregate names, IDs,
+// and versions.
 type Store interface {
-	// Insert inserts events into the store.
+	// Insert inserts the provided Events into the Store. Returns an error if any
+	// Event could not be inserted.
 	Insert(context.Context, ...Event) error
 
-	// Find fetches the given event from the store.
+	// Find retrieves the Event with the specified UUID from the Store. It returns
+	// an error if the Event could not be found or if there was an issue accessing
+	// the Store.
 	Find(context.Context, uuid.UUID) (Event, error)
 
-	// Query queries the store for events and returns two channels – one for the
-	// returned events and one for any asynchronous errors that occur during the
-	// query.
-	//
-	//	var store event.Store
-	//	events, errs, err := store.Query(context.TODO(), query.New(...))
-	//	// handle err
-	//	err := streams.Walk(context.TODO(), func(evt event.Event) {
-	//		log.Println(fmt.Sprintf("Queried event: %s", evt.Name()))
-	//	}, events, errs)
-	//	// handle err
+	// Query searches for Events in the Store that match the provided Query and
+	// returns two channels: one for the found Events and another for errors that
+	// may occur during the search. An error is returned if the search cannot be
+	// started.
 	Query(context.Context, Query) (<-chan Event, <-chan error, error)
 
-	// Delete deletes events from the store.
+	// Delete removes the specified Events from the Store. It returns an error if
+	// any of the deletions fail.
 	Delete(context.Context, ...Event) error
 }
 
 // #endregion store
 
 // #region query
-// A Query can be used to query events from an event store. Each of the query's
-// methods that return a non-nil filter are considered when filtering events.
-// Different (non-nil) filters must all be fulfilled by an event to be included
-// in the result. Within a single filter that allows multiple values, the event
-// must match at least one of the values.
+//
+// Query is an interface that represents a set of criteria for filtering and
+// sorting events when querying an event store. It provides methods to access
+// constraints on event names, aggregate IDs, time ranges, aggregate names,
+// aggregate versions, and custom sorting options.
 type Query interface {
-	// Names returns the event names to query for.
+	// Names returns a slice of event names included in the Query.
 	Names() []string
 
-	// IDs returns the event ids to query for.
+	// IDs returns a slice of UUIDs that the Query should match. The returned events
+	// will have their EventID equal to one of the UUIDs in the slice.
 	IDs() []uuid.UUID
 
-	// Times returns the event time constraints for the query.
+	// Times returns the time constraints of the query, specifying the desired range
+	// of event timestamps to be included in the result set.
 	Times() time.Constraints
 
-	// AggregateNames returns the aggregate names to query for.
+	// AggregateNames returns a slice of aggregate names that the Query is filtering
+	// for.
 	AggregateNames() []string
 
-	// AggregateIDs returns the aggregate ids to query for.
+	// AggregateIDs returns a slice of UUIDs representing the aggregate IDs that the
+	// Query is constrained to.
 	AggregateIDs() []uuid.UUID
 
-	// AggregateVersions returns the event version constraints for the query.
+	// AggregateVersions returns the version constraints of the queried Aggregates
+	// as a version.Constraints value.
 	AggregateVersions() version.Constraints
 
-	// Aggregates returns a list of specific aggregates (name & id pairs) to
-	// query for. If an AggregateRef has a nil-UUID, every Aggregate with the
-	// given name is queried.
-	//
-	// Example:
-	//	id := uuid.New()
-	//	q := query.New(query.Aggregate("foo", id), query.Aggregate("bar", uuid.Nil))
-	//
-	// The above query allows the "foo" aggregate with the specified id and
-	// every "bar" aggregate. Events that do not fulfill any of these two
-	// constraints will not be returned.
-	//
-	// Advantage of using this filter instead of using the `AggregateNames()`
-	// and `AggregateIDs()` filters is that this filter allows to query multiple
-	// specific aggregates with different names.
+	// Aggregates returns a slice of AggregateRef, representing the aggregate
+	// references that match the query.
 	Aggregates() []AggregateRef
 
-	// Sorting returns the sorting options for the query. Events are sorted as
-	// they would be by calling SortMulti().
+	// Sortings returns a slice of SortOptions specifying the sorting criteria for
+	// the query results. The events in the result set will be sorted according to
+	// the provided sorting options in the order they appear in the slice.
 	Sortings() []SortOptions
 }
 
 // #endregion query
 
-// AggregateRef is a reference to a specific aggregate, identified by its name
-// and id.
+// AggregateRef represents a reference to an aggregate with a specific Name and
+// ID. It provides methods to check if it's a zero value, retrieve aggregate
+// information, split the Name and ID, and parse a string into an AggregateRef.
 type AggregateRef struct {
 	Name string
 	ID   uuid.UUID
 }
 
-// SortOptions defines the sorting of a query.
+// SortOptions is a configuration struct used to specify the sorting criteria
+// and direction for event queries. It contains a Sorting field to determine the
+// sorting attribute (such as time, aggregate name, aggregate ID, or aggregate
+// version) and a SortDirection field to indicate the sorting order (ascending
+// or descending).
 type SortOptions struct {
 	Sort Sorting
 	Dir  SortDirection
 }
 
-// Sorting is a sorting.
+// Sorting is an enumeration of the possible ways to sort Events when querying a
+// Store. Supported sort options include sorting by time, aggregate name,
+// aggregate ID, and aggregate version.
 type Sorting int
 
-// SortDirection is a sorting direction, either ascending or descending.
+// SortDirection determines the order of sorting in a query. It can be either
+// ascending (SortAsc) or descending (SortDesc).
 type SortDirection int
 
-// CompareSorting compares a and b based on the given sorting and returns
-//
-//	-1 if a < b
-//	0 is a == b
-//	1 if a > b
+// CompareSorting compares two events a and b using the specified Sorting s. It
+// returns -1 if a is less than b, 0 if they are equal, or 1 if a is greater
+// than b. The comparison is based on the time, aggregate name, aggregate ID, or
+// aggregate version, depending on the provided Sorting s.
 func CompareSorting[A, B any](s Sorting, a Of[A], b Of[B]) (cmp int8) {
 	aid, aname, av := a.Aggregate()
 	bid, bname, bv := b.Aggregate()
@@ -158,16 +172,15 @@ func CompareSorting[A, B any](s Sorting, a Of[A], b Of[B]) (cmp int8) {
 	return
 }
 
-// Compare compares a and b based on the given sorting and returns
-//
-//	-1 if a < b
-//	0 is a == b
-//	1 if a > b
+// Compare returns the comparison result of two events, a and b, based on the
+// provided Sorting value s. The comparison result is -1 if a < b, 1 if a > b,
+// or 0 if a == b.
 func (s Sorting) Compare(a, b Of[any]) (cmp int8) {
 	return CompareSorting(s, a, b)
 }
 
-// Bool returns either b if dir=SortAsc or !b if dir=SortDesc.
+// Bool returns true if the given bool b matches the SortDirection, and false
+// otherwise. If SortDirection is SortDesc, the result is the negation of b.
 func (dir SortDirection) Bool(b bool) bool {
 	if dir == SortDesc {
 		return !b
@@ -187,36 +200,33 @@ func boolToCmp(b, same bool) int8 {
 
 var zeroRef AggregateRef
 
-// IsZero returns whether the ref has an empty name and a nil-UUID.
+// IsZero reports whether the AggregateRef is a zero value, meaning it has an
+// empty Name and a zero UUID.
 func (ref AggregateRef) IsZero() bool { return ref == zeroRef }
 
-// Aggregate returns the id and name of the aggregate, and -1 as its version.
-//
-// AggregateRef implements pick.AggregateProvider to allow for this:
-//
-//	var ref event.AggregateRef
-//	name := pick.AggregateName(ref)
-//	id := pick.AggregateID(ref)
+// Aggregate returns the ID, name, and version of the AggregateRef. The returned
+// version is always -1 as AggregateRef does not store version information.
 func (ref AggregateRef) Aggregate() (uuid.UUID, string, int) {
 	return ref.ID, ref.Name, -1
 }
 
-// Split splits the reference into its id and name.
+// Split returns the ID and Name of the AggregateRef.
 func (ref AggregateRef) Split() (uuid.UUID, string) {
 	return ref.ID, ref.Name
 }
 
-// String returns the string representation of the aggregate:
-//
-//	"NAME(ID)"
+// String returns a string representation of the AggregateRef in the format
+// "Name(UUID)".
 func (ref AggregateRef) String() string {
 	return fmt.Sprintf("%s(%s)", ref.Name, ref.ID)
 }
 
 var refStringRE = regexp.MustCompile(`([^()]+?)(\([a-z0-9-]+?\))`)
 
-// Parse parses the string-representation of an AggregateRef into ref.
-// Parse accepts values that are returned by AggregateRef.String().
+// Parse parses the given string representation of an AggregateRef and sets the
+// Name and ID fields of the receiver. The input string should be in the format
+// "Name(ID)" where Name is a non-empty string and ID is a valid UUID. Returns
+// an error if the input string is invalid or cannot be parsed.
 func (ref *AggregateRef) Parse(v string) error {
 	matches := refStringRE.FindStringSubmatch(v)
 	if len(matches) != 3 {

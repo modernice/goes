@@ -39,10 +39,8 @@ type memstore struct {
 	idMap  map[uuid.UUID]event.Event
 }
 
-// Insert inserts one or more
-// [event.Event](https://pkg.go.dev/github.com/modernice/goes/event#Event) into
-// the in-memory event store. If an event with the same ID already exists,
-// Insert returns an error.
+// Insert inserts the provided events into the in-memory event store. If an
+// event with the same ID already exists, an error is returned.
 func (s *memstore) Insert(ctx context.Context, events ...event.Event) error {
 	for _, evt := range events {
 		if err := s.insert(ctx, evt); err != nil {
@@ -107,7 +105,8 @@ func (s *memstore) Query(ctx context.Context, q event.Query) (<-chan event.Event
 	return out, errs, nil
 }
 
-// Delete deletes the provided events from the memory store.
+// Delete removes the specified events from the store. Events are provided as a
+// slice of event.Event.
 func (s *memstore) Delete(ctx context.Context, events ...event.Event) error {
 	defer s.reslice()
 	s.mux.Lock()

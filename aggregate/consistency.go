@@ -9,40 +9,46 @@ import (
 )
 
 const (
-	// ID means there is an inconsistency in the aggregate ids.
+	// InconsistentID is a ConsistencyKind indicating that an event has an
+	// inconsistent AggregateID with the expected one.
 	InconsistentID = ConsistencyKind(iota + 1)
 
-	// Name means there is an inconsistency in the aggregate names.
+	// InconsistentName is a ConsistencyKind representing an error caused by an
+	// event having an invalid AggregateName that does not match the expected name
+	// for the aggregate.
 	InconsistentName
 
-	// Version means there is an inconsistency in the event versions.
+	// InconsistentVersion indicates an inconsistency in the version of an Event
+	// within an Aggregate. This occurs when the version of an event is less than or
+	// equal to the current version of the aggregate, or when the version of a new
+	// event is less than or equal to the version of a previous event.
 	InconsistentVersion
 
-	// Time means there is an inconsistency in the event times.
+	// InconsistentTime indicates that an event has an invalid time, meaning it
+	// occurred before its preceding event in the sequence of events being
+	// validated.
 	InconsistentTime
 )
 
-// Error is a consistency error.
+// ConsistencyError represents an error that occurs when the consistency of an
+// aggregate's events is violated. It provides information about the kind of
+// inconsistency, the aggregate reference, the current version of the aggregate,
+// the list of events, and the index of the event causing the inconsistency.
 type ConsistencyError struct {
-	// Kind is the kind of incosistency.
-	Kind ConsistencyKind
-	// Aggregate is the handled aggregate.
-	Aggregate Ref
-	// CurrentVersion is the current version of the aggregate (without the tested changes).
+	Kind           ConsistencyKind
+	Aggregate      Ref
 	CurrentVersion int
-	// Events are the tested events.
-	Events []event.Event
-	// EventIndex is the index of the event that caused the Error.
-	EventIndex int
+	Events         []event.Event
+	EventIndex     int
 }
 
-// ConsistencyKind is the kind of inconsistency.
+// ConsistencyKind represents the kind of inconsistency found in an aggregate's
+// events when validating their consistency. Possible kinds are InconsistentID,
+// InconsistentName, InconsistentVersion, and InconsistentTime.
 type ConsistencyKind int
 
-// IsConsistencyError returns whether an error was caused by an inconsistency in
-// the events of an aggregate. An error is considered a consistency error if it
-// either unwraps to a *ConsistencyError or if it has an IsConsistencyError() bool
-// method that return true for the given error.
+// IsConsistencyError checks if the given error is a ConsistencyError or an
+// error implementing the IsConsistencyError method returning true.
 func IsConsistencyError(err error) bool {
 	var cerr *ConsistencyError
 	if errors.As(err, &cerr) {
@@ -57,10 +63,15 @@ func IsConsistencyError(err error) bool {
 	return false
 }
 
-// ConsistencyOption is an option for consistency validation.
+// ConsistencyOption is a functional option type used to configure consistency
+// validation for event aggregates. It allows customizing the behavior of the
+// ValidateConsistency function, such as ignoring time consistency checks.
 type ConsistencyOption func(*consistencyValidation)
 
-// IgnoreTime returns a ConsistencyOption that disables validation of event times.
+// IgnoreTime returns a ConsistencyOption that configures whether time
+// consistency checks should be ignored when validating aggregate event
+// consistency. If set to true, the validation will not check if events are
+// ordered by their time.
 func IgnoreTime(ignore bool) ConsistencyOption {
 	return func(cfg *consistencyValidation) {
 		cfg.ignoreTime = ignore
@@ -71,11 +82,11 @@ type consistencyValidation struct {
 	ignoreTime bool
 }
 
-// Validate tests the consistency of aggregate changes (events).
-//
-// The provided events are valid if they are correctly sorted by both version
-// and time. No two events may have the same version or time, and their versions
-// must be greater than 0.
+// ValidateConsistency checks the consistency of the provided events with the
+// given aggregate reference and current version. It returns a ConsistencyError
+// if any inconsistency is found, such as mismatched IDs, names, versions, or
+// event times. The consistency check can be configured with ConsistencyOption
+// functions.
 func ValidateConsistency[Data any, Events ~[]event.Of[Data]](ref Ref, currentVersion int, events Events, opts ...ConsistencyOption) error {
 	var cfg consistencyValidation
 	for _, opt := range opts {
@@ -158,7 +169,8 @@ func ValidateConsistency[Data any, Events ~[]event.Of[Data]](ref Ref, currentVer
 	return nil
 }
 
-// Event return the first event that caused an inconsistency.
+// Event returns the event that caused the ConsistencyError at the EventIndex.
+// If the EventIndex is out of bounds, it returns nil.
 func (err *ConsistencyError) Event() event.Event {
 	if err.EventIndex < 0 || err.EventIndex >= len(err.Events) {
 		return nil
@@ -166,10 +178,10 @@ func (err *ConsistencyError) Event() event.Event {
 	return err.Events[err.EventIndex]
 }
 
-// Error returns a string representation of the *ConsistencyError. The returned
-// string describes the inconsistency error in detail, including the invalid
-// AggregateID, AggregateName, AggregateVersion or Time. The method is used to
-// provide an error message for a *ConsistencyError.
+// Error returns a string representation of the ConsistencyError, describing the
+// inconsistency found in the aggregate event. It includes details such as the
+// event name, expected and actual values for AggregateID, AggregateName,
+// AggregateVersion, or Time depending on the Kind of inconsistency.
 func (err *ConsistencyError) Error() string {
 	evt := err.Event()
 	var (
@@ -214,15 +226,16 @@ func (err *ConsistencyError) Error() string {
 	}
 }
 
-// IsConsistencyError implements error.Is.
+// IsConsistencyError determines if the given error is a ConsistencyError or an
+// error that implements the IsConsistencyError method. It returns true if
+// either condition is met, otherwise false.
 func (err *ConsistencyError) IsConsistencyError() bool {
 	return true
 }
 
-// String returns a string representation of the ConsistencyKind
-// [ConsistencyKind]. It returns one of the following strings:
-// "<InconsistentID>", "<InconsistentName>", "<InconsistentVersion>",
-// "<InconsistentTime>", or "<UnknownInconsistency>".
+// String returns a string representation of the ConsistencyKind value, such as
+// "<InconsistentID>", "<InconsistentName>", "<InconsistentVersion>", or
+// "<InconsistentTime>".
 func (k ConsistencyKind) String() string {
 	switch k {
 	case InconsistentID:
@@ -237,8 +250,3 @@ func (k ConsistencyKind) String() string {
 		return "<UnknownInconsistency>"
 	}
 }
-
-// func currentVersion(a Aggregate) int {
-// 	_, _, v := a.Aggregate()
-// 	return v + len(a.AggregateChanges())
-// }

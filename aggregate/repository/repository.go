@@ -16,24 +16,27 @@ import (
 )
 
 var (
-	// ErrVersionNotFound is returned when trying to fetch an aggregate with a
-	// version higher than the current version of the aggregate.
+	// ErrVersionNotFound is an error returned when a requested aggregate version
+	// cannot be found in the event store or snapshot store.
 	ErrVersionNotFound = errors.New("version not found")
 
-	// ErrDeleted is returned when trying to fetch an aggregate that has been soft-deleted.
+	// ErrDeleted is an error returned when an aggregate has been soft-deleted and
+	// an operation on the deleted aggregate is attempted.
 	ErrDeleted = errors.New("aggregate was soft-deleted")
 )
 
-// Option is a repository option.
+// Option is a function that modifies the configuration of a Repository. It is
+// used to customize the behavior of a Repository by providing hooks, enabling
+// consistency validation, modifying event queries, and configuring snapshot
+// handling.
 type Option func(*Repository)
 
-// Repository provides an event-sourced aggregate repository for persisting and
-// querying aggregates. It uses an event.Store to persist and query aggregates.
-// Repository supports snapshots, hooks for inserting events, and query
-// modifiers. It also supports deleting an aggregate by deleting its events from
-// the event store. Use the Query method to query the event store for events
-// that match a given query and use the returned Histories to build the current
-// state of the queried aggregates.
+// Repository is responsible for saving, fetching, and deleting aggregates while
+// handling snapshots, consistency validation, and various hooks. It supports
+// querying events from the event store, applying an aggregate's event history,
+// and managing aggregate versions. Additionally, it provides customizable
+// options to modify queries and manage hooks before and after inserting events
+// or on failed insertions.
 type Repository struct {
 	store          event.Store
 	snapshots      snapshot.Store
@@ -47,23 +50,9 @@ type Repository struct {
 	validateConsistency bool
 }
 
-// WithSnapshots returns an Option that add a Snapshot Store to a Repository.
-//
-// A Repository that has a Snapshot Store will fetch the latest valid Snapshot
-// for an aggregate before fetching the necessary events to reconstruct the
-// state of the Agrgegate.
-//
-// An optional Snapshot Schedule can be provided to instruct the Repository to
-// make and save Snapshots into the Snapshot Store when appropriate:
-//
-//	var store snapshot.Store
-//	r := repository.New(store, snapshot.Every(3))
-//
-// The example above will make a Snapshot of an aggregate every third version of
-// the aggregate.
-//
-// Aggregates must implement snapshot.Marshaler & snapshot.Unmarshaler in order
-// for Snapshots to work.
+// WithSnapshots configures the Repository to use the provided snapshot.Store
+// and snapshot.Schedule for saving and loading aggregate snapshots. The
+// function panics if the provided snapshot.Store is nil.
 func WithSnapshots(store snapshot.Store, s snapshot.Schedule) Option {
 	if store == nil {
 		panic("nil Store")
@@ -74,59 +63,69 @@ func WithSnapshots(store snapshot.Store, s snapshot.Schedule) Option {
 	}
 }
 
-// ValidateConsistency returns an Option that configures a [Repository] to
-// validate the consistency of aggregate events before inserting the events into
-// the event store. Defaults to true.
+// ValidateConsistency is an Option for the Repository that configures whether
+// consistency validation should be performed when saving an Aggregate. If set
+// to true (default), the Repository will validate consistency before inserting
+// events into the event store. If set to false, consistency validation will be
+// skipped.
 func ValidateConsistency(validate bool) Option {
 	return func(r *Repository) {
 		r.validateConsistency = validate
 	}
 }
 
-// ModifyQueries returns an Option that adds mods as Query modifiers to a
-// Repository. When the Repository builds a Query, it is passed to every
-// modifier before the event store is queried.
+// ModifyQueries appends the provided query modifiers to the Repository's
+// queryModifiers slice. These modifiers are applied to event queries when
+// executing an aggregate.Query with the Repository.
 func ModifyQueries(mods ...func(ctx context.Context, q aggregate.Query, prev event.Query) (event.Query, error)) Option {
 	return func(r *Repository) {
 		r.queryModifiers = append(r.queryModifiers, mods...)
 	}
 }
 
-// BeforeInsert returns an Option that adds fn as a hook to a Repository. fn is
-// called before the changes to an aggregate are inserted into the event store.
+// BeforeInsert is an Option for the Repository that appends a function to the
+// beforeInsert slice. The function is called with the aggregate and context
+// before its events are inserted into the event store. If the function returns
+// an error, the insertion of events is aborted and the error is returned.
 func BeforeInsert(fn func(context.Context, aggregate.Aggregate) error) Option {
 	return func(r *Repository) {
 		r.beforeInsert = append(r.beforeInsert, fn)
 	}
 }
 
-// AfterInsert returns an Option that adds fn as a hook to a Repository. fn is
-// called after the changes to an aggregate are inserted into the event store.
+// AfterInsert appends a function to the Repository's afterInsert slice. The
+// function will be called after an Aggregate's events are successfully inserted
+// into the event store during the Save operation.
 func AfterInsert(fn func(context.Context, aggregate.Aggregate) error) Option {
 	return func(r *Repository) {
 		r.afterInsert = append(r.afterInsert, fn)
 	}
 }
 
-// OnFailedInsert returns an Option that adds fn as a hook to a Repository. fn
-// is called when the Repository fails to insert the changes to an aggregate
-// into the event store.
+// OnFailedInsert is an Option for the Repository that appends a function to the
+// onFailedInsert slice. The function is called with the aggregate, context and
+// error if an error occurs during the insertion of events into the event store.
+// If the function returns an error, that error is returned, otherwise the
+// original insertion error is returned.
 func OnFailedInsert(fn func(context.Context, aggregate.Aggregate, error) error) Option {
 	return func(r *Repository) {
 		r.onFailedInsert = append(r.onFailedInsert, fn)
 	}
 }
 
-// OnDelete returns an Option that adds fn as a hook to a Repository. fn is
-// called after an aggregate has been deleted.
+// OnDelete appends a function to the Repository's onDelete slice. The function
+// will be called with the aggregate and context when the Delete method is
+// called for the given aggregate. If the function returns an error, the
+// deletion process is halted and the error is returned.
 func OnDelete(fn func(context.Context, aggregate.Aggregate) error) Option {
 	return func(r *Repository) {
 		r.onDelete = append(r.onDelete, fn)
 	}
 }
 
-// New returns an event-sourced aggregate Repository. It uses the provided event
-// Store to persist and query aggregates.
+// New creates a new Repository instance with the provided event.Store and
+// options. The Repository is used for saving, fetching, and deleting aggregates
+// while handling snapshots, consistency validation, and various hooks.
 func New(store event.Store, opts ...Option) *Repository {
 	return newRepository(store, opts...)
 }
@@ -142,8 +141,10 @@ func newRepository(store event.Store, opts ...Option) *Repository {
 	return r
 }
 
-// Save saves the changes to an aggregate into the underlying event store and
-// flushes its changes afterwards (by calling a.FlushChanges).
+// Save stores the changes of an Aggregate into the event store and creates a
+// snapshot of the Aggregate if the snapshot schedule is met. It validates
+// consistency and calls the appropriate hooks before and after inserting
+// events. If an error occurs, it calls the OnFailedInsert hook.
 func (r *Repository) Save(ctx context.Context, a aggregate.Aggregate) error {
 	if r.validateConsistency {
 		id, name, version := a.Aggregate()
@@ -204,15 +205,10 @@ func (r *Repository) makeSnapshot(ctx context.Context, a aggregate.Aggregate) er
 	return nil
 }
 
-// Fetch fetches the events of the provided aggregate from the event store and
-// applies them to it to build its current state.
-//
-// It is allowed to pass an aggregate that does't have any events in the event
-// store yet.
-//
-// It is also allowed to pass an aggregate that has already events applied onto
-// it. Only events with a version higher than the current version of the passed
-// Aggregate are fetched from the event store.
+// Fetch retrieves the latest state of the provided aggregate by applying its
+// event history. If the aggregate implements snapshot.Target and a snapshot
+// store is configured, Fetch loads the latest snapshot and applies events that
+// occurred after the snapshot was taken.
 func (r *Repository) Fetch(ctx context.Context, a aggregate.Aggregate) error {
 	if _, ok := a.(snapshot.Target); ok && r.snapshots != nil {
 		return r.fetchLatestWithSnapshot(ctx, a)
@@ -300,9 +296,9 @@ func (r *Repository) queryEvents(ctx context.Context, q equery.Query) ([]event.E
 	return out, nil
 }
 
-// FetchVersion does the same as r.Fetch, but only fetches events up until the
-// given version v. If the event store has no event for the provided aggregate
-// with the requested version, ErrVersionNotFound is returned.
+// FetchVersion fetches the specified version of the aggregate from the event
+// store and applies its history. It returns ErrVersionNotFound if the requested
+// version is not found, and ErrDeleted if the aggregate was soft-deleted.
 func (r *Repository) FetchVersion(ctx context.Context, a aggregate.Aggregate, v int) error {
 	if v < 0 {
 		v = 0
@@ -350,7 +346,9 @@ func (r *Repository) fetchVersion(ctx context.Context, a aggregate.Aggregate, v 
 	return nil
 }
 
-// Delete deletes an aggregate by deleting its events from the event store.
+// Delete fetches the aggregate's events from the event store, deletes them, and
+// calls OnDelete hooks. It returns an error if the deletion fails or any of the
+// OnDelete hooks return an error.
 func (r *Repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
 	id, name, _ := a.Aggregate()
 
@@ -396,25 +394,10 @@ func (r *Repository) Delete(ctx context.Context, a aggregate.Aggregate) error {
 	return nil
 }
 
-// Query queries the event store for events that match the given Query and
-// returns a stream of aggregate Histories and errors. Use the returned
-// Histories to build the current state of the queried aggregates:
-//
-//	var r *Repository
-//	str, errs, err := r.Query(context.TODO(), query.New(...))
-//	// handle err
-//	histories, err := streams.Drain(context.TODO(), str, errs)
-//	// handle err
-//	for _, his := range histories {
-//		aggregateName := his.AggregateName()
-//		aggregateID := his.AggregateID()
-//
-//		// Create the aggregate from its name and UUID
-//		foo := newFoo(aggregateID)
-//
-//		// Then apply its History
-//		his.Apply(foo)
-//	}
+// Query returns a channel of aggregate.History and a channel of errors by
+// executing the provided aggregate.Query. An error is returned if there is an
+// issue with constructing the event.Query or querying events from the event
+// store.
 func (r *Repository) Query(ctx context.Context, q aggregate.Query) (<-chan aggregate.History, <-chan error, error) {
 	eq, err := r.makeQuery(ctx, q)
 	if err != nil {
@@ -454,9 +437,9 @@ func (r *Repository) makeQuery(ctx context.Context, aq aggregate.Query) (event.Q
 	return q, nil
 }
 
-// Use first fetches the aggregate a, then calls fn(a) and finally saves the
-// aggregate. If the RetryUse() option is used, Use() is retried up to the
-// configured maxTries option.
+// Use fetches an aggregate, executes the provided function, and saves the
+// aggregate. It retries the process if the aggregate is a Retryer and an
+// IsRetryable error occurs.
 func (r *Repository) Use(ctx context.Context, a aggregate.Aggregate, fn func() error) error {
 	var err error
 

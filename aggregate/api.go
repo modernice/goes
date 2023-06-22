@@ -5,31 +5,46 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// Aggregate is an event-sourced aggregate.
+// Aggregate represents an entity that encapsulates a collection of events and
+// their resulting state. It provides methods to apply new events, access the
+// current state, and retrieve the list of uncommitted changes. It can also be
+// used in conjunction with [Committer] to record and commit changes.
+// Additionally, Aggregate supports soft deletion and restoration through the
+// [SoftDeleter] and [SoftRestorer] interfaces.
 type Aggregate = Of[uuid.UUID]
 
-// Of is an event-sourced aggregate.
+// Of is an interface that represents an event-sourced aggregate with a
+// comparable ID. It provides methods to access the aggregate's ID, name,
+// version, and uncommitted changes, as well as to apply an event to the
+// aggregate. Implementations of this interface can be used alongside other
+// types such as [Committer], [SoftDeleter], and [SoftRestorer] to facilitate
+// event sourcing and soft deletion/restoration of aggregates.
 type Of[ID comparable] interface {
-	// Aggregate returns the id, name and version of the aggregate.
+	// Aggregate returns the ID, name, and version of an [Of] aggregate. It also
+	// provides methods for obtaining the aggregate's changes as a slice of
+	// [event.Event] and applying an event to the aggregate.
 	Aggregate() (ID, string, int)
 
-	// AggregateChanges returns the uncommited events of the aggregate.
+	// AggregateChanges returns a slice of all uncommitted events that have been
+	// recorded for the aggregate.
 	AggregateChanges() []event.Event
 
-	// ApplyEvent applies an event to the aggregate.
+	// ApplyEvent applies the given event.Event to the aggregate, updating its state
+	// according to the event data.
 	ApplyEvent(event.Event)
 }
 
-// A Committer is an aggregate that records and commits its changes.
-// The ApplyHistory() function calls RecordChange() and Commit() to reconstruct
-// the state of an aggregate, and the aggregate repository calls Commit() after
-// saving the aggregate changes to the event store.
+// Committer is an interface that handles recording and committing changes in
+// the form of events to an aggregate. It provides methods for recording changes
+// as a series of events and committing them to update the aggregate's state.
 type Committer interface {
-	// RecordChange records events that were applied to the aggregate.
+	// RecordChange records the given events and associates them with the aggregate
+	// in the Committer. These events will be applied and persisted when Commit is
+	// called.
 	RecordChange(...event.Event)
 
-	// Commit clears the recorded changes and updates the current version of the
-	// aggregate to the last recorded event.
+	// Commit records the changes made to an aggregate by appending the recorded
+	// events to the aggregate's event stream.
 	Commit()
 }
 
