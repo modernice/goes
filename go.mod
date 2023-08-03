@@ -14,7 +14,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/nats-io/nats.go v1.28.0
 	github.com/spf13/cobra v1.7.0
-	go.mongodb.org/mongo-driver v1.12.0
+	go.mongodb.org/mongo-driver v1.12.1
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	golang.org/x/sync v0.3.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19
