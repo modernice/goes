@@ -502,7 +502,7 @@ func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Eve
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
-	opts := options.Find()
+	opts := options.Find().SetAllowDiskUse(true)
 	opts = applySortings(opts, q.Sortings()...)
 
 	f := makeFilter(q)
