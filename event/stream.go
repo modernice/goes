@@ -5,7 +5,7 @@ import (
 )
 
 // Filter filters the events from the given input channel based on the provided
-// queries and returns a new channel with only the events that pass all the
+// queries and returns a new channel with only the events that match all the
 // queries. If no queries are provided, the input channel is returned unchanged.
 func Filter[D any](events <-chan Of[D], queries ...Query) <-chan Of[D] {
 	if len(queries) == 0 {
