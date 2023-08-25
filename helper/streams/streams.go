@@ -2,6 +2,7 @@ package streams
 
 import (
 	"context"
+	"errors"
 	"sync"
 )
 
@@ -26,11 +27,11 @@ func New[T any](in []T) <-chan T {
 // the buffer of the channel is set to the number of values and the values are
 // pushed into the channel before returning.
 //
-//  str, push, close := NewConcurrent(1, 2, 3)
-//  push(context.TODO(), 4, 5, 6)
-//	vals, err := All(str)
-//	// handle err
-//	// vals == []int{1, 2, 3, 4, 5, 6}
+//	 str, push, close := NewConcurrent(1, 2, 3)
+//	 push(context.TODO(), 4, 5, 6)
+//		vals, err := All(str)
+//		// handle err
+//		// vals == []int{1, 2, 3, 4, 5, 6}
 //
 // Use the Concurrent function to create a `push` function for an existing channel.
 func NewConcurrent[T any](vals ...T) (_ <-chan T, _push func(context.Context, ...T) error, _close func()) {
@@ -102,6 +103,26 @@ func Drain[T any](ctx context.Context, in <-chan T, errs ...<-chan error) ([]T, 
 // All is an alias for Drain(context.Background(), in, errs...).
 func All[T any](in <-chan T, errs ...<-chan error) ([]T, error) {
 	return Drain(context.Background(), in, errs...)
+}
+
+var errTakeDone = errors.New("take done")
+
+// Take receives elements from the input channel until it has received n
+// elements or the input channel is closed. It returns a slice containing the
+// received elements. If any error occurs during the process, it is returned as
+// the second return value.
+func Take[T any](ctx context.Context, n int, in <-chan T, errs ...<-chan error) ([]T, error) {
+	out := make([]T, 0, n)
+	if err := Walk(ctx, func(v T) error {
+		out = append(out, v)
+		if len(out) >= n {
+			return errTakeDone
+		}
+		return nil
+	}, in, errs...); err != nil && !errors.Is(err, errTakeDone) {
+		return out, err
+	}
+	return out, nil
 }
 
 // Walk receives from the given channel until it and and all provided error
