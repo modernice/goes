@@ -45,6 +45,7 @@ services:
       dockerfile: .docker/tag-test.Dockerfile
       args:
         TAGS: mongo
+        TEST_PATH: ./backend/mongo/...
     environment:
       - MONGOSTORE_URL=mongodb://mongostore:27017
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
