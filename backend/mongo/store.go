@@ -10,19 +10,44 @@ import (
 	stdtime "time"
 
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/mongo/driver"
+
 	"github.com/modernice/goes/backend/mongo/indices"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/helper/pick"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/mongo/driver"
 )
 
-// EventStore is a MongoDB event store.
+var (
+	// PreInsert represents a hook that is executed before inserting events into the
+	// EventStore. This allows for additional operations to be performed within the
+	// same transaction, such as validation or transformation of data. The hook
+	// function should return an error if anything goes wrong, causing the
+	// transaction to abort.
+	PreInsert = TransactionHook("pre:insert")
+
+	// PostInsert represents a hook that is executed after inserting events into the
+	// EventStore. This allows for additional operations to be performed within the
+	// same transaction, such as cleanup or logging operations. The hook function
+	// should return an error if anything goes wrong, causing the transaction to
+	// abort.
+	PostInsert = TransactionHook("post:insert")
+)
+
+// EventStore is a type that provides an interface to store, retrieve, and
+// manage events in a MongoDB database. It supports insertion and deletion of
+// events, querying for specific events, and consistency checks through version
+// validation. EventStore also allows for the use of hooks that can be executed
+// before or after inserting events into the store. It provides transactional
+// operations to ensure atomicity and consistency of the stored data. The
+// EventStore can be configured with various options such as MongoDB connection
+// details, collections for storing events and aggregate states, and the use of
+// transactions.
 type EventStore struct {
 	enc               codec.Encoding
 	url               string
@@ -33,41 +58,50 @@ type EventStore struct {
 	transactions      bool
 	validateVersions  bool
 	additionalIndices []mongo.IndexModel
+	preInsertHooks    []func(TransactionContext) error
+	postInsertHooks   []func(TransactionContext) error
 
 	client  *mongo.Client
 	db      *mongo.Database
 	entries *mongo.Collection
 	states  *mongo.Collection
 
+	isTransactionStore bool
+	tx                 *transaction
+	root               *EventStore
+
 	onceConnect sync.Once
 }
 
-// EventStoreOption is an eventStore option.
+// EventStoreOption is a function that modifies an EventStore. These options are
+// used to configure various aspects of the EventStore, such as the MongoDB
+// instance connection details, the collections where events and aggregate
+// states are stored, the use of transactions when inserting events, and more.
+// It also supports the use of hooks that are executed before or after inserting
+// events into the store.
 type EventStoreOption func(*EventStore)
 
-// A VersionError means the insertion of events failed because at least one of
-// the events has an invalid/inconsistent version.
+// VersionError represents an error that occurs when an event has an incorrect
+// version. This usually happens when the event's version does not match the
+// expected version based on the current state of its corresponding aggregate.
+// This error is used within the EventStore to ensure consistency of events and
+// aggregates. The fields in VersionError provide additional information about
+// the error, including the name and ID of the aggregate, the current version of
+// the aggregate, and the event that caused the error. Methods are provided to
+// return a string representation of the error and to check if it is a
+// consistency error.
 type VersionError struct {
-	// AggregateName is the name of the aggregate.
-	AggregateName string
-
-	// AggregateID is the UUID of the aggregate.
-	AggregateID uuid.UUID
-
-	// CurrentVersion is the current version of the aggregate.
+	AggregateName  string
+	AggregateID    uuid.UUID
 	CurrentVersion int
-
-	// Event is the event with the invalid version.
-	Event event.Event
-
-	err error
+	Event          event.Event
+	err            error
 }
 
-// Error returns a string representation of a VersionError. A VersionError
-// indicates that the insertion of events failed because at least one of the
-// events has an invalid/inconsistent version. The returned string describes the
-// validation error(s) and includes details about the aggregate's name, UUID,
-// and current version; and the event with the invalid version.
+// Error returns a string representation of the VersionError. If an underlying
+// error is present, it prepends "version error: " to the error message.
+// Otherwise, it generates a message indicating that an event has an incorrect
+// version compared to what was expected.
 func (err VersionError) Error() string {
 	if err.err != nil {
 		return fmt.Sprintf("version error: %s", err.err)
@@ -80,7 +114,11 @@ func (err VersionError) Error() string {
 	)
 }
 
-// IsConsistencyError reports whether a VersionError is a consistency error.
+// IsConsistencyError checks if a VersionError is a consistency error. It always
+// returns true as all VersionErrors are considered consistency errors. This
+// method is useful for handling errors where consistency needs to be ensured,
+// such as when the version of an event does not match the expected version
+// based on the current state of its corresponding aggregate.
 func (err VersionError) IsConsistencyError() bool {
 	return true
 }
@@ -88,7 +126,8 @@ func (err VersionError) IsConsistencyError() bool {
 // CommandError is a mongo.CommandError that satisfies aggregate.IsConsistencyError(err).
 type CommandError mongo.CommandError
 
-// CommandError returns the error as a mongo.CommandError.
+// CommandError CommandError returns a mongo.CommandError from the receiver. It
+// is used for type conversion from CommandError to mongo.CommandError.
 func (err CommandError) CommandError() mongo.CommandError {
 	return mongo.CommandError(err)
 }
@@ -133,8 +172,10 @@ func URL(url string) EventStoreOption {
 	}
 }
 
-// Client returns an Option that specifies the underlying mongo.Client to be
-// used by the Store.
+// Client returns an EventStoreOption that sets the provided mongo.Client to be
+// used by the EventStore. This option is useful when you already have a
+// mongo.Client and want to reuse it, instead of letting the EventStore create
+// its own client.
 func Client(c *mongo.Client) EventStoreOption {
 	return func(s *EventStore) {
 		s.client = c
@@ -171,6 +212,9 @@ func StateCollection(name string) EventStoreOption {
 // https://docs.mongodb.com/manual/core/transactions/
 func Transactions(tx bool) EventStoreOption {
 	return func(s *EventStore) {
+		if !tx && s.transactions && (len(s.preInsertHooks) > 0 || len(s.postInsertHooks) > 0) {
+			panic(fmt.Errorf("transactions must be enabled for transaction hooks"))
+		}
 		s.transactions = tx
 	}
 }
@@ -203,7 +247,80 @@ func WithIndices(models ...mongo.IndexModel) EventStoreOption {
 	}
 }
 
-// NewEventStore returns a MongoDB event.Store.
+// TransactionHook represents a hook that can be executed before or after
+// inserting events into the EventStore. The hook function should return an
+// error if anything goes wrong, causing the transaction to abort.
+type TransactionHook string
+
+// Transaction represents a set of operations that are executed within the same
+// session in an EventStore. It encapsulates the session of the MongoDB driver
+// and provides a reference to the associated EventStore. It also keeps track of
+// all events that have been inserted into the EventStore within its session.
+// Transactional operations ensure atomicity and consistency of data in the
+// EventStore, making sure that either all operations are successfully
+// completed, or none are in case of an error.
+type Transaction interface {
+	// Session retrieves the active MongoDB session associated with the current
+	// transaction. This function allows for direct interaction with the MongoDB
+	// session for operations not directly supported by the Transaction interface.
+	// It returns a [mongo.Session] instance that represents the current session.
+	// The Session method is only available within a Transaction and should not be
+	// used outside of it to avoid unexpected behaviour or errors.
+	Session() mongo.Session
+
+	// EventStore is a method of the Transaction interface. It returns an instance
+	// of the EventStore type that is associated with the transaction. This can be
+	// used to perform operations on the event store within the context of the
+	// transaction, ensuring consistency and atomicity of operations.
+	EventStore() *EventStore
+
+	// InsertedEvents retrieves all events that have been inserted into the store
+	// within the current transaction. The function is part of the [Transaction]
+	// interface and returns a slice of [event.Event]. This method is useful for
+	// tracking changes made during a transaction, allowing for operations such as
+	// rollbacks or additional processing based on the inserted events.
+	InsertedEvents() []event.Event
+}
+
+// TransactionContext is an interface that embeds the standard context.Context
+// and Transaction interfaces. It provides a way to pass transaction-specific
+// data, such as the session information and inserted events, along with the
+// usual context data. This is particularly useful when using hooks in the
+// EventStore, allowing hook functions to access additional information about
+// the ongoing transaction.
+type TransactionContext interface {
+	context.Context
+	Transaction
+}
+
+// WithTransactionHook configures a transaction hook for the EventStore. The
+// hook function will be called either before or after inserting events into the
+// EventStore, depending on the specified TransactionHook. If the
+// TransactionHook is "pre:insert", the hook function will be called before
+// insertion. If it's "post:insert", the function will be called after
+// insertion. The hook function should return an error if anything goes wrong,
+// causing the transaction to abort.
+func WithTransactionHook(hook TransactionHook, fn func(TransactionContext) error) EventStoreOption {
+	return func(s *EventStore) {
+		s.transactions = true
+		switch hook {
+		case PreInsert:
+			s.preInsertHooks = append(s.preInsertHooks, fn)
+		case PostInsert:
+			s.postInsertHooks = append(s.postInsertHooks, fn)
+		}
+	}
+}
+
+// NewEventStore creates a new instance of an EventStore. This function accepts
+// a codec.Encoding and any number of EventStoreOption functions. The EventStore
+// instance created by this function will use the provided codec.Encoding for
+// event serialization and deserialization. The EventStoreOptions are used to
+// configure the behavior and characteristics of the EventStore, such as the
+// underlying MongoDB client to use, the database and collections to store
+// events in, and whether or not to validate event versions. If no database or
+// collection names are provided via EventStoreOptions, default names will be
+// used. By default, version validation is enabled.
 func NewEventStore(enc codec.Encoding, opts ...EventStoreOption) *EventStore {
 	s := EventStore{
 		enc:              enc,
@@ -257,61 +374,124 @@ func (s *EventStore) StateCollection() *mongo.Collection {
 }
 
 // Insert saves the given events into the database.
-func (s *EventStore) Insert(ctx context.Context, events ...event.Event) error {
+func (s *EventStore) Insert(ctx context.Context, events ...event.Event) (out error) {
+	defer func() {
+		if out == nil {
+			return
+		}
+
+		var cmdError mongo.CommandError
+		if errors.As(out, &cmdError) && (cmdError.HasErrorLabel(driver.TransientTransactionError) ||
+			cmdError.HasErrorLabel(driver.UnknownTransactionCommitResult)) {
+			out = CommandError(cmdError)
+		}
+	}()
+
+	if s.isTransactionStore {
+		return s.txInsert(ctx, events)
+	}
+
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
-	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) (out error) {
-		defer func() {
-			if out == nil {
-				return
-			}
+	tx, err := s.createTransaction(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Session().EndSession(ctx)
 
-			var cmdError mongo.CommandError
-			if errors.As(out, &cmdError) && (cmdError.HasErrorLabel(driver.TransientTransactionError) ||
-				cmdError.HasErrorLabel(driver.UnknownTransactionCommitResult)) {
-				out = CommandError(cmdError)
-			}
-		}()
+	sessionCtx := mongo.NewSessionContext(ctx, tx.Session())
 
-		if s.transactions {
-			if err := ctx.StartTransaction(); err != nil {
-				return fmt.Errorf("start transaction: %w", err)
-			}
+	if s.transactions {
+		if err := sessionCtx.StartTransaction(); err != nil {
+			return fmt.Errorf("start transaction: %w", err)
 		}
+	}
 
-		st, err := s.validateEventVersions(ctx, events)
-		if err != nil {
-			return fmt.Errorf("validate version: %w", err)
+	txCtx := newTransactionContext(sessionCtx, tx)
+	for _, hook := range s.preInsertHooks {
+		if err := hook(txCtx); err != nil {
+			return s.abortTransaction(sessionCtx, fmt.Errorf("pre-insert hook: %w", err))
 		}
+	}
 
-		if err := s.insert(ctx, events); err != nil {
-			if s.transactions {
-				if abortError := ctx.AbortTransaction(ctx); abortError != nil {
-					return fmt.Errorf("abort transaction: %w", abortError)
-				}
-			}
-			return err
+	if err := s.insertInSession(sessionCtx, events); err != nil {
+		return err
+	}
+
+	tx.appendEvents(events)
+
+	for _, hook := range s.postInsertHooks {
+		if err := hook(txCtx); err != nil {
+			return s.abortTransaction(sessionCtx, fmt.Errorf("post-insert hook: %w", err))
 		}
+	}
 
-		if err := s.updateState(ctx, st, events); err != nil {
-			if s.transactions {
-				if abortError := ctx.AbortTransaction(ctx); abortError != nil {
-					return fmt.Errorf("abort transaction: %w", abortError)
-				}
-			}
-			return fmt.Errorf("update state: %w", err)
+	if s.transactions {
+		if err := sessionCtx.CommitTransaction(sessionCtx); err != nil {
+			return fmt.Errorf("commit transaction: %w", err)
 		}
+	}
 
-		if s.transactions {
-			if err := ctx.CommitTransaction(ctx); err != nil {
-				return fmt.Errorf("commit transaction: %w", err)
-			}
-		}
+	return nil
+}
 
-		return nil
-	})
+func (s *EventStore) txInsert(ctx context.Context, events []event.Event) error {
+	if err := s.root.connectOnce(ctx); err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+
+	sessionCtx := mongo.NewSessionContext(ctx, s.tx.Session())
+
+	if err := s.root.insertInSession(sessionCtx, events); err != nil {
+		return err
+	}
+
+	s.tx.appendEvents(events)
+
+	return nil
+}
+
+func (s *EventStore) createTransaction(ctx context.Context) (tx *transaction, err error) {
+	session, err := s.client.StartSession()
+	if err != nil {
+		return nil, fmt.Errorf("start session: %w", err)
+	}
+	return newTransaction(session, s), nil
+}
+
+func (s *EventStore) abortTransaction(ctx mongo.SessionContext, err error) error {
+	if s.isTransactionStore {
+		return s.root.abortTransaction(ctx, err)
+	}
+
+	if !s.transactions {
+		return err
+	}
+
+	if abortError := ctx.AbortTransaction(ctx); abortError != nil {
+		return fmt.Errorf("abort transaction with error %q: %w", err, abortError)
+	}
+
+	return err
+}
+
+func (s *EventStore) insertInSession(ctx mongo.SessionContext, events []event.Event) (out error) {
+	st, err := s.validateEventVersions(ctx, events)
+	if err != nil {
+		return s.abortTransaction(ctx, fmt.Errorf("validate versions: %w", err))
+	}
+
+	if err := s.insert(ctx, events); err != nil {
+		return s.abortTransaction(ctx, err)
+	}
+
+	if err := s.updateState(ctx, st, events); err != nil {
+		return s.abortTransaction(ctx, fmt.Errorf("update aggregate state: %w", err))
+	}
+
+	return nil
 }
 
 func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []event.Event) (state, error) {
@@ -408,20 +588,58 @@ func (s *EventStore) insert(ctx context.Context, events []event.Event) error {
 
 // Find returns the event with the specified UUID from the database if it exists.
 func (s *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, error) {
+	if s.isTransactionStore {
+		return s.root.Find(ctx, id)
+	}
+
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
+
 	res := s.entries.FindOne(ctx, bson.M{"id": id})
+
 	var e entry
 	if err := res.Decode(&e); err != nil {
 		return nil, fmt.Errorf("decode document: %w", err)
 	}
+
 	return e.event(s.enc)
 }
 
 // Delete deletes the given event from the database.
 func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
+	if s.root != nil {
+		return s.txDelete(ctx, events)
+	}
+
 	if len(events) == 0 {
+		return nil
+	}
+
+	if err := s.connectOnce(ctx); err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+
+	tx, err := s.createTransaction(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Session().EndSession(ctx)
+
+	sessionCtx := mongo.NewSessionContext(ctx, tx.Session())
+
+	if s.transactions {
+		if err := sessionCtx.StartTransaction(); err != nil {
+			return fmt.Errorf("start transaction: %w", err)
+		}
+	}
+
+	commit := func() error {
+		if s.transactions {
+			if err := sessionCtx.CommitTransaction(ctx); err != nil {
+				return fmt.Errorf("commit transaction: %w", err)
+			}
+		}
 		return nil
 	}
 
@@ -430,75 +648,78 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
 		ids[i] = evt.ID()
 	}
 
-	if err := s.connectOnce(ctx); err != nil {
+	if err := s.deleteInSession(sessionCtx, ids); err != nil {
+		return err
+	}
+
+	name, id, version, hasAggregateData := checkDeletion(events)
+	if !hasAggregateData {
+		return commit()
+	}
+
+	if _, err := s.states.DeleteOne(ctx, bson.D{
+		{Key: "aggregateName", Value: name},
+		{Key: "aggregateId", Value: id},
+		{Key: "aggregateVersion", Value: version},
+	}); err != nil {
+		return s.abortTransaction(sessionCtx, fmt.Errorf("delete aggregate state: %w", err))
+	}
+
+	return commit()
+}
+
+func (s *EventStore) deleteInSession(ctx mongo.SessionContext, ids []uuid.UUID) error {
+	if _, err := s.entries.DeleteMany(ctx, bson.D{
+		{Key: "id", Value: bson.D{{Key: "$in", Value: ids}}},
+	}); err != nil {
+		return s.abortTransaction(ctx, err)
+	}
+	return nil
+}
+
+func (s *EventStore) txDelete(ctx context.Context, events []event.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	if err := s.root.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
-	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) error {
-		if s.transactions {
-			if err := ctx.StartTransaction(); err != nil {
-				return fmt.Errorf("start transaction: %w", err)
-			}
-		}
+	sessionCtx := mongo.NewSessionContext(ctx, s.tx.Session())
 
-		abort := func(err error) error {
-			if s.transactions {
-				if abortError := ctx.AbortTransaction(ctx); abortError != nil {
-					return fmt.Errorf("abort transaction: %w", abortError)
-				}
-			}
-			return err
-		}
+	ids := make([]uuid.UUID, len(events))
+	for i, evt := range events {
+		ids[i] = evt.ID()
+	}
 
-		commit := func() error {
-			if s.transactions {
-				if err := ctx.CommitTransaction(ctx); err != nil {
-					return fmt.Errorf("commit transaction: %w", err)
-				}
-			}
-			return nil
-		}
+	if err := s.root.deleteInSession(sessionCtx, ids); err != nil {
+		return err
+	}
 
-		if _, err := s.entries.DeleteMany(ctx, bson.D{
-			{Key: "id", Value: bson.D{{Key: "$in", Value: ids}}},
-		}); err != nil {
-			return abort(err)
-		}
+	name, id, version, hasAggregateData := checkDeletion(events)
+	if !hasAggregateData {
+		return nil
+	}
 
-		aggregateName := pick.AggregateName(events[0])
-		aggregateID := pick.AggregateID(events[0])
-		aggregateVersion := pick.AggregateVersion(events[0])
+	if _, err := s.root.states.DeleteOne(ctx, bson.D{
+		{Key: "aggregateName", Value: name},
+		{Key: "aggregateId", Value: id},
+		{Key: "aggregateVersion", Value: version},
+	}); err != nil {
+		return s.root.abortTransaction(sessionCtx, fmt.Errorf("delete aggregate state: %w", err))
+	}
 
-		if aggregateName == "" || aggregateID == uuid.Nil || aggregateVersion != 1 {
-			return commit()
-		}
-
-		for _, evt := range events[1:] {
-			id, name, v := evt.Aggregate()
-			if name != aggregateName || id != aggregateID {
-				return commit()
-			}
-
-			if v > aggregateVersion {
-				aggregateVersion = v
-			}
-		}
-
-		if _, err := s.states.DeleteOne(ctx, bson.D{
-			{Key: "aggregateName", Value: aggregateName},
-			{Key: "aggregateId", Value: aggregateID},
-			{Key: "aggregateVersion", Value: aggregateVersion},
-		}); err != nil {
-			return abort(fmt.Errorf("delete aggregate state: %w", err))
-		}
-
-		return commit()
-	})
+	return nil
 }
 
 // Query queries the database for events filtered by Query q and returns an
 // streams.New for those events.
 func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Event, <-chan error, error) {
+	if s.isTransactionStore {
+		return s.root.Query(ctx, q)
+	}
+
 	if err := s.connectOnce(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect: %w", err)
 	}
@@ -562,9 +783,14 @@ func (s *EventStore) Query(ctx context.Context, q event.Query) (<-chan event.Eve
 // automatically on the first call to s.Insert, s.Find, s.Delete or s.Query. Use
 // Connect if you want to explicitly control when to connect to MongoDB.
 func (s *EventStore) Connect(ctx context.Context, opts ...*options.ClientOptions) (*mongo.Client, error) {
+	if s.isTransactionStore {
+		return s.root.Connect(ctx, opts...)
+	}
+
 	if err := s.connectOnce(ctx, opts...); err != nil {
 		return nil, err
 	}
+
 	return s.client, nil
 }
 
@@ -841,4 +1067,26 @@ func applySortings(opts *options.FindOptions, sortings ...event.SortOptions) *op
 		}
 	}
 	return opts.SetSort(sorts)
+}
+
+func checkDeletion(events []event.Event) (string, uuid.UUID, int, bool) {
+	head := events[0]
+	tail := events[1:]
+
+	aggregateName := pick.AggregateName(head)
+	aggregateID := pick.AggregateID(head)
+	aggregateVersion := pick.AggregateVersion(head)
+
+	for _, evt := range tail {
+		id, name, v := evt.Aggregate()
+		if name != aggregateName || id != aggregateID {
+			return aggregateName, aggregateID, aggregateVersion, false
+		}
+
+		if v > aggregateVersion {
+			aggregateVersion = v
+		}
+	}
+
+	return aggregateName, aggregateID, aggregateVersion, aggregateName != "" || aggregateID != uuid.Nil || aggregateVersion > 0
 }
