@@ -10,16 +10,17 @@ import (
 	stdtime "time"
 
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/mongo/driver"
+
 	"github.com/modernice/goes/backend/mongo/indices"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
 	"github.com/modernice/goes/helper/pick"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/mongo/driver"
 )
 
 // EventStore is a MongoDB event store.
@@ -33,6 +34,8 @@ type EventStore struct {
 	transactions      bool
 	validateVersions  bool
 	additionalIndices []mongo.IndexModel
+	preInsertHooks    []func(TransactionContext) error
+	postInsertHooks   []func(TransactionContext) error
 
 	client  *mongo.Client
 	db      *mongo.Database
@@ -171,6 +174,9 @@ func StateCollection(name string) EventStoreOption {
 // https://docs.mongodb.com/manual/core/transactions/
 func Transactions(tx bool) EventStoreOption {
 	return func(s *EventStore) {
+		if !tx && s.transactions && (len(s.preInsertHooks) > 0 || len(s.postInsertHooks) > 0) {
+			panic(fmt.Errorf("transactions must be enabled for transaction hooks"))
+		}
 		s.transactions = tx
 	}
 }
@@ -200,6 +206,52 @@ func NoIndex(ni bool) EventStoreOption {
 func WithIndices(models ...mongo.IndexModel) EventStoreOption {
 	return func(s *EventStore) {
 		s.additionalIndices = append(s.additionalIndices, models...)
+	}
+}
+
+var (
+	// PreInsert is a call hook before inserting events into the event store.
+	PreInsert = TransactionHook("pre:insert")
+
+	// PostInsert is a call hook after inserting events into the event store.
+	PostInsert = TransactionHook("post:insert")
+)
+
+type TransactionHook string
+
+type Transaction interface {
+	Session() mongo.SessionContext
+
+	// EventStore returns the event store itself to allow inserting (or deleting)
+	// more events within the same transaction.
+	EventStore() *EventStore
+
+	// InsertedEvents returns all events that were inserted during this transaction at a given point.
+	// They won't be inserted if the transaction is aborted.
+	// When calling EventStore().Insert(), the inserted events will be added to this list.
+	InsertedEvents() []event.Event
+
+	// ApplyEvents is a way for the transaction to be able to add newly inserted events to the transaction.
+	ApplyEvents(events []event.Event)
+}
+
+// TransactionContext  uses the same pattern, so I would like to stick to that.
+type TransactionContext interface {
+	context.Context
+	Transaction
+}
+
+// WithTransactionHook returns an EventStoreOption that adds a function
+// that will be executed as part of the insert transaction.
+func WithTransactionHook(hook TransactionHook, fn func(TransactionContext) error) EventStoreOption {
+	return func(s *EventStore) {
+		s.transactions = true
+		switch hook {
+		case PreInsert:
+			s.preInsertHooks = append(s.preInsertHooks, fn)
+		case PostInsert:
+			s.postInsertHooks = append(s.postInsertHooks, fn)
+		}
 	}
 }
 
@@ -257,61 +309,110 @@ func (s *EventStore) StateCollection() *mongo.Collection {
 }
 
 // Insert saves the given events into the database.
-func (s *EventStore) Insert(ctx context.Context, events ...event.Event) error {
+func (s *EventStore) Insert(ctx context.Context, events ...event.Event) (out error) {
+	defer func() {
+		if out == nil {
+			return
+		}
+
+		var cmdError mongo.CommandError
+		if errors.As(out, &cmdError) && (cmdError.HasErrorLabel(driver.TransientTransactionError) ||
+			cmdError.HasErrorLabel(driver.UnknownTransactionCommitResult)) {
+			out = CommandError(cmdError)
+		}
+	}()
+
 	if err := s.connectOnce(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 
-	return s.client.UseSession(ctx, func(ctx mongo.SessionContext) (out error) {
-		defer func() {
-			if out == nil {
-				return
-			}
+	var session mongo.Session
+	var sessionCtx mongo.SessionContext
 
-			var cmdError mongo.CommandError
-			if errors.As(out, &cmdError) && (cmdError.HasErrorLabel(driver.TransientTransactionError) ||
-				cmdError.HasErrorLabel(driver.UnknownTransactionCommitResult)) {
-				out = CommandError(cmdError)
-			}
-		}()
+	inExistingTx := false
+	tx := TransactionFromContext(ctx)
+	if tx != nil {
+		inExistingTx = true
+		session = tx.Session()
+		sessionCtx = tx.Session()
+	} else {
+		var err error
+		session, err = s.client.StartSession()
+		if err != nil {
+			return fmt.Errorf("start session: %w", err)
+		}
+		sessionCtx = mongo.NewSessionContext(ctx, session)
 
 		if s.transactions {
-			if err := ctx.StartTransaction(); err != nil {
+			if err := session.StartTransaction(); err != nil {
 				return fmt.Errorf("start transaction: %w", err)
 			}
+			tx = NewTransaction(sessionCtx, s)
 		}
+		defer session.EndSession(sessionCtx)
+	}
 
+	err := mongo.WithSession(sessionCtx, session, func(ctx mongo.SessionContext) (err error) {
 		st, err := s.validateEventVersions(ctx, events)
 		if err != nil {
 			return fmt.Errorf("validate version: %w", err)
 		}
 
-		if err := s.insert(ctx, events); err != nil {
+		var txCtx TransactionContext
+		if !inExistingTx {
 			if s.transactions {
-				if abortError := ctx.AbortTransaction(ctx); abortError != nil {
-					return fmt.Errorf("abort transaction: %w", abortError)
+				txCtx = NewTransactionContext(ctx, tx)
+				for _, fn := range s.preInsertHooks {
+					if handlerErr := fn(txCtx); handlerErr != nil {
+						return fmt.Errorf("pre-insert hook: %w", handlerErr)
+					}
 				}
 			}
+		}
+
+		if err := s.insert(sessionCtx, events); err != nil {
 			return err
 		}
 
-		if err := s.updateState(ctx, st, events); err != nil {
-			if s.transactions {
-				if abortError := ctx.AbortTransaction(ctx); abortError != nil {
-					return fmt.Errorf("abort transaction: %w", abortError)
-				}
-			}
+		if tx != nil {
+			tx.ApplyEvents(events)
+		}
+
+		if err := s.updateState(sessionCtx, st, events); err != nil {
 			return fmt.Errorf("update state: %w", err)
 		}
 
+		if !inExistingTx {
+			if s.transactions {
+				if txCtx == nil {
+					txCtx = NewTransactionContext(ctx, tx)
+				}
+				for _, fn := range s.postInsertHooks {
+					if hookErr := fn(txCtx); hookErr != nil {
+						return fmt.Errorf("post-insert hook: %w", hookErr)
+					}
+				}
+			}
+		}
+		return
+	})
+	if err != nil {
 		if s.transactions {
-			if err := ctx.CommitTransaction(ctx); err != nil {
+			if abortError := session.AbortTransaction(sessionCtx); abortError != nil {
+				return fmt.Errorf("abort transaction: %w: %s", abortError, err)
+			}
+		}
+		return err
+	}
+
+	if !inExistingTx {
+		if s.transactions {
+			if err := session.CommitTransaction(sessionCtx); err != nil {
 				return fmt.Errorf("commit transaction: %w", err)
 			}
 		}
-
-		return nil
-	})
+	}
+	return
 }
 
 func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []event.Event) (state, error) {
