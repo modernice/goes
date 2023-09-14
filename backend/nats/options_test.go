@@ -19,7 +19,7 @@ import (
 )
 
 func TestLoadBalancer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	enc := test.NewEncoder()

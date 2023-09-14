@@ -31,7 +31,7 @@ func TestBus_NATS_Core(t *testing.T) {
 }
 
 func TestBus_NATS_Core_SingleBusReceivesEvent(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	ereg := codec.New()
@@ -59,9 +59,9 @@ func TestBus_NATS_Core_SingleBusReceivesEvent(t *testing.T) {
 		nats.SubjectPrefix("cmdbus:"),
 	)
 
-	bus1, _, _ := newBusWith(ctx, enc, ebus1, cmdbus.ReceiveTimeout(0))
-	bus2, _, _ := newBusWith(ctx, enc, ebus2, cmdbus.ReceiveTimeout(0))
-	pubBus, _, _ := newBusWith(ctx, enc, epubBus, cmdbus.AssignTimeout(0))
+	bus1, _, _ := newBusWith(ctx, enc, ebus1, cmdbus.ReceiveTimeout(0), cmdbus.Debug(true))
+	bus2, _, _ := newBusWith(ctx, enc, ebus2, cmdbus.ReceiveTimeout(0), cmdbus.Debug(true))
+	pubBus, _, _ := newBusWith(ctx, enc, epubBus, cmdbus.AssignTimeout(0), cmdbus.Debug(true))
 
 	commands1, errs1, err := bus1.Subscribe(ctx, "foo-cmd")
 	if err != nil {
@@ -83,8 +83,9 @@ func TestBus_NATS_Core_SingleBusReceivesEvent(t *testing.T) {
 	}()
 
 	var count int
-	timeout := time.NewTimer(200 * time.Millisecond)
+	timeout := time.NewTimer(500 * time.Millisecond)
 	defer timeout.Stop()
+	var received []command.Command
 	for {
 		select {
 		case err := <-errs1:
@@ -93,13 +94,15 @@ func TestBus_NATS_Core_SingleBusReceivesEvent(t *testing.T) {
 			t.Fatalf("bus2: %v", err)
 		case err := <-dispatchError:
 			t.Fatalf("dispatch: %v", err)
-		case <-commands1:
+		case cmd := <-commands1:
 			count++
-		case <-commands2:
+			received = append(received, cmd)
+		case cmd := <-commands2:
 			count++
+			received = append(received, cmd)
 		case <-timeout.C:
 			if count != 1 {
-				t.Fatalf("command should have been received by exactly 1 bus; received by %d", count)
+				t.Fatalf("command should have been received by exactly 1 bus; received by %d\n\t%s", count, received)
 			}
 			return
 		}
@@ -146,7 +149,7 @@ func TestBus_NATS_JetStream_Durable(t *testing.T) {
 }
 
 func testNATSBus(t *testing.T, subEventBus, pubEventBus *nats.EventBus) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	ereg := codec.New()
