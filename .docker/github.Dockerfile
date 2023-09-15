@@ -1,4 +1,4 @@
-FROM golang:1.18
+FROM golang:1.21
 ARG TAGS
 ENV TAGS $TAGS
 WORKDIR /github
