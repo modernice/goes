@@ -60,8 +60,8 @@ func (u *User) Create(username string, age int) error {
 }
 
 func (u *User) created(e event.Of[UserCreation]) {
-	u.Username = e.Username
-	u.Age = e.Age
+	u.Username = e.Data().Username
+	u.Age = e.Data().Age
 }
 ```
 
