@@ -189,11 +189,8 @@ func (h *Handler) Run(ctx context.Context) (<-chan error, error) {
 
 func (h *Handler) handleEvents(ctx context.Context, events <-chan event.Event) <-chan error {
 	errs, fail := concurrent.Errors(ctx)
-	var wg sync.WaitGroup
 	for i := 0; i < h.workers; i++ {
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			for evt := range events {
 				fn, ok := h.EventHandler(evt.Name())
 				if !ok {
