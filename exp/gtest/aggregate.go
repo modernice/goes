@@ -69,11 +69,13 @@ func (test *ConstructorTest[A]) Run(t *testing.T) {
 // to a specific event with the specified data. It can be used to ensure that an
 // aggregate properly handles its internal state changes and produces the
 // correct events with the expected data.
-type TransitionTest[EventData comparable] struct {
+type TransitionTest[EventData any] struct {
 	transitionTestConfig
 
 	Event string
 	Data  EventData
+
+	isEqual func(EventData, EventData) bool
 }
 
 type transitionTestConfig struct {
@@ -106,9 +108,33 @@ func Once() TransitionTestOption {
 // event with the provided data when running the Run method on a *testing.T
 // instance.
 func Transition[EventData comparable](event string, data EventData, opts ...TransitionTestOption) *TransitionTest[EventData] {
+	return newTransitionTest(event, data, func(a, b EventData) bool { return a == b }, opts...)
+}
+
+// Comparable is an interface that provides a method for comparing two instances
+// of the same type. The Equal method should return true if the two instances
+// are considered equivalent, and false otherwise.
+type Comparable[T any] interface {
+	Equal(T) bool
+}
+
+// TransitionWithEqual creates a new TransitionTest with the specified event
+// name and data, using the Equal method of the Comparable interface to compare
+// event data. It is used for testing if an aggregate transitions to the
+// specified event with the provided data, when running the Run method on a
+// [*testing.T] instance. The comparison of event data is based on the Equal
+// method, which should be implemented by the provided EventData type.
+// TransitionTestOptions can be provided to customize the behavior of the
+// TransitionTest.
+func TransitionWithEqual[EventData Comparable[EventData]](event string, data EventData, opts ...TransitionTestOption) *TransitionTest[EventData] {
+	return newTransitionTest(event, data, func(a, b EventData) bool { return a.Equal(b) }, opts...)
+}
+
+func newTransitionTest[EventData any](event string, data EventData, isEqual func(EventData, EventData) bool, opts ...TransitionTestOption) *TransitionTest[EventData] {
 	test := TransitionTest[EventData]{
-		Event: event,
-		Data:  data,
+		Event:   event,
+		Data:    data,
+		isEqual: isEqual,
 	}
 
 	for _, opt := range opts {
@@ -163,11 +189,16 @@ func (test *TransitionTest[EventData]) testEquality(evt event.Event) error {
 		return fmt.Errorf("event name %q does not match expected event name %q", evt.Name(), test.Event)
 	}
 
+	cevt, ok := event.TryCast[EventData](evt)
+	if !ok {
+		return fmt.Errorf("event %q is not of type %T but of type %T", evt.Name(), test.Data, evt.Data())
+	}
+
 	var zero EventData
-	if test.Data != zero {
-		data := evt.Data()
-		if test.Data != data {
-			return fmt.Errorf("event data %T does not match expected event data %T\n%s", evt.Data(), test.Data, cmp.Diff(test.Data, data))
+	if !test.isEqual(test.Data, zero) {
+		data := cevt.Data()
+		if !test.isEqual(test.Data, data) {
+			return fmt.Errorf("event data %T does not match expected event data %T\n%s", data, test.Data, cmp.Diff(test.Data, data))
 		}
 	}
 
