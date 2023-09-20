@@ -1,4 +1,4 @@
-name: Test
+name: NATS Test
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 10
     if: |
       !startsWith(github.event.head_commit.message, 'docs') &&
@@ -30,4 +30,4 @@ jobs:
         go-version: 1.21.0
 
     - name: Test
-      run: make github-test
+      run: make nats-test
