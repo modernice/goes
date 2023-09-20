@@ -18,6 +18,15 @@ import (
 // handler.
 var ErrRunning = errors.New("event handler is already running")
 
+// DefaultStartupQuery constructs a default query for the startup of an event
+// handler. It uses the provided slice of event names to create a query that
+// sorts events by their timestamps. This function is typically used to
+// determine which events should be processed during the startup of an
+// event handler.
+func DefaultStartupQuery(events []string) query.Query {
+	return query.New(query.Name(events...), query.SortByTime())
+}
+
 // Handler is a type that processes events from an event bus. It associates
 // event names with specific functions, which are called whenever their
 // respective event occurs. Handler uses multiple workers to process events
@@ -30,6 +39,7 @@ var ErrRunning = errors.New("event handler is already running")
 type Handler struct {
 	bus          event.Bus
 	startupStore event.Store
+	startupQuery func(event.Query) event.Query
 	workers      int
 
 	mux        sync.RWMutex
@@ -44,13 +54,37 @@ type Handler struct {
 // constructing a new [Handler] using the New function.
 type Option func(*Handler)
 
-// Startup sets the startup event store for a [Handler]. This store is used to
-// handle events when the [Handler] starts up. The Startup option is typically
-// used to initialize the system with initial event handling on startup or
-// implement a "catch-up" mechanism for their event handlers.
-func Startup(store event.Store) Option {
+// Startup configures a [Handler] with a specified event store and options for
+// querying events. It is used to setup the event store that the [Handler] will
+// use to fetch events during startup. This can be used to initialize the system
+// with initial event handling on startup or implement a "catch-up" mechanism
+// for their event handlers. The query options allow customization of how the
+// events are fetched from the store. The returned [Option] can be used when
+// creating a new [Handler].
+//
+// If [query.Option]s are provided, they will be merged with the default query
+// using [query.Merge]. If you want to _replace_ the default query, use the
+// [StartupQuery] option instead of providing [query.Option]s to [Startup].
+func Startup(store event.Store, opts ...query.Option) Option {
 	return func(h *Handler) {
 		h.startupStore = store
+		if len(opts) > 0 {
+			StartupQuery(func(q event.Query) event.Query {
+				return query.Merge(q, query.New(opts...))
+			})(h)
+		}
+	}
+}
+
+// StartupQuery is a function that configures a [Handler]'s startup query. It
+// accepts a function that takes and returns an event.Query as its argument. The
+// provided function will be used by the [Handler] to modify the default query
+// used when fetching events from the event store during startup. The resulting
+// [Option] can be used when constructing a new [Handler], allowing
+// customization of the startup behavior of the [Handler].
+func StartupQuery(fn func(event.Query) event.Query) Option {
+	return func(h *Handler) {
+		h.startupQuery = fn
 	}
 }
 
@@ -89,6 +123,11 @@ func New(bus event.Bus, opts ...Option) *Handler {
 	if h.workers < 1 {
 		h.workers = 1
 	}
+
+	if h.startupQuery == nil && h.startupStore != nil {
+		h.startupQuery = func(q event.Query) event.Query { return q }
+	}
+
 	return h
 }
 
@@ -205,10 +244,9 @@ func (h *Handler) handleEvents(ctx context.Context, events <-chan event.Event) <
 }
 
 func (h *Handler) startup(ctx context.Context, eventNames []string) error {
-	str, errs, err := h.startupStore.Query(ctx, query.New(
-		query.Name(eventNames...),
-		query.SortByTime(),
-	))
+	q := h.startupQuery(DefaultStartupQuery(eventNames))
+
+	str, errs, err := h.startupStore.Query(ctx, q)
 	if err != nil {
 		return fmt.Errorf("query events %v: %w", eventNames, err)
 	}
