@@ -1,7 +1,8 @@
 # goes - Event-Sourcing Framework
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/modernice/goes.svg)](https://pkg.go.dev/github.com/modernice/goes)
-[![Test](https://github.com/modernice/goes/actions/workflows/test.yml/badge.svg)](https://github.com/modernice/goes/actions/workflows/test.yml)
+[![MongoDB](https://github.com/modernice/goes/actions/workflows/mongo-test.yml/badge.svg)](https://github.com/modernice/goes/actions/workflows/mongo-test.yml)
+[![NATS](https://github.com/modernice/goes/actions/workflows/nats-test.yml/badge.svg)](https://github.com/modernice/goes/actions/workflows/nats-test.yml)
 [![Documentation](https://img.shields.io/badge/Docs-goes.modernice.dev-blue)](https://goes.modernice.dev)
 
 `goes` is a collection of interfaces, tools, and backend implementations that

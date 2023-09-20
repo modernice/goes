@@ -1,4 +1,4 @@
-name: MongoDB Test
+name: MongoDB
 
 on:
   push:
