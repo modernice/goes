@@ -28,8 +28,10 @@ func TestNew(t *testing.T) {
 				Name("baz", "foobar"),
 			},
 			want: Query{
-				names:    []string{"foo", "bar", "baz", "foobar"},
-				versions: version.Filter(),
+				Q: Q{
+					Names:    []string{"foo", "bar", "baz", "foobar"},
+					Versions: version.Filter(),
+				},
 			},
 		},
 		{
@@ -39,8 +41,10 @@ func TestNew(t *testing.T) {
 				ID(ids[2:4]...),
 			},
 			want: Query{
-				ids:      ids,
-				versions: version.Filter(),
+				Q: Q{
+					IDs:      ids,
+					Versions: version.Filter(),
+				},
 			},
 		},
 		{
@@ -54,12 +58,14 @@ func TestNew(t *testing.T) {
 				),
 			},
 			want: Query{
-				versions: version.Filter(
-					version.Exact(1, 2, 3),
-					version.InRange(version.Range{0, 100}),
-					version.Min(4),
-					version.Max(20),
-				),
+				Q: Q{
+					Versions: version.Filter(
+						version.Exact(1, 2, 3),
+						version.InRange(version.Range{0, 100}),
+						version.Min(4),
+						version.Max(20),
+					),
+				},
 			},
 		},
 	}
@@ -102,9 +108,11 @@ func TestMerge(t *testing.T) {
 
 	q := Merge(queries...)
 	want := Query{
-		ids:      ids[:3],
-		names:    []string{"foo", "bar", "foobar", "barbaz"},
-		versions: version.Filter(version.Exact(1, 2, 3, 4), version.Min(4), version.Max(9)),
+		Q: Q{
+			IDs:      ids[:3],
+			Names:    []string{"foo", "bar", "foobar", "barbaz"},
+			Versions: version.Filter(version.Exact(1, 2, 3, 4), version.Min(4), version.Max(9)),
+		},
 	}
 
 	if !reflect.DeepEqual(q, want) {

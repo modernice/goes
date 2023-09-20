@@ -7,38 +7,87 @@ import (
 	"github.com/modernice/goes/event/query/version"
 )
 
-// Query is a filter for Aggregates based on their name, ID, version, and
-// sorting options. It is used to selectively process Aggregates that match the
-// specified criteria.
+// Query represents a set of criteria for filtering aggregates based on their
+// name, ID, version, and sorting options. This type is used to selectively
+// process aggregates that meet the specified conditions. It contains fields for
+// Names, IDs, Versions, and Sortings which are defined by the [Q] struct.
+//
+// Furthermore, it allows modification through [Option] functions to fine-tune
+// the behavior of a Query, such as specifying names, IDs, version constraints
+// or sorting options. It also provides methods to merge multiple queries into
+// one or expand an aggregate.Query into a Query. Also included are methods to
+// add names, IDs, version constraints and sorting options to the Query.
+//
+// In addition to these functionalities, Query also works with [Tagger] to
+// determine whether a specific tag is associated with an aggregate.
 type Query struct {
-	names    []string
-	ids      []uuid.UUID
-	versions version.Constraints
-	sortings []aggregate.SortOptions
-}
-
-// Option is a function that modifies a query builder. It allows to configure
-// the aggregate Query by adding names, IDs, version constraints, and sorting
-// options to the builder. Multiple Option functions can be combined to create
-// complex queries.
-type Option func(*builder)
-
-type builder struct {
-	Query
+	Q
 
 	versionConstraints []version.Option
 }
 
-// New creates a Query with the provided options. The returned Query can be used
-// to filter aggregates based on their name, ID, version, and sorting options.
-func New(opts ...Option) Query {
-	var b builder
-	return b.build(opts...)
+// Q is a struct that represents a filter for aggregates based on their name,
+// ID, version, and sorting options. It provides a way to selectively process
+// aggregates that match specified criteria. This type is used in the
+// construction of a [Query] and contains fields for Names, IDs, Versions, and
+// Sortings.
+type Q struct {
+	Names    []string
+	IDs      []uuid.UUID
+	Versions version.Constraints
+	Sortings []aggregate.SortOptions
 }
 
-// Merge combines multiple aggregate.Query instances into a single Query. It
-// merges the names, IDs, and version constraints of the provided queries and
-// returns a new Query with the merged options.
+// Option is a function type that modifies a Query. It is typically used to
+// fine-tune the behavior of a Query, such as specifying the names, IDs, version
+// constraints, or sorting options that the Query should filter by. By default,
+// an Option has no effect on the Query unless explicitly provided during the
+// creation of the Query. Options can be combined and ordered in any way,
+// providing flexible control over how a Query operates.
+type Option func(*Query)
+
+// New constructs a new [Query] with the provided options. The options can
+// specify names, IDs, version constraints, and sorting options to fine-tune the
+// behavior of the [Query]. If no options are provided, it returns an empty
+// [Query].
+func New(opts ...Option) Query {
+	var q Query
+	for _, opt := range opts {
+		opt(&q)
+	}
+	q.Q.Versions = version.Filter(q.versionConstraints...)
+	q.versionConstraints = nil
+	return q
+}
+
+// Expand converts an aggregate.Query into a Query. If the provided
+// aggregate.Query is already a Query, it is returned unchanged. Otherwise, a
+// new Query is created with the names, IDs, version constraints and sorting
+// options of the provided aggregate.Query.
+func Expand(q aggregate.Query) Query {
+	if q, ok := q.(Query); ok {
+		return q
+	}
+
+	v := q.Versions()
+
+	return New(
+		Name(q.Names()...),
+		ID(q.IDs()...),
+		Version(
+			version.Exact(v.Exact()...),
+			version.Min(v.Min()...),
+			version.Max(v.Max()...),
+			version.InRange(v.Ranges()...),
+		),
+		SortByMulti(q.Sortings()...),
+	)
+}
+
+// Merge combines multiple aggregate queries into a single query. The resulting
+// query includes the names, IDs, and version constraints of each provided
+// query. The returned query can be used to filter aggregates that match any of
+// the criteria specified in the merged queries.
 func Merge(queries ...aggregate.Query) Query {
 	var opts []Option
 	versionConstraints := make([]version.Constraints, 0, len(queries))
@@ -49,79 +98,100 @@ func Merge(queries ...aggregate.Query) Query {
 	return New(append(opts, Version(version.DryMerge(versionConstraints...)...))...)
 }
 
-// Name adds the specified names to the aggregate names filter in the query
-// builder.
+// Name adds provided names to the aggregate names that a Query targets. It
+// ensures that each name is unique within the Query. If a name already exists
+// in the Query, it will not be added again. The function returns an Option to
+// be used with New or other functions that accept Options.
 func Name(names ...string) Option {
-	return func(b *builder) {
+	return func(q *Query) {
 	L:
 		for _, name := range names {
-			for _, name2 := range b.names {
+			for _, name2 := range q.Q.Names {
 				if name == name2 {
 					continue L
 				}
 			}
-			b.names = append(b.names, name)
+			q.Q.Names = append(q.Q.Names, name)
 		}
 	}
 }
 
-// ID adds the specified UUIDs to the query, ensuring that only unique IDs are
-// stored. The query will match aggregates with any of the provided IDs.
+// ID is an option for a Query that specifies a slice of UUIDs to filter
+// Aggregates by. The provided UUIDs are added to the Query's existing list of
+// IDs, with any duplicates being ignored. Only Aggregates with an ID present in
+// this list will be considered when processing the Query.
 func ID(ids ...uuid.UUID) Option {
-	return func(b *builder) {
+	return func(q *Query) {
 	L:
 		for _, id := range ids {
-			for _, id2 := range b.ids {
+			for _, id2 := range q.Q.IDs {
 				if id == id2 {
 					continue L
 				}
 			}
-			b.ids = append(b.ids, id)
+			q.Q.IDs = append(q.Q.IDs, id)
 		}
 	}
 }
 
-// Version adds the specified version constraints to the query, ensuring that
-// only Aggregates with matching versions are included. The constraints are
-// combined using the version package's Filter function.
+// Version appends the provided version constraints to the version constraints
+// of a Query. The constraints are used to filter aggregates based on their
+// versions when processing the Query. The function accepts an arbitrary number
+// of version.Option as its parameters. These options define the exact, minimum,
+// maximum, or range of versions that an aggregate must have in order to match
+// the Query.
 func Version(constraints ...version.Option) Option {
-	return func(b *builder) {
-		b.versionConstraints = append(b.versionConstraints, constraints...)
+	return func(q *Query) {
+		q.versionConstraints = append(q.versionConstraints, constraints...)
 	}
 }
 
-// SortBy sets the sorting option for the aggregate query by specifying the sort
-// field and direction. It replaces any existing sortings with the provided one.
+// SortBy sets the sorting options for a Query. It determines how the Aggregates
+// that match the Query will be sorted. SortBy takes a sort parameter of type
+// [aggregate.Sorting] to specify the field to sort by, and a direction
+// parameter of type [aggregate.SortDirection] to specify the direction of
+// sorting. It returns an [Option] that can be used to build or modify a Query.
 func SortBy(sort aggregate.Sorting, dir aggregate.SortDirection) Option {
-	return func(b *builder) {
-		b.sortings = []aggregate.SortOptions{{Sort: sort, Dir: dir}}
+	return func(q *Query) {
+		q.Q.Sortings = []aggregate.SortOptions{{Sort: sort, Dir: dir}}
 	}
 }
 
-// SortByMulti appends multiple aggregate.SortOptions to the sortings of a
-// Query.
+// SortByMulti appends multiple sort options to a Query. It allows the sorting
+// of aggregates in a Query based on multiple criteria. This function is an
+// Option type, meaning it modifies the state of a Query when passed into the
+// New function. The sort options are specified by providing one or more
+// instances of aggregate.SortOptions.
 func SortByMulti(sorts ...aggregate.SortOptions) Option {
-	return func(b *builder) {
-		b.sortings = append(b.sortings, sorts...)
+	return func(q *Query) {
+		q.Q.Sortings = append(q.Q.Sortings, sorts...)
 	}
 }
 
-// Tagger is an interface that provides a method to check if a specific tag is
-// present. It is used to filter aggregates based on their tags.
+// Tagger is an interface that provides a method for determining if a specific
+// tag is associated with an object. It's primarily used in the context of
+// aggregate queries, where it can be implemented to filter out aggregates based
+// on their tagging.
 type Tagger interface {
-	// HasTag checks if the specified tag is present in the Tagger interface. It
-	// returns true if the tag is found, and false otherwise.
+	// HasTag checks if a given tag is associated with the [Tagger] interface. It
+	// returns true if the tag exists, and false otherwise.
 	HasTag(string) bool
 }
 
 type queryWithTags interface {
 	aggregate.Query
 
-	// Tags returns the tags associated with the queryWithTags interface. It is used
-	// to filter aggregates based on their tags.
+	// Tags returns a slice of tag strings associated with the query. These tags can
+	// be used to further refine or categorize the results returned by the query.
 	Tags() []string
 }
 
+// Test filters an aggregate based on the criteria specified in the provided
+// aggregate query. It checks if the name, ID, and version of the aggregate
+// match the names, IDs, and versions specified in the query. If the aggregate
+// also implements the [Tagger] interface and the query includes tags, Test
+// checks if any of those tags are associated with the aggregate. Test returns
+// true if all checks pass, otherwise it returns false.
 func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
 	id, name, v := a.Aggregate()
 
@@ -176,9 +246,12 @@ func Test[D any](q aggregate.Query, a aggregate.Aggregate) bool {
 	return true
 }
 
-// EventQueryOpts returns a slice of query.Option for an aggregate.Query,
-// converting the aggregate query's names, IDs, and version constraints into
-// corresponding event query options.
+// EventQueryOpts converts an [aggregate.Query] into a slice of [query.Option].
+// The returned options can be used to filter events based on the names, IDs,
+// and version constraints of the original aggregate query.
+
+// EventQueryOpts is typically used to convert the aggregate query into a query
+// that can be passed to an event store.
 func EventQueryOpts(q aggregate.Query) []query.Option {
 	var opts []query.Option
 	if names := q.Names(); len(names) > 0 {
@@ -209,33 +282,25 @@ func EventQueryOpts(q aggregate.Query) []query.Option {
 
 // Names returns a slice of aggregate names that the Query targets.
 func (q Query) Names() []string {
-	return q.names
+	return q.Q.Names
 }
 
 // IDs returns a slice of UUIDs that the Query filters by.
 func (q Query) IDs() []uuid.UUID {
-	return q.ids
+	return q.Q.IDs
 }
 
 // Versions returns the version constraints of the Query, which are used to
 // filter aggregates based on their versions.
 func (q Query) Versions() version.Constraints {
-	return q.versions
+	return q.Q.Versions
 }
 
 // Sortings returns the sorting options of the Query. The returned sort options
 // determine the order in which Aggregates should be sorted when processing the
 // Query.
 func (q Query) Sortings() []aggregate.SortOptions {
-	return q.sortings
-}
-
-func (b builder) build(opts ...Option) Query {
-	for _, opt := range opts {
-		opt(&b)
-	}
-	b.versions = version.Filter(b.versionConstraints...)
-	return b.Query
+	return q.Q.Sortings
 }
 
 func stringsContains(vals []string, s string) bool {
