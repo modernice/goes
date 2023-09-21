@@ -40,13 +40,18 @@ func Cached[Aggregate aggregate.TypedAggregate](repo aggregate.TypedRepository[A
 	}
 }
 
-// Clear empties the cache of the CachedRepository. All aggregates currently
-// held in memory are removed, and subsequent fetches will retrieve aggregates
-// from the underlying TypedRepository. This operation is safe for concurrent
-// use.
-func (repo *CachedRepository[Aggregate]) Clear() {
+// Clear removes the specified aggregates from the cache of a CachedRepository.
+// If no UUIDs are provided, it clears all aggregates from the cache. This
+// operation is safe for concurrent use.
+func (repo *CachedRepository[Aggregate]) Clear(ids ...uuid.UUID) {
 	repo.mux.Lock()
 	defer repo.mux.Unlock()
+	if len(ids) > 0 {
+		for _, id := range ids {
+			delete(repo.cache, id)
+		}
+		return
+	}
 	maps.Clear(repo.cache)
 }
 
