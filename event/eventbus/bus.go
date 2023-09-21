@@ -8,18 +8,6 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// New creates and returns a new event.Bus backed by a channel-based
-// implementation. The returned event.Bus allows subscribing to events,
-// publishing events, and managing event subscriptions.
-func New() event.Bus {
-	bus := &chanbus{
-		events: make(map[string]*eventSubscription),
-		queue:  make(chan event.Event),
-	}
-	go bus.work()
-	return bus
-}
-
 type chanbus struct {
 	sync.RWMutex
 
@@ -48,6 +36,27 @@ type recipient struct {
 type subscribeJob struct {
 	rcpt recipient
 	done chan struct{}
+}
+
+// New creates and returns a new event.Bus backed by a channel-based
+// implementation. The returned event.Bus allows subscribing to events,
+// publishing events, and managing event subscriptions.
+func New() event.Bus {
+	bus := &chanbus{
+		events: make(map[string]*eventSubscription),
+		queue:  make(chan event.Event),
+		done:   make(chan struct{}),
+	}
+	go bus.work()
+	return bus
+}
+
+func (bus *chanbus) Close() {
+	select {
+	case <-bus.done:
+	default:
+		close(bus.done)
+	}
 }
 
 // Subscribe creates a subscription for the specified events and returns
@@ -168,10 +177,12 @@ func (sub *eventSubscription) subscribe(ctx context.Context) (recipient, error) 
 		go func() {
 			<-ctx.Done()
 			close(rcpt.unsubbed)
-			sub.unsubscribeQueue <- subscribeJob{
+			job := subscribeJob{
 				rcpt: rcpt,
 				done: make(chan struct{}),
 			}
+			sub.unsubscribeQueue <- job
+			<-job.done
 		}()
 	}()
 
@@ -190,10 +201,10 @@ func (sub *eventSubscription) work() {
 			sub.recipients = append(sub.recipients, job.rcpt)
 			close(job.done)
 		case job := <-sub.unsubscribeQueue:
-			close(job.rcpt.events)
-			close(job.rcpt.errs)
 			for i, rcpt := range sub.recipients {
 				if rcpt == job.rcpt {
+					close(rcpt.errs)
+					close(rcpt.events)
 					sub.recipients = append(sub.recipients[:i], sub.recipients[i+1:]...)
 					break
 				}

@@ -72,6 +72,7 @@ func (ex *Expectations) Result() error {
 // Apply applies the result to the provided test. If the result is an error,
 // t.Fatal(err) is called.
 func (ex *Expectations) Apply(t *testing.T) {
+	t.Helper()
 	if err := ex.Result(); err != nil {
 		t.Fatal(err)
 	}
@@ -198,20 +199,43 @@ func (ex *Expectations) Events(sub Subscription, timeout time.Duration, names ..
 // within the given duration.
 func (ex *Expectations) Closed(sub Subscription, timeout time.Duration) {
 	count := ex.init()
+
 	go func() {
 		defer ex.wg.Done()
+
 		start := time.Now()
+
+		// Create a timer for timeout
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		// Check events channel
 		select {
 		case <-ex.ctx.Done():
 			return
-		case <-time.After(timeout):
-			ex.err("closed", count, fmt.Errorf("channels not closed [duration=%v]", time.Since(start)))
+		case <-timer.C:
+			ex.err("closed", count, fmt.Errorf("channels not closed [duration=%v]", timeout))
 			return
-		case _, ok := <-sub.events:
+		case evt, ok := <-sub.events:
 			if ok {
-				ex.err("closed", count, fmt.Errorf("event channel not closed [duration=%v]", time.Since(start)))
+				ex.err("closed", count, fmt.Errorf("event channel not closed [duration=%v]\n%s", time.Since(start), evt))
 				return
 			}
+		}
+
+		// Reset the timer for the next check
+		if !timer.Stop() {
+			<-timer.C
+		}
+		timer.Reset(timeout)
+
+		// Check errs channel
+		select {
+		case <-ex.ctx.Done():
+			return
+		case <-timer.C:
+			ex.err("closed", count, fmt.Errorf("channels not closed [duration=%v]", timeout))
+			return
 		case _, ok := <-sub.errs:
 			if ok {
 				ex.err("closed", count, fmt.Errorf("error channel not closed [duration=%v]", time.Since(start)))
@@ -220,6 +244,33 @@ func (ex *Expectations) Closed(sub Subscription, timeout time.Duration) {
 		}
 	}()
 }
+
+// // Closed expects the event and error channels of a subscription to be closed
+// // within the given duration.
+// func (ex *Expectations) Closed(sub Subscription, timeout time.Duration) {
+// 	count := ex.init()
+// 	go func() {
+// 		defer ex.wg.Done()
+// 		start := time.Now()
+// 		select {
+// 		case <-ex.ctx.Done():
+// 			return
+// 		case <-time.After(timeout):
+// 			ex.err("closed", count, fmt.Errorf("channels not closed [duration=%v]", time.Since(start)))
+// 			return
+// 		case _, ok := <-sub.events:
+// 			if ok {
+// 				ex.err("closed", count, fmt.Errorf("event channel not closed [duration=%v]", time.Since(start)))
+// 				return
+// 			}
+// 		case _, ok := <-sub.errs:
+// 			if ok {
+// 				ex.err("closed", count, fmt.Errorf("error channel not closed [duration=%v]", time.Since(start)))
+// 				return
+// 			}
+// 		}
+// 	}()
+// }
 
 func (ex *Expectations) init() int64 {
 	ex.wg.Add(1)

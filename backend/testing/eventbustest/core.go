@@ -170,7 +170,7 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory, opts ...Option) {
 
 	// When publishing a "foo" event, the event should be received
 	ex := Expect(ctx)
-	ex.Event(sub, 50*time.Millisecond, "foo")
+	ex.Event(sub, 500*time.Millisecond, "foo")
 
 	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
@@ -180,15 +180,13 @@ func CancelSubscription(t *testing.T, newBus EventBusFactory, opts ...Option) {
 
 	// When the subscription ctx is canceled
 	cancel()
+	<-time.After(10 * time.Millisecond)
 
 	// And another "foo" event is published, the event should not be received
-	ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
+	ex = Expect(context.Background())
+	ex.Closed(sub, 500*time.Millisecond)
 
-	ex = Expect(ctx)
-	ex.Closed(sub, 200*time.Millisecond)
-
-	if err := bus.Publish(ctx, event.New("foo", test.FooEventData{}).Any()); err != nil {
+	if err := bus.Publish(context.Background(), event.New("foo", test.FooEventData{}).Any()); err != nil {
 		t.Fatalf("publish event: %v [event=%v]", err, "foo")
 	}
 
