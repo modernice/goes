@@ -51,6 +51,9 @@ func New() event.Bus {
 	return bus
 }
 
+// Close terminates the channel-based event bus. If the bus is already closed,
+// it does nothing. Otherwise, it signals to all operations that they should
+// stop and cleans up any resources associated with the bus.
 func (bus *chanbus) Close() {
 	select {
 	case <-bus.done:

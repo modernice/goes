@@ -108,7 +108,7 @@ func Once() TransitionTestOption {
 // event with the provided data when running the Run method on a *testing.T
 // instance.
 func Transition[EventData comparable](event string, data EventData, opts ...TransitionTestOption) *TransitionTest[EventData] {
-	return newTransitionTest(event, data, func(a, b EventData) bool { return a == b }, opts...)
+	return TransitionWithComparer(event, data, func(a, b EventData) bool { return a == b }, opts...)
 }
 
 // Comparable is an interface that provides a method for comparing two instances
@@ -127,14 +127,20 @@ type Comparable[T any] interface {
 // TransitionTestOptions can be provided to customize the behavior of the
 // TransitionTest.
 func TransitionWithEqual[EventData Comparable[EventData]](event string, data EventData, opts ...TransitionTestOption) *TransitionTest[EventData] {
-	return newTransitionTest(event, data, func(a, b EventData) bool { return a.Equal(b) }, opts...)
+	return TransitionWithComparer(event, data, func(a, b EventData) bool { return a.Equal(b) }, opts...)
 }
 
-func newTransitionTest[EventData any](event string, data EventData, isEqual func(EventData, EventData) bool, opts ...TransitionTestOption) *TransitionTest[EventData] {
+// TransitionWithComparer creates a new TransitionTest with the specified event
+// name and data, using a custom comparison function to compare event data. It
+// is used for testing if an aggregate transitions to the specified event with
+// the provided data when running the Run method on a [*testing.T] instance.
+// TransitionTestOptions can be provided to customize the behavior of the
+// TransitionTest.
+func TransitionWithComparer[EventData any](event string, data EventData, compare func(EventData, EventData) bool, opts ...TransitionTestOption) *TransitionTest[EventData] {
 	test := TransitionTest[EventData]{
 		Event:   event,
 		Data:    data,
-		isEqual: isEqual,
+		isEqual: compare,
 	}
 
 	for _, opt := range opts {
