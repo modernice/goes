@@ -23,7 +23,7 @@ import (
 	"github.com/modernice/goes/helper/pick"
 )
 
-var (
+const (
 	// PreInsert represents a hook that is executed before inserting events into the
 	// EventStore. This allows for additional operations to be performed within the
 	// same transaction, such as validation or transformation of data. The hook
