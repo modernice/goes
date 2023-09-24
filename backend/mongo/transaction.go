@@ -53,7 +53,11 @@ func (tx *transaction) EventStore() *EventStore {
 func (tx *transaction) InsertedEvents() []event.Event {
 	tx.mux.RLock()
 	defer tx.mux.RUnlock()
-	return tx.insertedEvents
+
+	copiedEvents := make([]event.Event, len(tx.insertedEvents))
+	copy(copiedEvents, tx.insertedEvents)
+
+	return copiedEvents
 }
 
 func (tx *transaction) appendEvents(events []event.Event) {
