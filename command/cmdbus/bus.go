@@ -290,12 +290,6 @@ func (b *Bus[ErrorCode]) Dispatch(ctx context.Context, cmd command.Command, opts
 		Payload:       load,
 	})
 
-	b.debugLog("publishing %q event ...", evt.Name())
-
-	if err := b.bus.Publish(ctx, evt.Any()); err != nil {
-		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
-	}
-
 	out := make(chan error)
 	accepted := make(chan struct{})
 	aborted := make(chan struct{})
@@ -312,6 +306,12 @@ func (b *Bus[ErrorCode]) Dispatch(ctx context.Context, cmd command.Command, opts
 	b.dispatchMux.Unlock()
 
 	defer b.cleanupDispatch(cmd.ID())
+
+	b.debugLog("publishing %q event ...", evt.Name())
+
+	if err := b.bus.Publish(ctx, evt.Any()); err != nil {
+		return fmt.Errorf("publish %q event: %w", evt.Name(), err)
+	}
 
 	var timeout <-chan time.Time
 	if b.assignTimeout > 0 {

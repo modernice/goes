@@ -53,7 +53,7 @@ type Option func(*chanbus)
 // the rate of event publishing. The delay duration is specified by the provided
 // time.Duration value. The function returns an Option that can be used to
 // configure a chanbus instance.
-func WithArtificialDelay(delay time.Duration) func(*chanbus) {
+func WithArtificialDelay(delay time.Duration) Option {
 	return func(c *chanbus) {
 		c.artificialDelay = delay
 	}

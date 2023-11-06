@@ -20,10 +20,10 @@ func TestHandler_Handle(t *testing.T) {
 	enc := newEncoder()
 	ebus := eventbus.New()
 	subBus := cmdbus.New[int](enc, ebus)
-	pubBus := cmdbus.New[int](enc, ebus)
+	pubBus := cmdbus.New[int](enc, ebus, cmdbus.AssignTimeout(0))
 	h := command.NewHandler[any](subBus)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	handled := make(chan command.Command)
@@ -52,9 +52,7 @@ func TestHandler_Handle(t *testing.T) {
 		case err, ok := <-errs:
 			if ok {
 				t.Fatal(err)
-				break
 			}
-			break
 		case h := <-handled:
 			if h.ID() != cmd.ID() || h.Name() != cmd.Name() || !reflect.DeepEqual(h.Payload(), cmd.Payload()) {
 				t.Fatalf("handled Command differs from dispatched Command. want=%v got=%v", cmd, h)
