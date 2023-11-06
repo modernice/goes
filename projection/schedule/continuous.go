@@ -94,7 +94,7 @@ func DebounceCap(cap time.Duration) ContinuousOption {
 // subscribes to events with the given eventNames to create projection Jobs
 // for those events.
 //
-// Debounce events
+// # Debounce events
 //
 // It may be desirable to debounce the creation of projection Jobs to avoid
 // creating a Job on every event if Events are published within a short

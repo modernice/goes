@@ -119,6 +119,44 @@ func TestLookup_Reverse(t *testing.T) {
 	}
 }
 
+func TestLookup_removed(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bus := eventbus.New()
+	store := eventstore.New()
+
+	l := lookup.New(store, bus, []string{"foo", "bar"})
+	errs, err := l.Run(ctx)
+	if err != nil {
+		t.Fatalf("Run() failed with %q", err)
+	}
+	go func() {
+		for range errs {
+		}
+	}()
+
+	aggregateID := uuid.New()
+
+	events := []event.Event{
+		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(aggregateID, "foo", 1)).Any(),
+		event.New("bar", LookupRemoveEvent{}, event.Aggregate(aggregateID, "foo", 2)).Any(),
+	}
+
+	if err := bus.Publish(ctx, events...); err != nil {
+		t.Fatalf("publish events: %v", err)
+	}
+
+	value, ok := l.Lookup(ctx, "foo", "foo", aggregateID)
+	if ok {
+		t.Fatalf("Lookup should return false; got true")
+	}
+
+	if value != nil {
+		t.Fatalf("Lookup should return nil; got %v", value)
+	}
+}
+
 // LookupEvent is a type used in testing the lookup package. It provides a Foo
 // field and implements the ProvideLookup method of the lookup.Provider
 // interface.
@@ -130,4 +168,17 @@ type LookupEvent struct {
 // instance.
 func (e LookupEvent) ProvideLookup(p lookup.Provider) {
 	p.Provide("foo", e.Foo)
+}
+
+// LookupRemoveEvent is a type that, when used in the context of the lookup
+// package, signals the removal of a lookup value from the provider it's
+// attached to. It has no fields and its sole purpose is to implement the
+// ProvideLookup method of the lookup.Provider interface in a way that instructs
+// it to remove a specific value.
+type LookupRemoveEvent struct{}
+
+// ProvideLookup removes the provided lookup value from the provider for the
+// LookupRemoveEvent instance.
+func (LookupRemoveEvent) ProvideLookup(p lookup.Provider) {
+	p.Remove("foo")
 }
