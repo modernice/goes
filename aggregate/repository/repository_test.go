@@ -36,10 +36,11 @@ func TestRepository_Save(t *testing.T) {
 	r := repository.New(eventstore.New())
 
 	aggregateID := uuid.New()
+	now := time.Now()
 	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 1)),
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 2)),
-		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 3)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 1), event.Time(now)),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 2), event.Time(now.Add(time.Nanosecond))),
+		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 3), event.Time(now.Add(2*time.Nanosecond))),
 	}
 
 	var flushed bool
@@ -204,10 +205,11 @@ func TestRepository_FetchVersion(t *testing.T) {
 func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	aggregateName := "foo"
 	aggregateID := uuid.New()
+	now := time.Now()
 	events := []event.Event{
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 1)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 2)),
-		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 3)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 1), event.Time(now)),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 2), event.Time(now.Add(time.Nanosecond))),
+		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 3), event.Time(now.Add(2*time.Nanosecond))),
 	}
 
 	org := test.NewFoo(aggregateID)
