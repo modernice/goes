@@ -23,6 +23,24 @@ func TestTransition(t *testing.T) {
 	gtest.Transition("foo", d).Run(t, foo)
 }
 
+func TestTransition_sameEventNameOtherData(t *testing.T) {
+	type data struct {
+		Foo string
+		Bar bool
+	}
+
+	foo := aggregate.New("foo", uuid.New())
+
+	d1 := data{Foo: "foo", Bar: false}
+	d2 := data{Foo: "foo", Bar: true}
+
+	aggregate.Next(foo, "foo", d1)
+	aggregate.Next(foo, "foo", d2)
+
+	gtest.Transition("foo", d1).Run(t, foo)
+	gtest.Transition("foo", d2).Run(t, foo)
+}
+
 type comparableData struct {
 	Foo string
 	Bar int

@@ -162,17 +162,15 @@ func Signal(event string, opts ...TransitionTestOption) *TransitionTest[any] {
 func (test *TransitionTest[EventData]) Run(t *testing.T, a aggregate.Aggregate) {
 	t.Helper()
 
+	wantMatches := test.MatchCount
+	if wantMatches == 0 {
+		wantMatches = 1
+	}
+
 	var matches uint
 	for _, evt := range a.AggregateChanges() {
 		if evt.Name() != test.Event {
 			continue
-		}
-
-		if test.MatchCount == 0 {
-			if err := test.testEquality(evt); err != nil {
-				t.Errorf("Aggregate %q should transition to %q with %T; %s", pick.AggregateName(a), test.Event, test.Data, err)
-			}
-			return
 		}
 
 		if test.testEquality(evt) == nil {
@@ -180,12 +178,12 @@ func (test *TransitionTest[EventData]) Run(t *testing.T, a aggregate.Aggregate) 
 		}
 	}
 
-	if test.MatchCount == 0 {
-		t.Errorf("Aggregate %q should transition to %q with %T", pick.AggregateName(a), test.Event, test.Data)
-		return
-	}
+	if matches != wantMatches {
+		if wantMatches == 1 {
+			t.Errorf("Aggregate %q should transition to %q with %T", pick.AggregateName(a), test.Event, test.Data)
+			return
+		}
 
-	if matches != test.MatchCount {
 		t.Errorf("Aggregate %q should transition to %q with %T %d times; got %d", pick.AggregateName(a), test.Event, test.Data, test.MatchCount, matches)
 	}
 }
