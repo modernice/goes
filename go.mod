@@ -16,8 +16,8 @@ require (
 	go.mongodb.org/mongo-driver v1.14.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/sync v0.6.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17
-	google.golang.org/grpc v1.61.1
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80
+	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
 )
 
@@ -48,7 +48,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	golang.org/x/crypto v0.18.0 // indirect
-	golang.org/x/net v0.18.0 // indirect
+	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )
