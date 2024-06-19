@@ -1,145 +1,118 @@
 package event
 
 import (
-	"fmt"
-
-	"github.com/modernice/goes/helper/pick"
+	"context"
+	"sync"
 )
 
-// A Registerer can register handlers for different events. Types that implement
-// Registerer can be passed to RegisterHandler(), ApplyWith(), and HandleWith()
-// to conveniently register handlers for events.
-//
-//	var reg event.Registerer
-//	event.RegisterEventHandler(reg, "foo", func(e event.Of[FooEvent]) {
-//		log.Printf("handled %q event with data %v", e.Name(), e.Data())
-//	}
-//
-// ApplyWith() and HandleWith() are aliases for RegisterHandler(), to allow for
-// more concise code.
-type Registerer interface {
-	// RegisterEventHandler registers an event handler for the given event name.
-	RegisterEventHandler(eventName string, handler func(Event))
+type Handler struct {
+	mux        sync.RWMutex
+	handlers   map[string][]func(Event)
+	async      bool
+	once       sync.Once
+	subscribed bool
 }
 
-// Handlers is a map of event names to event handlers. Handlers can be embedded
-// into structs to implement [Registerer]. [*github.com/modernice/goes/aggregate.Base]
-// embeds Handlers to allow for convenient registration of event handlers.
-type Handlers map[string][]func(Event)
-
-// RegisterEventHandler implements [Registerer].
-func (h Handlers) RegisterEventHandler(eventName string, handler func(Event)) {
-	h[eventName] = append(h[eventName], handler)
+func On[Data any](event string, fn func(Of[Data])) *Handler {
+	var h Handler
+	h.On(event, func(e Event) { fn(Cast[Data](e)) })
+	return &h
 }
 
-// EventHandlers returns the handlers for the given event.
-func (h Handlers) EventHandlers(eventName string) []func(Event) {
-	return h[eventName]
+func (h *Handler) Async(async bool) {
+	h.mux.Lock()
+	defer h.mux.Unlock()
+	if h.subscribed {
+		panic("cannot change async mode after subscribing")
+	}
+	h.async = async
 }
 
-// HandleEvent calls each registered handler of the given [Event].
-func (h Handlers) HandleEvent(evt Event) {
-	handlers := h.EventHandlers(evt.Name())
-	for _, handler := range handlers {
-		handler(evt)
+func (h *Handler) On(event string, fn func(Event)) {
+	h.once.Do(func() { h.handlers = make(map[string][]func(Event)) })
+
+	h.mux.Lock()
+	defer h.mux.Unlock()
+
+	h.handlers[event] = append(h.handlers[event], fn)
+}
+
+func (h *Handler) Subscribe(ctx context.Context, bus Bus) (<-chan error, error) {
+	eventNames := h.eventNames()
+
+	h.mux.Lock()
+	defer h.mux.Unlock()
+
+	events, errs, err := bus.Subscribe(ctx, eventNames...)
+	if err != nil {
+		return nil, err
+	}
+
+	go h.callHandlers(events)
+
+	h.subscribed = true
+
+	return errs, nil
+}
+
+func (h *Handler) callHandlers(events <-chan Event) {
+	for evt := range events {
+		handlers := h.eventHandlers(evt.Name())
+		for _, handler := range handlers {
+			if h.async {
+				go handler(evt)
+				continue
+			}
+			handler(evt)
+		}
 	}
 }
 
-// RegisterHandler registers the handler for the given event.
-//
-// Example using *aggregate.Base:
-//
-//	type Foo struct {
-//		*aggregate.Base
-//
-//		Foo string
-//		Bar int
-//		Baz bool
-//	}
-//
-//	type FooEvent { Foo string }
-//	type BazEvent { Baz bool }
-//
-//	func NewFoo(id uuid.UUID) *Foo  {
-//		foo := &Foo{Base: aggregate.New("foo", id)}
-//
-//		event.RegisterHandler(foo, "foo", foo.applyFoo)
-//		event.RegisterHandler(foo, "bar", foo.applyBar)
-//		event.RegisterHandler(foo, "baz", foo.applyBaz)
-//
-//		return foo
-//	}
-//
-//	func (f *Foo) applyFoo(e event.Of[FooEvent]) {
-//		f.Foo = e.Data().Foo
-//	}
-//
-//	func (f *Foo) applyBar(e event.Of[int]) {
-//		f.Bar = e.Data()
-//	}
-//
-//	func (f *Foo) applyBaz(e event.Of[BazEvent]) {
-//		f.Baz = e.Data().Baz
-//	}
-func RegisterHandler[Data any](r Registerer, eventName string, handler func(Of[Data])) {
-	r.RegisterEventHandler(eventName, func(evt Event) {
-		if casted, ok := TryCast[Data](evt); ok {
-			handler(casted)
-			return
-		}
-
-		aggregateName := "<unknown>"
-		if a, ok := r.(pick.AggregateProvider); ok {
-			aggregateName = pick.AggregateName(a)
-		}
-		var zero Data
-		panic(fmt.Errorf(
-			"[goes/event.RegisterHandler] Cannot cast %T to %T. "+
-				"You probably provided the wrong event name for this handler. "+
-				"[event=%v, aggregate=%v]",
-			evt.Data(), zero, eventName, aggregateName,
-		))
-	})
-}
-
-// ApplyWith is an alias for RegisterHandler. Use ApplyWith instead of
-// RegisterHandler to make code more concise:
-//
-//	type Foo struct {
-//		*projection.Base
-//
-//		Foo string
-//	}
-//
-//	func NewFoo() *Foo  {
-//		foo := &Foo{Base: projection.New()}
-//
-//		// Because we "apply" events to the projection.
-//		event.ApplyWith(foo, foo.applyFoo, "foo")
-//
-//		return foo
-//	}
-//
-//	func (f *Foo) applyFoo(e event.Of[string]) {
-//		f.Foo = e.Data()
-//	}
-func ApplyWith[Data any](r Registerer, handler func(Of[Data]), eventNames ...string) {
-	for _, name := range eventNames {
-		RegisterHandler(r, name, handler)
+func (h *Handler) eventNames() []string {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+	names := make([]string, 0, len(h.handlers))
+	for name := range h.handlers {
+		names = append(names, name)
 	}
+	return names
 }
 
-// HandleWith is an alias for RegisterHandler. Use HandleWith instead of
-// RegisterHandler to make code more concise:
-//
-//	import "github.com/modernice/goes/event/handler"
-//
-//	var bus event.Bus
-//	h := handler.New(bus)
-//
-//	event.HandleWith(h, h.handleFoo, "foo")
-func HandleWith[Data any](r Registerer, handler func(Of[Data]), eventNames ...string) {
-	for _, name := range eventNames {
-		RegisterHandler(r, name, handler)
+func (h *Handler) eventHandlers(event string) []func(Event) {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+	return h.handlers[event]
+}
+
+func (h *Handler) And(others ...*Handler) *Handler {
+	async := h.isAsync()
+
+	var merged Handler
+	merged.Async(async)
+	merged.merge(h)
+
+	for _, other := range others {
+		if other.isAsync() != async {
+			panic("cannot merge async and non-async handlers")
+		}
+		merged.merge(other)
+	}
+
+	return &merged
+}
+
+func (h *Handler) isAsync() bool {
+	h.mux.RLock()
+	defer h.mux.RUnlock()
+	return h.async
+}
+
+func (h *Handler) merge(other *Handler) {
+	other.mux.RLock()
+	defer other.mux.RUnlock()
+	for event, handlers := range other.handlers {
+		for _, handler := range handlers {
+			h.On(event, handler)
+		}
 	}
 }
