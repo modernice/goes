@@ -15,7 +15,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	go.mongodb.org/mongo-driver v1.16.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-	golang.org/x/sync v0.7.0
+	golang.org/x/sync v0.8.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
