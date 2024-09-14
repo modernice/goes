@@ -27,15 +27,21 @@ func On[Data any](event string, fn func(Of[Data])) *Handler {
 	return &h
 }
 
-// Async configures whether the event handling should be done asynchronously. It
-// panics if called after the handler has been subscribed to an event source.
-func (h *Handler) Async(async bool) {
+// Async sets the asynchronous mode of the Handler.
+//
+// If async is true, event handlers will be executed concurrently.
+// If false, they will be executed sequentially.
+//
+// This method must be called before subscribing to events.
+// Panics if called after subscribing.
+func (h *Handler) Async(async bool) *Handler {
 	h.mux.Lock()
 	defer h.mux.Unlock()
 	if h.subscribed {
 		panic("cannot change async mode after subscribing")
 	}
 	h.async = async
+	return h
 }
 
 // On registers a callback function for a specific event within the handler. The
@@ -100,10 +106,10 @@ func (h *Handler) eventHandlers(event string) []func(Event) {
 	return h.handlers[event]
 }
 
-// And combines the current [*Handler] with one or more other [*Handler]
-// instances into a new, single [*Handler], enforcing that all combined handlers
-// share the same mode of operation regarding asynchronous execution. If the
-// modes differ, it will panic.
+// And combines the current Handler with one or more other Handler instances
+// into a new, single Handler. It merges all event handlers from the input
+// Handlers into the new Handler. The async mode of the resulting Handler
+// is set to match the current Handler's async mode.
 func (h *Handler) And(others ...*Handler) *Handler {
 	async := h.isAsync()
 
@@ -112,9 +118,6 @@ func (h *Handler) And(others ...*Handler) *Handler {
 	merged.merge(h)
 
 	for _, other := range others {
-		if other.isAsync() != async {
-			panic("cannot merge async and non-async handlers")
-		}
 		merged.merge(other)
 	}
 
