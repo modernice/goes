@@ -1,7 +1,6 @@
 module github.com/modernice/goes
 
-go 1.21
-toolchain go1.22.9
+go 1.22.9
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0

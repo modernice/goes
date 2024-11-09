@@ -93,6 +93,11 @@ type TypedRepository[A TypedAggregate] interface {
 	// can't be started. The returned channels must be fully consumed to avoid
 	// goroutine leaks.
 	Query(ctx context.Context, q Query) (<-chan A, <-chan error, error)
+
+	// Refresh fetches the latest version of the given TypedAggregate from the
+	// Repository and updates the Aggregate with the fetched data. It returns an
+	// error if the refresh operation fails.
+	Refresh(ctx context.Context, a A) error
 }
 
 // Query represents a set of criteria for filtering and sorting Aggregates in a

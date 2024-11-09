@@ -127,6 +127,14 @@ func (r *TypedRepository[Aggregate]) Query(ctx context.Context, q aggregate.Quer
 	return out, errs, nil
 }
 
+// Refresh updates an aggregate to its latest state by fetching and applying any
+// new events from the repository. This ensures the aggregate is up-to-date before
+// persisting changes, which is important in concurrent scenarios (e.g. multiple
+// long-running processes updating the same aggregate).
+func (r *TypedRepository[Aggregate]) Refresh(ctx context.Context, a Aggregate) error {
+	return r.repo.Fetch(ctx, a)
+}
+
 // Use retrieves an [Aggregate] with the provided UUID, applies the function fn
 // to it, and then saves the [Aggregate] back into the repository. If fn returns
 // an error, the [Aggregate] is not saved and the error is returned. The
