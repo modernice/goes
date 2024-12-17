@@ -248,6 +248,10 @@ func WithIndices(models ...mongo.IndexModel) EventStoreOption {
 	}
 }
 
+// WithQueryOptions allows the addition of custom query options to an
+// [EventStore], modifying how events are queried from the database. This can be
+// used to adjust or optimize query behavior by applying user-defined functions
+// to [options.FindOptions].
 func WithQueryOptions(fn func(*options.FindOptions) *options.FindOptions) EventStoreOption {
 	return func(s *EventStore) {
 		if fn != nil {
