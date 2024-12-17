@@ -1,4 +1,4 @@
-FROM golang:1.21
+FROM golang:1.22.9
 ARG TAGS
 ENV TAGS $TAGS
 WORKDIR /coverage

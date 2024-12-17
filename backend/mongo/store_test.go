@@ -146,7 +146,7 @@ func TestEventStore_Insert_withPreAndPostHooks(t *testing.T) {
 		{
 			"observer0",
 			hookObserver0,
-			nil,
+			make([]event.Of[any], 0),
 		},
 		{
 			"observer1",
