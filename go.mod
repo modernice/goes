@@ -11,7 +11,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/logrusorgru/aurora v2.0.3+incompatible
-	github.com/nats-io/nats.go v1.38.0
+	github.com/nats-io/nats.go v1.39.0
 	github.com/spf13/cobra v1.8.1
 	go.mongodb.org/mongo-driver v1.17.2
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
