@@ -166,9 +166,9 @@ func SortByMulti(sorts ...event.SortOptions) Option {
 // SortByAggregate returns an Option that sorts the a Query by aggregates.
 //
 // Order of sortings is:
-//	1. aggregateName (ascending)
-//	2. aggregateID (ascending)
-//	3. aggregateVersion (ascending)
+//  1. aggregateName (ascending)
+//  2. aggregateID (ascending)
+//  3. aggregateVersion (ascending)
 func SortByAggregate() Option {
 	return SortByMulti(
 		event.SortOptions{Sort: event.SortAggregateName, Dir: event.SortAsc},

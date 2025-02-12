@@ -151,7 +151,7 @@ func TestStartupQuery(t *testing.T) {
 	}
 }
 
-func TestStartup_withQuery_merges_names(t *testing.T) {
+func TestStartup_withQuery_replaces_names(t *testing.T) {
 	bus := eventbus.New()
 	store := eventstore.New()
 
@@ -195,13 +195,13 @@ func TestStartup_withQuery_merges_names(t *testing.T) {
 	}()
 
 	select {
-	case <-time.After(time.Second):
-		t.Fatalf("foo event was not handled")
+	case <-time.After(50 * time.Millisecond):
 	case <-fooHandled:
+		t.Fatalf("foo event was handled")
 	}
 
 	select {
-	case <-time.After(time.Second):
+	case <-time.After(50 * time.Millisecond):
 		t.Fatalf("bar event was not handled #1")
 	case evt := <-barHandled:
 		if evt.ID() != testID {
@@ -210,7 +210,7 @@ func TestStartup_withQuery_merges_names(t *testing.T) {
 	}
 
 	select {
-	case <-time.After(time.Second):
+	case <-time.After(50 * time.Millisecond):
 		t.Fatalf("bar event was not handled #2")
 	case evt := <-barHandled:
 		if evt.ID() == testID {
@@ -219,7 +219,7 @@ func TestStartup_withQuery_merges_names(t *testing.T) {
 	}
 }
 
-func TestStartup_withQuery_merges_ids(t *testing.T) {
+func TestStartup_withQuery_replaces_ids(t *testing.T) {
 	bus := eventbus.New()
 	store := eventstore.New()
 
@@ -243,6 +243,7 @@ func TestStartup_withQuery_merges_ids(t *testing.T) {
 		context.Background(),
 		event.New("foo", test.FooEventData{}).Any(),
 		event.New("bar", test.BarEventData{}, event.ID(testID)).Any(),
+		event.New("bar", test.BarEventData{}).Any(), // Add another bar event without testID
 	); err != nil {
 		t.Fatalf("Insert() failed with %q", err)
 	}
@@ -261,15 +262,23 @@ func TestStartup_withQuery_merges_ids(t *testing.T) {
 	select {
 	case <-time.After(50 * time.Millisecond):
 	case <-fooHandled:
-		t.Fatalf("foo event was handled")
+		t.Fatalf("foo event was handled when it should have been filtered out")
 	}
 
 	select {
-	case <-time.After(time.Second):
-		t.Fatalf("bar event was not handled")
+	case <-time.After(50 * time.Millisecond):
+		t.Fatalf("bar event with matching ID was not handled")
 	case evt := <-barHandled:
 		if evt.ID() != testID {
 			t.Fatalf("expected event ID %q; got %q", testID, evt.ID())
 		}
+	}
+
+	// Verify that the other bar event without testID is not handled
+	select {
+	case <-time.After(50 * time.Millisecond):
+		// This is the expected behavior - event without matching ID should not be handled
+	case <-barHandled:
+		t.Fatalf("bar event without matching ID was incorrectly handled")
 	}
 }

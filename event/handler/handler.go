@@ -62,15 +62,15 @@ type Option func(*Handler)
 // events are fetched from the store. The returned [Option] can be used when
 // creating a new [Handler].
 //
-// If [query.Option]s are provided, they will be merged with the default query
-// using [query.Merge]. If you want to _replace_ the default query, use the
-// [StartupQuery] option instead of providing [query.Option]s to [Startup].
+// If [query.Option]s are provided, they will be used to construct a new query
+// that replaces the default query. If you want to modify the default query
+// instead, use the [StartupQuery] option.
 func Startup(store event.Store, opts ...query.Option) Option {
 	return func(h *Handler) {
 		h.startupStore = store
 		if len(opts) > 0 {
-			StartupQuery(func(q event.Query) event.Query {
-				return query.Merge(q, query.New(opts...))
+			StartupQuery(func(event.Query) event.Query {
+				return query.New(opts...)
 			})(h)
 		}
 	}
@@ -79,9 +79,7 @@ func Startup(store event.Store, opts ...query.Option) Option {
 // StartupQuery is a function that configures a [Handler]'s startup query. It
 // accepts a function that takes and returns an event.Query as its argument. The
 // provided function will be used by the [Handler] to modify the default query
-// used when fetching events from the event store during startup. The resulting
-// [Option] can be used when constructing a new [Handler], allowing
-// customization of the startup behavior of the [Handler].
+// used when fetching events from the event store during startup.
 func StartupQuery(fn func(event.Query) event.Query) Option {
 	return func(h *Handler) {
 		h.startupQuery = fn
