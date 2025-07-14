@@ -26,7 +26,7 @@ var (
 
 // EventBus is an event bus that uses NATS to publish and subscribe to events.
 //
-// Drivers
+// # Drivers
 //
 // The event bus supports both NATS Core and NATS JetStream. By default, the
 // Core driver is used, but you can create and specify the JetStream driver with
@@ -81,6 +81,7 @@ type envelope struct {
 //
 // If no other specified, the returned event bus will use the NATS Core Driver.
 // To use the NATS JetStream Driver instead, explicitly set the Driver:
+//
 //	NewEventBus(enc, Use(JetStream()))
 func NewEventBus(enc codec.Encoding, opts ...EventBusOption) *EventBus {
 	if enc == nil {
@@ -122,7 +123,7 @@ func (bus *EventBus) Connect(ctx context.Context) error {
 	return err
 }
 
-func (bus *EventBus) connect(ctx context.Context) error {
+func (bus *EventBus) connect(_ context.Context) error {
 	// *nats.Conn provided via Conn() option.
 	if bus.conn != nil {
 		return nil

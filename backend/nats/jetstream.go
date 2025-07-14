@@ -64,6 +64,7 @@ func DurableFunc(fn func(event, queue string) string) JetStreamOption {
 
 // Durable returns an option that makes JetStream consumers / subscriptions
 // durable (see DurableFunc). The durable name is formatted like this:
+//
 //	fmt.Sprintf("%s:%s:%s", prefix, queue, event)
 func Durable(prefix string) JetStreamOption {
 	return DurableFunc(func(event, queue string) string {
@@ -278,7 +279,7 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 	return nil
 }
 
-func (js *jetStream) ensureStream(ctx context.Context) error {
+func (js *jetStream) ensureStream(_ context.Context) error {
 	info, err := js.ctx.StreamInfo(js.stream)
 	if err == nil {
 		if info.Config.Name != js.stream {
@@ -308,7 +309,7 @@ func (js *jetStream) ensureStream(ctx context.Context) error {
 	return nil
 }
 
-func (js *jetStream) ensureConsumer(ctx context.Context, bus *EventBus, name, eventName, subject, queue string) error {
+func (js *jetStream) ensureConsumer(_ context.Context, bus *EventBus, name, eventName, subject, queue string) error {
 	if info, err := js.ctx.ConsumerInfo(js.stream, name); err == nil {
 		if info.Stream != js.stream {
 			return fmt.Errorf("%w: stream name mismatch: %q != %q", ErrConsumerExists, info.Stream, js.stream)
