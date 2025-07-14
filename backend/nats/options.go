@@ -57,7 +57,7 @@ func EatErrors() EventBusOption {
 // This option has no effect if used with the "jetstream" driver in "pull" mode
 // (default).
 //
-// Use Case
+// # Use Case
 //
 // Queue groups can be used to load-balance between multiple subscribers of the
 // same event. When multiple subscribers are subscribed to an event and use the
@@ -91,9 +91,10 @@ func QueueGroup(fn func(eventName string) string) EventBusOption {
 // between event buses that share the same serviceName. The option applies the
 // QueueGroup option so that the queue group for the subscription to an event is
 // built in the following format:
+//
 //	fmt.Sprintf("%s:%s", <serviceName>, <eventName>)
 //
-// Caution
+// # Caution
 //
 // Providing a load-balanced event bus as the underlying bus to a command bus
 // should be avoided, and providing it to a projection schedule should be done
@@ -121,22 +122,16 @@ func LoadBalancer(serviceName string) EventBusOption {
 	})
 }
 
-// RawSubjectFunc returns an option that specifies how the NATS subjects for
-// event names are generated without any modifications.
-func RawSubjectFunc(fn func(eventName string) string) EventBusOption {
+// SubjectFunc returns an option that specifies how the NATS subjects for event
+// names are generated.
+//
+// By default, the event name is used as the subject.
+//
+// Read more about subjects: https://docs.nats.io/nats-concepts/subjects
+func SubjectFunc(fn func(eventName string) string) EventBusOption {
 	return func(bus *EventBus) {
 		bus.subjectFunc = fn
 	}
-}
-
-// SubjectFunc returns an option that specifies how the NATS subjects for event
-// names are generated. Any "." in the subject are replaced by "_".
-//
-// By default, a subject is the event name with "." replaced by "_".
-func SubjectFunc(fn func(eventName string) string) EventBusOption {
-	return RawSubjectFunc(func(eventName string) string {
-			return replaceDots(fn(eventName))
-	})
 }
 
 // SubjectFunc returns an option that specifies how the NATS subjects for event
@@ -158,7 +153,7 @@ func PullTimeout(d time.Duration) EventBusOption {
 }
 
 func defaultSubjectFunc(eventName string) string {
-	return replaceDots(eventName)
+	return eventName
 }
 
 func noQueue(string) (q string) { return }
