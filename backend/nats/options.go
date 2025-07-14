@@ -121,16 +121,22 @@ func LoadBalancer(serviceName string) EventBusOption {
 	})
 }
 
+// RawSubjectFunc returns an option that specifies how the NATS subjects for
+// event names are generated without any modifications.
+func RawSubjectFunc(fn func(eventName string) string) EventBusOption {
+	return func(bus *EventBus) {
+		bus.subjectFunc = fn
+	}
+}
+
 // SubjectFunc returns an option that specifies how the NATS subjects for event
 // names are generated. Any "." in the subject are replaced by "_".
 //
 // By default, a subject is the event name with "." replaced by "_".
 func SubjectFunc(fn func(eventName string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.subjectFunc = func(eventName string) string {
+	return RawSubjectFunc(func(eventName string) string {
 			return replaceDots(fn(eventName))
-		}
-	}
+	})
 }
 
 // SubjectFunc returns an option that specifies how the NATS subjects for event
@@ -139,14 +145,6 @@ func SubjectPrefix(prefix string) EventBusOption {
 	return SubjectFunc(func(eventName string) string {
 		return prefix + eventName
 	})
-}
-
-// RawSubjectFunc returns an option that specifies how the NATS subjects for
-// event names are generated without any modifications.
-func RawSubjectFunc(fn func(eventName string) string) EventBusOption {
-	return func(bus *EventBus) {
-		bus.subjectFunc = fn
-	}
 }
 
 // PullTimeout returns an option that limits the Duration an event bus tries to
