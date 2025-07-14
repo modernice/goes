@@ -141,6 +141,14 @@ func SubjectPrefix(prefix string) EventBusOption {
 	})
 }
 
+// RawSubjectFunc returns an option that specifies how the NATS subjects for
+// event names are generated without any modifications.
+func RawSubjectFunc(fn func(eventName string) string) EventBusOption {
+	return func(bus *EventBus) {
+		bus.subjectFunc = fn
+	}
+}
+
 // PullTimeout returns an option that limits the Duration an event bus tries to
 // push an event into a subscribed event channel. When the pull timeout is
 // exceeded, the event gets dropped and a warning is logged. Default is the
