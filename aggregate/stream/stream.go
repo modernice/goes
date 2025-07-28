@@ -66,123 +66,125 @@ func Errors(errs ...<-chan error) Option {
 	}
 }
 
-// Sorted returns an Option that optimizes aggregate builds by giving the
-// Stream information about the order of incoming events from the streams.New.
+// Sorted returns an Option that optimizes aggregate builds by informing the
+// Stream about the sort order of incoming events.
 //
-// When Sorted is disabled (which it is by default), the Stream sorts the
-// collected events for a specific aggregate by the AggregateVersion of the
-// Events before applying them to the aggregate.
+// When Sorted is disabled (default), the Stream sorts the collected events
+// for each aggregate by AggregateVersion before applying them.
 //
-// Enable this option only if the underlying streams.New guarantees that
-// incoming events are sorted by aggregateVersion.
+// Enable this option only if the input event stream guarantees that events
+// are already sorted by AggregateVersion for each aggregate.
 func Sorted(v bool) Option {
 	return func(opts *options) {
 		opts.isSorted = v
 	}
 }
 
-// Grouped returns an Option that optimizes aggregate builds by giving the
-// Stream information about the order of incoming events from the streams.New.
+// Grouped returns an Option that optimizes aggregate builds by informing the
+// Stream about the grouping of incoming events.
 //
-// When Grouped is disabled, the Stream has to wait for the streams.New to be
-// drained before it can be sure no more events will arrive for a specific
-// Aggregate. When Grouped is enabled, the Stream knows when all events for an
-// Aggregate have been received and can therefore return the aggregate as soon
-// as its last event has been received and applied.
+// When Grouped is disabled (default), the Stream must wait for the input
+// stream to close before returning aggregates, as it cannot determine when
+// all events for a specific aggregate have been received.
 //
-// Grouped is disabled by default and should only be enabled if the correct
-// order of events is guaranteed by the underlying streams.New. events are
-// correctly ordered only if they're sequentially grouped by aggregate. Sorting
-// within a group of events does not matter if IsSorted is disabled (which it is
-// by default). When IsSorted is enabled, events within a group must be ordered
-// by aggregateVersion.
+// When Grouped is enabled, the Stream assumes events are grouped by aggregate
+// (name, ID) and can return each aggregate as soon as it receives the last
+// event for that aggregate.
 //
-// An example for correctly ordered events (with IsSorted disabled):
+// Enable this option only if the input stream guarantees that events are
+// sequentially grouped by aggregate. Events within each group can be in any
+// order unless Sorted is also enabled.
 //
-//	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-//	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-//	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-//	name="foo" id="BBXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-//	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-//	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-//	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-//	name="bar" id="AXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-//	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
-//	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-//	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-//	name="foo" id="AAXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-//	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=2
-//	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=1
-//	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=3
-//	name="bar" id="BXXXXXXX-XXXX-XXXX-XXXXXXXXXXXX" version=4
+// Example of correctly grouped events:
+//
+//	// Group 1: foo/BB...
+//	name="foo" id="BB..." version=2
+//	name="foo" id="BB..." version=1
+//	name="foo" id="BB..." version=4
+//	name="foo" id="BB..." version=3
+//	// Group 2: bar/AA...
+//	name="bar" id="AA..." version=1
+//	name="bar" id="AA..." version=2
+//	// Group 3: foo/AA... (different ID)
+//	name="foo" id="AA..." version=1
+//	name="foo" id="AA..." version=2
 func Grouped(v bool) Option {
 	return func(opts *options) {
 		opts.isGrouped = v
 	}
 }
 
-// ValidateConsistency returns an Option that optimizes aggregate builds by
-// controlling if the consistency of events is validated before building an
-// Aggregate from those events.
+// ValidateConsistency returns an Option that controls whether event consistency
+// is validated before building aggregates.
 //
-// This option is enabled by default and should only be disabled if the
-// consistency of events is guaranteed by the underlying streams.New or if it's
-// explicitly desired to put an aggregate into an invalid state.
+// When enabled (default), the Stream validates that events form a consistent
+// sequence (no gaps in version numbers, correct aggregate references, etc.)
+// before applying them to build an aggregate.
+//
+// Disable this option only if event consistency is guaranteed by the source
+// or if you explicitly want to allow aggregates in potentially invalid states.
 func ValidateConsistency(v bool) Option {
 	return func(opts *options) {
 		opts.validateConsistency = v
 	}
 }
 
-// Filter returns an Option that filters incoming events before they're handled
-// by the Stream. events are passed to every fn in fns until a fn returns false.
-// If any of fns returns false, the event is discarded by the Stream.
+// Filter returns an Option that filters incoming events before processing.
+// Events are passed through each filter function in order. If any filter
+// returns false, the event is discarded.
 func Filter(fns ...func(event.Event) bool) Option {
 	return func(opts *options) {
 		opts.filters = append(opts.filters, fns...)
 	}
 }
 
-// WithSoftDeletes returns an Option that specifies if the stream should return
-// soft-deleted aggregates in the returned History stream. Soft-deleted aggregates
-// are by default excluded from the result.
+// WithSoftDeleted returns an Option that controls whether soft-deleted
+// aggregates are included in the output stream.
+//
+// By default (false), soft-deleted aggregates are excluded from results.
+// Set to true to include soft-deleted aggregates in the output.
 func WithSoftDeleted(v bool) Option {
 	return func(opts *options) {
 		opts.withSoftDeleted = v
 	}
 }
 
-// New takes a channel of events and returns both a channel of aggregate
-// Histories and an error channel. A History apply itself on an aggregate to
-// build the current state of the aggregate.
+// New creates a stream that converts events into aggregate Histories.
+// It takes a channel of events and returns both a channel of aggregate
+// Histories and an error channel.
 //
-// Use the Drain function to get the Histories as a slice and a single error:
+// Each History can be applied to an aggregate to build its current state.
+//
+// Example usage:
 //
 //	var events <-chan event.Event
-//	str, errs := stream.New(events)
-//	histories, err := streams.Drain(context.TODO(), str, errs)
-//	// handle err
-//	for _, h := range histories {
-//		foo := newFoo(h.AggregateID())
-//		h.Apply(foo)
+//	histories, errs := stream.New(ctx, events)
+//
+//	// Process results
+//	for history := range histories {
+//		foo := newFoo(history.Aggregate().ID)
+//		history.Apply(foo)
+//		// foo now contains the current state
 //	}
 func New(ctx context.Context, events <-chan event.Event, opts ...Option) (<-chan aggregate.History, <-chan error) {
-	return NewOf[any](ctx, events, opts...)
+	return NewOf(ctx, events, opts...)
 }
 
-// NewOf takes a channel of events and returns both a channel of aggregate
-// Histories and an error channel. A History apply itself on an aggregate to
-// build the current state of the aggregate.
+// NewOf creates a typed stream that converts events into aggregate Histories.
+// It works the same as New but accepts a typed event channel.
 //
-// Use the Drain function to get the Histories as a slice and a single error:
+// Each History can be applied to an aggregate to build its current state.
 //
-//	var events <-chan event.Event
-//	str, errs := stream.New(events)
-//	histories, err := streams.Drain(context.TODO(), str, errs)
-//	// handle err
-//	for _, h := range histories {
-//		foo := newFoo(h.AggregateID())
-//		h.Apply(foo)
+// Example usage:
+//
+//	var events <-chan event.Of[MyData]
+//	histories, errs := stream.NewOf(ctx, events)
+//
+//	// Process results
+//	for history := range histories {
+//		foo := newFoo(history.Aggregate().ID)
+//		history.Apply(foo)
+//		// foo now contains the current state
 //	}
 func NewOf[D any, Event event.Of[D]](ctx context.Context, events <-chan Event, opts ...Option) (<-chan aggregate.History, <-chan error) {
 	if events == nil {
