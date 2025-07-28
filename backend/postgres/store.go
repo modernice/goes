@@ -277,23 +277,22 @@ func (store *EventStore) Insert(ctx context.Context, events ...event.Event) erro
 			return fmt.Errorf("marshal %q event data: %w", evt.Name(), err)
 		}
 
-		aggregateIDVal := aggregateID.String()
-		aggregateVersionVal := strconv.Itoa(aggregateVersion)
+		var (
+			aggregateNameVal    any = aggregateName
+			aggregateIDVal      any = aggregateID.String()
+			aggregateVersionVal any = strconv.Itoa(aggregateVersion)
+		)
+
+		if aggregateVersion == 0 && aggregateName == "" && aggregateID == uuid.Nil {
+			aggregateVersionVal = nil
+		}
 
 		if aggregateID == uuid.Nil {
-			aggregateIDVal = "NULL"
-		} else {
-			aggregateIDVal = singleQuote(aggregateIDVal)
+			aggregateIDVal = nil
 		}
 
 		if aggregateName == "" {
-			aggregateName = "NULL"
-		} else {
-			aggregateName = singleQuote(aggregateName)
-		}
-
-		if aggregateVersion == 0 {
-			aggregateVersionVal = "NULL"
+			aggregateNameVal = nil
 		}
 
 		builder := squirrel.
@@ -306,9 +305,7 @@ func (store *EventStore) Insert(ctx context.Context, events ...event.Event) erro
 				columnAggregateName,
 				columnAggregateVersion,
 				columnData,
-			).
-			Values(evt.ID(), evt.Name(), evt.Time().UnixNano(), aggregateIDVal, aggregateName, aggregateVersionVal, b).
-			PlaceholderFormat(squirrel.Dollar)
+			).Values(evt.ID(), evt.Name(), evt.Time().UnixNano(), aggregateIDVal, aggregateNameVal, aggregateVersionVal, b).PlaceholderFormat(squirrel.Dollar)
 
 		sql, args, err := builder.ToSql()
 		if err != nil {
@@ -340,7 +337,8 @@ func (store *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, e
 			columnData,
 		).
 		From(store.table).
-		Where(squirrel.Eq{columnID: id})
+		Where(squirrel.Eq{columnID: id}).
+		PlaceholderFormat(squirrel.Dollar)
 
 	sql, args, err := builder.ToSql()
 	if err != nil {
@@ -642,8 +640,4 @@ func indexSQL(name, table string, fields []string, unique bool) string {
 		uniqueOpt = "UNIQUE"
 	}
 	return fmt.Sprintf("CREATE %s INDEX IF NOT EXISTS %s ON %s (%s)", uniqueOpt, name, table, strings.Join(fields, ", "))
-}
-
-func singleQuote(s string) string {
-	return "'" + s + "'"
 }
