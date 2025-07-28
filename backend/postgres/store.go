@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -14,9 +15,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/internal/slice"
+	"github.com/modernice/goes/persistence/model"
+)
+
+const (
+	columnID               = "id"
+	columnName             = "name"
+	columnTime             = "time"
+	columnAggregateID      = "aggregate_id"
+	columnAggregateName    = "aggregate_name"
+	columnAggregateVersion = "aggregate_version"
+	columnData             = "data"
 )
 
 var _ event.Store = &EventStore{}
@@ -217,15 +230,15 @@ func (store *EventStore) createIndexes(ctx context.Context) error {
 	}{
 		{
 			name:   "goes_name",
-			fields: []string{"name"},
+			fields: []string{columnName},
 		},
 		{
 			name:   "goes_time",
-			fields: []string{"time"},
+			fields: []string{columnTime},
 		},
 		{
 			name:   "goes_aggregate",
-			fields: []string{"aggregate_id", "aggregate_name", "aggregate_version"},
+			fields: []string{columnAggregateID, columnAggregateName, columnAggregateVersion},
 			unique: true,
 		},
 	}
@@ -283,11 +296,26 @@ func (store *EventStore) Insert(ctx context.Context, events ...event.Event) erro
 			aggregateVersionVal = "NULL"
 		}
 
-		if _, err := tx.Exec(ctx, fmt.Sprintf(`INSERT INTO events (
-			id, name, time, aggregate_id, aggregate_name, aggregate_version, data
-		) VALUES (
-			$1, $2, $3, %s, %s, %s, $4
-		)`, aggregateIDVal, aggregateName, aggregateVersionVal), evt.ID(), evt.Name(), evt.Time().UnixNano(), b); err != nil {
+		builder := squirrel.
+			Insert(store.table).
+			Columns(
+				columnID,
+				columnName,
+				columnTime,
+				columnAggregateID,
+				columnAggregateName,
+				columnAggregateVersion,
+				columnData,
+			).
+			Values(evt.ID(), evt.Name(), evt.Time().UnixNano(), aggregateIDVal, aggregateName, aggregateVersionVal, b).
+			PlaceholderFormat(squirrel.Dollar)
+
+		sql, args, err := builder.ToSql()
+		if err != nil {
+			return fmt.Errorf("build sql: %w", err)
+		}
+
+		if _, err := tx.Exec(ctx, sql, args...); err != nil {
 			return fmt.Errorf("insert %q event: %w", evt.Name(), err)
 		}
 	}
@@ -301,12 +329,26 @@ func (store *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, e
 		return nil, fmt.Errorf("connect: %w", err)
 	}
 
+	builder := squirrel.
+		Select(
+			columnID,
+			columnName,
+			columnTime,
+			columnAggregateID,
+			columnAggregateName,
+			columnAggregateVersion,
+			columnData,
+		).
+		From(store.table).
+		Where(squirrel.Eq{columnID: id})
+
+	sql, args, err := builder.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build sql: %w", err)
+	}
+
 	var evt dbevent
-	if err := store.pool.QueryRow(
-		ctx,
-		`SELECT id, name, time, aggregate_id, aggregate_name, aggregate_version, data FROM events WHERE id = $1`,
-		id,
-	).Scan(
+	if err := store.pool.QueryRow(ctx, sql, args...).Scan(
 		&evt.ID,
 		&evt.Name,
 		&evt.Time,
@@ -315,6 +357,10 @@ func (store *EventStore) Find(ctx context.Context, id uuid.UUID) (event.Event, e
 		&evt.AggregateVersion,
 		&evt.Data,
 	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, model.ErrNotFound
+		}
+
 		return nil, fmt.Errorf("query event: %w", err)
 	}
 
@@ -398,37 +444,37 @@ func (store *EventStore) Query(ctx context.Context, query event.Query) (<-chan e
 
 func (store *EventStore) buildQuery(query event.Query) (string, []any, error) {
 	builder := squirrel.
-		Select("id", "name", "time", "aggregate_id", "aggregate_name", "aggregate_version", "data").
+		Select(columnID, columnName, columnTime, columnAggregateID, columnAggregateName, columnAggregateVersion, columnData).
 		From(store.table).
 		PlaceholderFormat(squirrel.Dollar)
 
 	if ids := query.AggregateIDs(); len(ids) > 0 {
-		builder = builder.Where(buildOREq("aggregate_id", ids))
+		builder = builder.Where(buildOREq(columnAggregateID, ids))
 	}
 
 	if names := query.AggregateNames(); len(names) > 0 {
-		builder = builder.Where(squirrel.Eq{"aggregate_name": names})
+		builder = builder.Where(squirrel.Eq{columnAggregateName: names})
 	}
 
 	if versions := query.AggregateVersions(); versions != nil {
 		if exact := versions.Exact(); len(exact) > 0 {
-			builder = builder.Where(squirrel.Eq{"aggregate_version": exact})
+			builder = builder.Where(squirrel.Eq{columnAggregateVersion: exact})
 		}
 
 		if min := versions.Min(); len(min) > 0 {
-			builder = builder.Where(buildORGte("aggregate_version", min))
+			builder = builder.Where(buildORGte(columnAggregateVersion, min))
 		}
 
 		if max := versions.Max(); len(max) > 0 {
-			builder = builder.Where(buildORLte("aggregate_version", max))
+			builder = builder.Where(buildORLte(columnAggregateVersion, max))
 		}
 
 		if ranges := versions.Ranges(); len(ranges) > 0 {
 			or := make(squirrel.Or, len(ranges))
 			for i, r := range ranges {
 				or[i] = squirrel.And{
-					squirrel.GtOrEq{"aggregate_version": r.Start()},
-					squirrel.LtOrEq{"aggregate_version": r.End()},
+					squirrel.GtOrEq{columnAggregateVersion: r.Start()},
+					squirrel.LtOrEq{columnAggregateVersion: r.End()},
 				}
 			}
 			builder = builder.Where(or)
@@ -438,10 +484,10 @@ func (store *EventStore) buildQuery(query event.Query) (string, []any, error) {
 	if refs := query.Aggregates(); len(refs) > 0 {
 		or := make(squirrel.Or, len(refs))
 		for i, ref := range refs {
-			and := squirrel.And{squirrel.Eq{"aggregate_name": ref.Name}}
+			and := squirrel.And{squirrel.Eq{columnAggregateName: ref.Name}}
 
 			if ref.ID != uuid.Nil {
-				and = append(and, squirrel.Eq{"aggregate_id": ref.ID})
+				and = append(and, squirrel.Eq{columnAggregateID: ref.ID})
 			}
 
 			or[i] = and
@@ -450,34 +496,34 @@ func (store *EventStore) buildQuery(query event.Query) (string, []any, error) {
 	}
 
 	if ids := query.IDs(); len(ids) > 0 {
-		builder = builder.Where(buildOREq("id", ids))
+		builder = builder.Where(buildOREq(columnID, ids))
 	}
 
 	if names := query.Names(); len(names) > 0 {
-		builder = builder.Where(squirrel.Eq{"name": names})
+		builder = builder.Where(squirrel.Eq{columnName: names})
 	}
 
 	if times := query.Times(); times != nil {
 		if exact := times.Exact(); len(exact) > 0 {
-			builder = builder.Where(buildOREq("time", slice.Map(exact, func(t time.Time) int64 {
+			builder = builder.Where(buildOREq(columnTime, slice.Map(exact, func(t time.Time) int64 {
 				return t.UnixNano()
 			})))
 		}
 
 		if min := times.Min(); !min.IsZero() {
-			builder = builder.Where(squirrel.GtOrEq{"time": min.UnixNano()})
+			builder = builder.Where(squirrel.GtOrEq{columnTime: min.UnixNano()})
 		}
 
 		if max := times.Max(); !max.IsZero() {
-			builder = builder.Where(squirrel.LtOrEq{"time": max.UnixNano()})
+			builder = builder.Where(squirrel.LtOrEq{columnTime: max.UnixNano()})
 		}
 
 		if ranges := times.Ranges(); len(ranges) > 0 {
 			or := make(squirrel.Or, len(ranges))
 			for i, r := range ranges {
 				or[i] = squirrel.And{
-					squirrel.GtOrEq{"time": r.Start().UnixNano()},
-					squirrel.LtOrEq{"time": r.End().UnixNano()},
+					squirrel.GtOrEq{columnTime: r.Start().UnixNano()},
+					squirrel.LtOrEq{columnTime: r.End().UnixNano()},
 				}
 			}
 			builder = builder.Where(or)
@@ -495,13 +541,13 @@ func (store *EventStore) buildQuery(query event.Query) (string, []any, error) {
 			var field string
 			switch sorting.Sort {
 			case event.SortAggregateID:
-				field = "aggregate_id"
+				field = columnAggregateID
 			case event.SortAggregateName:
-				field = "aggregate_name"
+				field = columnAggregateName
 			case event.SortAggregateVersion:
-				field = "aggregate_version"
+				field = columnAggregateVersion
 			case event.SortTime:
-				field = "time"
+				field = columnTime
 			}
 
 			orders[i] = fmt.Sprintf("%s %s", field, dir)
@@ -531,7 +577,7 @@ func (store *EventStore) Delete(ctx context.Context, events ...event.Event) erro
 	defer tx.Rollback(ctx)
 
 	for _, evt := range events {
-		sql, args, err := squirrel.Delete(store.table).Where(squirrel.Eq{"id": evt.ID()}).PlaceholderFormat(squirrel.Dollar).ToSql()
+		sql, args, err := squirrel.Delete(store.table).Where(squirrel.Eq{columnID: evt.ID()}).PlaceholderFormat(squirrel.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("delete event: %w [id=%s]", err, evt.ID())
 		}
