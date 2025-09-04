@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/internal/slice"
 	"github.com/modernice/goes/projection"
 )
 
@@ -161,7 +162,7 @@ func (perms *Permissions) revoked(evt event.Of[PermissionRevokedData]) {
 }
 
 func (perms *Permissions) roleGiven(evt event.Of[[]uuid.UUID]) {
-	if perms.ActorID != pick.AggregateID(evt) {
+	if !slices.Contains(evt.Data(), perms.ActorID) {
 		return
 	}
 
@@ -170,7 +171,7 @@ func (perms *Permissions) roleGiven(evt event.Of[[]uuid.UUID]) {
 }
 
 func (perms *Permissions) roleRemoved(evt event.Of[[]uuid.UUID]) {
-	if perms.ActorID != pick.AggregateID(evt) {
+	if !slices.Contains(evt.Data(), perms.ActorID) {
 		return
 	}
 
@@ -185,9 +186,12 @@ func (perms *Permissions) roleRemoved(evt event.Of[[]uuid.UUID]) {
 }
 
 func (perms *Permissions) finalize(ctx context.Context, roles RoleRepository) error {
+	perms.Roles = slice.Unique(perms.Roles)
+
 	if !perms.rolesHaveChanged {
 		return nil
 	}
+
 	perms.rolesHaveChanged = false
 	perms.OfRoles = make(Actions)
 
