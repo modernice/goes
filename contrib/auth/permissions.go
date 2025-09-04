@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
@@ -23,15 +24,17 @@ import (
 //
 // For example, if an actor is a member of an "admin" role, and the following
 // permissions are granted and revoked in the following order:
-//	1. Actor is granted "view" permission on a "foo" aggregate.
-//	2. Role is granted "view" permission on the same "foo" aggregate.
-//	3. Role is revoked "view" permission on the aggregate.
+//  1. Actor is granted "view" permission on a "foo" aggregate.
+//  2. Role is granted "view" permission on the same "foo" aggregate.
+//  3. Role is revoked "view" permission on the aggregate.
+//
 // Then the actor is still allowed to perform the "view" action on the aggregate.
 //
 // Another example:
-//	1. Role is granted "view" permission on a "foo" aggregate.
+//  1. Role is granted "view" permission on a "foo" aggregate.
 //  2. Actor is granted "view" permission on the same aggregate.
 //  2. Actor is revoked "view" permission on the aggregate.
+//
 // Then the actor is also allowed to perform the "view" action on the aggregate
 // because the role still grants the permission its members.
 type Permissions struct {
@@ -54,6 +57,7 @@ type PermissionsDTO struct {
 // The returned projection has an empty state. A *Projector can be used to
 // continuously project the permission read-models for all actors. Use a
 // PermissionRepository to fetch the projected permissions of an actor:
+//
 //	var repo auth.PermissionRepository
 //	var actorID uuid.UUID
 //	perms, err := repo.Fetch(context.TODO(), actorID)
@@ -125,8 +129,16 @@ func (perms PermissionsDTO) Equal(other PermissionsDTO) bool {
 func (perms *Permissions) granted(evt event.Of[PermissionGrantedData]) {
 	switch pick.AggregateName(evt) {
 	case ActorAggregate:
+		if perms.ActorID != pick.AggregateID(evt) {
+			return
+		}
+
 		perms.OfActor.granted(evt)
 	case RoleAggregate:
+		if !slices.Contains(perms.Roles, pick.AggregateID(evt)) {
+			return
+		}
+
 		perms.OfRoles.granted(evt)
 	}
 }
@@ -134,18 +146,34 @@ func (perms *Permissions) granted(evt event.Of[PermissionGrantedData]) {
 func (perms *Permissions) revoked(evt event.Of[PermissionRevokedData]) {
 	switch pick.AggregateName(evt) {
 	case ActorAggregate:
+		if perms.ActorID != pick.AggregateID(evt) {
+			return
+		}
+
 		perms.OfActor.revoked(evt)
 	case RoleAggregate:
+		if !slices.Contains(perms.Roles, pick.AggregateID(evt)) {
+			return
+		}
+
 		perms.OfRoles.revoked(evt)
 	}
 }
 
 func (perms *Permissions) roleGiven(evt event.Of[[]uuid.UUID]) {
+	if perms.ActorID != pick.AggregateID(evt) {
+		return
+	}
+
 	perms.Roles = append(perms.Roles, pick.AggregateID(evt))
 	perms.rolesHaveChanged = true
 }
 
 func (perms *Permissions) roleRemoved(evt event.Of[[]uuid.UUID]) {
+	if perms.ActorID != pick.AggregateID(evt) {
+		return
+	}
+
 	roleID := pick.AggregateID(evt)
 	for i, role := range perms.Roles {
 		if roleID == role {
