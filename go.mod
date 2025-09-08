@@ -1,6 +1,6 @@
 module github.com/modernice/goes
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.1
 
@@ -17,7 +17,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	go.mongodb.org/mongo-driver v1.17.4
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.17.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
