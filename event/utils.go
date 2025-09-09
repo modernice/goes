@@ -6,38 +6,26 @@ import (
 	"github.com/modernice/goes/helper/pick"
 )
 
-// A Registerer can register handlers for different events. Types that implement
-// Registerer can be passed to RegisterHandler(), ApplyWith(), and HandleWith()
-// to conveniently register handlers for events.
-//
-//	var reg event.Registerer
-//	event.RegisterEventHandler(reg, "foo", func(e event.Of[FooEvent]) {
-//		log.Printf("handled %q event with data %v", e.Name(), e.Data())
-//	}
-//
-// ApplyWith() and HandleWith() are aliases for RegisterHandler(), to allow for
-// more concise code.
+// Registerer registers handlers for event names. It is accepted by helper functions like RegisterHandler, ApplyWith and HandleWith.
 type Registerer interface {
 	// RegisterEventHandler registers an event handler for the given event name.
 	RegisterEventHandler(eventName string, handler func(Event))
 }
 
-// Handlers is a map of event names to event handlers. Handlers can be embedded
-// into structs to implement [Registerer]. [*github.com/modernice/goes/aggregate.Base]
-// embeds Handlers to allow for convenient registration of event handlers.
+// Handlers maps event names to callbacks and implements Registerer. Embedding it allows types to conveniently register handlers.
 type Handlers map[string][]func(Event)
 
-// RegisterEventHandler implements [Registerer].
+// RegisterEventHandler implements Registerer.
 func (h Handlers) RegisterEventHandler(eventName string, handler func(Event)) {
 	h[eventName] = append(h[eventName], handler)
 }
 
-// EventHandlers returns the handlers for the given event.
+// EventHandlers returns handlers for eventName.
 func (h Handlers) EventHandlers(eventName string) []func(Event) {
 	return h[eventName]
 }
 
-// HandleEvent calls each registered handler of the given [Event].
+// HandleEvent invokes all handlers for evt.
 func (h Handlers) HandleEvent(evt Event) {
 	handlers := h.EventHandlers(evt.Name())
 	for _, handler := range handlers {
@@ -45,7 +33,7 @@ func (h Handlers) HandleEvent(evt Event) {
 	}
 }
 
-// RegisterHandler registers the handler for the given event.
+// RegisterHandler registers handler for eventName.
 //
 // Example using *aggregate.Base:
 //
@@ -102,8 +90,7 @@ func RegisterHandler[Data any](r Registerer, eventName string, handler func(Of[D
 	})
 }
 
-// ApplyWith is an alias for RegisterHandler. Use ApplyWith instead of
-// RegisterHandler to make code more concise:
+// ApplyWith registers handler for all eventNames. It is an alias for RegisterHandler:
 //
 //	type Foo struct {
 //		*projection.Base
@@ -129,8 +116,7 @@ func ApplyWith[Data any](r Registerer, handler func(Of[Data]), eventNames ...str
 	}
 }
 
-// HandleWith is an alias for RegisterHandler. Use HandleWith instead of
-// RegisterHandler to make code more concise:
+// HandleWith registers handler for all eventNames. It is an alias for RegisterHandler:
 //
 //	import "github.com/modernice/goes/event/handler"
 //

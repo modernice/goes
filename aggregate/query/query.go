@@ -7,30 +7,15 @@ import (
 	"github.com/modernice/goes/event/query/version"
 )
 
-// Query represents a set of criteria for filtering aggregates based on their
-// name, ID, version, and sorting options. This type is used to selectively
-// process aggregates that meet the specified conditions. It contains fields for
-// Names, IDs, Versions, and Sortings which are defined by the [Q] struct.
-//
-// Furthermore, it allows modification through [Option] functions to fine-tune
-// the behavior of a Query, such as specifying names, IDs, version constraints
-// or sorting options. It also provides methods to merge multiple queries into
-// one or expand an aggregate.Query into a Query. Also included are methods to
-// add names, IDs, version constraints and sorting options to the Query.
-//
-// In addition to these functionalities, Query also works with [Tagger] to
-// determine whether a specific tag is associated with an aggregate.
+// Query filters aggregates by names, ids, versions and sort order. It can be
+// built with Options and merged or expanded from other queries.
 type Query struct {
 	Q
 
 	versionConstraints []version.Option
 }
 
-// Q is a struct that represents a filter for aggregates based on their name,
-// ID, version, and sorting options. It provides a way to selectively process
-// aggregates that match specified criteria. This type is used in the
-// construction of a [Query] and contains fields for Names, IDs, Versions, and
-// Sortings.
+// Q holds the actual filter fields used by Query.
 type Q struct {
 	Names    []string
 	IDs      []uuid.UUID
@@ -38,12 +23,7 @@ type Q struct {
 	Sortings []aggregate.SortOptions
 }
 
-// Option is a function type that modifies a Query. It is typically used to
-// fine-tune the behavior of a Query, such as specifying the names, IDs, version
-// constraints, or sorting options that the Query should filter by. By default,
-// an Option has no effect on the Query unless explicitly provided during the
-// creation of the Query. Options can be combined and ordered in any way,
-// providing flexible control over how a Query operates.
+// Option modifies a [Query].
 type Option func(*Query)
 
 // New constructs a new [Query] with the provided options. The options can

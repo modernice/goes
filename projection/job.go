@@ -17,71 +17,35 @@ import (
 )
 
 var (
-	// ErrAggregateNotFound is returned when trying to extract an aggregateID
-	// from a Job's events and none of those Events belong to an aggregate with
-	// that name.
+	// ErrAggregateNotFound reports that the requested aggregate was not
+	// present in the job's events.
 	ErrAggregateNotFound = errors.New("aggregate not found in events")
 )
 
-// Job is a projection job. Jobs are typically created within Schedules and
-// passed to subscribers of those Schedules.
+// Job wraps a set of events to be applied to projections.
 type Job interface {
 	context.Context
 
-	// Events queries the events of the job. Any provided filters are applied
-	// in-memory to the query result.
-	//
-	//	var job Job
-	//	str, errs, err := job.Events(job)
-	//	// handle err
-	//	events, err := streams.Drain(job, str, errs)
-	//
-	// If you need the events that would be applied to a given projection,
-	// call EventsFor() instead.
-	Events(_ context.Context, filters ...event.Query) (<-chan event.Event, <-chan error, error)
+	// Events streams the job's events, optionally filtered in-memory.
+	Events(context.Context, ...event.Query) (<-chan event.Event, <-chan error, error)
 
-	// EventsOf queries the events that belong to one of the given aggregate names.
-	//
-	//	var job Job
-	//	str, errs, err := job.EventsOf(job, "foo", "bar", "baz")
-	//	// handle err
-	//	events, err := streams.Drain(job, str, errs)
-	EventsOf(_ context.Context, aggregateNames ...string) (<-chan event.Event, <-chan error, error)
+	// EventsOf streams events belonging to the named aggregates.
+	EventsOf(context.Context, ...string) (<-chan event.Event, <-chan error, error)
 
-	// EventsFor queries the events that would be applied to the given
-	// projection when calling Apply().
-	//
-	//	var job Job
-	//	var proj projection.Projection
-	//	str, errs, err := job.EventsFor(job, proj)
-	//	// handle err
-	//	events, err := streams.Drain(job, str, errs)
+	// EventsFor streams the events that would be applied to target.
 	EventsFor(context.Context, Target[any]) (<-chan event.Event, <-chan error, error)
 
-	// Aggregates extracts the aggregates of the job's events as aggregate
-	// references. If aggregate names are provided, only references that have
-	// one of the given names are returned. References are deduplicated, so each
-	// of the returned references is unique.
-	//
-	//	var job Job
-	//	str, errs, err := job.Aggregates(job, "foo", "bar", "baz")
-	//	// handle err
-	//	events, err := streams.Drain(job, str, errs)
-	Aggregates(_ context.Context, aggregateNames ...string) (<-chan aggregate.Ref, <-chan error, error)
+	// Aggregates returns unique aggregate references extracted from the events.
+	Aggregates(context.Context, ...string) (<-chan aggregate.Ref, <-chan error, error)
 
-	// Aggregate returns the id of the first aggregate with the given name that
-	// can be extracted from the events of the job. If no event that belongs to
-	// this kind of aggregate can be found, an error that satisfies
-	// errors.Is(err, ErrAggregateNotFound) is returned.
-	Aggregate(_ context.Context, aggregateName string) (uuid.UUID, error)
+	// Aggregate returns the id of the first aggregate with the given name.
+	Aggregate(context.Context, string) (uuid.UUID, error)
 
-	// Apply applies the Job to the projection. It applies the events that
-	// would be returned by EventsFor(). A job may be applied concurrently to
-	// multiple projections.
+	// Apply applies the job to target.
 	Apply(context.Context, Target[any], ...ApplyOption) error
 }
 
-// JobOption is a Job option.
+// JobOption configures a [Job].
 type JobOption func(*job)
 
 type job struct {
@@ -98,47 +62,36 @@ type job struct {
 	cache       *queryCache
 }
 
-// WithFilter returns a JobOption that adds queries as filters to the Job.
-// Fetched events are matched against every Query and only returned in the
-// result if they match all Queries.
+// WithFilter adds in-memory filters to a Job.
 func WithFilter(queries ...event.Query) JobOption {
 	return func(j *job) {
 		j.filter = append(j.filter, queries...)
 	}
 }
 
-// WithReset returns a JobOption that resets projections before applying events
-// to them. Resetting a projection is done by first resetting the progress of
-// the projection (if it implements ProgressAware). Then, if the Projection has a
-// Reset method, that method is called to allow for custom reset logic.
+// WithReset makes the job reset targets before applying events.
 func WithReset() JobOption {
 	return func(j *job) {
 		j.reset = true
 	}
 }
 
-// WithAggregateQuery returns a JobOption that specifies the event query that is
-// used for the `Aggregates()` and `Aggregate()` methods of a job. If this
-// option is not provided, the main query of the job is used instead.
+// WithAggregateQuery overrides the query used by [Job.Aggregates] and
+// [Job.Aggregate].
 func WithAggregateQuery(q event.Query) JobOption {
 	return func(j *job) {
 		j.aggregateQuery = q
 	}
 }
 
-// WithBeforeEvent returns a JobOption that adds the given functions as
-// "before"-interceptors to the event streams returned by a job's `EventsFor()`
-// and `Apply()` methods. For each received event of a stream, all provided
-// functions are called in order, and the returned events are inserted into the
-// stream before the intercepted event.
+// WithBeforeEvent inserts events returned by fns before each streamed event.
 func WithBeforeEvent(fns ...func(context.Context, event.Event) ([]event.Event, error)) JobOption {
 	return func(j *job) {
 		j.beforeEvent = append(j.beforeEvent, fns...)
 	}
 }
 
-// NewJob returns a new projection Job. The Job uses the provided Query to fetch
-// the events from the Store.
+// NewJob builds a Job that queries events from store using q.
 func NewJob(ctx context.Context, store event.Store, q event.Query, opts ...JobOption) Job {
 	j := job{
 		Context: ctx,
@@ -154,9 +107,7 @@ func NewJob(ctx context.Context, store event.Store, q event.Query, opts ...JobOp
 	return &j
 }
 
-// Events returns a channel of events and a channel of errors that occur while
-// querying the events of the job. Any provided filters are applied in-memory to
-// the query result.
+// Events streams queried events. Additional filters are applied in-memory.
 func (j *job) Events(ctx context.Context, filter ...event.Query) (<-chan event.Event, <-chan error, error) {
 	return j.queryEvents(ctx, j.query, filter...)
 }
@@ -219,8 +170,7 @@ func (j *job) applyBeforeEvent(ctx context.Context, events <-chan event.Event, e
 	return out, outErrs
 }
 
-// EventsOf queries the events that belong to one of the given aggregate names.
-// It returns a channel of events and a channel of errors.
+// EventsOf streams events of the specified aggregate names.
 func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan event.Event, <-chan error, error) {
 	if len(aggregateName) == 0 {
 		return j.Events(ctx)
@@ -228,9 +178,8 @@ func (j *job) EventsOf(ctx context.Context, aggregateName ...string) (<-chan eve
 	return j.Events(ctx, query.New(query.AggregateName(aggregateName...)))
 }
 
-// EventsFor returns a channel of events that would be applied to the given
-// projection when calling Apply(). It takes a context and a target projection
-// as arguments.
+// EventsFor streams the events that would be applied to target when calling
+// [Job.Apply].
 func (j *job) EventsFor(ctx context.Context, target Target[any]) (<-chan event.Event, <-chan error, error) {
 	q := j.query
 
@@ -252,10 +201,7 @@ func (j *job) EventsFor(ctx context.Context, target Target[any]) (<-chan event.E
 	return j.queryEvents(ctx, q)
 }
 
-// Aggregates extracts the aggregates of the job's events as aggregate
-// references. If aggregate names are provided, only references that have one of
-// the given names are returned. References are deduplicated, so each of the
-// returned references is unique.
+// Aggregates extracts unique aggregate references from the job's events.
 func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate.Ref, <-chan error, error) {
 	var (
 		events <-chan event.Event
@@ -305,10 +251,8 @@ func (j *job) Aggregates(ctx context.Context, names ...string) (<-chan aggregate
 	return out, errs, nil
 }
 
-// Aggregate returns the id of the first aggregate with the given name that can
-// be extracted from the events of the job. If no event that belongs to this
-// kind of aggregate can be found, an error that satisfies errors.Is(err,
-// ErrAggregateNotFound) is returned.
+// Aggregate returns the id of the first aggregate with the given name or
+// ErrAggregateNotFound.
 func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	tuples, errs, err := j.Aggregates(ctx, name)
 	if err != nil {
@@ -335,8 +279,7 @@ func (j *job) Aggregate(ctx context.Context, name string) (uuid.UUID, error) {
 	return id, nil
 }
 
-// Apply applies the Job to the projection. It applies the events that would be
-// returned by EventsFor(). A job may be applied concurrently to multiple
+// Apply feeds the job's events into target. It may run concurrently on multiple
 // projections.
 func (j *job) Apply(ctx context.Context, target Target[any], opts ...ApplyOption) error {
 	if j.reset {

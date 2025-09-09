@@ -8,40 +8,29 @@ import (
 	"github.com/modernice/goes/helper/streams"
 )
 
-// ApplyOption is an option for Apply.
+// ApplyOption configures [Apply] and [ApplyStream].
 type ApplyOption func(*applyConfig)
 
 type applyConfig struct {
 	ignoreProgress bool
 }
 
-// IgnoreProgress returns an ApplyOption that makes Apply ignore the current
-// progress of a projection so that it applies events to a projection even if
-// an event's time is before the progress time of the projection.
+// IgnoreProgress forces application of events even if they are older than the
+// recorded progress.
 func IgnoreProgress() ApplyOption {
 	return func(cfg *applyConfig) {
 		cfg.ignoreProgress = true
 	}
 }
 
-// Apply applies events to the given projection.
-//
-// If the projection implements Guard, proj.GuardProjection(evt) is called for
-// every event to determine if the event should be applied to the projection.
-//
-// If the projection implements ProgressAware, the time of the last applied
-// event is applied to the projection by calling proj.SetProgress(evt).
+// Apply feeds a slice of events to a projection. Guards can reject events and
+// [ProgressAware] targets record the last applied time and ids.
 func Apply(proj Target[any], events []event.Event, opts ...ApplyOption) {
 	ApplyStream(proj, streams.New(events), opts...)
 }
 
-// ApplyStream applies events to the given projection.
-//
-// If the projection implements Guard, proj.GuardProjection(evt) is called for
-// every event to determine if the event should be applied to the projection.
-//
-// If the projection implements ProgressAware, the time of the last applied
-// event is applied to the projection by calling proj.SetProgress(evt).
+// ApplyStream feeds a stream of events to a projection with the same semantics
+// as [Apply].
 func ApplyStream(target Target[any], events <-chan event.Event, opts ...ApplyOption) {
 	cfg := newApplyConfig(opts...)
 
