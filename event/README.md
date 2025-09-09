@@ -1,89 +1,82 @@
 # Events
 
-Package `event` is the core of goes. It defines and implements a generic event
-system that is used as the building block for all the other components
-provided by goes.
+Package `event` contains the primitives used throughout goes. It models
+domain events, provides helpers to build and transform them and defines the
+interfaces that event buses and stores have to implement.
 
-The core type of this package is the `Event` interface. An event is either an
-application event or an aggregate event, depending on the provided data.
-Read the documentation of the `Event` interface for more information.
+## Creating events
 
-To create an event, pass at least the name of the event and some arbitrary
-event data to the `New` function:
+An event carries a name, a unique identifier, a timestamp and arbitrary data.
+Use `event.New` to construct one:
 
 ```go
 import "github.com/modernice/goes/event"
 
 func example() {
-	evt := event.New("foo", 3)
-	// evt.ID() == uuid.UUID{...}
-	// evt.Name() == "foo"
-	// evt.Time() == time.Now()
-	// evt.Data() == 3
+    evt := event.New("foo", 3)
+    _ = evt.ID()   // uuid.UUID
+    _ = evt.Name() // "foo"
+    _ = evt.Time() // time.Time
+    _ = evt.Data() // 3
 }
 ```
 
-Events can be published over an event bus:
+Events can optionally belong to an aggregate. Pass `event.Aggregate` when
+creating an event to associate it with an aggregate ID, name and version.
+
+## Event buses
+
+Publish events by passing them to an implementation of `event.Bus`:
 
 ```go
-import "github.com/modernice/goes/event"
-
-func example(bus event.Bus) {
-	evt := event.New("foo", 3)
-	err := bus.Publish(context.TODO(), evt)
+func example(bus event.Bus) error {
+    evt := event.New("foo", 3)
+    return bus.Publish(context.TODO(), evt)
 }
 ```
 
-Events can also be subscribed to using an event bus:
+Subscribers receive events via channels:
 
 ```go
-import "github.com/modernice/goes/event"
-
 func example(bus event.Bus) {
-	// Subscribe to "foo", "bar", and "baz" events.
-	events, errs, err := bus.Subscribe(context.TODO(), "foo", "bar", "baz")
+    events, errs, err := bus.Subscribe(context.TODO(), "foo", "bar")
+    if err != nil {
+        // handle subscription error
+    }
+    _ = events // <-chan event.Event
+    _ = errs   // <-chan error
+}
 ```
 
-Events can be inserted into and queried from an event store:
+## Event stores
+
+Persist and query events through an implementation of `event.Store`:
 
 ```go
-import "github.com/modernice/goes/event"
-
 func example(store event.Store) {
-	evt := event.New("foo", 3)
-	err := store.Insert(context.TODO(), evt)
+    evt := event.New("foo", 3)
+    _ = store.Insert(context.TODO(), evt)
 
-	events, errs, err := store.Query(context.TODO(), query.New(
-		query.Name("foo"), // query "foo" events
-		query.SortByTime(), // sort events by time
- ))
+    q := query.New(
+        query.Name("foo"),
+        query.SortByTime(),
+    )
+    events, errs, _ := store.Query(context.TODO(), q)
+    _ = events
+    _ = errs
+}
 ```
 
-Depending on the used event store and/or event bus implementations, it may be
-required to pass an encoder for event data to the store/bus.
+## Encoding event data
 
-**Example using encoding/gob:**
+Some buses and stores need to encode event data. Use a registry to register
+known event names and their Go types:
 
 ```go
-import (
-	"github.com/modernice/goes/backend/mongo"
-	"github.com/modernice/goes/event"
-)
-
-func example() {
-	enc := codec.Gob(event.NewRegistry())
-	codec.GobRegister[int](enc, "foo") // register "foo" as an int
-	codec.GobRegister[string](enc, "bar") // register "bar" as a string
-	codec.GobRegister[struct{Foo string}](enc, "baz") // register "baz" as a struct{Foo string}
-
-	store := mongo.NewEventStore(enc)
-}
-
-// Alternative without the use of generics.
-func example() {
-	enc := codec.Gob(event.NewRegistry())
-	enc.GobRegister("foo", func() any { return 0 })
-	enc.GobRegister("bar", func() any { return "" })
-	enc.GobRegister("baz", func() any { return struct{Foo string}{} })
-}
+enc := codec.Gob(event.NewRegistry())
+codec.GobRegister[int](enc, "foo")
+codec.GobRegister[string](enc, "bar")
 ```
+
+The encoder can then be supplied to the bus or store implementation.
+
