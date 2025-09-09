@@ -14,16 +14,14 @@ import (
 )
 
 var (
-	// ErrNotFound is returned by Expect when the value for the given key cannot be found.
+	// ErrNotFound indicates that no value exists for the key.
 	ErrNotFound = errors.New("value for key not found")
 
-	// ErrWrongType is returned by Expect when the value for the given key is not of the expected type.
+	// ErrWrongType indicates a type mismatch when casting a lookup value.
 	ErrWrongType = errors.New("value is not of the expected type")
 )
 
-// Lookup is a projection that provides a lookup table for a given set of
-// events. The lookup table is populated by events that implment the Data
-// interface. A *Lookup is thread-safe.
+// Lookup maintains lookup tables populated from events.
 type Lookup struct {
 	scheduleOpts []schedule.ContinuousOption
 	applyEvent   func(event.Event)
@@ -36,38 +34,22 @@ type Lookup struct {
 	ready chan struct{}
 }
 
-// Option is a type that represents an option for configuring a *Lookup. Options
-// are used as arguments in the constructor function New.
+// Option configures a [Lookup].
 type Option func(*Lookup)
 
-// Data is the interface that must be implemented by events that want to
-// populate the lookup table. The Provider that is passed to ProvideLookup
-// allows the event to update the lookup table of a specific aggregate. The
-// Provider that is provided to the ProvideLookup method is restricted to the
-// aggregate that the event belongs to. The Provider is not thread-safe and must
-// not be used outside of the ProvideLookup method. To retrieve a thread-safe
-// Provider, use the l.Provider() method on the *Lookup type.
-//
-//	// UserRegisteredData is the event data for a registered user.
-//	type UserRegisteredData struct {
-//		Email string
-//	}
-//
-//	func (data UserRegisteredData) ProvideLookup(p lookup.Provider) {
-//		p.Provide("email", data.Email)
-//	}
+// Data marks events that can update the lookup table.
 type Data interface {
 	// ProvideLookup accepts a Provider that can be used to update the lookup
 	// table of a specific aggregate.
 	ProvideLookup(Provider)
 }
 
-// Provider allows events to update the lookup table of a specific aggregate.
+// Provider updates lookup entries for a specific aggregate.
 type Provider interface {
-	// Provide provides the lookup value for the given key.
+	// Provide stores value under key.
 	Provide(key string, value any)
 
-	// Remove removes the lookup values for the given keys.
+	// Remove deletes values for the given keys.
 	Remove(keys ...string)
 }
 
@@ -77,10 +59,7 @@ type lookup interface {
 	Lookup(context.Context, string, string, uuid.UUID) (any, bool)
 }
 
-// Expect calls l.Lookup with the given arguments and casts the result to the
-// given generic type. If the lookup value cannot be found, an error that
-// unwraps to ErrNotFound is returned. If the lookup value is not of the
-// expected type, an error that unwraps to ErrWrongType is returned.
+// Expect fetches and casts a lookup value.
 func Expect[Value any](ctx context.Context, l lookup, aggregateName, key string, aggregateID uuid.UUID) (Value, error) {
 	val, ok := l.Lookup(ctx, aggregateName, key, aggregateID)
 	if !ok {
@@ -96,8 +75,7 @@ func Expect[Value any](ctx context.Context, l lookup, aggregateName, key string,
 	return zero, fmt.Errorf("%w: want=%T, got=%T [key=%v, aggregateName=%v, aggregateId=%v]", ErrWrongType, zero, val, key, aggregateName, aggregateID)
 }
 
-// Contains returns whether the lookup table contains the given key for the
-// given aggregate.
+// Contains reports whether a value of type Value exists for key.
 func Contains[Value any](ctx context.Context, l lookup, aggregateName, key string, aggregateID uuid.UUID) bool {
 	val, ok := l.Lookup(ctx, aggregateName, key, aggregateID)
 	if !ok {
@@ -107,18 +85,14 @@ func Contains[Value any](ctx context.Context, l lookup, aggregateName, key strin
 	return ok
 }
 
-// ScheduleOptions returns an Option that configures the continuous schedule
-// that is created by the lookup.
+// ScheduleOptions appends options for the internal Continuous schedule.
 func ScheduleOptions(opts ...schedule.ContinuousOption) Option {
 	return func(l *Lookup) {
 		l.scheduleOpts = append(l.scheduleOpts, opts...)
 	}
 }
 
-// ApplyEventsWith returns an Option that overrides the default function that
-// applies events to the lookup table. When an event is applied, the provided
-// function is called with the event as its first argument and the original
-// event applier function as its second argument.
+// ApplyEventsWith overrides how events are applied to the table.
 func ApplyEventsWith(fn func(evt event.Event, original func(event.Event))) Option {
 	return func(l *Lookup) {
 		l.applyEvent = func(evt event.Event) {
@@ -127,10 +101,7 @@ func ApplyEventsWith(fn func(evt event.Event, original func(event.Event))) Optio
 	}
 }
 
-// New returns a new lookup table. The lookup table becomes ready after the
-// first projection job has been applied. Use the l.Ready() method of the
-// returned *Lookup to wait for the lookup table to become ready. Use l.Run()
-// to start the projection of the lookup table.
+// New constructs a Lookup. Call Run and wait on Ready before querying.
 func New(store event.Store, bus event.Bus, events []string, opts ...Option) *Lookup {
 	l := &Lookup{
 		providers: make(map[string]*provider),
@@ -149,19 +120,17 @@ func New(store event.Store, bus event.Bus, events []string, opts ...Option) *Loo
 	return l
 }
 
-// Ready returns a channel that is closed when the lookup table is ready. The
-// lookup table becomes ready after the first projection job has been applied.
-// Call l.Run() to start the projection of the lookup table.
+// Ready closes once the lookup table has processed its first job.
 func (l *Lookup) Ready() <-chan struct{} {
 	return l.ready
 }
 
-// Schedule returns the projection schedule for the lookup table.
+// Schedule exposes the underlying schedule.
 func (l *Lookup) Schedule() *schedule.Continuous {
 	return l.schedule
 }
 
-// Map returns the all values in the lookup table as a nested map, structured as follows:
+// Map returns all values in a nested map:
 //
 //	map[AGGREGATE_NAME]map[AGGREGATE_ID]map[LOOKUP_KEY]LOOKUP_VALUE
 func (l *Lookup) Map() map[string]map[uuid.UUID]map[any]any {
@@ -180,8 +149,7 @@ func (l *Lookup) Map() map[string]map[uuid.UUID]map[any]any {
 	return out
 }
 
-// Provider returns the lookup provider for the given aggregate. The returned Provider
-// is thread-safe.
+// Provider returns a thread-safe provider for the aggregate.
 func (l *Lookup) Provider(aggregateName string, aggregateID uuid.UUID) Provider {
 	l.mux.RLock()
 	if prov, ok := l.providers[aggregateName]; ok {

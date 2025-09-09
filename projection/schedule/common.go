@@ -25,33 +25,7 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 	}
 }
 
-// Trigger manually triggers the schedule. When triggering a schedule, a
-// projection Job is created and passed to subscribers of the schedule. Trigger
-// does not wait for the created Job to be applied. The only error ever returned
-// by Trigger is ctx.Err(), if ctx is canceled before the trigger was accepted
-// by every susbcriber.
-//
-// Queried events
-//
-// By default, when a Job is created by a trigger, the event query for the Job
-// queries the configured events from the beginning of time until now, sorted by
-// time. This query can be overriden using the projection.Query TriggerOption:
-//
-//	err := schedule.Trigger(context.TODO(), projection.Query(query.New(...)))
-//
-// Filter events
-//
-// Events can be further filtered using additional event queries. Fetched events
-// are tested against the provided Queries to determine whether they should be
-// included in the created Job:
-//
-//	err := schedule.Trigger(context.TODO(), projection.Filter(query.New(...), query.New(...)))
-//
-// Difference between filters and the base query of a Job is that a Job may have
-// multiple filters but only one query. The query is always used to actually
-// fetch the events from the event store while filters are applied afterwards
-// (in-memory). events must test against every provided filter to be included in
-// the projection Job.
+// Trigger creates a job and delivers it to subscribers. The job's query and filters can be adjusted with TriggerOptions. Only ctx.Err() may be returned.
 func (schedule *schedule) Trigger(ctx context.Context, opts ...projection.TriggerOption) error {
 	schedule.triggersMux.RLock()
 	triggers := make([]chan projection.Trigger, len(schedule.triggers))

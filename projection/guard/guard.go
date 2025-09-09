@@ -6,20 +6,16 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// Guard is a projection guard. It is used by the projection system to determine
-// if an event should be applied to a projection.
+// Guard holds per-event predicates used to filter events for a projection.
 type Guard struct {
 	guards map[string]func(event.Event) bool
 }
 
-// Option is a projection guard option.
+// Option configures a [Guard].
 type Option func(*Guard)
 
-// Event returns an Option that specifies the guard for the given event. The
-// projection system will call the guard before applying the given event to a
-// projection and only applies the event if the guard returns true. If the data
-// of an event cannot be casted to the provided type, the event will not be
-// applied.
+// Event registers a typed guard for an event name. The guard is only executed if
+// the event's data matches Data; mismatches are ignored.
 func Event[Data any](name string, guard func(event.Of[Data]) bool) Option {
 	return Any(name, func(e event.Event) bool {
 		evt, ok := event.TryCast[Data](e)
@@ -32,18 +28,14 @@ func Event[Data any](name string, guard func(event.Of[Data]) bool) Option {
 	})
 }
 
-// Any returns an Option that specifies the guard for the given event. The
-// projection system will call the guard before applying the given event to a
-// projection and only applies the event if the guard returns true. If the data
-// of an event cannot be casted to the provided type, the event will not be
-// applied.
+// Any registers a guard for the named event.
 func Any(name string, guard func(event.Event) bool) Option {
 	return func(g *Guard) {
 		g.guards[name] = guard
 	}
 }
 
-// New returns a new projection guard.
+// New creates a Guard.
 func New(opts ...Option) *Guard {
 	g := Guard{guards: make(map[string]func(event.Event) bool)}
 	for _, opt := range opts {
@@ -52,7 +44,7 @@ func New(opts ...Option) *Guard {
 	return &g
 }
 
-// GuardProjection returns true if the given event should be applied to the projection.
+// GuardProjection reports whether evt passes a registered guard.
 func (g *Guard) GuardProjection(evt event.Event) bool {
 	if guard, ok := g.guards[evt.Name()]; ok {
 		return guard(evt)

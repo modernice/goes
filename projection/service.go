@@ -14,37 +14,34 @@ import (
 )
 
 const (
-	// Triggered is the event name for triggering a Schedule.
+	// Triggered signals a request to trigger a schedule.
 	Triggered = "goes.projection.schedule.triggered"
 
-	// TriggerAccepted is the event name for accepting a trigger.
+	// TriggerAccepted acknowledges a trigger request.
 	TriggerAccepted = "goes.projection.schedule.trigger_accepted"
 )
 
 var (
-	// DefaultTriggerTimeout is the default timeout for triggering a Schedule.
+	// DefaultTriggerTimeout is the default wait for a trigger acknowledgement.
 	DefaultTriggerTimeout = 5 * time.Second
 
-	// ErrUnhandledTrigger is returned when trying to trigger a Schedule that
-	// isn't registered in a running Service.
+	// ErrUnhandledTrigger reports that no service accepted the trigger.
 	ErrUnhandledTrigger = errors.New("unhandled trigger")
 )
 
-// TriggeredData is the event data for triggering a Schedule.
+// TriggeredData describes a schedule trigger request.
 type TriggeredData struct {
 	TriggerID uuid.UUID
 	Trigger   Trigger
 	Schedule  string
 }
 
-// TriggerAcceptedData is the event data for accepting a trigger.
+// TriggerAcceptedData is emitted when a trigger is accepted.
 type TriggerAcceptedData struct {
 	TriggerID uuid.UUID
 }
 
-// Service is an event-driven projection service. A Service allows to trigger
-// Schedules that are registered in Services that communicate over the same
-// event bus.
+// Service coordinates schedule triggers over an event bus.
 type Service struct {
 	bus            event.Bus
 	triggerTimeout time.Duration
@@ -53,69 +50,12 @@ type Service struct {
 	schedules    map[string]Schedule
 }
 
-// Schedule is a projection schedule.
+// Schedule defines a source of projection jobs.
 type Schedule interface {
-	// Subscribe subscribes the provided function to the Schedule and returns a
-	// channel of asynchronous projection errors. When the Schedule is
-	// triggered, a Job is created and passed to subscribers of the Schedule.
-	// Errors returned from subscribers are pushed into the returned error
-	// channel.
-	//
-	//	var proj projection.Projection // created by yourself
-	//	s := schedule.Continuously(bus, store, []string{"foo", "bar", "baz"})
-	//	errs, err := s.Subscribe(context.TODO(), func(job projection.Job) error {
-	//		return job.Apply(job, proj) // job.Apply applies the appropriate events to the projection
-	//	})
-	//	// handle err
-	//	for err := range errs {
-	//		log.Printf("projection failed: %v\n", err)
-	//	}
+	// Subscribe invokes fn for every triggered job.
 	Subscribe(context.Context, func(Job) error, ...SubscribeOption) (<-chan error, error)
 
-	// Trigger manually triggers the Schedule immediately. A Job is created and
-	// passed to every subscriber of the Schedule. Trigger does not wait for the
-	// Job to be handled by the subscribers.
-	//
-	// Reset projections
-	//
-	// The created Job can be configured to reset projections before applying
-	// events to them, effectively rebuilding the entire projection from the
-	// beginning (first event):
-	//
-	//	var s projection.Schedule
-	//	err := s.Trigger(context.TODO(), projection.Reset())
-	//
-	// When a projection implements progressor (or embeds *Progressor), the
-	// progress time of the projection is set to 0.
-	//
-	// When a projection has a `Reset()` method, that method is called to allow
-	// for custom reset logic. Implementers of projection should appropriately
-	// reset the state of the projection.
-	//
-	// Custom event query
-	//
-	// When a Job is created, it is passed an event query to fetch the events
-	// for the projections. By default, this query fetches the events configured
-	// in the Schedule sorted by time. A custom query may be provided using the
-	// Query option. Don't forget to configure correct sorting when providing a
-	// custom query:
-	//
-	//	var s projection.Schedule
-	//	err := s.Trigger(context.TODO(), projection.Query(query.New(
-	//		query.AggregateName("foo", "bar"),
-	//		query.SortBy(event.SortTime, event.SortAsc),
-	//	)))
-	//
-	// Event filters
-	//
-	// Queried events can be further filtered using the Filter option. Filters
-	// are applied in-memory, after the events have already been fetched from
-	// the event store. When multiple filters are passed, events must match
-	// against every filter to be applied to the projections. Sorting options of
-	// filters are ignored.
-	//
-	//	var s projection.Schedule
-	//	err := s.Trigger(context.TODO(), projection.Filter(query.New(...), query.New(...)))
+	// Trigger creates a job immediately and delivers it to subscribers.
 	Trigger(context.Context, ...TriggerOption) error
 }
 
@@ -128,16 +68,14 @@ func RegisterService(r codec.Registerer) {
 // ServiceOption is an option for creating a Service.
 type ServiceOption func(*Service)
 
-// RegisterSchedule returns a ServiceOption that registers the Schedule s with
-// the given name into a Service
+// RegisterSchedule registers s under name when creating a Service.
 func RegisterSchedule(name string, s Schedule) ServiceOption {
 	return func(svc *Service) {
 		svc.schedules[name] = s
 	}
 }
 
-// TriggerTimeout returns a ServiceOption that overrides the default timeout for
-// triggering a Schedule. Default is 5s. Zero Duration means no timeout.
+// TriggerTimeout sets the trigger acknowledgement timeout. Zero disables it.
 func TriggerTimeout(d time.Duration) ServiceOption {
 	return func(svc *Service) {
 		svc.triggerTimeout = d
@@ -168,19 +106,16 @@ func NewService(bus event.Bus, opts ...ServiceOption) *Service {
 	return &svc
 }
 
-// Register registers a Schedule with the given name into the Service.
+// Register adds s under name.
 func (svc *Service) Register(name string, s Schedule) {
 	svc.schedulesMux.Lock()
 	svc.schedules[name] = s
 	svc.schedulesMux.Unlock()
 }
 
-// Trigger triggers the Schedule with the given name.
-//
-// Trigger publishes a Triggered event over the event bus and waits for a
-// TriggerAccepted event to be published by another Service. Should the
-// TriggerAccepted event not be published within the trigger timeout,
-// ErrUnhandledTrigger is returned. When ctx is canceled, ctx.Err() is returned.
+// Trigger emits a trigger request for the named schedule and waits for an
+// acknowledgement. ErrUnhandledTrigger is returned if none arrives before the
+// timeout.
 func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOption) error {
 	events, errs, err := svc.bus.Subscribe(ctx, TriggerAccepted)
 	if err != nil {
@@ -220,11 +155,7 @@ func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOpt
 	return nil
 }
 
-// Run starts the Service is a new goroutine and returns a channel of
-// asynchronous errors, or a single error if the event bus fails to subscribe.
-// When another Service triggers a Schedule with a name that is registered in
-// svc, svc accepts that trigger by publishing a TriggerAccepted event and then
-// actually triggers the Schedule.
+// Run listens for trigger events and dispatches them to registered schedules.
 func (svc *Service) Run(ctx context.Context) (<-chan error, error) {
 	events, errs, err := svc.bus.Subscribe(ctx, Triggered)
 	if err != nil {
