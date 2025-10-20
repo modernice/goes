@@ -43,8 +43,8 @@ func TestPermissions_ofRole(t *testing.T) {
 
 	role := auth.NewRole(uuid.New())
 	role.Identify("admin")
-	role.Grant(ref, actions...)
 	role.Add(actor.ID)
+	role.Grant(ref, actions...)
 
 	perms := auth.PermissionsOf(actor.AggregateID())
 
@@ -126,6 +126,7 @@ func TestPermissions_cases(t *testing.T) {
 			actor.Revoke(ref, tt.revokeActor...)
 
 			role.Identify("admin")
+			role.Add(actor.ID)
 			role.Grant(ref, tt.grantRole...)
 			role.Revoke(ref, tt.revokeRole...)
 

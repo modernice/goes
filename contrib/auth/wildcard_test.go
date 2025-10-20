@@ -255,7 +255,7 @@ func TestWildcards(t *testing.T) {
 
 				events := append(role.AggregateChanges(), actor.AggregateChanges()...)
 
-				perms := auth.PermissionsOf(uuid.New())
+				perms := auth.PermissionsOf(actor.AggregateID())
 				projection.Apply(perms, events)
 
 				runWildcardTestWithoutGrant(t, tt, func() *auth.Permissions {
