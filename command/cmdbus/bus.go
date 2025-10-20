@@ -88,6 +88,7 @@ type options struct {
 	receiveTimeout time.Duration
 	filters        []func(command.Command) bool
 	debug          bool
+	workers        int
 }
 
 type subscription struct {
@@ -139,6 +140,16 @@ func Debug(debug bool) Option {
 	}
 }
 
+// Workers returns an Option that configures how many commands are processed in
+// parallel by the command bus. Internally, this sets the worker count of the
+// underlying event handler that processes command bus events. If n < 1, the
+// handler defaults to 1 worker.
+func Workers(n int) Option {
+	return func(opts *options) {
+		opts.workers = n
+	}
+}
+
 // Filter returns an Option that adds a filter to the command bus. Filters allow
 // you to restrict the commands that are handled by the bus: By default, the bus
 // handles all commands that it's subscribed to. Filters are called before the
@@ -154,7 +165,6 @@ func Filter(fn func(command.Command) bool) Option {
 // New returns an event-driven command bus.
 func New[ErrorCode constraints.Integer](enc codec.Encoding, events event.Bus, opts ...Option) *Bus[ErrorCode] {
 	b := &Bus[ErrorCode]{
-		Handler: handler.New(events),
 		options: options{
 			assignTimeout:  DefaultAssignTimeout,
 			receiveTimeout: DefaultReceiveTimeout,
@@ -170,6 +180,9 @@ func New[ErrorCode constraints.Integer](enc codec.Encoding, events event.Bus, op
 	for _, opt := range opts {
 		opt(&b.options)
 	}
+
+	// create the underlying event handler with the configured worker count
+	b.Handler = handler.New(events, handler.Workers(b.options.workers))
 
 	event.HandleWith(b, b.commandDispatched, CommandDispatched)
 	event.HandleWith(b, b.commandRequested, CommandRequested)

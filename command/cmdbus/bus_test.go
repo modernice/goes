@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -446,6 +447,128 @@ func TestFilter(t *testing.T) {
 	barCmd := command.New("bar-cmd", mockPayload{})
 	if err := pubBus.Dispatch(ctx, barCmd.Any(), dispatch.Sync()); err != nil {
 		t.Fatalf("dispatch should not have failed: %v", err)
+	}
+}
+
+func TestWorkers_1(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var current int64
+	var peak int64
+	block := make(chan struct{})
+
+	subBus, ebus, ereg := newBus(
+		ctx,
+		cmdbus.Workers(1),
+		cmdbus.Filter(func(cmd command.Command) bool {
+			cur := atomic.AddInt64(&current, 1)
+			for {
+				p := atomic.LoadInt64(&peak)
+				if cur <= p || atomic.CompareAndSwapInt64(&peak, p, cur) {
+					break
+				}
+			}
+			<-block
+			atomic.AddInt64(&current, -1)
+			return false
+		}),
+	)
+
+	// Must subscribe so the filter is evaluated.
+	_, errs, err := subBus.Subscribe(ctx, "foo-cmd")
+	if err != nil {
+		t.Fatalf("failed to subscribe: %v", err)
+	}
+	go testutil.PanicOn(errs)
+
+	pubBus, _, _ := newBusWith(ctx, ereg, ebus, cmdbus.AssignTimeout(500*time.Millisecond))
+
+	// Dispatch multiple commands to trigger concurrent filter evaluations.
+	for i := 0; i < 8; i++ {
+		go func() { _ = pubBus.Dispatch(ctx, command.New("foo-cmd", mockPayload{}).Any()) }()
+	}
+
+	// Wait until the peak reaches 1 (workers=1) or timeout.
+	timeout := time.NewTimer(500 * time.Millisecond)
+	defer timeout.Stop()
+WAIT1:
+	for {
+		if atomic.LoadInt64(&peak) >= 1 {
+			break WAIT1
+		}
+		select {
+		case <-timeout.C:
+			break WAIT1
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	close(block)
+
+	if got := atomic.LoadInt64(&peak); got != 1 {
+		t.Fatalf("expected peak concurrency 1; got %d", got)
+	}
+}
+
+func TestWorkers_8(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var current int64
+	var peak int64
+	block := make(chan struct{})
+
+	subBus, ebus, ereg := newBus(
+		ctx,
+		cmdbus.Workers(8),
+		cmdbus.Filter(func(cmd command.Command) bool {
+			cur := atomic.AddInt64(&current, 1)
+			for {
+				p := atomic.LoadInt64(&peak)
+				if cur <= p || atomic.CompareAndSwapInt64(&peak, p, cur) {
+					break
+				}
+			}
+			<-block
+			atomic.AddInt64(&current, -1)
+			return false
+		}),
+	)
+
+	_, errs, err := subBus.Subscribe(ctx, "foo-cmd")
+	if err != nil {
+		t.Fatalf("failed to subscribe: %v", err)
+	}
+	go testutil.PanicOn(errs)
+
+	pubBus, _, _ := newBusWith(ctx, ereg, ebus, cmdbus.AssignTimeout(500*time.Millisecond))
+
+	// Dispatch more commands than workers to try to saturate concurrency.
+	for i := 0; i < 32; i++ {
+		go func() { _ = pubBus.Dispatch(ctx, command.New("foo-cmd", mockPayload{}).Any()) }()
+	}
+
+	// Wait until peak reaches 8 (workers=8) or timeout.
+	timeout := time.NewTimer(2 * time.Second)
+	defer timeout.Stop()
+WAIT2:
+	for {
+		if atomic.LoadInt64(&peak) >= 8 {
+			break WAIT2
+		}
+		select {
+		case <-timeout.C:
+			break WAIT2
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	close(block)
+
+	got := atomic.LoadInt64(&peak)
+	if got < 2 {
+		t.Fatalf("expected peak concurrency >= 2 with workers=8; got %d", got)
 	}
 }
 
