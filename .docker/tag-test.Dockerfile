@@ -1,4 +1,4 @@
-FROM golang:1.23.0
+FROM golang:1.25.0
 ARG TAGS
 ARG TEST_PATH=./...
 ENV TAGS $TAGS
