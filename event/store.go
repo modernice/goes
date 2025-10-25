@@ -12,32 +12,24 @@ import (
 
 // #region sortings
 const (
-	// SortTime is a Sorting option that sorts events by their timestamp, with
-	// earlier events coming before later events.
+	// SortTime orders events by their timestamp.
 	SortTime = Sorting(iota)
 
-	// SortAggregateName is a Sorting value that sorts events by their aggregate
-	// name in a Query. Events with the same aggregate name are considered equal
-	// when sorting with this value.
+	// SortAggregateName orders by aggregate name.
 	SortAggregateName
 
-	// SortAggregateID is a Sorting option that sorts events based on the
-	// lexicographical order of their aggregate ID.
+	// SortAggregateID orders by aggregate ID.
 	SortAggregateID
 
-	// SortAggregateVersion is a Sorting option that sorts events based on their
-	// aggregate version, with lower versions coming first.
+	// SortAggregateVersion orders by aggregate version.
 	SortAggregateVersion
 )
 
 const (
-	// SortAsc is a SortDirection constant that represents sorting in ascending
-	// order. Use it with Sorting and SortOptions to specify the desired sort
-	// direction when querying events from an event store.
+	// SortAsc sorts ascending.
 	SortAsc = SortDirection(iota)
 
-	// SortDesc is a SortDirection that indicates the order of sorting should be in
-	// descending order when comparing values.
+	// SortDesc sorts descending.
 	SortDesc
 )
 
@@ -45,11 +37,7 @@ const (
 
 // #region store
 //
-// Store is an interface that provides methods for managing Event storage,
-// including insertion, retrieval, querying, and deletion of events.
-// Implementations should handle the storage and retrieval of events according
-// to the provided Query constraints, such as filtering by aggregate names, IDs,
-// and versions.
+// Store persists and queries events.
 type Store interface {
 	// Insert inserts the provided Events into the Store. Returns an error if any
 	// Event could not be inserted.
@@ -75,10 +63,8 @@ type Store interface {
 
 // #region query
 //
-// Query is an interface that represents a set of criteria for filtering and
-// sorting events when querying an event store. It provides methods to access
-// constraints on event names, aggregate IDs, time ranges, aggregate names,
-// aggregate versions, and custom sorting options.
+// Query describes filtering and sorting constraints used when retrieving events
+// from a Store.
 type Query interface {
 	// Names returns a slice of event names included in the Query.
 	Names() []string
@@ -115,37 +101,25 @@ type Query interface {
 
 // #endregion query
 
-// AggregateRef represents a reference to an aggregate with a specific Name and
-// ID. It provides methods to check if it's a zero value, retrieve aggregate
-// information, split the Name and ID, and parse a string into an AggregateRef.
+// AggregateRef identifies an aggregate by name and ID.
 type AggregateRef struct {
 	Name string
 	ID   uuid.UUID
 }
 
-// SortOptions is a configuration struct used to specify the sorting criteria
-// and direction for event queries. It contains a Sorting field to determine the
-// sorting attribute (such as time, aggregate name, aggregate ID, or aggregate
-// version) and a SortDirection field to indicate the sorting order (ascending
-// or descending).
+// SortOptions selects a Sorting and direction for queries.
 type SortOptions struct {
 	Sort Sorting
 	Dir  SortDirection
 }
 
-// Sorting is an enumeration of the possible ways to sort Events when querying a
-// Store. Supported sort options include sorting by time, aggregate name,
-// aggregate ID, and aggregate version.
+// Sorting enumerates ways to order events.
 type Sorting int
 
-// SortDirection determines the order of sorting in a query. It can be either
-// ascending (SortAsc) or descending (SortDesc).
+// SortDirection specifies ascending or descending order.
 type SortDirection int
 
-// CompareSorting compares two events a and b using the specified Sorting s. It
-// returns -1 if a is less than b, 0 if they are equal, or 1 if a is greater
-// than b. The comparison is based on the time, aggregate name, aggregate ID, or
-// aggregate version, depending on the provided Sorting s.
+// CompareSorting compares events a and b using s and returns -1, 0 or 1.
 func CompareSorting[A, B any](s Sorting, a Of[A], b Of[B]) (cmp int8) {
 	aid, aname, av := a.Aggregate()
 	bid, bname, bv := b.Aggregate()

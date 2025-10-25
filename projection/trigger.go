@@ -4,32 +4,25 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// TriggerOption is a Trigger option.
+// TriggerOption configures a [Trigger].
 type TriggerOption func(*Trigger)
 
-// A Trigger is used by Schedules to trigger a Job.
+// Trigger configures how a schedule builds a job.
 type Trigger struct {
-	// Reset projections before applying events.
+	// Reset clears projections before applying events.
 	Reset bool
 
-	// If provided, overrides the query that is used to fetch events that are
-	// applied to projections.
+	// Query overrides the event fetch query.
 	Query event.Query
 
-	// If provided, overrides the query that is used to extract events from a
-	// projection job. The `Aggregates()` and `Aggregate()` methods of a
-	// projection job will use this query. This allows to optimize the query
-	// performance of initial projection runs, which often times need to fetch
-	// all ids of specific aggregates from the event store in order to get all
-	// projections up-to-date.
+	// AggregateQuery overrides the query used to extract aggregates.
 	AggregateQuery event.Query
 
-	// Additional filters that are applied in-memory to the query result of a
-	// job's `EventsFor()` and `Apply()` methods.
+	// Filter holds additional in-memory filters for the job's events.
 	Filter []event.Query
 }
 
-// NewTrigger returns a projection trigger.
+// NewTrigger builds a Trigger from opts.
 func NewTrigger(opts ...TriggerOption) Trigger {
 	var t Trigger
 	for _, opt := range opts {
@@ -38,59 +31,28 @@ func NewTrigger(opts ...TriggerOption) Trigger {
 	return t
 }
 
-// Reset returns a TriggerOption that resets projections before applying events
-// to them. Resetting a projection is done by first resetting the progress of
-// the projection (if it implements progressor). Then, if the projection has a
-// `Reset()` method, that method is called to allow for custom reset logic.
+// Reset requests that projections reset before applying events.
 func Reset(reset bool) TriggerOption {
 	return func(t *Trigger) {
 		t.Reset = reset
 	}
 }
 
-// Query returns a TriggerOption that sets the Query of a Trigger.
-//
-// When a Job is created by a Schedule, it is passed an event query to fetch the
-// events for the projections. By default, this query fetches all events that
-// are configured in the triggered Schedule, sorted by time. A custom query may
-// be provided using the `Query` option. Don't forget to configure correct
-// sorting when providing a custom query:
-//
-//	var s projection.Schedule
-//	err := s.Trigger(context.TODO(), projection.Query(query.New(
-//		query.AggregateName("foo", "bar"),
-//		query.SortBy(event.SortTime, event.SortAsc), // to ensure correct sorting
-//	)))
+// Query sets the event query used to fetch events.
 func Query(q event.Query) TriggerOption {
 	return func(t *Trigger) {
 		t.Query = q
 	}
 }
 
-// AggregateQuery returns a TriggerOption that sets the AggregateQuery of a Trigger.
-//
-// The `Aggregates()` and `Aggregate()` methods of a projection job will use
-// this query to extract the aggregates from the projection job.
-//
-//	var s projection.Schedule
-//	err := s.Trigger(context.TODO(), projection.AggregateQuery(query.New(
-//		query.Name("foo", "bar"), // extract aggregates from "foo" and "bar" events
-//	)))
+// AggregateQuery sets the query used to extract aggregates for a job.
 func AggregateQuery(q event.Query) TriggerOption {
 	return func(t *Trigger) {
 		t.AggregateQuery = q
 	}
 }
 
-// Filter returns a TriggerOption that adds filters to a Trigger.
-//
-// Filters are applied in-memory, after the events have been fetched from the
-// event store. When multiple filters are configured, events must match against
-// every filter to be applied to projections. Sorting options of queries are
-// ignored.
-//
-//	var s projection.Schedule
-//	err := s.Trigger(context.TODO(), projection.Filter(query.New(...), query.New(...)))
+// Filter adds in-memory filters to the job's events.
 func Filter(queries ...event.Query) TriggerOption {
 	return func(t *Trigger) {
 		t.Filter = append(t.Filter, queries...)
@@ -115,7 +77,7 @@ func (t Trigger) Options() []TriggerOption {
 	return opts
 }
 
-// JobOptions returns the options for a job that is triggered by this trigger.
+// JobOptions returns JobOptions derived from t.
 func (t Trigger) JobOptions() []JobOption {
 	var opts []JobOption
 	if t.Reset {

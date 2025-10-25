@@ -6,21 +6,19 @@ import (
 	"github.com/modernice/goes/event"
 )
 
-// SubscribeOption is an option for Schedule.Subscribe.
+// SubscribeOption configures Schedule.Subscribe.
 type SubscribeOption func(*Subscription)
 
-// Subscripion is the configuration for a subscription to a projection schedule.
+// Subscription holds subscription configuration.
 type Subscription struct {
-	// If provided, the projection schedule triggers a projection job on startup.
+	// Startup triggers an initial job when subscribing.
 	Startup *Trigger
 
-	// BeforeEvent are the "before"-interceptors for the event streams created
-	// by a job's `EventsFor()` and `Apply()` methods.
+	// BeforeEvent interceptors can inject events before processed ones.
 	BeforeEvent []func(context.Context, event.Event) ([]event.Event, error)
 }
 
-// Startup returns a SubscribeOption that triggers an initial projection run
-// when subscribing to a projection schedule.
+// Startup triggers a job as soon as the subscription is established.
 func Startup(opts ...TriggerOption) SubscribeOption {
 	return func(s *Subscription) {
 		t := NewTrigger(opts...)
@@ -28,12 +26,8 @@ func Startup(opts ...TriggerOption) SubscribeOption {
 	}
 }
 
-// BeforeEvent returns a SubscribeOption that registers the given function as a
-// "before"-interceptor for the event streams created by a job's `EventsFor()`
-// and `Apply()` methods. For each received event of a stream that has one of
-// the provided event names, the provided function is called, and the returned
-// events of that function are inserted into the stream before the intercepted
-// event. If no event names are provided, the interceptor is applied to all events.
+// BeforeEvent registers fn to insert events before matched ones. If events is
+// empty it applies to all events.
 func BeforeEvent[Data any](fn func(context.Context, event.Of[Data]) ([]event.Event, error), events ...string) SubscribeOption {
 	return func(s *Subscription) {
 		s.BeforeEvent = append(s.BeforeEvent, func(ctx context.Context, e event.Event) ([]event.Event, error) {
@@ -52,7 +46,7 @@ func BeforeEvent[Data any](fn func(context.Context, event.Of[Data]) ([]event.Eve
 	}
 }
 
-// NewSubscription creates a Subscription using the provided options.
+// NewSubscription builds a Subscription from opts.
 func NewSubscription(opts ...SubscribeOption) Subscription {
 	var sub Subscription
 	for _, opt := range opts {

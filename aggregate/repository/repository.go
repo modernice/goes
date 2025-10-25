@@ -25,18 +25,11 @@ var (
 	ErrDeleted = errors.New("aggregate was soft-deleted")
 )
 
-// Option is a function that modifies the configuration of a Repository. It is
-// used to customize the behavior of a Repository by providing hooks, enabling
-// consistency validation, modifying event queries, and configuring snapshot
-// handling.
+// Option configures a [Repository].
 type Option func(*Repository)
 
-// Repository is responsible for saving, fetching, and deleting aggregates while
-// handling snapshots, consistency validation, and various hooks. It supports
-// querying events from the event store, applying an aggregate's event history,
-// and managing aggregate versions. Additionally, it provides customizable
-// options to modify queries and manage hooks before and after inserting events
-// or on failed insertions.
+// Repository persists and loads aggregates from an [event.Store], optionally
+// working with snapshots and hooks.
 type Repository struct {
 	store          event.Store
 	snapshots      snapshot.Store
@@ -50,9 +43,7 @@ type Repository struct {
 	validateConsistency bool
 }
 
-// WithSnapshots configures the Repository to use the provided snapshot.Store
-// and snapshot.Schedule for saving and loading aggregate snapshots. The
-// function panics if the provided snapshot.Store is nil.
+// WithSnapshots enables snapshot support.
 func WithSnapshots(store snapshot.Store, s snapshot.Schedule) Option {
 	if store == nil {
 		panic("nil Store")
@@ -63,60 +54,42 @@ func WithSnapshots(store snapshot.Store, s snapshot.Schedule) Option {
 	}
 }
 
-// ValidateConsistency is an Option for the Repository that configures whether
-// consistency validation should be performed when saving an Aggregate. If set
-// to true (default), the Repository will validate consistency before inserting
-// events into the event store. If set to false, consistency validation will be
-// skipped.
+// ValidateConsistency toggles consistency checks during Save.
 func ValidateConsistency(validate bool) Option {
 	return func(r *Repository) {
 		r.validateConsistency = validate
 	}
 }
 
-// ModifyQueries appends the provided query modifiers to the Repository's
-// queryModifiers slice. These modifiers are applied to event queries when
-// executing an aggregate.Query with the Repository.
+// ModifyQueries appends query modifiers that adjust event queries.
 func ModifyQueries(mods ...func(ctx context.Context, q aggregate.Query, prev event.Query) (event.Query, error)) Option {
 	return func(r *Repository) {
 		r.queryModifiers = append(r.queryModifiers, mods...)
 	}
 }
 
-// BeforeInsert is an Option for the Repository that appends a function to the
-// beforeInsert slice. The function is called with the aggregate and context
-// before its events are inserted into the event store. If the function returns
-// an error, the insertion of events is aborted and the error is returned.
+// BeforeInsert registers a hook run before events are stored.
 func BeforeInsert(fn func(context.Context, aggregate.Aggregate) error) Option {
 	return func(r *Repository) {
 		r.beforeInsert = append(r.beforeInsert, fn)
 	}
 }
 
-// AfterInsert appends a function to the Repository's afterInsert slice. The
-// function will be called after an Aggregate's events are successfully inserted
-// into the event store during the Save operation.
+// AfterInsert registers a hook executed after successful inserts.
 func AfterInsert(fn func(context.Context, aggregate.Aggregate) error) Option {
 	return func(r *Repository) {
 		r.afterInsert = append(r.afterInsert, fn)
 	}
 }
 
-// OnFailedInsert is an Option for the Repository that appends a function to the
-// onFailedInsert slice. The function is called with the aggregate, context and
-// error if an error occurs during the insertion of events into the event store.
-// If the function returns an error, that error is returned, otherwise the
-// original insertion error is returned.
+// OnFailedInsert registers a hook for failed inserts.
 func OnFailedInsert(fn func(context.Context, aggregate.Aggregate, error) error) Option {
 	return func(r *Repository) {
 		r.onFailedInsert = append(r.onFailedInsert, fn)
 	}
 }
 
-// OnDelete appends a function to the Repository's onDelete slice. The function
-// will be called with the aggregate and context when the Delete method is
-// called for the given aggregate. If the function returns an error, the
-// deletion process is halted and the error is returned.
+// OnDelete registers a hook run after Delete.
 func OnDelete(fn func(context.Context, aggregate.Aggregate) error) Option {
 	return func(r *Repository) {
 		r.onDelete = append(r.onDelete, fn)
