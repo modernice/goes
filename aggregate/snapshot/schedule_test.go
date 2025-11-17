@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xevent"
 )
 
@@ -106,7 +106,7 @@ func TestEvery(t *testing.T) {
 			tt.newVersion,
 		), func(t *testing.T) {
 			s := snapshot.Every(tt.every)
-			a := aggregate.New("foo", uuid.New(), aggregate.Version(tt.oldVersion))
+			a := aggregate.New("foo", internal.NewUUID(), aggregate.Version(tt.oldVersion))
 			events := xevent.Make("foo", test.FooEventData{}, tt.newVersion-tt.oldVersion, xevent.ForAggregate(a))
 			for _, evt := range events {
 				a.RecordChange(evt)

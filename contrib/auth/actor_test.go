@@ -4,16 +4,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/contrib/auth"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/test"
 )
 
 func TestNewUUIDActor(t *testing.T) {
 	test.NewAggregate(t, auth.NewUUIDActor, auth.ActorAggregate)
 
-	a := auth.NewUUIDActor(uuid.New())
+	a := auth.NewUUIDActor(internal.NewUUID())
 
 	if a.ActorID() != a.AggregateID() {
 		t.Fatalf("ActorID() should return the aggregate id %q for a UUID-Actor; got %q", a.AggregateID(), a.ActorID())
@@ -27,7 +27,7 @@ func TestNewUUIDActor(t *testing.T) {
 func TestNewStringActor(t *testing.T) {
 	test.NewAggregate(t, auth.NewStringActor, auth.ActorAggregate)
 
-	a := auth.NewStringActor(uuid.New())
+	a := auth.NewStringActor(internal.NewUUID())
 
 	if a.ActorID() != nil {
 		t.Fatalf("ActorID() should initially return nil for a StringActor; got %q", a.ActorID())
@@ -39,11 +39,11 @@ func TestNewStringActor(t *testing.T) {
 }
 
 func TestActor_Grant_ErrInvalidRef(t *testing.T) {
-	a := auth.NewUUIDActor(uuid.New())
+	a := auth.NewUUIDActor(internal.NewUUID())
 
 	ref := aggregate.Ref{
 		Name: "",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	if err := a.Grant(ref, "view"); !errors.Is(err, auth.ErrInvalidRef) {
@@ -54,11 +54,11 @@ func TestActor_Grant_ErrInvalidRef(t *testing.T) {
 }
 
 func TestActor_Revoke_ErrInvalidRef(t *testing.T) {
-	a := auth.NewUUIDActor(uuid.New())
+	a := auth.NewUUIDActor(internal.NewUUID())
 
 	ref := aggregate.Ref{
 		Name: "",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	if err := a.Revoke(ref, "view"); !errors.Is(err, auth.ErrInvalidRef) {
@@ -69,12 +69,12 @@ func TestActor_Revoke_ErrInvalidRef(t *testing.T) {
 }
 
 func TestActor_Grant_Revoke(t *testing.T) {
-	a := auth.NewUUIDActor(uuid.New())
+	a := auth.NewUUIDActor(internal.NewUUID())
 
 	actions := []string{"view", "update"}
 	ref := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	for _, action := range actions {
@@ -111,11 +111,11 @@ func TestActor_Grant_Revoke(t *testing.T) {
 }
 
 func TestActor_Grant_Revoke_ErrMissingActorID(t *testing.T) {
-	a := auth.NewStringActor(uuid.New())
+	a := auth.NewStringActor(internal.NewUUID())
 
 	ref := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	if err := a.Grant(ref, "view"); !errors.Is(err, auth.ErrMissingActorID) {
@@ -131,9 +131,9 @@ func TestActor_Grant_Revoke_ErrMissingActorID(t *testing.T) {
 }
 
 func TestActor_Identify_UUID(t *testing.T) {
-	a := auth.NewUUIDActor(uuid.New())
+	a := auth.NewUUIDActor(internal.NewUUID())
 
-	if err := a.Identify(uuid.New()); err != nil {
+	if err := a.Identify(internal.NewUUID()); err != nil {
 		t.Fatalf("Identify() should not return an error, even if provided a UUID")
 	}
 
@@ -141,7 +141,7 @@ func TestActor_Identify_UUID(t *testing.T) {
 }
 
 func TestActor_Identify_string_ErrIDType(t *testing.T) {
-	a := auth.NewStringActor(uuid.New())
+	a := auth.NewStringActor(internal.NewUUID())
 
 	var id int
 	if err := a.Identify(id); !errors.Is(err, auth.ErrIDType) {
@@ -152,7 +152,7 @@ func TestActor_Identify_string_ErrIDType(t *testing.T) {
 }
 
 func TestActor_Identify_string(t *testing.T) {
-	a := auth.NewStringActor(uuid.New())
+	a := auth.NewStringActor(internal.NewUUID())
 
 	id := "foo"
 	if err := a.Identify(id); err != nil {

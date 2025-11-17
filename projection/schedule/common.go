@@ -31,7 +31,7 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 // by Trigger is ctx.Err(), if ctx is canceled before the trigger was accepted
 // by every susbcriber.
 //
-// Queried events
+// # Queried events
 //
 // By default, when a Job is created by a trigger, the event query for the Job
 // queries the configured events from the beginning of time until now, sorted by
@@ -39,7 +39,7 @@ func newSchedule(store event.Store, eventNames []string) *schedule {
 //
 //	err := schedule.Trigger(context.TODO(), projection.Query(query.New(...)))
 //
-// Filter events
+// # Filter events
 //
 // Events can be further filtered using additional event queries. Fetched events
 // are tested against the provided Queries to determine whether they should be

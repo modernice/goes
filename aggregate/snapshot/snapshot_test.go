@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/snapshot"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xtime"
 )
 
 func TestNew(t *testing.T) {
 	now := xtime.Now()
-	a := &mockSnapshotter{Base: aggregate.New("foo", uuid.New(), aggregate.Version(8))}
+	a := &mockSnapshotter{Base: aggregate.New("foo", internal.NewUUID(), aggregate.Version(8))}
 	snap, err := snapshot.New(a)
 	if err != nil {
 		t.Errorf("New shouldn't fail; failed with %q", err)
@@ -38,7 +38,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestNew_marshaler(t *testing.T) {
-	a := &mockSnapshotter{Base: aggregate.New("foo", uuid.New())}
+	a := &mockSnapshotter{Base: aggregate.New("foo", internal.NewUUID())}
 	snap, err := snapshot.New(a)
 	if err != nil {
 		t.Errorf("New shouldn't fail; failed with %q", err)
@@ -55,7 +55,7 @@ func TestNew_marshaler(t *testing.T) {
 }
 
 func TestTime(t *testing.T) {
-	a := &mockSnapshotter{Base: aggregate.New("foo", uuid.New())}
+	a := &mockSnapshotter{Base: aggregate.New("foo", internal.NewUUID())}
 	st := xtime.Now().Add(123456 * time.Millisecond)
 	snap, err := snapshot.New(a, snapshot.Time(st))
 	if err != nil {
@@ -68,7 +68,7 @@ func TestTime(t *testing.T) {
 }
 
 func TestData(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	data := []byte{2, 4, 8}
 	snap, err := snapshot.New(a, snapshot.Data(data))
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	qtime "github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -129,7 +130,7 @@ func Previous[Data any](prev Of[Data]) Option {
 // Evt struct containing the event data and metadata.
 func New[D any](name string, data D, opts ...Option) Evt[D] {
 	evt := Evt[any]{D: Data[any]{
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 		Name: name,
 		Time: xtime.Now(),
 		Data: data,

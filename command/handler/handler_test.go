@@ -17,6 +17,7 @@ import (
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/testutil"
 )
 
@@ -24,7 +25,7 @@ func TestBaseHandler_HandleCommand(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	a := NewHandlerAggregate(uuid.New())
+	a := NewHandlerAggregate(internal.NewUUID())
 
 	cmd := command.NewContext[any](ctx, command.New[any]("foo", "abc"))
 
@@ -68,7 +69,7 @@ func TestOf_Handle(t *testing.T) {
 	}
 	go testutil.PanicOn(errs)
 
-	id := uuid.New()
+	id := internal.NewUUID()
 
 	if err := commandBus.Dispatch(ctx, command.New("foo", "abc", command.Aggregate("handler", id)).Any(), dispatch.Sync()); err != nil {
 		t.Fatalf("dispatch failed with %q", err)

@@ -3,8 +3,8 @@ package todo_test
 import (
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/examples/todo"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/test"
 )
 
@@ -13,7 +13,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestList_Add(t *testing.T) {
-	list := todo.New(uuid.New())
+	list := todo.New(internal.NewUUID())
 
 	if err := list.Add("foo"); err != nil {
 		t.Fatalf("Add(%q) failed with %q", "foo", err)
@@ -27,7 +27,7 @@ func TestList_Add(t *testing.T) {
 }
 
 func TestList_Add_alreadyExists(t *testing.T) {
-	list := todo.New(uuid.New())
+	list := todo.New(internal.NewUUID())
 
 	list.Add("foo")
 	if err := list.Add("foo"); err != nil {
@@ -53,7 +53,7 @@ func TestList_Add_alreadyExists(t *testing.T) {
 }
 
 func TestList_Remove(t *testing.T) {
-	list := todo.New(uuid.New())
+	list := todo.New(internal.NewUUID())
 
 	list.Add("foo")
 
@@ -71,7 +71,7 @@ func TestList_Remove(t *testing.T) {
 }
 
 func TestList_Done(t *testing.T) {
-	list := todo.New(uuid.New())
+	list := todo.New(internal.NewUUID())
 
 	list.Add("foo")
 	list.Add("bar")

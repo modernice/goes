@@ -7,6 +7,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/internal"
 )
 
 func TestTest(t *testing.T) {
@@ -21,9 +22,9 @@ func TestTest(t *testing.T) {
 			name:  "Name",
 			query: query.New(query.Name("foo", "bar")),
 			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New()): true,
-				aggregate.New("bar", uuid.New()): true,
-				aggregate.New("baz", uuid.New()): false,
+				aggregate.New("foo", internal.NewUUID()): true,
+				aggregate.New("bar", internal.NewUUID()): true,
+				aggregate.New("baz", internal.NewUUID()): false,
 			},
 		},
 		{
@@ -40,27 +41,27 @@ func TestTest(t *testing.T) {
 			name:  "Version (exact)",
 			query: query.New(query.Version(version.Exact(2, 3))),
 			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New(), aggregate.Version(1)): false,
-				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(3)): true,
+				aggregate.New("foo", internal.NewUUID(), aggregate.Version(1)): false,
+				aggregate.New("bar", internal.NewUUID(), aggregate.Version(2)): true,
+				aggregate.New("baz", internal.NewUUID(), aggregate.Version(3)): true,
 			},
 		},
 		{
 			name:  "Version (range)",
 			query: query.New(query.Version(version.InRange(version.Range{1, 2}))),
 			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New(), aggregate.Version(1)): true,
-				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(3)): false,
+				aggregate.New("foo", internal.NewUUID(), aggregate.Version(1)): true,
+				aggregate.New("bar", internal.NewUUID(), aggregate.Version(2)): true,
+				aggregate.New("baz", internal.NewUUID(), aggregate.Version(3)): false,
 			},
 		},
 		{
 			name:  "Version (min/max)",
 			query: query.New(query.Version(version.Min(2), version.Max(3))),
 			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New(), aggregate.Version(1)): false,
-				aggregate.New("bar", uuid.New(), aggregate.Version(2)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(3)): true,
+				aggregate.New("foo", internal.NewUUID(), aggregate.Version(1)): false,
+				aggregate.New("bar", internal.NewUUID(), aggregate.Version(2)): true,
+				aggregate.New("baz", internal.NewUUID(), aggregate.Version(3)): true,
 			},
 		},
 		{
@@ -72,12 +73,12 @@ func TestTest(t *testing.T) {
 				version.Exact(1, 2, 3, 4),
 			)),
 			tests: map[aggregate.Aggregate]bool{
-				aggregate.New("foo", uuid.New(), aggregate.Version(1)): false,
-				aggregate.New("bar", uuid.New(), aggregate.Version(2)): false,
-				aggregate.New("baz", uuid.New(), aggregate.Version(3)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(4)): true,
-				aggregate.New("baz", uuid.New(), aggregate.Version(5)): false,
-				aggregate.New("baz", uuid.New(), aggregate.Version(6)): false,
+				aggregate.New("foo", internal.NewUUID(), aggregate.Version(1)): false,
+				aggregate.New("bar", internal.NewUUID(), aggregate.Version(2)): false,
+				aggregate.New("baz", internal.NewUUID(), aggregate.Version(3)): true,
+				aggregate.New("baz", internal.NewUUID(), aggregate.Version(4)): true,
+				aggregate.New("baz", internal.NewUUID(), aggregate.Version(5)): false,
+				aggregate.New("baz", internal.NewUUID(), aggregate.Version(6)): false,
 			},
 		},
 	}
@@ -96,7 +97,7 @@ func TestTest(t *testing.T) {
 func makeUUIDs(n int) []uuid.UUID {
 	ids := make([]uuid.UUID, n)
 	for i := range ids {
-		ids[i] = uuid.New()
+		ids[i] = internal.NewUUID()
 	}
 	return ids
 }

@@ -23,6 +23,7 @@ import (
 	etest "github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xaggregate"
 	"github.com/modernice/goes/internal/xevent"
 )
@@ -35,7 +36,7 @@ var (
 func TestRepository_Save(t *testing.T) {
 	r := repository.New(eventstore.New())
 
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	now := time.Now()
 	events := []event.Event{
 		event.New[any]("foo", etest.FooEventData{}, event.Aggregate(aggregateID, "foo", 1), event.Time(now)),
@@ -68,7 +69,7 @@ func TestRepository_Save_Snapshot(t *testing.T) {
 		repository.WithSnapshots(snapstore, snapshot.Every(3)),
 	)
 
-	foo := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
+	foo := &mockAggregate{Base: aggregate.New("foo", internal.NewUUID())}
 	events := xevent.Make("foo", etest.FooEventData{}, 3, xevent.ForAggregate(foo))
 
 	for _, evt := range events {
@@ -111,7 +112,7 @@ func TestRepository_Save_Snapshot(t *testing.T) {
 }
 
 func TestRepository_Fetch(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 
 	org := test.NewFoo(aggregateID)
 	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
@@ -156,7 +157,7 @@ func TestRepository_Fetch(t *testing.T) {
 }
 
 func TestRepository_FetchVersion(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 
 	org := test.NewFoo(aggregateID)
 	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
@@ -204,7 +205,7 @@ func TestRepository_FetchVersion(t *testing.T) {
 
 func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 	aggregateName := "foo"
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	now := time.Now()
 	events := []event.Event{
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, aggregateName, 1), event.Time(now)),
@@ -251,7 +252,7 @@ func TestRepository_FetchVersion_zeroOrNegative(t *testing.T) {
 }
 
 func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 
 	org := test.NewFoo(aggregateID)
 	aggregate.Next(org, "foo", etest.FooEventData{A: "foo"})
@@ -282,7 +283,7 @@ func TestRepository_FetchVersion_versionNotReached(t *testing.T) {
 }
 
 func TestRepository_Delete(t *testing.T) {
-	foo := test.NewFoo(uuid.New())
+	foo := test.NewFoo(internal.NewUUID())
 	aggregate.Next(foo, "foo", etest.FooEventData{A: "foo"})
 	aggregate.Next(foo, "foo", etest.FooEventData{A: "foo"})
 	aggregate.Next(foo, "foo", etest.FooEventData{A: "foo"})
@@ -470,7 +471,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 	)
 
 // 	a := &mockAggregate{
-// 		Base: aggregate.New("foo", uuid.New(), aggregate.Version(10)),
+// 		Base: aggregate.New("foo", internal.NewUUID(), aggregate.Version(10)),
 // 	}
 // 	snap, _ := snapshot.New(a)
 // 	a.Base = aggregate.New(a.AggregateName(), a.AggregateID())
@@ -525,7 +526,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 		repository.WithSnapshots(mockStore, nil),
 // 	)
 
-// 	a := &mockAggregate{Base: aggregate.New("foo", uuid.New(), aggregate.Version(10))}
+// 	a := &mockAggregate{Base: aggregate.New("foo", internal.NewUUID(), aggregate.Version(10))}
 // 	snap, _ := snapshot.New(a)
 // 	a.Base = aggregate.New(a.AggregateName(), a.AggregateID())
 // 	events := xevent.Make("foo", etest.FooEventData{}, 30, xevent.ForAggregate(a))
@@ -571,7 +572,7 @@ func TestRepository_Query_version(t *testing.T) {
 
 // 	store := mock_event.NewMockStore(ctrl)
 
-// 	id := uuid.New()
+// 	id := internal.NewUUID()
 // 	repo := repository.New(
 // 		store,
 // 		repository.ModifyQueries(func(_ context.Context, _ aggregate.Query, prev event.Query) (event.Query, error) {
@@ -615,7 +616,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 		return nil
 // 	}))
 
-// 	foo := test.NewFoo(uuid.New())
+// 	foo := test.NewFoo(internal.NewUUID())
 // 	if err := repo.Save(context.Background(), foo); err != nil {
 // 		t.Fatalf("Save failed with %q", err)
 // 	}
@@ -638,7 +639,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 		return nil
 // 	}))
 
-// 	foo := test.NewFoo(uuid.New())
+// 	foo := test.NewFoo(internal.NewUUID())
 // 	if err := repo.Save(context.Background(), foo); err != nil {
 // 		t.Fatalf("Save failed with %q", err)
 // 	}
@@ -677,7 +678,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 		return nil
 // 	}))
 
-// 	foo := aggregate.New("foo", uuid.New())
+// 	foo := aggregate.New("foo", internal.NewUUID())
 
 // 	if err := repo.Save(context.Background(), foo); !errors.Is(err, mockError) {
 // 		t.Fatalf("Save should fail with %q; got %q", mockError, err)
@@ -716,7 +717,7 @@ func TestRepository_Query_version(t *testing.T) {
 // 		return mockHookError
 // 	}))
 
-// 	foo := aggregate.New("foo", uuid.New())
+// 	foo := aggregate.New("foo", internal.NewUUID())
 
 // 	if err := repo.Save(context.Background(), foo); !errors.Is(err, mockHookError) {
 // 		t.Fatalf("Save should fail with %q; got %q", mockHookError, err)
@@ -732,7 +733,7 @@ func TestOnDelete(t *testing.T) {
 		return nil
 	}))
 
-	foo := test.NewFoo(uuid.New())
+	foo := test.NewFoo(internal.NewUUID())
 
 	if err := r.Delete(context.Background(), foo); err != nil {
 		t.Fatalf("Delete failed with %q", err)
@@ -756,7 +757,7 @@ func TestOnDelete_error(t *testing.T) {
 		return mockError
 	}))
 
-	foo := test.NewFoo(uuid.New())
+	foo := test.NewFoo(internal.NewUUID())
 
 	if err := r.Delete(context.Background(), foo); !errors.Is(err, mockError) {
 		t.Fatalf("Delete should fail with %q; got %q", mockError, err)

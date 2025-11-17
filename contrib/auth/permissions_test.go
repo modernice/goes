@@ -3,20 +3,20 @@ package auth_test
 import (
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/contrib/auth"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/projection"
 )
 
 func TestPermissions(t *testing.T) {
 	ref := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 	actions := []string{"foo", "bar", "baz"}
 
-	actor := auth.NewUUIDActor(uuid.New())
+	actor := auth.NewUUIDActor(internal.NewUUID())
 	actor.Grant(ref, actions...)
 
 	perms := auth.PermissionsOf(actor.AggregateID())
@@ -35,13 +35,13 @@ func TestPermissions(t *testing.T) {
 func TestPermissions_ofRole(t *testing.T) {
 	ref := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 	actions := []string{"foo", "bar", "baz"}
 
-	actor := auth.NewUUIDActor(uuid.New())
+	actor := auth.NewUUIDActor(internal.NewUUID())
 
-	role := auth.NewRole(uuid.New())
+	role := auth.NewRole(internal.NewUUID())
 	role.Identify("admin")
 	role.Add(actor.ID)
 	role.Grant(ref, actions...)
@@ -116,11 +116,11 @@ func TestPermissions_cases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ref := aggregate.Ref{
 				Name: "foo",
-				ID:   uuid.New(),
+				ID:   internal.NewUUID(),
 			}
 
-			actor := auth.NewUUIDActor(uuid.New())
-			role := auth.NewRole(uuid.New())
+			actor := auth.NewUUIDActor(internal.NewUUID())
+			role := auth.NewRole(internal.NewUUID())
 
 			actor.Grant(ref, tt.grantActor...)
 			actor.Revoke(ref, tt.revokeActor...)

@@ -6,9 +6,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/examples/todo"
 	"github.com/modernice/goes/examples/todo/cmd"
+	"github.com/modernice/goes/internal"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 	<-time.After(3 * time.Second)
 
 	// Create a new todo list and add some tasks.
-	listID := uuid.New()
+	listID := internal.NewUUID()
 	for i := 0; i < 10; i++ {
 		sleepRandom()
 

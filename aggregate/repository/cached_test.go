@@ -8,6 +8,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/modernice/goes/internal"
 )
 
 func TestCachedRepository_Fetch(t *testing.T) {
@@ -25,7 +26,7 @@ func TestCachedRepository_Fetch(t *testing.T) {
 
 	cached := repository.Cached(typedBase)
 
-	foo := aggregate.New("foo", uuid.New())
+	foo := aggregate.New("foo", internal.NewUUID())
 	aggregate.Next(foo, "foo.foo", "foobar")
 	aggregate.Next(foo, "foo.bar", "barbaz")
 

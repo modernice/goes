@@ -4,15 +4,15 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	etest "github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 )
 
 func TestNew(t *testing.T) {
-	id := uuid.New()
+	id := internal.NewUUID()
 	b := aggregate.New("foo", id)
 	if b.AggregateID() != id {
 		t.Errorf("b.ID should return %v; got %v", id, b.AggregateID())
@@ -35,14 +35,14 @@ func TestNew(t *testing.T) {
 
 func TestNew_version(t *testing.T) {
 	want := 3
-	a := aggregate.New("foo", uuid.New(), aggregate.Version(want))
+	a := aggregate.New("foo", internal.NewUUID(), aggregate.Version(want))
 	if v := a.AggregateVersion(); v != want {
 		t.Fatalf("a.AggregateVersion should return %d; got %d", want, v)
 	}
 }
 
 func TestBase_TrackChange(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	b := aggregate.New("foo", aggregateID)
 	events := []event.Event{
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
@@ -56,7 +56,7 @@ func TestBase_TrackChange(t *testing.T) {
 }
 
 func TestBase_FlushChanges(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	b := aggregate.New("foo", aggregateID)
 	events := []event.Event{
 		event.New[any]("foo", etest.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foo", 1)),
@@ -81,7 +81,7 @@ func TestApplyHistory(t *testing.T) {
 	var applied []event.Event
 	var flushed bool
 	foo := test.NewFoo(
-		uuid.New(),
+		internal.NewUUID(),
 		test.ApplyEventFunc("foo", func(evt event.Event) {
 			applied = append(applied, evt)
 		}),
@@ -109,7 +109,7 @@ func TestApplyHistory(t *testing.T) {
 }
 
 func TestUncommittedVersion(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 
 	if v := aggregate.UncommittedVersion(a); v != 0 {
 		t.Errorf("current aggregate version should be %d; got %d", 0, v)
@@ -133,7 +133,7 @@ func TestUncommittedVersion(t *testing.T) {
 }
 
 func TestNextEvent(t *testing.T) {
-	a := aggregate.New("foo", uuid.New(), aggregate.Version(3))
+	a := aggregate.New("foo", internal.NewUUID(), aggregate.Version(3))
 	data := etest.FooEventData{A: "foo"}
 	evt := aggregate.Next(a, "bar", data)
 

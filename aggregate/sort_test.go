@@ -8,20 +8,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xaggregate"
 )
 
 func TestSort_name(t *testing.T) {
 	aggregates := []aggregate.Aggregate{
-		aggregate.New("b", uuid.New()),
-		aggregate.New("3", uuid.New()),
-		aggregate.New("a", uuid.New()),
-		aggregate.New("d", uuid.New()),
-		aggregate.New("2", uuid.New()),
-		aggregate.New("c", uuid.New()),
-		aggregate.New("f", uuid.New()),
-		aggregate.New("1", uuid.New()),
-		aggregate.New("e", uuid.New()),
+		aggregate.New("b", internal.NewUUID()),
+		aggregate.New("3", internal.NewUUID()),
+		aggregate.New("a", internal.NewUUID()),
+		aggregate.New("d", internal.NewUUID()),
+		aggregate.New("2", internal.NewUUID()),
+		aggregate.New("c", internal.NewUUID()),
+		aggregate.New("f", internal.NewUUID()),
+		aggregate.New("1", internal.NewUUID()),
+		aggregate.New("e", internal.NewUUID()),
 	}
 
 	tests := map[aggregate.SortDirection][]aggregate.Aggregate{
@@ -61,15 +62,15 @@ func TestSort_name(t *testing.T) {
 
 func TestSort_id(t *testing.T) {
 	aggregates := []aggregate.Aggregate{
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
-		aggregate.New("foo", uuid.New()),
+		aggregate.New("foo", internal.NewUUID()),
+		aggregate.New("foo", internal.NewUUID()),
+		aggregate.New("foo", internal.NewUUID()),
+		aggregate.New("foo", internal.NewUUID()),
+		aggregate.New("foo", internal.NewUUID()),
+		aggregate.New("foo", internal.NewUUID()),
+		aggregate.New("foo", internal.NewUUID()),
+		aggregate.New("foo", internal.NewUUID()),
+		aggregate.New("foo", internal.NewUUID()),
 	}
 
 	ascAggregates := make([]aggregate.Aggregate, len(aggregates))
@@ -105,15 +106,15 @@ func TestSort_id(t *testing.T) {
 }
 func TestSort_version(t *testing.T) {
 	aggregates := []aggregate.Aggregate{
-		aggregate.New("foo", uuid.New(), aggregate.Version(0)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(5)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(3)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(7)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(2)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(8)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(1)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(6)),
-		aggregate.New("foo", uuid.New(), aggregate.Version(4)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(0)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(5)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(3)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(7)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(2)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(8)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(1)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(6)),
+		aggregate.New("foo", internal.NewUUID(), aggregate.Version(4)),
 	}
 
 	tests := map[aggregate.SortDirection][]aggregate.Aggregate{

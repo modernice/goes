@@ -147,29 +147,29 @@ func (c constraints) Exact() []int {
 	return c.exact
 }
 
-// Ranges is an interface that defines the version ranges to query for an event 
-// in a Constraints object. It is a method of the Constraints interface and 
-// returns a slice of Range values. A Range is a type that represents a version 
-// range as an array of two integers. The Start method returns the start of the 
-// Range and the End method returns the end. The Includes method checks if a 
+// Ranges is an interface that defines the version ranges to query for an event
+// in a Constraints object. It is a method of the Constraints interface and
+// returns a slice of Range values. A Range is a type that represents a version
+// range as an array of two integers. The Start method returns the start of the
+// Range and the End method returns the end. The Includes method checks if a
 // given integer value is within the range.
 func (c constraints) Ranges() []Range {
 	return c.ranges
 }
 
-// Min returns a Constraint that only allows versions that are greater than or 
-// equal to at least one of the provided version numbers. It is a function that 
-// takes integer arguments and returns an Option function that modifies a 
+// Min returns a Constraint that only allows versions that are greater than or
+// equal to at least one of the provided version numbers. It is a function that
+// takes integer arguments and returns an Option function that modifies a
 // Constraints object.
 func (c constraints) Min() []int {
 	return c.min
 }
 
-// Max returns a Constraint that only allows versions that are <= at least one 
-// of v. [Max] is an Option function that takes a pointer to constraints struct 
-// as input and modifies its max field to include the provided version(s). If a 
-// version is already included in the field, it will not be added again. The 
-// function can be used with other Options to create complex Constraints using 
+// Max returns a Constraint that only allows versions that are <= at least one
+// of v. [Max] is an Option function that takes a pointer to constraints struct
+// as input and modifies its max field to include the provided version(s). If a
+// version is already included in the field, it will not be added again. The
+// function can be used with other Options to create complex Constraints using
 // Merge and Filter functions.
 func (c constraints) Max() []int {
 	return c.max

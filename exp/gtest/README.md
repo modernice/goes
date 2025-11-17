@@ -85,7 +85,7 @@ event with expected data:
 
 ```go
 func TestUser_Create(t *testing.T) {
-	u := auth.NewUser(uuid.New())
+	u := auth.NewUser(internal.NewUUID())
 
 	if err := u.Create("Alice", 25); err != nil {
 		t.Errorf("Create failed: %v", err)
@@ -113,7 +113,7 @@ event:
 
 ```go
 func TestUser_Delete(t *testing.T) {
-	u := auth.NewUser(uuid.New())
+	u := auth.NewUser(internal.NewUUID())
 
 	if err := u.Delete(); err != nil {
 		t.Errorf("Delete failed: %v", err)
@@ -130,7 +130,7 @@ To ensure a specific event (e.g., `auth.user.created`) is not emitted by the
 
 ```go
 func TestUser_Create_negativeAge(t *testing.T) {
-	u := auth.NewUser(uuid.New())
+	u := auth.NewUser(internal.NewUUID())
 
 	if err := u.Create("Alice", -3); err == nil {
 		t.Errorf("Create should fail with negative age")

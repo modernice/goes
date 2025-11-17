@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	mongodb "go.mongodb.org/mongo-driver/mongo"
@@ -24,6 +23,7 @@ import (
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	etest "github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 )
 
 func TestEventStore(t *testing.T) {
@@ -53,7 +53,7 @@ func TestEventStore_Insert_versionError(t *testing.T) {
 		t.Fatalf("failed to connect to mongodb: %v", err)
 	}
 
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 
 	states := s.StateCollection()
 	if _, err := states.InsertOne(context.Background(), bson.M{
@@ -104,7 +104,7 @@ func TestEventStore_Insert_versionError(t *testing.T) {
 func TestEventStore_Insert_withPreAndPostHooks(t *testing.T) {
 	enc := etest.NewEncoder()
 
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	expectedEvent0 := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 1))
 	expectedEvent1 := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 2))
 	expectedEvent2 := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 3))
@@ -199,7 +199,7 @@ func TestEventStore_Insert_preHookInsertingIntoCollection(t *testing.T) {
 	}
 	defer client.Disconnect(context.TODO())
 
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	expectedEvent0 := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 1))
 	expectedEvent1 := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 2))
 	allEvents := []event.Event{expectedEvent0, expectedEvent1}
@@ -280,7 +280,7 @@ func TestEventStore_Insert_with3HooksLastFailing(t *testing.T) {
 	}
 	defer client.Disconnect(context.TODO())
 
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	mainEvent := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 2))
 	preEvent := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 1))
 	postEvent := event.New[any]("foo", etest.FooEventData{}, event.Aggregate(a.AggregateID(), a.AggregateName(), 3))

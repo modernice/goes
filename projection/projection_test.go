@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/internal/slice"
 	"github.com/modernice/goes/projection"
@@ -79,7 +80,7 @@ func TestApply_ProgressAware_multipleEventsWithSameTime(t *testing.T) {
 func TestApply_ProgressorAware_IgnoreProgress(t *testing.T) {
 	now := time.Now()
 	proj := projectiontest.NewMockProgressor()
-	lastEvents := []uuid.UUID{uuid.New(), uuid.New()}
+	lastEvents := []uuid.UUID{internal.NewUUID(), internal.NewUUID()}
 	proj.SetProgress(now, lastEvents...)
 
 	events := []event.Event{

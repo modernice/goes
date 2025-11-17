@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/exp/gtest"
+	"github.com/modernice/goes/internal"
 )
 
 func TestTransition(t *testing.T) {
@@ -15,7 +15,7 @@ func TestTransition(t *testing.T) {
 		Bar int
 	}
 
-	foo := aggregate.New("foo", uuid.New())
+	foo := aggregate.New("foo", internal.NewUUID())
 
 	d := data{Foo: "foo", Bar: 42}
 	aggregate.Next(foo, "foo", d)
@@ -29,7 +29,7 @@ func TestTransition_sameEventNameOtherData(t *testing.T) {
 		Bar bool
 	}
 
-	foo := aggregate.New("foo", uuid.New())
+	foo := aggregate.New("foo", internal.NewUUID())
 
 	d1 := data{Foo: "foo", Bar: false}
 	d2 := data{Foo: "foo", Bar: true}
@@ -55,7 +55,7 @@ func (d comparableData) Equal(d2 comparableData) bool {
 }
 
 func TestTransitionWithEqual(t *testing.T) {
-	foo := aggregate.New("foo", uuid.New())
+	foo := aggregate.New("foo", internal.NewUUID())
 
 	d := comparableData{Foo: "foo", Bar: 42, Baz: []bool{true, false}}
 	aggregate.Next(foo, "foo", d)

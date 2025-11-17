@@ -3,6 +3,7 @@ package command
 import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/internal"
 )
 
 // Command is a command with arbitrary payload.
@@ -66,7 +67,7 @@ func Aggregate(name string, id uuid.UUID) Option {
 func New[P any](name string, pl P, opts ...Option) Cmd[P] {
 	cmd := Cmd[any]{
 		Data: Data[any]{
-			ID:      uuid.New(),
+			ID:      internal.NewUUID(),
 			Name:    name,
 			Payload: pl,
 		},

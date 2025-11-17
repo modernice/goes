@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/snapshot"
+	"github.com/modernice/goes/internal"
 )
 
 type mockAggregate struct {
@@ -26,7 +26,7 @@ type mockState struct {
 
 func TestMarshal_default(t *testing.T) {
 	a := &mockAggregate{
-		Base: aggregate.New("foo", uuid.New()),
+		Base: aggregate.New("foo", internal.NewUUID()),
 		mockState: mockState{
 			A: true,
 			B: -10,
@@ -41,7 +41,7 @@ func TestMarshal_default(t *testing.T) {
 
 func TestMarshal_marshaler(t *testing.T) {
 	a := &mockSnapshotter{
-		Base: aggregate.New("foo", uuid.New()),
+		Base: aggregate.New("foo", internal.NewUUID()),
 		mockState: mockState{
 			A: true,
 			B: -10,
@@ -56,7 +56,7 @@ func TestMarshal_marshaler(t *testing.T) {
 
 func TestUnmarshal(t *testing.T) {
 	a := &mockAggregate{
-		Base: aggregate.New("foo", uuid.New()),
+		Base: aggregate.New("foo", internal.NewUUID()),
 		mockState: mockState{
 			A: true,
 			B: -10,
@@ -70,7 +70,7 @@ func TestUnmarshal(t *testing.T) {
 	}
 	snap, _ := snapshot.New(a, snapshot.Data(b))
 
-	unmarshaled := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
+	unmarshaled := &mockAggregate{Base: aggregate.New("foo", internal.NewUUID())}
 
 	if err = snapshot.Unmarshal(snap, unmarshaled); err != snapshot.ErrUnimplemented {
 		t.Fatalf("Unmarshal() should fail with %q; got %v", snapshot.ErrUnimplemented, err)
@@ -84,7 +84,7 @@ func TestUnmarshal(t *testing.T) {
 
 func TestUnmarshal_unmarshaler(t *testing.T) {
 	a := &mockSnapshotter{
-		Base: aggregate.New("foo", uuid.New()),
+		Base: aggregate.New("foo", internal.NewUUID()),
 		mockState: mockState{
 			A: true,
 			B: -10,
@@ -98,7 +98,7 @@ func TestUnmarshal_unmarshaler(t *testing.T) {
 	}
 	snap, _ := snapshot.New(a, snapshot.Data(b))
 
-	unmarshaled := &mockSnapshotter{Base: aggregate.New("foo", uuid.New())}
+	unmarshaled := &mockSnapshotter{Base: aggregate.New("foo", internal.NewUUID())}
 
 	if err = snapshot.Unmarshal(snap, unmarshaled); err != nil {
 		t.Fatalf("Unmarshal shouldn't fail; failed with %q", err)

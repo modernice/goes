@@ -4,6 +4,7 @@ package authpb
 
 import (
 	context "context"
+
 	common "github.com/modernice/goes/api/proto/gen/common"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"

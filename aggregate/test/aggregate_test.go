@@ -4,15 +4,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
 	eventtest "github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 )
 
 func TestApplyEventFunc(t *testing.T) {
 	handled := make(chan event.Event, 1)
-	foo := test.NewFoo(uuid.New(), test.ApplyEventFunc("foo", func(evt event.Event) {
+	foo := test.NewFoo(internal.NewUUID(), test.ApplyEventFunc("foo", func(evt event.Event) {
 		handled <- evt
 	}))
 
@@ -38,7 +38,7 @@ func TestApplyEventFunc(t *testing.T) {
 }
 
 func TestRecordChangeFunc(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	events := []event.Event{
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate(aggregateID, "foo", 1)),
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate(aggregateID, "foo", 2)),
@@ -64,7 +64,7 @@ func TestRecordChangeFunc(t *testing.T) {
 }
 
 func TestCommitFunc(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	foo := test.NewFoo(aggregateID, test.CommitFunc(func(flush func()) {}))
 	events := []event.Event{
 		event.New[any]("foo", eventtest.FooEventData{}, event.Aggregate(foo.AggregateID(), foo.AggregateName(), 1)),

@@ -19,6 +19,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/handler"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/concurrent"
 	"golang.org/x/exp/constraints"
 	"google.golang.org/protobuf/proto"
@@ -175,7 +176,7 @@ func New[ErrorCode constraints.Integer](enc codec.Encoding, events event.Bus, op
 		assigned:      make(map[uuid.UUID]dispatcher),
 		enc:           enc,
 		bus:           events,
-		id:            uuid.New(),
+		id:            internal.NewUUID(),
 	}
 	for _, opt := range opts {
 		opt(&b.options)

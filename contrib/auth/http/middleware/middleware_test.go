@@ -18,10 +18,11 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/modernice/goes/internal"
 )
 
 func TestAuthorize(t *testing.T) {
-	actors := []uuid.UUID{uuid.New(), uuid.New()}
+	actors := []uuid.UUID{internal.NewUUID(), internal.NewUUID()}
 
 	bus := eventbus.New()
 	store := eventstore.New()
@@ -58,7 +59,7 @@ func TestAuthorize(t *testing.T) {
 }
 
 func TestAuthorizeField(t *testing.T) {
-	actors := []uuid.UUID{uuid.New(), uuid.New()}
+	actors := []uuid.UUID{internal.NewUUID(), internal.NewUUID()}
 
 	mws := []func(http.Handler) http.Handler{
 		middleware.AuthorizeField("fooId1"),
@@ -105,15 +106,15 @@ func TestPermission_notGranted(t *testing.T) {
 	defer cancel()
 
 	actors := []uuid.UUID{
-		uuid.New(),
-		uuid.New(),
+		internal.NewUUID(),
+		internal.NewUUID(),
 	}
 
 	test := newPermissionTest(ctx, t, actors)
 
 	ref := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	permission := middleware.Permission(test.fetcher, "view", func(*http.Request) aggregate.Ref { return ref })
@@ -140,15 +141,15 @@ func TestPermission_granted(t *testing.T) {
 	defer cancel()
 
 	actors := []uuid.UUID{
-		uuid.New(),
-		uuid.New(),
+		internal.NewUUID(),
+		internal.NewUUID(),
 	}
 
 	test := newPermissionTest(ctx, t, actors)
 
 	ref := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	actor := auth.NewUUIDActor(actors[1])

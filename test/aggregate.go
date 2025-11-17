@@ -6,11 +6,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/internal"
 )
 
 var (
 	// ExampleID is a UUID that can be used in tests.
-	ExampleID = uuid.New()
+	ExampleID = internal.NewUUID()
 )
 
 // NewAggregate tests the New function of an aggregate to check if the returned

@@ -4,16 +4,16 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xevent"
 )
 
 func TestShuffle(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, 100, xevent.ForAggregate(a))
 	sorted := make([]event.Event, len(events))
 	copy(sorted, events)

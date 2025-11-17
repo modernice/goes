@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 )
 
 // BaseHandler can be embedded into an aggregate to implement [command.Registerer].
@@ -205,7 +206,7 @@ func (h *Of[A]) MustHandle(ctx context.Context) <-chan error {
 // Handle subscribes to and handles the commands for which a handler has been
 // registered. Command errors are sent into the returned error channel.
 func (h *Of[A]) Handle(ctx context.Context) (<-chan error, error) {
-	names := h.newFunc(uuid.New()).CommandNames()
+	names := h.newFunc(internal.NewUUID()).CommandNames()
 
 	var out []<-chan error
 	for _, name := range names {

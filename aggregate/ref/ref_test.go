@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/ref"
+	"github.com/modernice/goes/internal"
 )
 
 func TestNames(t *testing.T) {
@@ -39,7 +40,7 @@ func TestNames(t *testing.T) {
 }
 
 func TestIDs(t *testing.T) {
-	ids := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+	ids := []uuid.UUID{internal.NewUUID(), internal.NewUUID(), internal.NewUUID()}
 	tests := []struct {
 		refs []aggregate.Ref
 		want []uuid.UUID
@@ -73,7 +74,7 @@ func TestIDs(t *testing.T) {
 }
 
 func TestAggregates(t *testing.T) {
-	ids := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+	ids := []uuid.UUID{internal.NewUUID(), internal.NewUUID(), internal.NewUUID()}
 	tests := []struct {
 		refs []aggregate.Ref
 		name string

@@ -171,7 +171,7 @@ func TestContext_Run_customRunner(t *testing.T) {
 
 // 	repo.EXPECT().Fetch(gomock.Any(), gomock.Any()).Return(mockError)
 
-// 	foo := aggregate.New("foo", uuid.New())
+// 	foo := aggregate.New("foo", internal.NewUUID())
 // 	if err := ctx.Fetch(ctx, foo); !errors.Is(err, mockError) {
 // 		t.Fatalf("Fetch should fail with %q; got %q", mockError, err)
 // 	}

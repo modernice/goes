@@ -17,6 +17,7 @@ import (
 	"github.com/modernice/goes/contrib/auth/authrpc"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/grpcstatus"
 	"github.com/modernice/goes/internal/testutil"
 	"github.com/modernice/goes/projection"
@@ -28,13 +29,13 @@ import (
 
 var testRef = aggregate.Ref{
 	Name: "foo",
-	ID:   uuid.New(),
+	ID:   internal.NewUUID(),
 }
 
 func TestServer_GetPermissions(t *testing.T) {
 	actor, perms, repo := givenAnActorWithViewPermission(t)
 
-	nonExistentActorID := uuid.New()
+	nonExistentActorID := internal.NewUUID()
 
 	tests := []struct {
 		name    string
@@ -80,7 +81,7 @@ func TestServer_GetPermissions(t *testing.T) {
 func TestServer_Allows(t *testing.T) {
 	actor, _, repo := givenAnActorWithViewPermission(t)
 
-	nonExistentActorID := uuid.New()
+	nonExistentActorID := internal.NewUUID()
 
 	tests := []struct {
 		name    string
@@ -146,7 +147,7 @@ func TestServer_LookupActor(t *testing.T) {
 	}
 	go testutil.PanicOn(errs)
 
-	actor := auth.NewStringActor(uuid.New())
+	actor := auth.NewStringActor(internal.NewUUID())
 	actor.Identify("foo")
 
 	if err := actors.Save(ctx, actor); err != nil {
@@ -214,7 +215,7 @@ func TestServer_LookupRole(t *testing.T) {
 	}
 	go testutil.PanicOn(errs)
 
-	role := auth.NewRole(uuid.New())
+	role := auth.NewRole(internal.NewUUID())
 	role.Identify("foo")
 
 	if err := roles.Save(ctx, role); err != nil {
@@ -269,7 +270,7 @@ func TestServer_LookupRole(t *testing.T) {
 func givenAnActorWithViewPermission(t *testing.T) (*auth.Actor, *auth.Permissions, auth.PermissionRepository) {
 	repo := auth.InMemoryPermissionRepository()
 
-	actor := auth.NewUUIDActor(uuid.New())
+	actor := auth.NewUUIDActor(internal.NewUUID())
 	actor.Grant(testRef, "view")
 
 	perms := auth.PermissionsOf(actor.AggregateID())

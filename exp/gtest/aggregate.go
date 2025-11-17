@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/internal"
 )
 
 // ConstructorTest is a test for aggregate constructors. It checks if the
@@ -51,7 +52,7 @@ func Constructor[A aggregate.Aggregate](constructor func(uuid.UUID) A, opts ...C
 func (test *ConstructorTest[A]) Run(t *testing.T) {
 	t.Helper()
 
-	id := uuid.New()
+	id := internal.NewUUID()
 	a := test.Constructor(id)
 
 	if pick.AggregateID(a) != id {

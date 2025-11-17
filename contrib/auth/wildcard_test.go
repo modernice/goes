@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/contrib/auth"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/projection"
 )
 
@@ -29,7 +30,7 @@ type WildcardAllowTest struct {
 }
 
 func TestWildcards(t *testing.T) {
-	id := uuid.New()
+	id := internal.NewUUID()
 
 	tests := []WildcardTest{
 		{
@@ -41,15 +42,15 @@ func TestWildcards(t *testing.T) {
 			actions: []string{"*"},
 			wantAllows: []WildcardAllowTest{
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "foo",
 				},
 				{
-					ref:    aggregate.Ref{Name: "bar", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "bar", ID: internal.NewUUID()},
 					action: "foo",
 				},
 				{
-					ref:    aggregate.Ref{Name: "baz", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "baz", ID: internal.NewUUID()},
 					action: "baz",
 				},
 			},
@@ -63,21 +64,21 @@ func TestWildcards(t *testing.T) {
 			actions: []string{"foo"},
 			wantAllows: []WildcardAllowTest{
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "foo",
 				},
 				{
-					ref:    aggregate.Ref{Name: "bar", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "bar", ID: internal.NewUUID()},
 					action: "foo",
 				},
 			},
 			wantDisallows: []WildcardAllowTest{
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "bar",
 				},
 				{
-					ref:    aggregate.Ref{Name: "bar", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "bar", ID: internal.NewUUID()},
 					action: "baz",
 				},
 			},
@@ -101,11 +102,11 @@ func TestWildcards(t *testing.T) {
 			},
 			wantDisallows: []WildcardAllowTest{
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "foo",
 				},
 				{
-					ref:    aggregate.Ref{Name: "bar", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "bar", ID: internal.NewUUID()},
 					action: "bar",
 				},
 			},
@@ -129,7 +130,7 @@ func TestWildcards(t *testing.T) {
 			},
 			wantDisallows: []WildcardAllowTest{
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "foo",
 				},
 				{
@@ -151,17 +152,17 @@ func TestWildcards(t *testing.T) {
 			actions: []string{"*"},
 			wantAllows: []WildcardAllowTest{
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "foo",
 				},
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "bar",
 				},
 			},
 			wantDisallows: []WildcardAllowTest{
 				{
-					ref:    aggregate.Ref{Name: "bar", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "bar", ID: internal.NewUUID()},
 					action: "foo",
 				},
 			},
@@ -189,7 +190,7 @@ func TestWildcards(t *testing.T) {
 					action: "foo",
 				},
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "foo",
 				},
 			},
@@ -209,7 +210,7 @@ func TestWildcards(t *testing.T) {
 			},
 			wantDisallows: []WildcardAllowTest{
 				{
-					ref:    aggregate.Ref{Name: "foo", ID: uuid.New()},
+					ref:    aggregate.Ref{Name: "foo", ID: internal.NewUUID()},
 					action: "foo",
 				},
 				{
@@ -228,21 +229,21 @@ func TestWildcards(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Run("Actor", func(t *testing.T) {
 				runWildcardTest(t, tt, func() *auth.Actor {
-					return auth.NewUUIDActor(uuid.New())
+					return auth.NewUUIDActor(internal.NewUUID())
 				})
 			})
 
 			t.Run("Role", func(t *testing.T) {
 				runWildcardTest(t, tt, func() *auth.Role {
-					r := auth.NewRole(uuid.New())
+					r := auth.NewRole(internal.NewUUID())
 					r.Identify("admin")
 					return r
 				})
 			})
 
 			t.Run("Permissions", func(t *testing.T) {
-				actor := auth.NewUUIDActor(uuid.New())
-				role := auth.NewRole(uuid.New())
+				actor := auth.NewUUIDActor(internal.NewUUID())
+				role := auth.NewRole(internal.NewUUID())
 				role.Identify("admin")
 				role.Add(actor.AggregateID())
 

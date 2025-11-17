@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -60,7 +61,7 @@ func TestNew_time(t *testing.T) {
 
 func TestNew_aggregate(t *testing.T) {
 	aname := "bar"
-	aid := uuid.New()
+	aid := internal.NewUUID()
 	v := 3
 
 	evt := event.New("foo", newMockData(), event.Aggregate(aid, aname, v))
@@ -78,7 +79,7 @@ func TestNew_aggregate(t *testing.T) {
 }
 
 func TestNew_previous(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	prev := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(aggregateID, "foobar", 3))
 	evt := event.New("bar", test.BarEventData{A: "bar"}, event.Previous[test.FooEventData](prev))
 
@@ -105,7 +106,7 @@ func TestNew_previous(t *testing.T) {
 }
 
 func TestEqual(t *testing.T) {
-	id := uuid.New()
+	id := internal.NewUUID()
 	now := xtime.Now()
 	tests := []struct {
 		a    event.Evt[mockData]
@@ -144,12 +145,12 @@ func TestEqual(t *testing.T) {
 		},
 		{
 			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
-			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.ID(uuid.New())),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.ID(internal.NewUUID())),
 			want: false,
 		},
 		{
 			a:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now)),
-			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.Aggregate(uuid.New(), "foobar", 2)),
+			b:    event.New("foo", mockData{FieldA: "foo"}, event.ID(id), event.Time(now), event.Aggregate(internal.NewUUID(), "foobar", 2)),
 			want: false,
 		},
 	}
@@ -168,7 +169,7 @@ func TestEqual(t *testing.T) {
 }
 
 func TestEqual_variadic(t *testing.T) {
-	id := uuid.New()
+	id := internal.NewUUID()
 	now := xtime.Now()
 	events := []event.Event{
 		event.New("foo", newMockData(), event.ID(id), event.Time(now)).Any(),

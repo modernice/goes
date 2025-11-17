@@ -70,7 +70,7 @@ func NewService(every, maxAge stdtime.Duration) *Service {
 // Example:
 //
 //	var store snapshot.Store
-// 	svc := cleanup.NewService(24*time.Hour, 7*24*time.Hour)
+//	svc := cleanup.NewService(24*time.Hour, 7*24*time.Hour)
 //	errs, err := svc.Start(store)
 //	// handle err
 //	go func() {

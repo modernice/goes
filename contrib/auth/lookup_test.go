@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/contrib/auth"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/testutil"
 )
 
@@ -23,7 +23,7 @@ func TestLookup(t *testing.T) {
 	actors := auth.NewStringActorRepository(repo)
 
 	sid := "foo-id"
-	actor := auth.NewStringActor(uuid.New())
+	actor := auth.NewStringActor(internal.NewUUID())
 	actor.Identify(sid)
 
 	look := auth.NewLookup(store, bus)

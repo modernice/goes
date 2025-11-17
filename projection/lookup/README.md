@@ -84,7 +84,7 @@ func registerUser(email string) {
 
 	<-l.Ready()
 
-	u := NewUser(uuid.New())
+	u := NewUser(internal.NewUUID())
 	if err := u.Register(ctx, emails, email); err != nil {
 		panic(err)
 	}

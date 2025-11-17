@@ -27,7 +27,8 @@ var (
 // permissions. A role must be given a name before it can be granted permissions.
 //
 // Example: "admin" role
-//	role := auth.NewRole(uuid.New())
+//
+//	role := auth.NewRole(internal.NewUUID())
 //	role.Identify("admin")
 //	role.Grant(aggregate.Ref{Name: "foo", ID: uuid.UUID{...}}, "read", "write")
 type Role struct {
@@ -87,23 +88,27 @@ func (r *Role) Disallows(action string, ref aggregate.Ref) bool {
 
 // Grant grants the role the permission to perform the given actions on the given aggregate.
 //
-// Wildcards
+// # Wildcards
 //
 // Grant supports wildcards in the aggregate reference and actions.
 // Pass in a "*" where a string is expected or uuid.Nil where a UUID is expected
 // to match all values.
 //
 // Example – Grant "view" permission on all aggregates with a specific id:
+//
 //	var id uuid.UUID
 //	role.Grant(aggregate.Ref{Name: "*", ID: id}, "view")
 //
 // Example – Grant "view" permission on "foo" aggregates with any id:
+//
 //	role.Grant(aggregate.Ref{Name: "foo", ID: uuid.Nil}, "view")
 //
 // Example – Grant "view" permission on all aggregates:
+//
 //	role.Grant(aggregate.Ref{Name: "*", ID: uuid.Nil}, "view")
 //
 // Example – Grant all permissions on all aggregates:
+//
 //	role.Grant(aggregate.Ref{Name: "*", ID: uuid.Nil}, "*")
 func (r *Role) Grant(ref aggregate.Ref, actions ...string) error {
 	if err := r.checkName(); err != nil {
@@ -137,23 +142,27 @@ func (r *Role) checkName() error {
 
 // Revoke revokes the role's permission to perform the given actions on the given aggregate.
 //
-// Wildcards
+// # Wildcards
 //
 // Revoke supports wildcards in the aggregate reference and actions.
 // Pass in a "*" where a string is expected or uuid.Nil where a UUID is expected
 // to match all values.
 //
 // Example – Revoke "view" permission on all aggregates with a specific id:
+//
 //	var id uuid.UUID
 //	role.Revoke(aggregate.Ref{Name: "*", ID: id}, "view")
 //
 // Example – Revoke "view" permission on "foo" aggregates with any id:
+//
 //	role.Revoke(aggregate.Ref{Name: "foo", ID: uuid.Nil}, "view")
 //
 // Example – Revoke "view" permission on all aggregates:
+//
 //	role.Revoke(aggregate.Ref{Name: "*", ID: uuid.Nil}, "view")
 //
 // Example – Revoke all permissions on all aggregates:
+//
 //	role.Revoke(aggregate.Ref{Name: "*", ID: uuid.Nil}, "*")
 func (r *Role) Revoke(ref aggregate.Ref, actions ...string) error {
 	if err := r.checkName(); err != nil {

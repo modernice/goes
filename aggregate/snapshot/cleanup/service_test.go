@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/aggregate/snapshot/cleanup"
 	"github.com/modernice/goes/aggregate/snapshot/query"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -32,8 +32,8 @@ type mockState struct {
 func TestService(t *testing.T) {
 	store := snapshot.NewStore()
 
-	foo1 := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
-	foo2 := &mockAggregate{Base: aggregate.New("foo", uuid.New())}
+	foo1 := &mockAggregate{Base: aggregate.New("foo", internal.NewUUID())}
+	foo2 := &mockAggregate{Base: aggregate.New("foo", internal.NewUUID())}
 
 	snap1, err := snapshot.New(foo1)
 	if err != nil {

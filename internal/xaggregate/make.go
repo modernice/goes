@@ -5,6 +5,7 @@ import (
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/test"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/internal"
 )
 
 // MakeOption is a Make option.
@@ -35,7 +36,7 @@ func Make(n int, opts ...MakeOption) (
 	as := make([]aggregate.Aggregate, n)
 	gaes := make(map[uuid.UUID]func() []event.Event)
 	for i := range as {
-		id := uuid.New()
+		id := internal.NewUUID()
 		a, gae := makeAggregate(cfg.name, id)
 		as[i] = a
 		gaes[id] = gae

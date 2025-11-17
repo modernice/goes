@@ -7,11 +7,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/backend/mongo"
 	"github.com/modernice/goes/backend/mongo/mongotest"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 	gomongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -67,7 +67,7 @@ func TestCollection(t *testing.T) {
 		mongo.URL(os.Getenv("MONGOSTORE_URL")),
 		mongo.Database(nextEventDatabase()),
 	)
-	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(uuid.New(), "foo", 1))
+	evt := event.New("foo", test.FooEventData{A: "foo"}, event.Aggregate(internal.NewUUID(), "foo", 1))
 	if err := store.Insert(context.Background(), evt.Any()); err != nil {
 		t.Fatalf("store.Insert: %#v", err)
 	}

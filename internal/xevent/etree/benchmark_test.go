@@ -4,11 +4,11 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xevent"
 	"github.com/modernice/goes/internal/xevent/etree"
 )
@@ -30,7 +30,7 @@ func BenchmarkTree_Insert1000000(b *testing.B) { benchmarkTree_Insert(b, 1000000
 func BenchmarkTree_Insert5000000(b *testing.B) { benchmarkTree_Insert(b, 5000000) }
 
 func benchmarkTree_Insert(b *testing.B, n int) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, n, xevent.ForAggregate(a))
 
 	b.ReportAllocs()
@@ -67,7 +67,7 @@ func BenchmarkSlice_Insert1000000(b *testing.B) { benchmarkSlice_Insert(b, 10000
 func BenchmarkSlice_Insert5000000(b *testing.B) { benchmarkSlice_Insert(b, 5000000) }
 
 func benchmarkSlice_Insert(b *testing.B, n int) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, n, xevent.ForAggregate(a))
 
 	b.ReportAllocs()
