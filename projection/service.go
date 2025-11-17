@@ -11,6 +11,7 @@ import (
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 )
 
 const (
@@ -187,7 +188,7 @@ func (svc *Service) Trigger(ctx context.Context, name string, opts ...TriggerOpt
 		return fmt.Errorf("subscribe to %q event: %w", TriggerAccepted, err)
 	}
 
-	id := uuid.New()
+	id := internal.NewUUID()
 	evt := event.New[any](Triggered, TriggeredData{
 		TriggerID: id,
 		Trigger:   NewTrigger(opts...),

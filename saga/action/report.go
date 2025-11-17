@@ -5,9 +5,9 @@ import "time"
 // An Option adds information to a Report.
 type Option func(*Report)
 
-// Report represents a report of an action. It contains information about the 
-// action, including start and end time, runtime, error (if any), and 
-// compensator (if any). Additional information can be added using Options. Use 
+// Report represents a report of an action. It contains information about the
+// action, including start and end time, runtime, error (if any), and
+// compensator (if any). Additional information can be added using Options. Use
 // NewReport to create a new Report.
 type Report struct {
 	Action      Action

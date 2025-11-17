@@ -9,9 +9,9 @@ func Map[In, Out any](in []In, fn func(In) Out) []Out {
 	return out
 }
 
-// MapErr maps the input slice using the provided mapper function that returns 
-// an Out and an error. It returns a new slice of type Out and an error if any 
-// occurred during execution. [In] represents the type of input slice and [Out] 
+// MapErr maps the input slice using the provided mapper function that returns
+// an Out and an error. It returns a new slice of type Out and an error if any
+// occurred during execution. [In] represents the type of input slice and [Out]
 // represents the type of output slice.
 func MapErr[In, Out any](in []In, fn func(In) (Out, error)) ([]Out, error) {
 	out := make([]Out, len(in))
@@ -26,9 +26,9 @@ func MapErr[In, Out any](in []In, fn func(In) (Out, error)) ([]Out, error) {
 }
 
 // IgnoreErr[S []T, T any](s S, err error) S
-// 
-// IgnoreErr returns the input slice without modifying it. It is used to ignore 
-// errors that may be returned from a function call. The function takes in a 
+//
+// IgnoreErr returns the input slice without modifying it. It is used to ignore
+// errors that may be returned from a function call. The function takes in a
 // slice of any type and an error value, and returns the same slice as input.
 func IgnoreErr[S []T, T any](s S, err error) S {
 	return s

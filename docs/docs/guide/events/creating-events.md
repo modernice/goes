@@ -10,14 +10,16 @@ The following example creates a `"user.created"` event with the string `"Bob"` a
 package example
 
 import (
-  "github.com/google/uuid"
+  "time"
+
   "github.com/modernice/goes/event"
+  "github.com/modernice/goes/internal"
 )
 
 func example() {
   evt := event.New("user.created", "Bob")
 
-  evt.ID() == uuid.UUID{...} // randomly generated UUID
+  evt.ID() == internal.NewUUID() // randomly generated UUIDv7
   evt.Name() == "user.created"
   evt.Data() == "Bob"
   evt.Time() == time.Now() // roughly
@@ -75,12 +77,12 @@ package example
 
 import (
   "time"
-  "github.com/google/uuid"
+  "github.com/modernice/goes/internal"
   "github.com/modernice/goes/event"
 )
 
 func example() {
-  id := uuid.New()
+  id := internal.NewUUID()
   t := time.Now().Add(-time.Hour) // 1 hour ago
 
   evt := event.New(
@@ -119,7 +121,7 @@ package example
 import "github.com/modernice/goes/event"
 
 func example() {
-  id := uuid.New()
+  id := internal.NewUUID()
   name := "auth.user"
   version := 1 // position in the event stream
 

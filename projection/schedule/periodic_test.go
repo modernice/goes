@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/projectiontest"
 	"github.com/modernice/goes/projection"
 	"github.com/modernice/goes/projection/schedule"
@@ -85,10 +85,10 @@ func TestPeriodic_Subscribe_Startup(t *testing.T) {
 	store := eventstore.New()
 
 	storeEvents := []event.Event{
-		event.New("foo", test.FooEventData{}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("bar", test.BarEventData{}, event.Aggregate(uuid.New(), "bar", 1)).Any(),
-		event.New("baz", test.BazEventData{}, event.Aggregate(uuid.New(), "baz", 1)).Any(),
-		event.New("foobar", test.FoobarEventData{}, event.Aggregate(uuid.New(), "foobar", 1)).Any(),
+		event.New("foo", test.FooEventData{}, event.Aggregate(internal.NewUUID(), "foo", 1)).Any(),
+		event.New("bar", test.BarEventData{}, event.Aggregate(internal.NewUUID(), "bar", 1)).Any(),
+		event.New("baz", test.BazEventData{}, event.Aggregate(internal.NewUUID(), "baz", 1)).Any(),
+		event.New("foobar", test.FoobarEventData{}, event.Aggregate(internal.NewUUID(), "foobar", 1)).Any(),
 	}
 
 	if err := store.Insert(ctx, storeEvents...); err != nil {

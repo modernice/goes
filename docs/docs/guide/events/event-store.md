@@ -57,12 +57,12 @@ package example
 import (
   "context"
   "fmt"
-  "github.com/google/uuid"
+  "github.com/modernice/goes/internal"
   "github.com/modernice/goes/event"
 )
 
 func example(store event.Store) {
-  id := uuid.New()
+  id := internal.NewUUID()
   name := "example"
   version := 1
 
@@ -278,7 +278,7 @@ import (
 )
 
 func example(store event.Store) {
-  id := uuid.New()
+  id := internal.NewUUID()
 
   evt, err := store.Find(context.TODO(), id)
   if err != nil {
@@ -315,7 +315,7 @@ import (
 )
 
 func example(store event.Store) {
-  id := uuid.New()
+  id := internal.NewUUID()
 
   evt, err := store.Find(context.TODO(), id)
   if err != nil {

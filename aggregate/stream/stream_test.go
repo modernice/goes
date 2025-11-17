@@ -17,6 +17,7 @@ import (
 	etest "github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xaggregate"
 	"github.com/modernice/goes/internal/xevent"
 	"github.com/modernice/goes/internal/xevent/xstream"
@@ -281,12 +282,12 @@ func TestWithSoftDeleted(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	foo := test.NewFoo(uuid.New())
-	bar := test.NewFoo(uuid.New())
+	foo := test.NewFoo(internal.NewUUID())
+	bar := test.NewFoo(internal.NewUUID())
 	other := []aggregate.Aggregate{
-		test.NewFoo(uuid.New()),
-		test.NewFoo(uuid.New()),
-		test.NewFoo(uuid.New()),
+		test.NewFoo(internal.NewUUID()),
+		test.NewFoo(internal.NewUUID()),
+		test.NewFoo(internal.NewUUID()),
 	}
 
 	aggregate.Next(foo, "soft_deleted", softDeletedEvent{})

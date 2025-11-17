@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/command"
+	"github.com/modernice/goes/internal"
 )
 
 type mockPayload struct {
@@ -36,7 +37,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestID(t *testing.T) {
-	id := uuid.New()
+	id := internal.NewUUID()
 	cmd := command.New[any]("foo", mockPayload{}, command.ID(id))
 
 	if cmd.ID() != id {
@@ -45,7 +46,7 @@ func TestID(t *testing.T) {
 }
 
 func TestAggregateName(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	cmd := command.New[any](
 		"foo",
 		mockPayload{},

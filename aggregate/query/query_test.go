@@ -9,6 +9,7 @@ import (
 	"github.com/modernice/goes/event"
 	equery "github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/query/version"
+	"github.com/modernice/goes/internal"
 )
 
 var _ aggregate.Query = Query{}
@@ -82,10 +83,10 @@ func TestNew(t *testing.T) {
 
 func TestMerge(t *testing.T) {
 	ids := []uuid.UUID{
-		uuid.New(),
-		uuid.New(),
-		uuid.New(),
-		uuid.New(),
+		internal.NewUUID(),
+		internal.NewUUID(),
+		internal.NewUUID(),
+		internal.NewUUID(),
 	}
 
 	queries := []aggregate.Query{
@@ -178,7 +179,7 @@ func TestEventQueryOpts(t *testing.T) {
 func makeUUIDs(n int) []uuid.UUID {
 	ids := make([]uuid.UUID, n)
 	for i := range ids {
-		ids[i] = uuid.New()
+		ids[i] = internal.NewUUID()
 	}
 	return ids
 }

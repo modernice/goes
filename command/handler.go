@@ -20,12 +20,14 @@ func NewHandler[P any](bus Bus) *Handler[P] {
 }
 
 // Handle is a shortcut for
+//
 //	NewHandler(bus).Handle(ctx, name, handler)
 func Handle[P any](ctx context.Context, bus Bus, name string, handler func(Ctx[P]) error) (<-chan error, error) {
 	return NewHandler[P](bus).Handle(ctx, name, handler)
 }
 
 // MustHandle is a shortcut for
+//
 //	NewHandler(bus).MustHandle(ctx, name, handler)
 func MustHandle[P any](ctx context.Context, bus Bus, name string, handler func(Ctx[P]) error) <-chan error {
 	return NewHandler[P](bus).MustHandle(ctx, name, handler)
@@ -41,9 +43,9 @@ func MustHandle[P any](ctx context.Context, bus Bus, name string, handler func(C
 // receiving the errors from the channel, to avoid blocking. Errors that are
 // sent into the channel are
 //
-//	- all asynchronous errors from the underlying Bus
-// 	- all errors returned by the provided handler function
-//	- errors returned by the `Finish` method of command.Context
+//   - all asynchronous errors from the underlying Bus
+//   - all errors returned by the provided handler function
+//   - errors returned by the `Finish` method of command.Context
 //
 // When ctx is canceled, the returned error channel is closed.
 func (h *Handler[P]) Handle(ctx context.Context, name string, handler func(Ctx[P]) error) (<-chan error, error) {

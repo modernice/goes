@@ -4,30 +4,32 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xevent"
 )
 
 // when rotating `4`
 //
-//                6
-//           4 ───┴─── 7
-//      2 ───┴─── 5
+//	          6
+//	     4 ───┴─── 7
+//	2 ───┴─── 5
+//
 // 1 ───┴─── 3
 //
 // should become
 //
-//                     6
-//                5 ───┴─── 7
-//           4 ───┘
-//      2 ───┘
+//	               6
+//	          5 ───┴─── 7
+//	     4 ───┘
+//	2 ───┘
+//
 // 1 ───┴─── 3
 func TestTree_rotateLeft(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, 7, xevent.ForAggregate(a))
 
 	nodes := make([]*node, 7)
@@ -58,19 +60,20 @@ func TestTree_rotateLeft(t *testing.T) {
 
 // when rotating `4`
 //
-//                6
-//           4 ───┴─── 7
-//      2 ───┴─── 5
+//	          6
+//	     4 ───┴─── 7
+//	2 ───┴─── 5
+//
 // 1 ───┴─── 3
 //
 // should become
 //
-//                6
-//           2 ───┴─── 7
-//      1 ───┴─── 4
-//           3 ───┴─── 5
+//	          6
+//	     2 ───┴─── 7
+//	1 ───┴─── 4
+//	     3 ───┴─── 5
 func TestTree_rotateRight(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, 7, xevent.ForAggregate(a))
 
 	nodes := make([]*node, 7)
@@ -100,7 +103,7 @@ func TestTree_rotateRight(t *testing.T) {
 
 func TestTree_Insert(t *testing.T) {
 	var tr Tree
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, 100, xevent.ForAggregate(a))
 	events = xevent.Shuffle(events)
 
@@ -122,7 +125,7 @@ func TestTree_Insert(t *testing.T) {
 
 func TestTree_Insert_root_color(t *testing.T) {
 	var tr Tree
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, 1, xevent.ForAggregate(a))
 
 	tr.Insert(events[0])
@@ -142,7 +145,7 @@ func TestTree_Insert_root_color(t *testing.T) {
 
 func TestTree_Insert_finalize(t *testing.T) {
 	var tr Tree
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, 32, xevent.ForAggregate(a))
 	events = xevent.Shuffle(events)
 	// sorted := event.Sort(events, event.SortAggregateVersion, event.SortAsc)
@@ -171,12 +174,14 @@ func TestTree_Insert_finalize(t *testing.T) {
 	}
 }
 
-//                         4B
-//           2B ───────────┴─────────── 7R
+//	              4B
+//	2B ───────────┴─────────── 7R
+//
 // 1R ───────┴─────── 3R      6B ───────┴─────── 8B
-//              5R ───┘
+//
+//	5R ───┘
 func TestTree_Matrix(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{A: "foo"}, 8, xevent.ForAggregate(a))
 	events = event.Sort(events, event.SortAggregateVersion, event.SortAsc)
 
@@ -214,7 +219,7 @@ func TestTree_Matrix(t *testing.T) {
 }
 
 func TestTree_validate(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(a))
 
 	tests := []struct {
@@ -353,7 +358,7 @@ func TestTree_validate(t *testing.T) {
 }
 
 func TestTree_Size(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	events := xevent.Make("foo", test.FooEventData{}, 100, xevent.ForAggregate(a))
 
 	var tr Tree

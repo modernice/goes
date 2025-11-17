@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/query"
 	"github.com/modernice/goes/aggregate/repository"
@@ -13,6 +12,7 @@ import (
 	"github.com/modernice/goes/event/eventstore"
 	etest "github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 )
 
 func TestRepository_Fetch_SoftDelete(t *testing.T) {
@@ -22,7 +22,7 @@ func TestRepository_Fetch_SoftDelete(t *testing.T) {
 	estore := eventstore.New()
 	r := repository.New(estore)
 
-	foo := test.NewFoo(uuid.New())
+	foo := test.NewFoo(internal.NewUUID())
 
 	aggregate.Next(foo, "foo", etest.FooEventData{}).Any()
 	aggregate.Next(foo, "soft_deleted", softDeletedEvent{}).Any()
@@ -43,7 +43,7 @@ func TestRepository_Fetch_SoftRestore(t *testing.T) {
 	estore := eventstore.New()
 	r := repository.New(estore)
 
-	foo := test.NewFoo(uuid.New())
+	foo := test.NewFoo(internal.NewUUID())
 
 	aggregate.Next(foo, "foo", etest.FooEventData{}).Any()
 	aggregate.Next(foo, "soft_deleted", softDeletedEvent{}).Any()
@@ -66,8 +66,8 @@ func TestRepository_Query_SoftDelete(t *testing.T) {
 	estore := eventstore.New()
 	r := repository.New(estore)
 
-	foo := test.NewFoo(uuid.New())
-	bar := test.NewFoo(uuid.New())
+	foo := test.NewFoo(internal.NewUUID())
+	bar := test.NewFoo(internal.NewUUID())
 
 	aggregate.Next(foo, "foo", etest.FooEventData{}).Any()
 	aggregate.Next(foo, "foo", etest.FooEventData{}).Any()

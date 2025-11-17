@@ -38,7 +38,7 @@ package example
 
 // Grant a UUID-Actor the permission to "view" and "update" a "foo" aggregate.
 func exampleUUIDActor() {
-	actor := auth.NewUUIDActor(uuid.New())
+	actor := auth.NewUUIDActor(internal.NewUUID())
 
 	actor.Grant(aggregate.Ref{
 		Name: "foo",
@@ -48,7 +48,7 @@ func exampleUUIDActor() {
 
 // Grant a string-Actor the permission to "view" and "update" a "foo" aggregate.
 func exampleStringActor() {
-	actor := auth.NewStringActor(uuid.New())
+	actor := auth.NewStringActor(internal.NewUUID())
 
 	actor.Identify("foo-bar-baz")
 
@@ -71,7 +71,7 @@ package example
 
 // Grant a role the permission to "view" and "update" a "foo" aggregate.
 func example() {
-	role := auth.NewRole(uuid.New())
+	role := auth.NewRole(internal.NewUUID())
 
 	role.Identify("admin")
 
@@ -343,7 +343,7 @@ func setup(repo aggregate.Repository) {
 }
 
 func example(l *auth.Lookup, f middleware.Factory) {
-	actor := NewCustomActor(uuid.New())
+	actor := NewCustomActor(internal.NewUUID())
 	
 	id := ActorID{
 		Foo: "foo",

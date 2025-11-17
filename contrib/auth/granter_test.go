@@ -14,6 +14,7 @@ import (
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/testutil"
 )
 
@@ -25,7 +26,7 @@ func TestGranter_event_actor(t *testing.T) {
 
 	sactors, _ := gt.actors.Repository(auth.StringActor)
 
-	actor := auth.NewStringActor(uuid.New())
+	actor := auth.NewStringActor(internal.NewUUID())
 	actor.Identify("foo")
 
 	if err := sactors.Save(ctx, actor); err != nil {
@@ -34,7 +35,7 @@ func TestGranter_event_actor(t *testing.T) {
 
 	ref := aggregate.Ref{
 		Name: "acted-on",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 	actions := []string{"foo", "bar", "baz"}
 
@@ -61,13 +62,13 @@ func TestGranter_event_role(t *testing.T) {
 
 	uidactors, _ := gt.actors.Repository(auth.UUIDActor)
 
-	actor := auth.NewUUIDActor(uuid.New())
+	actor := auth.NewUUIDActor(internal.NewUUID())
 
 	if err := uidactors.Save(ctx, actor); err != nil {
 		t.Fatalf("save actor: %v", err)
 	}
 
-	role := auth.NewRole(uuid.New())
+	role := auth.NewRole(internal.NewUUID())
 	role.Identify("admin")
 	role.Add(actor.AggregateID())
 
@@ -80,7 +81,7 @@ func TestGranter_event_role(t *testing.T) {
 
 	ref := aggregate.Ref{
 		Name: "acted-on",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 	actions := []string{"foo", "bar", "baz"}
 
@@ -102,7 +103,7 @@ func TestStartupGrant(t *testing.T) {
 
 	gt := NewGrantTest(t)
 
-	actor := auth.NewStringActor(uuid.New())
+	actor := auth.NewStringActor(internal.NewUUID())
 	actor.Identify("foo")
 
 	sactors, _ := gt.actors.Repository(auth.StringActor)
@@ -112,7 +113,7 @@ func TestStartupGrant(t *testing.T) {
 
 	ref := aggregate.Ref{
 		Name: "acted-on",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 	actions := []string{"foo", "bar", "baz"}
 
@@ -136,7 +137,7 @@ func TestGrantOn(t *testing.T) {
 	gt := NewGrantTest(t)
 
 	actors, _ := gt.actors.Repository(auth.UUIDActor)
-	actor := auth.NewUUIDActor(uuid.New())
+	actor := auth.NewUUIDActor(internal.NewUUID())
 	actors.Save(ctx, actor)
 
 	actions := []string{"foo", "bar", "baz"}
@@ -147,7 +148,7 @@ func TestGrantOn(t *testing.T) {
 
 	target := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	if err := gt.bus.Publish(ctx, event.New(

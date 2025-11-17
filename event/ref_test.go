@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/internal"
 )
 
 func TestAggregateRef_Parse(t *testing.T) {
-	validID := uuid.New()
+	validID := internal.NewUUID()
 
 	tests := []struct {
 		name      string

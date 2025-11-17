@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/event/handler"
 	"github.com/modernice/goes/event/query"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 )
 
 func TestHandler(t *testing.T) {
@@ -155,7 +155,7 @@ func TestStartup_withQuery_replaces_names(t *testing.T) {
 	bus := eventbus.New()
 	store := eventstore.New()
 
-	testID := uuid.New()
+	testID := internal.NewUUID()
 
 	h := handler.New(bus, handler.Startup(store, query.Name("bar")))
 
@@ -223,7 +223,7 @@ func TestStartup_withQuery_replaces_ids(t *testing.T) {
 	bus := eventbus.New()
 	store := eventstore.New()
 
-	testID := uuid.New()
+	testID := internal.NewUUID()
 
 	h := handler.New(bus, handler.Startup(store, query.ID(testID)))
 

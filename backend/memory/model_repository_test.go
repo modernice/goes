@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/backend/memory"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/persistence/model"
 )
 
@@ -15,7 +16,7 @@ func TestModelRepository_Save_Fetch(t *testing.T) {
 	defer cancel()
 
 	m := &uuidModel{
-		ID:  uuid.New(),
+		ID:  internal.NewUUID(),
 		Foo: "foo",
 	}
 
@@ -58,7 +59,7 @@ func testModelRepository_Use(t *testing.T, r *memory.ModelRepository[*uuidModel,
 	defer cancel()
 
 	m := &uuidModel{
-		ID:  uuid.New(),
+		ID:  internal.NewUUID(),
 		Foo: "foo",
 	}
 
@@ -90,7 +91,7 @@ func TestModelRepository_Delete(t *testing.T) {
 	r := memory.NewModelRepository[*uuidModel, uuid.UUID]()
 
 	m := &uuidModel{
-		ID:  uuid.New(),
+		ID:  internal.NewUUID(),
 		Foo: "foo",
 	}
 
@@ -118,7 +119,7 @@ func TestModelRepository_Fetch_ModelFactory(t *testing.T) {
 		}
 	}))
 
-	id := uuid.New()
+	id := internal.NewUUID()
 
 	m, err := r.Fetch(ctx, id)
 	if errors.Is(err, model.ErrNotFound) {

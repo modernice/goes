@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/contrib/auth"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/test"
 )
 
@@ -15,7 +16,7 @@ func TestNewRole(t *testing.T) {
 }
 
 func TestRole_Identify(t *testing.T) {
-	r := auth.NewRole(uuid.New())
+	r := auth.NewRole(internal.NewUUID())
 
 	if err := r.Identify("admin"); err != nil {
 		t.Fatalf("Identify() failed with %q", err)
@@ -29,7 +30,7 @@ func TestRole_Identify(t *testing.T) {
 }
 
 func TestRole_Identify_ErrEmptyName(t *testing.T) {
-	r := auth.NewRole(uuid.New())
+	r := auth.NewRole(internal.NewUUID())
 
 	if err := r.Identify(""); !errors.Is(err, auth.ErrEmptyName) {
 		t.Fatalf("Identify() should fail with %q if provided an empty name; got %q", auth.ErrEmptyName, err)
@@ -39,12 +40,12 @@ func TestRole_Identify_ErrEmptyName(t *testing.T) {
 }
 
 func TestRole_Grant_ErrInvalidRef(t *testing.T) {
-	r := auth.NewRole(uuid.New())
+	r := auth.NewRole(internal.NewUUID())
 	r.Identify("admin")
 
 	ref := aggregate.Ref{
 		Name: "",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	if err := r.Grant(ref, "view"); !errors.Is(err, auth.ErrInvalidRef) {
@@ -55,12 +56,12 @@ func TestRole_Grant_ErrInvalidRef(t *testing.T) {
 }
 
 func TestRole_Revoke_ErrInvalidRef(t *testing.T) {
-	r := auth.NewRole(uuid.New())
+	r := auth.NewRole(internal.NewUUID())
 	r.Identify("admin")
 
 	ref := aggregate.Ref{
 		Name: "",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	if err := r.Revoke(ref, "view"); !errors.Is(err, auth.ErrInvalidRef) {
@@ -71,13 +72,13 @@ func TestRole_Revoke_ErrInvalidRef(t *testing.T) {
 }
 
 func TestRole_Grant_Revoke(t *testing.T) {
-	r := auth.NewRole(uuid.New())
+	r := auth.NewRole(internal.NewUUID())
 	r.Identify("admin")
 
 	actions := []string{"view", "update"}
 	ref := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	for _, action := range actions {
@@ -114,12 +115,12 @@ func TestRole_Grant_Revoke(t *testing.T) {
 }
 
 func TestRole_Grant_Revoke_Add_Remove_ErrMissingRoleName(t *testing.T) {
-	r := auth.NewRole(uuid.New())
+	r := auth.NewRole(internal.NewUUID())
 
 	actions := []string{"view", "update"}
 	ref := aggregate.Ref{
 		Name: "foo",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	if err := r.Grant(ref, actions...); !errors.Is(err, auth.ErrMissingRoleName) {
@@ -134,13 +135,13 @@ func TestRole_Grant_Revoke_Add_Remove_ErrMissingRoleName(t *testing.T) {
 
 	test.NoChange(t, r, auth.PermissionRevoked)
 
-	if err := r.Add(uuid.New()); !errors.Is(err, auth.ErrMissingRoleName) {
+	if err := r.Add(internal.NewUUID()); !errors.Is(err, auth.ErrMissingRoleName) {
 		t.Fatalf("Add() should fail with %q if called before the role was identified; got %q", auth.ErrMissingRoleName, err)
 	}
 
 	test.NoChange(t, r, auth.RoleGiven)
 
-	if err := r.Remove(uuid.New()); !errors.Is(err, auth.ErrMissingRoleName) {
+	if err := r.Remove(internal.NewUUID()); !errors.Is(err, auth.ErrMissingRoleName) {
 		t.Fatalf("Remove() should fail with %q if called before the role was identified; got %q", auth.ErrMissingRoleName, err)
 	}
 
@@ -148,10 +149,10 @@ func TestRole_Grant_Revoke_Add_Remove_ErrMissingRoleName(t *testing.T) {
 }
 
 func TestRole_Add_Remove(t *testing.T) {
-	r := auth.NewRole(uuid.New())
+	r := auth.NewRole(internal.NewUUID())
 	r.Identify("admin")
 
-	actors := []uuid.UUID{uuid.New(), uuid.New()}
+	actors := []uuid.UUID{internal.NewUUID(), internal.NewUUID()}
 
 	for _, actor := range actors {
 		if r.IsMember(actor) {

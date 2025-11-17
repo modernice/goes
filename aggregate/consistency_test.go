@@ -7,16 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xevent"
 	"github.com/modernice/goes/internal/xtime"
 )
 
 func TestValidate_valid(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	b := aggregate.New("foo", aggregateID)
 	now := xtime.Now()
 	events := []event.Event{
@@ -31,8 +31,8 @@ func TestValidate_valid(t *testing.T) {
 }
 
 func TestValidate_id(t *testing.T) {
-	aggregateID := uuid.New()
-	invalidID := uuid.New()
+	aggregateID := internal.NewUUID()
+	invalidID := internal.NewUUID()
 	b := aggregate.New("foo", aggregateID)
 	now := xtime.Now()
 	events := []event.Event{
@@ -55,7 +55,7 @@ func TestValidate_id(t *testing.T) {
 }
 
 func TestValidate_name(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	aggregateName := "foo"
 	invalidName := "bar"
 	b := aggregate.New("foo", aggregateID)
@@ -80,7 +80,7 @@ func TestValidate_name(t *testing.T) {
 }
 
 func TestValidate_version(t *testing.T) {
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 	changedAggregate := aggregate.New("foo", aggregateID)
 	changes := xevent.Make("foo", test.FooEventData{}, 10, xevent.ForAggregate(changedAggregate))
 	changedAggregate.RecordChange(changes...)
@@ -195,7 +195,7 @@ func TestValidate_version(t *testing.T) {
 }
 
 func TestValidate_time(t *testing.T) {
-	id := uuid.New()
+	id := internal.NewUUID()
 	now := xtime.Now()
 	events := []event.Event{
 		event.New[any]("foo", test.FooEventData{}, event.Aggregate(id, "foo", 1), event.Time(now)),
@@ -225,7 +225,7 @@ func TestValidate_time(t *testing.T) {
 }
 
 func TestConsistencyError_Event(t *testing.T) {
-	a := aggregate.New("foo", uuid.New())
+	a := aggregate.New("foo", internal.NewUUID())
 	err := &aggregate.ConsistencyError{
 		Kind:           aggregate.ConsistencyKind(0),
 		Aggregate:      a.Ref(),
@@ -259,9 +259,9 @@ func TestConsistencyError_Event(t *testing.T) {
 }
 
 func TestConsistencyError_Error(t *testing.T) {
-	id := uuid.New()
+	id := internal.NewUUID()
 	name := "foo"
-	invalidID := uuid.New()
+	invalidID := internal.NewUUID()
 	invalidName := "bar"
 	tests := map[*aggregate.ConsistencyError]string{
 		{

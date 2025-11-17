@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
 	"github.com/modernice/goes/helper/pick"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/projection/lookup"
 )
 
@@ -20,9 +20,9 @@ func TestLookup(t *testing.T) {
 	store := eventstore.WithBus(eventstore.New(), bus)
 
 	events := []event.Event{
-		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("bar", LookupEvent{Foo: "bar"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("baz", LookupEvent{Foo: "baz"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(internal.NewUUID(), "foo", 1)).Any(),
+		event.New("bar", LookupEvent{Foo: "bar"}, event.Aggregate(internal.NewUUID(), "foo", 1)).Any(),
+		event.New("baz", LookupEvent{Foo: "baz"}, event.Aggregate(internal.NewUUID(), "foo", 1)).Any(),
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {
@@ -78,9 +78,9 @@ func TestLookup_Reverse(t *testing.T) {
 	store := eventstore.WithBus(eventstore.New(), bus)
 
 	events := []event.Event{
-		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("bar", LookupEvent{Foo: "bar"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
-		event.New("baz", LookupEvent{Foo: "baz"}, event.Aggregate(uuid.New(), "foo", 1)).Any(),
+		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(internal.NewUUID(), "foo", 1)).Any(),
+		event.New("bar", LookupEvent{Foo: "bar"}, event.Aggregate(internal.NewUUID(), "foo", 1)).Any(),
+		event.New("baz", LookupEvent{Foo: "baz"}, event.Aggregate(internal.NewUUID(), "foo", 1)).Any(),
 	}
 
 	if err := store.Insert(ctx, events...); err != nil {
@@ -136,7 +136,7 @@ func TestLookup_removed(t *testing.T) {
 		}
 	}()
 
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 
 	events := []event.Event{
 		event.New("foo", LookupEvent{Foo: "foo"}, event.Aggregate(aggregateID, "foo", 1)).Any(),

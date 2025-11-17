@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/backend/mongo"
 	"github.com/modernice/goes/event"
 	etest "github.com/modernice/goes/event/test"
+	"github.com/modernice/goes/internal"
 )
 
 func TestRepository_Use_Retry(t *testing.T) {
@@ -61,7 +61,7 @@ type retryer struct{ *aggregate.Base }
 
 func newRetryer() *retryer {
 	return &retryer{
-		Base: aggregate.New("retryer", uuid.New()),
+		Base: aggregate.New("retryer", internal.NewUUID()),
 	}
 }
 

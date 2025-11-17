@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/backend/mongo"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/persistence/model"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	gomongo "go.mongodb.org/mongo-driver/mongo"
@@ -125,7 +126,7 @@ func TestModelRepository_CustomID(t *testing.T) {
 	r := mongo.NewModelRepository[*uuidModel, uuid.UUID](col, mongo.ModelIDKey("customid"))
 
 	m := &uuidModel{
-		ID:  uuid.New(),
+		ID:  internal.NewUUID(),
 		Foo: "foo",
 	}
 
@@ -155,7 +156,7 @@ func TestModelRepository_CustomID_InvalidKey(t *testing.T) {
 	r := mongo.NewModelRepository[*uuidModel, uuid.UUID](col)
 
 	m := &uuidModel{
-		ID:  uuid.New(),
+		ID:  internal.NewUUID(),
 		Foo: "foobar",
 	}
 
@@ -189,7 +190,7 @@ func TestModelRepository_Fetch_ModelFactory_ErrNotFound(t *testing.T) {
 		}
 	}, false))
 
-	id := uuid.New()
+	id := internal.NewUUID()
 
 	if _, err := r.Fetch(ctx, id); !errors.Is(err, model.ErrNotFound) {
 		t.Fatalf("Fetch() should fail with %q; got %q", model.ErrNotFound, err)
@@ -208,7 +209,7 @@ func TestModelRepository_Fetch_ModelFactory_CreateIfNotFound(t *testing.T) {
 		}
 	}, true))
 
-	id := uuid.New()
+	id := internal.NewUUID()
 
 	m, err := r.Fetch(ctx, id)
 	if err != nil {

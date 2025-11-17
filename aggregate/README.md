@@ -138,7 +138,7 @@ That's it. Now you can create todo lists, add tasks, and remove them again:
 // ... previous code ...
 
 func example() {
-	list := NewList(uuid.New())
+	list := NewList(internal.NewUUID())
 
 	if err := list.AddTask("do this and that"); err != nil {
 		panic(fmt.Errorf("add task: %w", err))
@@ -257,7 +257,7 @@ aggregates are event-sourced. Take a look at this example:
 package todo_test
 
 func TestList_AddTask(t *testing.T) {
-	l := todo.NewList(uuid.New())
+	l := todo.NewList(internal.NewUUID())
 
 	if l.Contains("foo") {
 		t.Fatalf("list should not contain %q until added", "foo")
@@ -296,7 +296,7 @@ package todo_test
 import "github.com/modernice/goes/test"
 
 func TestList_AddTask(t *testing.T) {
-	l := todo.NewList(uuid.New())
+	l := todo.NewList(internal.NewUUID())
 
 	if l.Contains("foo") {
 		t.Fatalf("list should not contain %q until added", "foo")
@@ -357,7 +357,7 @@ func example(store event.Store) {
 package example
 
 func example(repo aggregate.Repository) {
-	l := todo.NewList(uuid.New())
+	l := todo.NewList(internal.NewUUID())
 	l.AddTask("foo")
 	l.AddTask("bar")
 	l.AddTask("baz")
@@ -386,7 +386,7 @@ This also means that `Repository.Fetch()` can be used to "refresh" an aggregate
 package example
 
 func example(repo aggregate.Repository) {
-	l := todo.NewList(uuid.New())
+	l := todo.NewList(internal.NewUUID())
 
 	if err := repo.Fetch(context.TODO(), l); err != nil {
 		panic(fmt.Errorf(
@@ -403,7 +403,7 @@ a version higher than the provided version:
 package example
 
 func example(repo aggregate.Repository) {
-	l := todo.NewList(uuid.New())
+	l := todo.NewList(internal.NewUUID())
 
 	if err := repo.FetchVersion(context.TODO(), l, 5); err != nil {
 		panic(fmt.Errorf(
@@ -423,7 +423,7 @@ then insert new changes into the event store:
 package example
 
 func example(repo aggregate.Repository) {
-	l := todo.NewList(uuid.New())
+	l := todo.NewList(internal.NewUUID())
 
 	if err := repo.Use(context.TODO(), l, func() error {
 		return l.AddTask("foo")
@@ -446,7 +446,7 @@ store:
 package example
 
 func example(repo aggregate.Repository) {
-	l := todo.NewList(uuid.New())
+	l := todo.NewList(internal.NewUUID())
 
 	if err := repo.Delete(context.TODO(), l); err != nil {
 		panic(fmt.Errorf(
@@ -579,14 +579,14 @@ func example(store event.Store) {
 	lists := NewListRepository(repo)
 
 	// Fetch a todo list by id.
-	l, err := lists.Fetch(context.TODO(), uuid.New())
+	l, err := lists.Fetch(context.TODO(), internal.NewUUID())
 	if err != nil {
 		panic(fmt.Errorf("fetch list: %w", err))
 	}
 	// l is a *List
 
 	// "Use" a list by id.
-	if err := lists.Use(context.TODO(), uuid.New(), func(l *List) error {
+	if err := lists.Use(context.TODO(), internal.NewUUID(), func(l *List) error {
 		return l.AddTask("foo")
 	}); err != nil {
 		panic(fmt.Errof("use list: %w", err))

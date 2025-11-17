@@ -17,7 +17,9 @@ var (
 )
 
 // Actions is a map that stores granted permissions:
+//
 //	map[AGGREGATE]map[ACTION]GRANT_COUNT
+//
 // Within the Actor and Role aggregates, GRANT_COUNT is always either 0 or 1.
 type Actions map[aggregate.Ref]map[string]int
 

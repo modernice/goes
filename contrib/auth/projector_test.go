@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/contrib/auth"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/testutil"
 	"github.com/modernice/goes/projection/schedule"
 )
@@ -36,20 +36,20 @@ func TestProjector(t *testing.T) {
 
 	order := aggregate.Ref{
 		Name: "order",
-		ID:   uuid.New(),
+		ID:   internal.NewUUID(),
 	}
 
 	// a customer is granted the permission to "view" an "order"
-	cus := auth.NewUUIDActor(uuid.New())
+	cus := auth.NewUUIDActor(internal.NewUUID())
 	cus.Grant(order, "view")
 
 	// an "admin" role is granted the permission to "view" and "update" the order
-	admins := auth.NewRole(uuid.New())
+	admins := auth.NewRole(internal.NewUUID())
 	admins.Identify("admin")
 	admins.Grant(order, "view", "update")
 
 	// a user is given the "admin" role
-	admin := auth.NewUUIDActor(uuid.New())
+	admin := auth.NewUUIDActor(internal.NewUUID())
 	admins.Add(admin.AggregateID())
 
 	// when the actors and role are saved, the projector should be triggered.

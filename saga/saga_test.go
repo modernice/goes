@@ -382,7 +382,7 @@ func TestExecute_sequence(t *testing.T) {
 // 	ctrl := gomock.NewController(t)
 // 	defer ctrl.Finish()
 
-// 	foo := aggregate.New("foo", uuid.New())
+// 	foo := aggregate.New("foo", internal.NewUUID())
 // 	repo := mock_aggregate.NewMockRepository(ctrl)
 // 	s := saga.New(
 // 		saga.Action("foo", func(c action.Context) error {

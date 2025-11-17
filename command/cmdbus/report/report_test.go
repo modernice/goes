@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/command/cmdbus/report"
+	"github.com/modernice/goes/internal"
 )
 
 type mockPayload struct{}
@@ -16,9 +16,9 @@ func TestReport_Report(t *testing.T) {
 
 	cmd := report.Command{
 		Name:          "foo",
-		ID:            uuid.New(),
+		ID:            internal.NewUUID(),
 		AggregateName: "foo",
-		AggregateID:   uuid.New(),
+		AggregateID:   internal.NewUUID(),
 	}
 	err := errors.New("mock error")
 	d := 10 * time.Second

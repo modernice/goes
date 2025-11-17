@@ -17,7 +17,7 @@ type HandleOption func(*handleConfig)
 // is non-nil, the events are also inserted into store after publishing.
 //
 // The following events are published by the handler:
-//	- aggregateDeleted ("goes.command.aggregate.deleted") (or a user-provided event, see DeleteEvent())
+//   - aggregateDeleted ("goes.command.aggregate.deleted") (or a user-provided event, see DeleteEvent())
 func PublishEvents(bus event.Bus, store event.Store) HandleOption {
 	return func(cfg *handleConfig) {
 		cfg.bus = bus
@@ -53,7 +53,7 @@ func MustHandle(ctx context.Context, bus command.Bus, repo aggregate.Repository,
 // returned error channel is closed.
 //
 // The following commands are handled:
-//	- DeleteAggregateCmd ("goes.command.aggregate.delete")
+//   - DeleteAggregateCmd ("goes.command.aggregate.delete")
 func Handle(ctx context.Context, bus command.Bus, repo aggregate.Repository, opts ...HandleOption) (<-chan error, error) {
 	cfg := handleConfig{deleteEvents: make(map[string]func(aggregate.Ref) event.Of[any])}
 	for _, opt := range opts {

@@ -5,12 +5,12 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/aggregate/stream"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/xtime"
 )
 
@@ -242,7 +242,7 @@ func makeAggregates(n int) []aggregate.Aggregate {
 	as := make([]aggregate.Aggregate, n)
 	for i := range as {
 		name := randomName()
-		as[i] = aggregate.New(name, uuid.New())
+		as[i] = aggregate.New(name, internal.NewUUID())
 	}
 	return as
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/helper/pick"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/modernice/goes/internal"
 )
 
 func TestDeleteAggregate(t *testing.T) {
@@ -26,7 +27,7 @@ func TestDeleteAggregate(t *testing.T) {
 	defer cancel()
 
 	aggregateName := "foo"
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 
 	cmd := builtin.DeleteAggregate(aggregateName, aggregateID)
 
@@ -154,7 +155,7 @@ func TestDeleteAggregate_CustomEvent(t *testing.T) {
 	defer cancel()
 
 	aggregateName := "foo"
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 
 	cmd := builtin.DeleteAggregate(aggregateName, aggregateID)
 
@@ -226,7 +227,7 @@ func TestDeleteAggregate_CustomEvent_MatchAll(t *testing.T) {
 	defer cancel()
 
 	aggregateName := "foo"
-	aggregateID := uuid.New()
+	aggregateID := internal.NewUUID()
 
 	cmd := builtin.DeleteAggregate(aggregateName, aggregateID)
 
