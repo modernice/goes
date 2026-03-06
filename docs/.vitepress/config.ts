@@ -18,76 +18,63 @@ export default defineConfig({
       { text: 'Backends', link: '/backends/' },
     ],
 
-    sidebar: {
-      '/getting-started/': [
-        {
-          text: 'Getting Started',
-          items: [
-            { text: 'Introduction', link: '/getting-started/introduction' },
-            { text: 'Installation', link: '/getting-started/installation' },
-            { text: 'Quick Start', link: '/getting-started/quick-start' },
-          ],
-        },
-      ],
-
-      '/tutorial/': [
-        {
-          text: 'Build an E-Commerce App',
-          items: [
-            { text: 'Overview', link: '/tutorial/' },
-            { text: '1. Project Setup', link: '/tutorial/01-project-setup' },
-            { text: '2. Your First Aggregate', link: '/tutorial/02-first-aggregate' },
-            { text: '3. Events & State', link: '/tutorial/03-events-and-state' },
-            { text: '4. Codec Registry', link: '/tutorial/04-codec-registry' },
-            { text: '5. Repositories', link: '/tutorial/05-repository' },
-            { text: '6. Commands', link: '/tutorial/06-commands' },
-            { text: '7. The Order', link: '/tutorial/07-order-aggregate' },
-            { text: '8. The Customer', link: '/tutorial/08-customer-aggregate' },
-            { text: '9. Projections', link: '/tutorial/09-projections' },
-            { text: '10. Production Backends', link: '/tutorial/10-backends' },
-            { text: '11. Testing', link: '/tutorial/11-testing' },
-          ],
-        },
-      ],
-
-      '/guide/': [
-        {
-          text: 'Guide',
-          items: [
-            { text: 'Aggregates', link: '/guide/aggregates' },
-            { text: 'Events', link: '/guide/events' },
-            { text: 'Commands', link: '/guide/commands' },
-            { text: 'Projections', link: '/guide/projections' },
-            { text: 'Codec Registry', link: '/guide/codec' },
-            { text: 'Snapshots', link: '/guide/snapshots' },
-            { text: 'Testing', link: '/guide/testing' },
-          ],
-        },
-      ],
-
-      '/backends/': [
-        {
-          text: 'Backends',
-          items: [
-            { text: 'Overview', link: '/backends/' },
-            { text: 'MongoDB', link: '/backends/mongodb' },
-            { text: 'PostgreSQL', link: '/backends/postgres' },
-            { text: 'NATS', link: '/backends/nats' },
-            { text: 'In-Memory', link: '/backends/in-memory' },
-          ],
-        },
-      ],
-
-      '/reference/': [
-        {
-          text: 'Reference',
-          items: [
-            { text: 'Architecture', link: '/reference/architecture' },
-            { text: 'Best Practices', link: '/reference/best-practices' },
-          ],
-        },
-      ],
-    },
+    sidebar: [
+      {
+        text: 'Getting Started',
+        items: [
+          { text: 'Introduction', link: '/getting-started/introduction' },
+          { text: 'Installation', link: '/getting-started/installation' },
+          { text: 'Quick Start', link: '/getting-started/quick-start' },
+        ],
+      },
+      {
+        text: 'Tutorial',
+        collapsed: true,
+        items: [
+          { text: 'Overview', link: '/tutorial/' },
+          { text: '1. Project Setup', link: '/tutorial/01-project-setup' },
+          { text: '2. Your First Aggregate', link: '/tutorial/02-first-aggregate' },
+          { text: '3. Events & State', link: '/tutorial/03-events-and-state' },
+          { text: '4. Codec Registry', link: '/tutorial/04-codec-registry' },
+          { text: '5. Repositories', link: '/tutorial/05-repository' },
+          { text: '6. Commands', link: '/tutorial/06-commands' },
+          { text: '7. The Order', link: '/tutorial/07-order-aggregate' },
+          { text: '8. The Customer', link: '/tutorial/08-customer-aggregate' },
+          { text: '9. Projections', link: '/tutorial/09-projections' },
+          { text: '10. Production Backends', link: '/tutorial/10-backends' },
+          { text: '11. Testing', link: '/tutorial/11-testing' },
+        ],
+      },
+      {
+        text: 'Guide',
+        items: [
+          { text: 'Aggregates', link: '/guide/aggregates' },
+          { text: 'Events', link: '/guide/events' },
+          { text: 'Commands', link: '/guide/commands' },
+          { text: 'Projections', link: '/guide/projections' },
+          { text: 'Codec Registry', link: '/guide/codec' },
+          { text: 'Snapshots', link: '/guide/snapshots' },
+          { text: 'Testing', link: '/guide/testing' },
+        ],
+      },
+      {
+        text: 'Backends',
+        items: [
+          { text: 'Overview', link: '/backends/' },
+          { text: 'MongoDB', link: '/backends/mongodb' },
+          { text: 'PostgreSQL', link: '/backends/postgres' },
+          { text: 'NATS', link: '/backends/nats' },
+          { text: 'In-Memory', link: '/backends/in-memory' },
+        ],
+      },
+      {
+        text: 'Reference',
+        items: [
+          { text: 'Architecture', link: '/reference/architecture' },
+          { text: 'Best Practices', link: '/reference/best-practices' },
+        ],
+      },
+    ],
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/modernice/goes' },
