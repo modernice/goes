@@ -9,3 +9,8 @@ out
 *.log
 .DS_Store
 dev.env
+
+# Docs
+docs/node_modules
+docs/.vitepress/cache
+docs/.vitepress/dist

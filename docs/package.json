@@ -1,22 +1,12 @@
 {
-  "name": "@modernice/goes-docs",
-  "version": "0.0.1",
-  "description": "Documentation for the goes framework",
-  "keywords": [],
-  "author": "Saman Hosseini <saman@modernice.ltd>",
-  "license": "MIT",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "DOCS_DOMAIN=localhost:3000 vitepress dev docs --port 3000",
-    "build": "vitepress build docs",
-    "serve": "vitepress serve docs"
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
   },
   "devDependencies": {
-    "@types/node": "^18.7.13",
-    "postcss-nesting": "^10.1.10",
-    "tailwindcss": "^3.1.8",
-    "ts-node": "^10.9.1",
-    "typescript": "^4.7.4",
-    "vitepress": "^1.0.0-alpha.10",
-    "vue": "^3.2.37"
+    "vitepress": "^1.6.3"
   }
 }
