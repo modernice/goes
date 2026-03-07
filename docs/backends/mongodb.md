@@ -185,10 +185,17 @@ Unlike the in-memory model repository, the MongoDB version takes a `*mongo.Colle
 
 ```go
 import (
+	"go.mongodb.org/mongo-driver/mongo"
+
 	gomongo "github.com/modernice/goes/backend/mongo"
 )
 
-col := eventStore.Client().Database("myapp").Collection("shop_stats")
+client, err := mongo.Connect(ctx)
+if err != nil {
+	// handle error
+}
+
+col := client.Database("myapp").Collection("shop_stats")
 
 repo := gomongo.NewModelRepository[*ShopStats, uuid.UUID](col,
 	gomongo.ModelFactory(NewShopStats, true),
