@@ -280,12 +280,13 @@ func HandleCustomerCommands(
 func main() {
 	// ... existing setup ...
 
-	shop.RegisterProductEvents(reg)
-	shop.RegisterProductCommands(reg)
-	shop.RegisterOrderEvents(reg)
-	shop.RegisterOrderCommands(reg)
-	shop.RegisterCustomerEvents(reg)     // [!code ++]
-	shop.RegisterCustomerCommands(reg)   // [!code ++]
+	shop.RegisterProductEvents(eventReg)
+	shop.RegisterOrderEvents(eventReg)
+	shop.RegisterCustomerEvents(eventReg)     // [!code ++]
+
+	shop.RegisterProductCommands(cmdReg)
+	shop.RegisterOrderCommands(cmdReg)
+	shop.RegisterCustomerCommands(cmdReg)   // [!code ++]
 
 	// ...
 
@@ -327,4 +328,4 @@ If it has its own lifecycle, its own business rules, and needs to be independent
 
 ## Next
 
-We have three aggregates producing events. In the [next chapter](./09-projections), we'll build a read model that stays in sync with product events.
+We have three aggregates producing events. In the [next chapter](./09-aggregate-splitting), we'll split the Product into multiple focused aggregates that share the same UUID.

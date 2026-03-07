@@ -1,4 +1,4 @@
-# 11. Testing
+# 12. Testing
 
 One of the best things about event sourcing is how testable it is. Aggregates are pure in-memory state machines — no databases, no network calls. You can test them by raising events and asserting state.
 
@@ -62,13 +62,12 @@ import (
 
 func TestProduct_Create(t *testing.T) {
 	p := shop.NewProduct(uuid.New())
-	if err := p.Create("Wireless Mouse", 2999, 50); err != nil {
+	if err := p.Create("Wireless Mouse", 50); err != nil {
 		t.Fatal(err)
 	}
 
 	gtest.Transition(shop.ProductCreated, shop.ProductCreatedData{
 		Name:  "Wireless Mouse",
-		Price: 2999,
 		Stock: 50,
 	}).Run(t, p)
 }
@@ -76,15 +75,11 @@ func TestProduct_Create(t *testing.T) {
 func TestProduct_Create_Validation(t *testing.T) {
 	p := shop.NewProduct(uuid.New())
 
-	if err := p.Create("", 2999, 50); err == nil {
+	if err := p.Create("", 50); err == nil {
 		t.Error("expected error for empty name")
 	}
 
-	if err := p.Create("Mouse", 0, 50); err == nil {
-		t.Error("expected error for zero price")
-	}
-
-	if err := p.Create("Mouse", 2999, -1); err == nil {
+	if err := p.Create("Mouse", -1); err == nil {
 		t.Error("expected error for negative stock")
 	}
 }
@@ -95,7 +90,7 @@ func TestProduct_Create_Validation(t *testing.T) {
 ```go
 func TestProduct_AdjustStock(t *testing.T) {
 	p := shop.NewProduct(uuid.New())
-	p.Create("Wireless Mouse", 2999, 50)
+	p.Create("Wireless Mouse", 50)
 
 	if err := p.AdjustStock(-10, "sold"); err != nil {
 		t.Fatal(err)
@@ -175,7 +170,7 @@ func TestProduct_PersistAndFetch(t *testing.T) {
 	// Create and save.
 	id := uuid.New()
 	p := shop.NewProduct(id)
-	p.Create("Wireless Mouse", 2999, 50)
+	p.Create("Wireless Mouse", 50)
 	p.AdjustStock(-5, "sold")
 
 	if err := products.Save(ctx, p); err != nil {
@@ -220,11 +215,10 @@ func TestProductCatalog(t *testing.T) {
 	events := []event.Event{
 		event.New(shop.ProductCreated, shop.ProductCreatedData{
 			Name:  "Wireless Mouse",
-			Price: 2999,
 			Stock: 50,
 		}, event.Aggregate(productID, shop.ProductAggregate, 1)).Any(),
 
-		event.New(shop.PriceChanged, 2499, event.Aggregate(productID, shop.ProductAggregate, 2)).Any(),
+		event.New(shop.PricingSet, shop.PricingSetData{Price: 2499}, event.Aggregate(productID, shop.PricingAggregate, 1)).Any(),
 	}
 
 	projection.Apply(catalog, events)
@@ -322,16 +316,18 @@ func TestCreateProductCommand(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	reg := codec.New()
-	shop.RegisterProductEvents(reg)
-	shop.RegisterProductCommands(reg)
+	eventReg := codec.New()
+	shop.RegisterProductEvents(eventReg)
+
+	cmdReg := codec.New()
+	shop.RegisterProductCommands(cmdReg)
 
 	bus := eventbus.New()
 	store := eventstore.WithBus(eventstore.New(), bus)
 
 	repo := repository.New(store)
 	products := repository.Typed(repo, shop.NewProduct)
-	cbus := cmdbus.New[int](reg, bus)
+	cbus := cmdbus.New[int](cmdReg, bus)
 
 	errs := shop.HandleProductCommands(ctx, cbus, products)
 	go streams.Drain(errs)
@@ -373,7 +369,7 @@ func TestCreateProductCommand(t *testing.T) {
 
 Congratulations! You've built a complete event-sourced e-commerce application with:
 
-- **3 aggregates** — Product, Order, Customer
+- **4 aggregates** — Product, Pricing, Order, Customer
 - **Type-safe events and commands** — with codec registration
 - **Typed repositories** — persist and fetch aggregates
 - **A product catalog projection** — reactive read model

@@ -94,6 +94,8 @@ func HandleProductCommands(
 
 ## Wire It Up
 
+Commands use their own codec registry (`cmdReg`) — separate from the event registry (`eventReg`). The command bus needs the command codec to serialize payloads.
+
 Update `cmd/main.go`:
 
 ```go
@@ -108,9 +110,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	reg := codec.New()
-	shop.RegisterProductEvents(reg)
-	shop.RegisterProductCommands(reg) // [!code ++]
+	eventReg := codec.New()
+	shop.RegisterProductEvents(eventReg)
+
+	cmdReg := codec.New()                     // [!code ++]
+	shop.RegisterProductCommands(cmdReg)      // [!code ++]
 
 	store := eventstore.New()
 	bus := eventbus.New()
@@ -120,7 +124,7 @@ func main() {
 	products := repository.Typed(repo, shop.NewProduct)
 
 	// Create the command bus.                                         // [!code ++]
-	cbus := cmdbus.New[int](reg, bus)                                  // [!code ++]
+	cbus := cmdbus.New[int](cmdReg, bus)                                  // [!code ++]
 	                                                                   // [!code ++]
 	// Start handling product commands.                                // [!code ++]
 	productErrs := shop.HandleProductCommands(ctx, cbus, products)     // [!code ++]

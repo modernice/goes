@@ -1,4 +1,4 @@
-# 9. Projections
+# 10. Projections
 
 Aggregates are optimized for writes — they enforce business rules and record events. But reads are a different story. Replaying an entire event stream just to display a product list would be slow and wasteful.
 
@@ -45,8 +45,8 @@ func NewProductCatalog() *ProductCatalog {
 
 	event.ApplyWith(c, c.productCreated, ProductCreated)
 	event.ApplyWith(c, c.productRenamed, ProductRenamed)
-	event.ApplyWith(c, c.priceChanged, PriceChanged)
 	event.ApplyWith(c, c.stockAdjusted, StockAdjusted)
+	event.ApplyWith(c, c.pricingSet, PricingSet) // from Pricing aggregate
 
 	return c
 }
@@ -62,7 +62,6 @@ func (c *ProductCatalog) productCreated(evt ProductCreatedEvent) {
 	c.products[id] = ProductView{
 		ID:    id,
 		Name:  data.Name,
-		Price: data.Price,
 		Stock: data.Stock,
 	}
 }
@@ -76,20 +75,22 @@ func (c *ProductCatalog) productRenamed(evt ProductRenamedEvent) {
 	}
 }
 
-func (c *ProductCatalog) priceChanged(evt PriceChangedEvent) {
-	id, _, _ := evt.Aggregate()
-
-	if p, ok := c.products[id]; ok {
-		p.Price = evt.Data()
-		c.products[id] = p
-	}
-}
-
 func (c *ProductCatalog) stockAdjusted(evt StockAdjustedEvent) {
 	id, _, _ := evt.Aggregate()
 
 	if p, ok := c.products[id]; ok {
 		p.Stock += evt.Data().Quantity
+		c.products[id] = p
+	}
+}
+
+// pricingSet handles events from the Pricing aggregate — projections
+// can subscribe to events from multiple aggregates.
+func (c *ProductCatalog) pricingSet(evt PricingSetEvent) {
+	id, _, _ := evt.Aggregate()
+
+	if p, ok := c.products[id]; ok {
+		p.Price = evt.Data().Price
 		c.products[id] = p
 	}
 }
@@ -705,4 +706,4 @@ func main() {
 
 ## Next
 
-Our application is feature-complete with in-memory backends. In the [next chapter](./10-backends), we'll swap them for production-ready MongoDB and NATS.
+Our application is feature-complete with in-memory backends. In the [next chapter](./11-backends), we'll swap them for production-ready MongoDB and NATS.

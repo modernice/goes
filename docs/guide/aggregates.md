@@ -231,3 +231,7 @@ query.Version(version.Exact(1, 2, 3))
 // Aggregates in a version range (inclusive):
 query.Version(version.InRange(version.Range{10, 20}))
 ```
+
+## Splitting Aggregates
+
+When an aggregate grows large — too many events, too many concerns — you can split it into multiple aggregates that share the same UUID. Each aggregate type gets its own event stream and version history. See the [Aggregate Splitting](/guide/aggregate-splitting) guide for details.

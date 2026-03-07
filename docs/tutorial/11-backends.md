@@ -1,4 +1,4 @@
-# 10. Production Backends
+# 11. Production Backends
 
 So far we've used in-memory event store and event bus. They're great for development, but events are lost when the process stops. Let's swap in production backends.
 
@@ -26,7 +26,7 @@ Replace the in-memory event store:
 store := eventstore.New()
 
 // After (MongoDB):
-mongoStore := mongo.NewEventStore(reg,
+mongoStore := mongo.NewEventStore(eventReg,
 	mongo.URL("mongodb://localhost:27017"),
 	mongo.Database("shop"),
 )
@@ -46,7 +46,7 @@ import "github.com/modernice/goes/backend/postgres"
 ```
 
 ```go
-pgStore := postgres.NewEventStore(reg,
+pgStore := postgres.NewEventStore(eventReg,
 	postgres.URL("postgres://localhost:5432/shop?sslmode=disable"),
 )
 ```
@@ -60,7 +60,7 @@ import "github.com/modernice/goes/backend/nats"
 ```
 
 ```go
-natsBus := nats.NewEventBus(reg,
+natsBus := nats.NewEventBus(eventReg,
 	nats.URL("nats://localhost:4222"),
 )
 ```
@@ -71,7 +71,7 @@ NATS supports two modes:
 
 ```go
 // Use JetStream for persistence:
-natsBus := nats.NewEventBus(reg,
+natsBus := nats.NewEventBus(eventReg,
 	nats.URL("nats://localhost:4222"),
 	nats.Use(nats.JetStream()),
 )
@@ -105,21 +105,23 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	reg := codec.New()
-	shop.RegisterProductEvents(reg)
-	shop.RegisterProductCommands(reg)
-	shop.RegisterOrderEvents(reg)
-	shop.RegisterOrderCommands(reg)
-	shop.RegisterCustomerEvents(reg)
-	shop.RegisterCustomerCommands(reg)
+	eventReg := codec.New()
+	shop.RegisterProductEvents(eventReg)
+	shop.RegisterOrderEvents(eventReg)
+	shop.RegisterCustomerEvents(eventReg)
+
+	cmdReg := codec.New()
+	shop.RegisterProductCommands(cmdReg)
+	shop.RegisterOrderCommands(cmdReg)
+	shop.RegisterCustomerCommands(cmdReg)
 
 	// Production event bus (NATS).
-	bus := gonats.NewEventBus(reg,
+	bus := gonats.NewEventBus(eventReg,
 		gonats.URL("nats://localhost:4222"),
 	)
 
 	// Production event store (MongoDB), wired to publish on bus.
-	store := eventstore.WithBus(gomongo.NewEventStore(reg,
+	store := eventstore.WithBus(gomongo.NewEventStore(eventReg,
 		gomongo.URL("mongodb://localhost:27017"),
 		gomongo.Database("shop"),
 	), bus)
@@ -129,7 +131,7 @@ func main() {
 	orders := repository.Typed(repo, shop.NewOrder)
 	customers := repository.Typed(repo, shop.NewCustomer)
 
-	cbus := cmdbus.New[int](reg, bus)
+	cbus := cmdbus.New[int](cmdReg, bus)
 
 	productErrs := shop.HandleProductCommands(ctx, cbus, products)
 	orderErrs := shop.HandleOrderCommands(ctx, cbus, orders, products)
@@ -223,4 +225,4 @@ Without this wrapper, you'd need to manually publish events after saving them.
 
 ## Next
 
-Everything works end-to-end. In the [final chapter](./11-testing), we'll write tests for our aggregates and projections.
+Everything works end-to-end. In the [final chapter](./12-testing), we'll write tests for our aggregates and projections.

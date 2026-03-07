@@ -6,7 +6,7 @@ The MongoDB backend provides an event store, a snapshot store, and a model repos
 import "github.com/modernice/goes/backend/mongo"
 ```
 
-> For a step-by-step setup, see the [Tutorial](/tutorial/10-backends).
+> For a step-by-step setup, see the [Tutorial](/tutorial/11-backends).
 
 ## Event Store
 
@@ -251,4 +251,4 @@ Then initialize the replica set:
 mongosh --eval "rs.initiate()"
 ```
 
-See the [Tutorial](/tutorial/10-backends) for a complete Docker Compose setup with MongoDB and NATS.
+See the [Tutorial](/tutorial/11-backends) for a complete Docker Compose setup with MongoDB and NATS.

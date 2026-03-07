@@ -19,7 +19,7 @@ shop/
   product.go     # Product aggregate (coming in chapter 2)
   order.go       # Order aggregate (coming in chapter 7)
   customer.go    # Customer aggregate (coming in chapter 8)
-  catalog.go     # Product catalog projection (coming in chapter 9)
+  catalog.go     # Product catalog projection (coming in chapter 10)
   cmd/
     main.go      # Bootstrap and wiring
 ```
@@ -47,8 +47,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	// Codec registry for event serialization.
-	reg := codec.New()
+	// Codec registries — one for events, one for commands.
+	eventReg := codec.New()
+	cmdReg := codec.New()
 
 	// In-memory event store and event bus.
 	store := eventstore.New()
@@ -58,7 +59,7 @@ func main() {
 	store = eventstore.WithBus(store, bus)
 
 	// We'll register events, set up repositories, and handle commands here.
-	_, _, _ = reg, store, ctx
+	_, _, _, _ = eventReg, cmdReg, store, ctx
 
 	log.Println("Shop is running. Press Ctrl+C to stop.")
 	<-ctx.Done()
@@ -73,12 +74,12 @@ go run ./cmd
 
 ### What's Happening?
 
-- **`codec.New()`** creates a registry that knows how to serialize and deserialize event data. We'll register our event types here.
+- **`codec.New()`** creates a registry that maps names to Go types for serialization. We create two — `eventReg` for event data and `cmdReg` for command payloads. Keeping them separate avoids name collisions and makes the wiring explicit.
 - **`eventstore.New()`** creates an in-memory event store. Events are stored in memory — fine for development.
 - **`eventbus.New()`** creates an in-memory event bus for pub/sub.
 - **`eventstore.WithBus(store, bus)`** wraps the store so that events are automatically published to the bus whenever they're inserted. This is what makes projections reactive.
 
-In [chapter 10](./10-backends), we'll swap these in-memory implementations for MongoDB and NATS.
+In [chapter 11](./11-backends), we'll swap these in-memory implementations for MongoDB and NATS.
 
 ## Next
 

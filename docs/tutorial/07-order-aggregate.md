@@ -286,17 +286,18 @@ The `PlaceOrderCmd` handler operates across two aggregates — it places the ord
 func main() {
 	// ... existing setup ...
 
-	shop.RegisterProductEvents(reg)
-	shop.RegisterProductCommands(reg)
-	shop.RegisterOrderEvents(reg)     // [!code ++]
-	shop.RegisterOrderCommands(reg)   // [!code ++]
+	shop.RegisterProductEvents(eventReg)
+	shop.RegisterOrderEvents(eventReg)     // [!code ++]
+
+	shop.RegisterProductCommands(cmdReg)
+	shop.RegisterOrderCommands(cmdReg)   // [!code ++]
 
 	// ...
 
 	products := repository.Typed(repo, shop.NewProduct)
 	orders := repository.Typed(repo, shop.NewOrder)  // [!code ++]
 
-	cbus := cmdbus.New[int](reg, bus)
+	cbus := cmdbus.New[int](cmdReg, bus)
 
 	productErrs := shop.HandleProductCommands(ctx, cbus, products)
 	orderErrs := shop.HandleOrderCommands(ctx, cbus, orders, products)  // [!code ++]

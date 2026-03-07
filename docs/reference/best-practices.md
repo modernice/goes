@@ -15,6 +15,8 @@ type LineItem struct {
 
 `ProductDTO` is defined once (alongside the `Product` aggregate) and reused wherever product data needs to travel across aggregate boundaries.
 
+When a single aggregate grows too large, consider [splitting it](/guide/aggregate-splitting) into multiple aggregates that share the same UUID — one per concern.
+
 **Validate in business methods, not in appliers.** Event appliers replay from history — if an applier returns an error or panics, the aggregate can never be reconstructed. Put all validation in the public method that calls `aggregate.Next`:
 
 ```go
@@ -55,6 +57,36 @@ const HealthChecked = "system.health_checked"
 
 aggregate.Next(s, HealthChecked, struct{}{})
 ```
+
+**Accept value objects, not their fields.** When a business method takes structured data, pass the value object directly instead of decomposing it into individual parameters. Put validation on the value object itself with a `Validate()` method:
+
+```go
+// Good: accept the value object, let it validate itself
+func (d Discount) Validate() error {
+	if d.Label == "" {
+		return fmt.Errorf("discount label is required")
+	}
+	if d.Percent <= 0 || d.Percent > 100 {
+		return fmt.Errorf("discount percent must be between 1 and 100")
+	}
+	return nil
+}
+
+func (p *Pricing) AddDiscount(d Discount) error {
+	if err := d.Validate(); err != nil {
+		return err
+	}
+	aggregate.Next(p, DiscountAdded, d)
+	return nil
+}
+
+// Bad: decompose into primitives — loses structure, duplicates validation
+func (p *Pricing) AddDiscount(label string, percent int) error {
+	// ...
+}
+```
+
+This keeps validation close to the data it validates, makes the value object reusable across aggregates, and simplifies command handlers since the payload can be passed straight through.
 
 **Return errors from methods, not from constructors.** The constructor (`NewProduct(id)`) should only set up the aggregate base and register event handlers. All business logic — including initial creation — belongs in a separate method:
 

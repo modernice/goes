@@ -17,8 +17,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	reg := codec.New()
-	shop.RegisterProductEvents(reg)
+	eventReg := codec.New()
+	shop.RegisterProductEvents(eventReg)
 
 	store := eventstore.New()
 	bus := eventbus.New()

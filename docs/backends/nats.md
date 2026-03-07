@@ -6,7 +6,7 @@ The NATS backend provides a distributed event bus with support for NATS Core and
 import "github.com/modernice/goes/backend/nats"
 ```
 
-> For a step-by-step setup, see the [Tutorial](/tutorial/10-backends).
+> For a step-by-step setup, see the [Tutorial](/tutorial/11-backends).
 
 ## Event Bus
 
@@ -197,4 +197,4 @@ services:
 
 The `--js` flag enables JetStream. Without it, only Core pub/sub is available. Port 8222 exposes the NATS monitoring HTTP endpoint.
 
-See the [Tutorial](/tutorial/10-backends) for a complete Docker Compose setup with MongoDB and NATS.
+See the [Tutorial](/tutorial/11-backends) for a complete Docker Compose setup with MongoDB and NATS.

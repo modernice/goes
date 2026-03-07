@@ -2,7 +2,7 @@
 
 Event sourcing is highly testable. Aggregates are pure in-memory state machines — no databases, no network calls. You can test them by calling domain methods and asserting the resulting events and state.
 
-> For practical examples, see the [Tutorial](/tutorial/11-testing).
+> For practical examples, see the [Tutorial](/tutorial/12-testing).
 
 ## `gtest` Package
 
@@ -155,7 +155,7 @@ store := eventstore.WithBus(eventstore.New(), bus)
 // then assert read model state.
 ```
 
-See the [Tutorial](/tutorial/11-testing) for complete examples.
+See the [Tutorial](/tutorial/12-testing) for complete examples.
 
 ## Backend Conformance Suites
 

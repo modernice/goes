@@ -2,7 +2,7 @@
 
 Projections build read-optimized views from events. While aggregates enforce consistency on the write side, projections serve the read side — tailored for specific query needs and updated reactively as events flow through the system.
 
-> For a step-by-step introduction, see the [Tutorial](/tutorial/09-projections).
+> For a step-by-step introduction, see the [Tutorial](/tutorial/10-projections).
 
 ## `projection.Base`
 

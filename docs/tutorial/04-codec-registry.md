@@ -31,10 +31,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	reg := codec.New()
+	eventReg := codec.New()
 
 	// Register all event types.
-	shop.RegisterProductEvents(reg) // [!code ++]
+	shop.RegisterProductEvents(eventReg) // [!code ++]
 
 	store := eventstore.New()
 	bus := eventbus.New()
@@ -68,7 +68,7 @@ event.ApplyWith(p, p.created, ProductCreated)
 The codec uses JSON by default. Your event data types just need to be JSON-serializable — exported fields with standard Go types. If you need a different format, you can configure it:
 
 ```go
-reg := codec.New(codec.Default(
+eventReg := codec.New(codec.Default(
 	customMarshal,   // func(any) ([]byte, error)
 	customUnmarshal, // func([]byte, any) error
 ))
@@ -81,9 +81,9 @@ Or implement `codec.Marshaler` / `codec.Unmarshaler` on individual types for per
 We recommend adding a `Register<Aggregate>Events` function to each aggregate file. As we add more aggregates, `cmd/main.go` will call each one:
 
 ```go
-shop.RegisterProductEvents(reg)
-shop.RegisterOrderEvents(reg)    // coming in chapter 7
-shop.RegisterCustomerEvents(reg) // coming in chapter 8
+shop.RegisterProductEvents(eventReg)
+shop.RegisterOrderEvents(eventReg)    // coming in chapter 7
+shop.RegisterCustomerEvents(eventReg) // coming in chapter 8
 ```
 
 ## Next

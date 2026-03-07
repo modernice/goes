@@ -21,9 +21,10 @@ In this tutorial, you'll build an event-sourced e-commerce application from scra
 | [6. Commands](./06-commands) | Command bus, dispatching, handlers |
 | [7. The Order](./07-order-aggregate) | Second aggregate, validation patterns |
 | [8. The Customer](./08-customer-aggregate) | Value objects, addresses |
-| [9. Projections](./09-projections) | Read models, schedules |
-| [10. Production Backends](./10-backends) | MongoDB, NATS, PostgreSQL |
-| [11. Testing](./11-testing) | Testing aggregates and projections |
+| [9. Aggregate Splitting](./09-aggregate-splitting) | Splitting aggregates, shared UUIDs |
+| [10. Projections](./10-projections) | Read models, schedules |
+| [11. Production Backends](./11-backends) | MongoDB, NATS, PostgreSQL |
+| [12. Testing](./12-testing) | Testing aggregates and projections |
 
 ## Prerequisites
 
@@ -38,6 +39,7 @@ Throughout this tutorial, we keep everything related to an aggregate in a single
 shop/
   main.go           # Bootstrap, wiring
   product.go        # Product aggregate + events + commands
+  pricing.go        # Pricing aggregate (split from Product)
   order.go          # Order aggregate + events + commands
   customer.go       # Customer aggregate + events + commands
   catalog.go        # Product catalog projection
