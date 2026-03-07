@@ -1,6 +1,7 @@
 {
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.3.0",
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
