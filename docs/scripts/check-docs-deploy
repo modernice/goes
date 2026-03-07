@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+commit_message="$(git show -s --format=%s)"
+
+if [[ "$commit_message" == docs* ]]; then
+  exit 1
+fi
+
+exit 0
