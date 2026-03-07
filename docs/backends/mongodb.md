@@ -75,7 +75,6 @@ err := store.Insert(ctx, events...)
 var versionErr *mongo.VersionError
 if errors.As(err, &versionErr) {
 	// Another process inserted events first.
-	// The repository will retry automatically.
 	fmt.Printf("expected version %d for %s/%s\n",
 		versionErr.CurrentVersion,
 		versionErr.AggregateName,
