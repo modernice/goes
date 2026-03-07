@@ -527,14 +527,16 @@ func main() {
 
 | | Event-by-Event | Rebuild from Aggregate |
 | --- | --- | --- |
-| Projection logic | One handler per event | One handler per aggregate |
-| Complexity growth | Grows with each new event | Stays constant |
-| State consistency | Must mirror aggregate logic | Always matches aggregate |
-| Best for | Simple in-memory projections | Persisted and complex projections |
+| How it works | Applies each event individually | Fetches the aggregate and copies its state |
+| Adding new events | May need a new handler (if the projection cares about it) | Picks up new state automatically |
+| Efficiency (continuous) | Events arrive from the bus directly | Re-fetches the aggregate from the store |
+| Multi-aggregate | Requires handlers for events from each aggregate | Fetches whatever aggregates you need |
 
-With a continuous schedule, the event-by-event approach is actually more efficient — events arrive directly from the bus and are never re-fetched from the store. The rebuild approach fetches the full aggregate from the store on every job. The exceptions are startup projections (via `projection.Startup()`) and periodic schedules, which always read from the store regardless of approach. But the difference rarely matters in practice, and the rebuild approach's simplicity usually wins. When in doubt, prefer rebuild.
+Both approaches work for in-memory and persisted projections. ShopStats above is event-by-event *and* persisted with a Progressor.
 
-The rebuild approach becomes especially important for multi-aggregate projections — read models that combine data from multiple aggregates. With event-by-event handling, you'd need to write handlers for events from every aggregate involved, figure out which aggregate each event belongs to, and somehow initialize or fetch the right state for each one. With the rebuild approach, you just fetch whatever aggregates you need and copy their state. The wiring stays simple regardless of how many aggregates are involved.
+With a continuous schedule, event-by-event is more efficient because events arrive directly from the bus and are never re-fetched from the store. The rebuild approach fetches the full aggregate from the store on every job. The exceptions are startup projections (via `projection.Startup()`) and periodic schedules, which always read from the store regardless of approach. But the difference rarely matters in practice.
+
+The rebuild approach shines for multi-aggregate projections — read models that combine data from multiple aggregates. You just fetch whatever aggregates you need and copy their state, instead of writing handlers for events from each aggregate and figuring out how to route them.
 
 ## Multi-Aggregate Projections
 
