@@ -17,7 +17,7 @@ store := mongo.NewEventStore(enc,
 )
 ```
 
-The first argument is a `codec.Encoding` — the same codec registry used throughout goes. The event store connects lazily on the first operation; you don't need to call `Connect` explicitly.
+The first argument is a `codec.Encoding` — the same [codec registry](/guide/codec) used throughout goes. The event store connects lazily on the first operation; you don't need to call `Connect` explicitly.
 
 Defaults: database `"event"`, events collection `"events"`, aggregate state collection `"states"`.
 
@@ -143,7 +143,7 @@ You can also extract the transaction from a context using `mongo.TransactionFrom
 
 ## Snapshot Store
 
-The snapshot store persists aggregate snapshots to avoid replaying the full event history on every fetch.
+The [snapshot store](/guide/snapshots#snapshot-store) persists aggregate snapshots to avoid replaying the full event history on every fetch.
 
 ```go
 snapshots := mongo.NewSnapshotStore(
@@ -180,7 +180,7 @@ Wire the snapshot store into a repository with `repository.WithSnapshots(snapsho
 
 ## Model Repository
 
-The model repository persists read models (projections) in MongoDB.
+The model repository persists read models ([projections](/guide/projections)) in MongoDB.
 
 Unlike the in-memory model repository, the MongoDB version takes a `*mongo.Collection` directly:
 

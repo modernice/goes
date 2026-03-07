@@ -31,7 +31,7 @@ import "github.com/modernice/goes/aggregate/snapshot"
 ### Implementations
 
 - **MongoDB** — `mongo.NewSnapshotStore(opts...)` — see [MongoDB backend](/backends/mongodb#snapshot-store)
-- **In-memory** — useful for testing
+- **[In-memory](/backends/in-memory)** — useful for testing
 
 ## Snapshot Schedule
 

@@ -1,6 +1,6 @@
 # Quick Start
 
-This example builds a simple todo list aggregate — you can create a list, add items, and complete them. It saves to an in-memory event store and fetches it back. No external dependencies required.
+This example builds a simple todo list aggregate — you can create a list, add items, and complete them. It saves to an [in-memory event store](/backends/in-memory) and fetches it back. No external dependencies required.
 
 ## The Aggregate
 

@@ -6,10 +6,10 @@ So far we've used in-memory event store and event bus. They're great for develop
 
 | Component | Options |
 | --- | --- |
-| Event Store | MongoDB, PostgreSQL, In-Memory |
-| Event Bus | NATS, In-Memory |
+| Event Store | [MongoDB](/backends/mongodb), [PostgreSQL](/backends/postgres), [In-Memory](/backends/in-memory) |
+| Event Bus | [NATS](/backends/nats), [In-Memory](/backends/in-memory) |
 
-A typical production setup uses **MongoDB** (or PostgreSQL) for the event store and **NATS** for the event bus.
+A typical production setup uses **[MongoDB](/backends/mongodb)** (or [PostgreSQL](/backends/postgres)) for the event store and **[NATS](/backends/nats)** for the event bus.
 
 ## MongoDB Event Store
 
@@ -19,7 +19,7 @@ Install the MongoDB driver (it's already included in goes):
 import "github.com/modernice/goes/backend/mongo"
 ```
 
-Replace the in-memory event store:
+Replace the [in-memory event store](/backends/in-memory):
 
 ```go
 // Before (in-memory):

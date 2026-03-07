@@ -58,7 +58,7 @@ import "github.com/modernice/goes/command/cmdbus"
 cbus := cmdbus.New[int](cmdReg, eventBus)
 ```
 
-The type parameter (`int` above) is the error code type for execution errors. The `cmdReg` argument is a `codec.Encoding` — a separate codec registry for command payloads. In practice, you should create two registries: one for events and one for commands. Using a single registry is possible if no event name collides with a command name, but keeping them separate is cleaner.
+The type parameter (`int` above) is the error code type for execution errors. The `cmdReg` argument is a `codec.Encoding` — a separate [codec registry](/guide/codec) for command payloads. In practice, you should create two registries: one for events and one for commands. Using a single registry is possible if no event name collides with a command name, but keeping them separate is cleaner.
 
 ### Command Bus Options
 

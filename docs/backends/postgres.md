@@ -9,7 +9,7 @@ import "github.com/modernice/goes/backend/postgres"
 > For a step-by-step setup, see the [Tutorial](/tutorial/11-backends).
 
 ::: tip
-The PostgreSQL event store enforces version uniqueness through a database constraint — duplicate aggregate versions are rejected. However, it does not perform proactive version validation like the MongoDB backend, which checks that new events are sequential (`currentVersion + 1`) before inserting.
+The PostgreSQL event store enforces version uniqueness through a database constraint — duplicate aggregate versions are rejected. However, it does not perform proactive version validation like the [MongoDB backend](/backends/mongodb), which checks that new events are sequential (`currentVersion + 1`) before inserting.
 :::
 
 ## Event Store

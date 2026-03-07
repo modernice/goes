@@ -88,7 +88,7 @@ func TestOrder_CannotCancelPaidOrder(t *testing.T) {
 
 ## In-Memory Backends
 
-The in-memory event store and bus work well for integration tests since they don't require infrastructure:
+The [in-memory event store and bus](/backends/in-memory) work well for integration tests since they don't require infrastructure:
 
 ```go
 import (

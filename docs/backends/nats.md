@@ -16,7 +16,7 @@ bus := nats.NewEventBus(enc,
 )
 ```
 
-The first argument is a `codec.Encoding`. By default, the bus uses the NATS Core driver — simple pub/sub with no persistence.
+The first argument is a `codec.Encoding` from the [codec registry](/guide/codec). By default, the bus uses the NATS Core driver — simple pub/sub with no persistence.
 
 ### Options
 
@@ -38,7 +38,7 @@ URL resolution: explicit `URL()` > `NATS_URL` environment variable > `nats.Defau
 
 This is the most important decision when configuring the NATS backend.
 
-**NATS Core** is the default driver. It provides simple publish/subscribe with at-most-once delivery. If no subscriber is listening when an event is published, that event is not delivered through the bus. However, events are always persisted in the event store regardless of bus delivery — they are never truly lost. Projections using `projection.Startup()` catch up from the event store on restart, so Core is sufficient for most applications.
+**NATS Core** is the default driver. It provides simple publish/subscribe with at-most-once delivery. If no subscriber is listening when an event is published, that event is not delivered through the bus. However, events are always persisted in the event store regardless of bus delivery — they are never truly lost. [Projections](/guide/projections) using `projection.Startup()` catch up from the event store on restart, so Core is sufficient for most applications.
 
 **NATS JetStream** adds persistent streams on top of Core. Events are stored in a stream and can be replayed. Delivery is at-least-once — subscribers receive events even if they were offline when the event was published. Consumers can be durable, meaning they resume from where they left off after a restart.
 

@@ -30,9 +30,9 @@ goes is a layered event-sourcing framework. Each layer depends only on the layer
 | `command` | Command types, command bus interface, handler registration |
 | `aggregate` | Event-sourced aggregate base type, event handler registration |
 | `aggregate/repository` | Persistence facade — save, fetch, and query aggregates |
-| `projection` | Read-model projections with scheduling and progress tracking |
-| `codec` | Maps event/command names to Go types for serialization |
-| `backend` | Production implementations (MongoDB, PostgreSQL, NATS) |
+| `projection` | Read-model [projections](/guide/projections) with scheduling and progress tracking |
+| `codec` | Maps event/command names to Go types in the [codec registry](/guide/codec) |
+| `backend` | Production implementations ([MongoDB](/backends/mongodb), [PostgreSQL](/backends/postgres), [NATS](/backends/nats)) |
 
 ## The Write Path
 

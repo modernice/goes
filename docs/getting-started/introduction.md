@@ -1,6 +1,6 @@
 # Introduction
 
-**goes** is an event-sourcing framework for Go. It provides the building blocks for modeling your domain with aggregates, persisting state as events, building read models with projections, and coordinating workflows across aggregates.
+**goes** is an event-sourcing framework for Go. It provides the building blocks for modeling your domain with [aggregates](/guide/aggregates), persisting state as [events](/guide/events), building read models with [projections](/guide/projections), and coordinating workflows across aggregates.
 
 ## What is Event Sourcing?
 
@@ -21,16 +21,16 @@ This gives you a complete audit trail, the ability to rebuild state at any point
 
 Domain-Driven Design (DDD) is an approach to software development that focuses on modeling your code around business concepts. Key patterns used in goes:
 
-- **Aggregates** — Consistency boundaries that protect business rules. They encapsulate state and validate changes before accepting them.
-- **Events** — Facts about what happened. Past-tense, immutable records of state changes.
-- **Commands** — Requests to do something. They express intent and are validated by aggregates before producing events.
-- **Projections** — Read-optimized views derived from events. Tailored for specific query needs, updated reactively as events flow through the system.
+- **[Aggregates](/guide/aggregates)** — Consistency boundaries that protect business rules. They encapsulate state and validate changes before accepting them.
+- **[Events](/guide/events)** — Facts about what happened. Past-tense, immutable records of state changes.
+- **[Commands](/guide/commands)** — Requests to do something. They express intent and are validated by aggregates before producing events.
+- **[Projections](/guide/projections)** — Read-optimized views derived from events. Tailored for specific query needs, updated reactively as events flow through the system.
 
 ## Why goes?
 
 - **Generic where it matters** — Typed events, commands, and repositories reduce boilerplate and catch mistakes at compile time.
-- **Backend-agnostic** — Swap between MongoDB, PostgreSQL, NATS, or in-memory without changing application code.
-- **Production-ready** — Built-in support for snapshots, optimistic concurrency, and continuous projections.
+- **Backend-agnostic** — Swap between [MongoDB](/backends/mongodb), [PostgreSQL](/backends/postgres), [NATS](/backends/nats), or [in-memory backends](/backends/in-memory) without changing application code.
+- **Production-ready** — Built-in support for [snapshots](/guide/snapshots), optimistic concurrency, and continuous [projections](/guide/projections).
 - **Minimal boilerplate** — Define your aggregate, register event handlers, and the framework handles versioning, persistence, and replay.
 
 ## Next Steps
