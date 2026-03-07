@@ -61,6 +61,7 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Aggregates', link: '/guide/aggregates' },
+          { text: 'Repositories', link: '/guide/repositories' },
           { text: 'Aggregate Splitting', link: '/guide/aggregate-splitting' },
           { text: 'Events', link: '/guide/events' },
           { text: 'Commands', link: '/guide/commands' },

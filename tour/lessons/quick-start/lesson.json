@@ -1,0 +1,33 @@
+{
+  "id": "quick-start",
+  "title": "Quick Start",
+  "order": 1,
+  "goal": "Finish a tiny todo aggregate, persist its events, and replay them back into state.",
+  "summary": "A compact lesson that mirrors the existing quick start, but lets you fill in the event-sourcing mechanics yourself.",
+  "docsLinks": [
+    {
+      "label": "Quick Start",
+      "href": "/getting-started/quick-start"
+    }
+  ],
+  "files": [
+    {
+      "path": "todo/list.go",
+      "label": "todo/list.go",
+      "editable": true
+    },
+    {
+      "path": "cmd/app/main.go",
+      "label": "cmd/app/main.go",
+      "editable": false
+    }
+  ],
+  "run": {
+    "label": "Run the app",
+    "command": ["go", "run", "./cmd/app"]
+  },
+  "check": {
+    "label": "Run lesson checks",
+    "command": ["go", "test", "-json", "./..."]
+  }
+}

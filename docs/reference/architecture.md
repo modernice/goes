@@ -164,7 +164,7 @@ type Repository interface {
 }
 ```
 
-See [Aggregates](/guide/aggregates) for details.
+See [Repositories](/guide/repositories) for details.
 
 ### `codec.Encoding`
 
