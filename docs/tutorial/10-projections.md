@@ -376,7 +376,7 @@ Notice the bus parameter is gone — periodic schedules don't subscribe to the e
 
 The ProductCatalog applies events one by one — each event has its own handler. This works, but notice how the appliers essentially duplicate the aggregate's state logic. Every time you add a new event to the Product aggregate, you also need to add a handler to the projection.
 
-A simpler alternative: when events arrive, fetch the full aggregate from the event store and replace the entire read model. No per-event handlers needed.
+A simpler alternative: when events arrive, fetch the full aggregate from the event store and replace the entire read model.
 
 ### Order Summaries
 

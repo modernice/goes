@@ -96,7 +96,7 @@ s := schedule.Periodically(store, 30*time.Second, []string{
 })
 ```
 
-Triggers a job at fixed intervals by querying the event store. No event bus needed. Useful for background projections like dashboards or reports that don't need real-time updates.
+Triggers a job at fixed intervals by querying the event store. Useful for background projections like dashboards or reports that don't need real-time updates.
 
 ### Debouncing
 
