@@ -4,8 +4,19 @@ export default defineConfig({
   title: 'goes',
   description: 'Event-Sourcing Framework for Go',
 
+  appearance: 'dark',
+
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
+    [
+      'link',
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap',
+      },
+    ],
   ],
 
   themeConfig: {
