@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
+import goesLogo from '../../assets/goes_logo.png'
 
 interface Feature {
   icon: string
@@ -93,6 +94,9 @@ onUnmounted(() => {
     <!-- Hero -->
     <section class="hero">
       <div class="hero-content">
+        <div class="hero-art">
+          <img :src="goesLogo" alt="goes gopher logo" class="hero-logo" />
+        </div>
         <h1 class="hero-title">
           <span class="hero-title-gradient">goes</span>
         </h1>
@@ -152,6 +156,18 @@ onUnmounted(() => {
 .hero-content {
   max-width: 720px;
   margin: 0 auto;
+}
+
+.hero-art {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.hero-logo {
+  width: min(280px, 72vw);
+  height: auto;
+  display: block;
 }
 
 .hero-title {

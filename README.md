@@ -3,6 +3,10 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/modernice/goes.svg)](https://pkg.go.dev/github.com/modernice/goes)
 [![Documentation](https://img.shields.io/badge/Docs-goes.modernice.dev-blue)](https://goes.modernice.dev)
 
+<p align="center">
+  <img src="./docs/assets/goes_logo.png" alt="goes gopher logo" width="320">
+</p>
+
 `goes` is an event-sourcing framework for Go. It gives you the building blocks to model domain logic with aggregates, persist state as events, build read models with projections, and wire the same application to in-memory or production backends.
 
 ## Why goes?
