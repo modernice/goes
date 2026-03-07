@@ -85,6 +85,7 @@ export default defineConfig({
         items: [
           { text: 'Architecture', link: '/reference/architecture' },
           { text: 'Best Practices', link: '/reference/best-practices' },
+          { text: 'Vercel Web Analytics', link: '/reference/vercel-web-analytics' },
         ],
       },
     ],
