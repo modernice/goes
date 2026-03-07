@@ -1,6 +1,6 @@
 # 12. Testing
 
-One of the best things about event sourcing is how testable it is. Aggregates are pure in-memory state machines — no databases, no network calls. You can test them by raising events and asserting state.
+One of the best things about event sourcing is how testable it is. Aggregates are pure in-memory state machines that don't touch databases or the network. You can test them by raising events and asserting state.
 
 ## `gtest`
 
@@ -357,7 +357,7 @@ func TestCreateProductCommand(t *testing.T) {
 
 ## Testing Tips
 
-1. **Test aggregates in isolation first** — no store, no bus, just create and call methods. This is the fastest and most valuable layer of tests.
+1. **Test aggregates in isolation first.** Just create them and call methods, without a store or bus. This is the fastest and most valuable layer of tests.
 
 2. **Use `gtest` for event assertions** — `gtest.Transition` and `gtest.NonTransition` verify that the correct events were raised (or not raised) without manually inspecting `AggregateChanges()`.
 

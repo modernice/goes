@@ -85,7 +85,7 @@ func (p *Product) created(evt event.Of[ProductCreatedData]) {
 2. Applies it to the aggregate immediately (calls the registered handler)
 3. Records it as an uncommitted change
 
-Event handlers (appliers) are always unexported. They only mutate state — no validation, no side effects.
+Event handlers (appliers) are always unexported. They only mutate state and must not validate or trigger side effects.
 
 ## The DTO Pattern
 

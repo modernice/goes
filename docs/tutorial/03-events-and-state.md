@@ -44,7 +44,7 @@ type (
 )
 ```
 
-When event data is a single value, use the primitive type directly — no need for a wrapper struct. `ProductRenamed` carries just a `string` (the new name) and `PriceChanged` carries just an `int` (the new price).
+When event data is a single value, use the primitive type directly instead of a wrapper struct. `ProductRenamed` carries just a `string` (the new name) and `PriceChanged` carries just an `int` (the new price).
 
 ::: tip Primitives vs. Structs
 Using a primitive is fine when the event will only ever carry that one value. But keep in mind: if you later need to add fields to an event, a struct is easier to evolve. You can add fields to a struct and existing events in the store will still deserialize — the new fields just get their zero values. Changing the event data type itself (e.g., from `string` to a struct) is harder since stored events were serialized with the original type.
@@ -176,7 +176,7 @@ Notice that `Rename` and `ChangePrice` return early if the value hasn't actually
 
 ```go
 func (p *Product) priceChanged(evt PriceChangedEvent) {
-	// evt.Data() returns int — no type assertions needed.
+	// evt.Data() is already typed as int.
 	p.Price = evt.Data()
 
 	// You also have access to event metadata:

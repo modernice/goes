@@ -1,6 +1,6 @@
 # Testing
 
-Event sourcing is highly testable. Aggregates are pure in-memory state machines — no databases, no network calls. You can test them by calling domain methods and asserting the resulting events and state.
+Event sourcing is highly testable. Aggregates are pure in-memory state machines that don't touch databases or the network. You can test them by calling domain methods and asserting the resulting events and state.
 
 > For practical examples, see the [Tutorial](/tutorial/12-testing).
 
@@ -88,7 +88,7 @@ func TestOrder_CannotCancelPaidOrder(t *testing.T) {
 
 ## In-Memory Backends
 
-Use the in-memory event store and bus for integration tests — no infrastructure needed:
+The in-memory event store and bus work well for integration tests since they don't require infrastructure:
 
 ```go
 import (

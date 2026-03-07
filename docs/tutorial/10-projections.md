@@ -138,7 +138,7 @@ func (c *ProductCatalog) Run(ctx context.Context, bus event.Bus, store event.Sto
 
 ### What's Happening?
 
-1. **`c.RegisteredEvents()`** returns the event names from the handlers registered via `event.ApplyWith` in the constructor — no need to duplicate the list.
+1. **`c.RegisteredEvents()`** returns the event names from the handlers registered via `event.ApplyWith` in the constructor, so you don't have to list them again.
 2. **`schedule.Continuously`** creates a schedule that reacts to events published on the bus.
 3. **`s.Subscribe`** starts listening. When events arrive, the schedule creates a `projection.Job`.
 4. **`job.Apply(job, c)`** fetches the job's events and applies them to the catalog.
@@ -337,7 +337,7 @@ s := schedule.Periodically(store, 30*time.Second, []string{
 })
 ```
 
-A periodic schedule takes only the event store and an interval — no event bus. On each tick, it queries the store for matching events and creates a job. Combined with a `Progressor`, each tick only fetches events that arrived since the last run.
+A periodic schedule only needs the event store and an interval, not the event bus. On each tick, it queries the store for matching events and creates a job. Combined with a `Progressor`, each tick only fetches events that arrived since the last run.
 
 Our ShopStats projection is a natural fit. Here's how `RunShopStats` would look with a periodic schedule instead:
 

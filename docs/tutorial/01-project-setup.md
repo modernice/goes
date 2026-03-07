@@ -26,7 +26,7 @@ shop/
 
 ## Bootstrap
 
-Create `cmd/main.go` with the foundation. We'll use in-memory backends to start — no databases needed.
+Create `cmd/main.go` with the foundation. We'll start with in-memory backends, so you won't need a database.
 
 ```go
 package main

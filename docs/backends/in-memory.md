@@ -1,6 +1,6 @@
 # In-Memory
 
-The in-memory backends are included in the core framework — no additional dependencies needed.
+The in-memory backends ship with the core framework.
 
 ## Event Store
 
@@ -32,7 +32,7 @@ store := eventstore.WithBus(eventstore.New(), bus)
 
 ## When to Use
 
-- **Testing** — no infrastructure setup, fast execution
+- **Testing** — fast and requires zero infrastructure
 - **Prototyping** — get started without databases
 - **Development** — iterate quickly on domain logic
 - **Single-process applications** — when persistence isn't needed

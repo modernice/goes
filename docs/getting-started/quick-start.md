@@ -187,7 +187,7 @@ func main() {
 ## What Just Happened?
 
 1. **Defined an aggregate** — `List` embeds `*aggregate.Base` (which provides event-sourcing mechanics) and a `ListDTO` that holds the actual state.
-2. **Registered event handlers** — `event.ApplyWith` connects event names to handler methods. The handler methods are unexported and only mutate state — no validation, no side effects.
+2. **Registered event handlers** — `event.ApplyWith` connects event names to handler methods. The handler methods are unexported and only mutate state. They never validate or trigger side effects.
 3. **Raised events** — Domain methods like `Create` and `AddItem` validate the operation, then call `aggregate.Next` to record what happened. The event is immediately applied to the aggregate.
 4. **Saved and fetched** — The repository inserted the uncommitted events into the store. On fetch, it replayed them through the handlers to reconstruct state.
 

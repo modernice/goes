@@ -275,7 +275,7 @@ The `PlaceOrderCmd` handler operates across two aggregates — it places the ord
 3. If any `AdjustStock` fails (e.g. insufficient stock), the error propagates up and the Order is never placed.
 4. Only after all stock is reserved does `o.Place(...)` raise the `OrderPlaced` event.
 
-`Use` only saves when the function returns `nil`. This means you get all-or-nothing semantics within a single command handler — no partial state is ever persisted.
+`Use` only saves when the function returns `nil`. This means you get all-or-nothing semantics within a single command handler. Partial state is never persisted.
 
 > [!NOTE]
 > This works because everything runs in the same process. For operations spanning separate services, you'd coordinate with asynchronous messaging instead.
