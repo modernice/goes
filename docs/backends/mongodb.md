@@ -83,7 +83,7 @@ if errors.As(err, &versionErr) {
 }
 ```
 
-`VersionError` implements `IsConsistencyError() bool`, which allows aggregates that implement the [`Retryer`](../aggregate/repository.md) interface to classify version conflicts as retryable errors. The repository does not retry automatically — the aggregate must opt in via `RetryUse()`. Disable validation with `ValidateVersions(false)` if you're doing bulk imports or data migrations.
+`VersionError` implements `IsConsistencyError() bool`, which allows aggregates that implement the `repository.Retryer` interface to classify version conflicts as retryable errors. The repository does not retry automatically — the aggregate must opt in via `RetryUse()`. Disable validation with `ValidateVersions(false)` if you're doing bulk imports or data migrations.
 
 ### Indices
 
