@@ -159,15 +159,6 @@ func main() {
 	}                                                         // [!code ++]
 	go logErrors(catalogErrs)                                 // [!code ++]
 
-	shopStatsRepo := memory.NewModelRepository[*shop.ShopStats, uuid.UUID]( // [!code ++]
-		memory.ModelFactory(shop.NewShopStats),                               // [!code ++]
-	)                                                                        // [!code ++]
-	statsErrs, err := shop.RunShopStats(ctx, bus, store, shopStatsRepo)      // [!code ++]
-	if err != nil {                                                          // [!code ++]
-		log.Fatal(err)                                                       // [!code ++]
-	}                                                                        // [!code ++]
-	go logErrors(statsErrs)                                                  // [!code ++]
-
 	// ...
 }
 ```
@@ -300,6 +291,27 @@ func RunShopStats(
 The important detail is inside `repo.Use`: the `stats` parameter is the model loaded from the repository — including its persisted `*Progressor`. When `job.Apply(job, stats)` runs, the job checks `stats.Progress()` and only fetches events *after* the last progress point. After applying, it updates the progress automatically. When `repo.Use` saves the model back, the updated progress is persisted too.
 
 On restart, the cycle repeats: `repo.Use` loads the model with its saved progress, `job.Apply` skips all previously applied events, and only new events are processed. Without the Progressor, every restart would recount everything from the beginning.
+
+### Wire It Up
+
+Update `cmd/main.go`:
+
+```go
+func main() {
+	// ... existing setup ...
+
+	shopStatsRepo := memory.NewModelRepository[*shop.ShopStats, uuid.UUID]( // [!code ++]
+		memory.ModelFactory(shop.NewShopStats),                               // [!code ++]
+	)                                                                        // [!code ++]
+	statsErrs, err := shop.RunShopStats(ctx, bus, store, shopStatsRepo)      // [!code ++]
+	if err != nil {                                                          // [!code ++]
+		log.Fatal(err)                                                       // [!code ++]
+	}                                                                        // [!code ++]
+	go logErrors(statsErrs)                                                  // [!code ++]
+
+	// ...
+}
+```
 
 ## Debouncing
 
