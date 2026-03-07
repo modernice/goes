@@ -42,6 +42,80 @@ func NewProductCatalog() *ProductCatalog {
 
 You typically use `event.ApplyWith` rather than calling these directly.
 
+## Handler Styles
+
+There are two valid ways to implement projection event handling:
+
+- **Registered typed handlers** — the recommended pattern for most projections and the one used throughout this docs site
+- **Manual `ApplyEvent`** — an alternative when you want one centralized dispatcher
+
+### Registered Typed Handlers
+
+This is the default pattern:
+
+```go
+type ProductCatalog struct {
+	*projection.Base
+	products map[uuid.UUID]ProductView
+}
+
+func NewProductCatalog() *ProductCatalog {
+	c := &ProductCatalog{
+		Base:     projection.New(),
+		products: make(map[uuid.UUID]ProductView),
+	}
+
+	event.ApplyWith(c, c.productCreated, ProductCreated)
+	event.ApplyWith(c, c.pricingSet, PricingSet)
+	event.ApplyWith(c, c.discountAdded, DiscountAdded)
+
+	return c
+}
+```
+
+`event.ApplyWith(...)` registers handlers on `projection.Base`. When `job.Apply(...)` or `Base.ApplyEvent(evt)` applies an event, `projection.Base` dispatches it to the matching registered handler.
+
+This style works especially well with schedules because `RegisteredEvents()` returns the registered event names, so you can subscribe without repeating the list:
+
+```go
+s := schedule.Continuously(bus, store, catalog.RegisteredEvents())
+```
+
+### Manual `ApplyEvent`
+
+You can also skip handler registration and implement a single dispatcher yourself:
+
+```go
+type ProductCatalog struct {
+	products map[uuid.UUID]ProductView
+}
+
+func (c *ProductCatalog) ApplyEvent(evt event.Event) {
+	switch evt.Name() {
+	case ProductCreated:
+		// ...
+	case PricingSet:
+		// ...
+	case DiscountAdded:
+		// ...
+	}
+}
+```
+
+This is valid because projections only need an `ApplyEvent(event.Event)` method. However, this style bypasses `projection.Base` handler registration, so `RegisteredEvents()` is not populated automatically.
+
+When you use manual `ApplyEvent`, create schedules with an explicit event list:
+
+```go
+s := schedule.Continuously(bus, store, []string{
+	ProductCreated,
+	PricingSet,
+	DiscountAdded,
+})
+```
+
+Prefer registered typed handlers for most application code and docs examples. Use manual `ApplyEvent` when a single `switch evt.Name()` dispatcher is clearer, or when you intentionally want all event dispatch logic in one place.
+
 ## `projection.Progressor`
 
 The Progressor tracks which events have already been applied. It records the timestamp and IDs of the last processed events, so the schedule can skip events that were already handled.

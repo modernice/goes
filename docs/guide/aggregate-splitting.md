@@ -168,19 +168,30 @@ command.MustHandle(ctx, bus, CreateProductCmd, func(ctx command.Ctx[CreateProduc
 Read models often need data from multiple split aggregates. A product catalog projection subscribes to events from both `Product` and `Pricing`:
 
 ```go
-func (c *ProductCatalog) ApplyEvent(evt event.Event) {
-	switch evt.Name() {
-	case shop.ProductCreated:
-		// Add product to catalog
-	case shop.PricingSet:
-		// Update price in catalog
-	case shop.DiscountAdded:
-		// Update discounts in catalog
+type ProductCatalog struct {
+	*projection.Base
+	products map[uuid.UUID]ProductView
+}
+
+func NewProductCatalog() *ProductCatalog {
+	c := &ProductCatalog{
+		Base:     projection.New(),
+		products: make(map[uuid.UUID]ProductView),
 	}
+
+	event.ApplyWith(c, c.productCreated, shop.ProductCreated)
+	event.ApplyWith(c, c.pricingSet, shop.PricingSet)
+	event.ApplyWith(c, c.discountAdded, shop.DiscountAdded)
+
+	return c
 }
 ```
 
-This is a natural consequence of splitting — the write model separates concerns, the read model recombines them.
+Recombination happens by registering handlers for events from each aggregate stream. The write model separates concerns into multiple aggregates, while the read model merges those concerns back into a projection tailored to the UI or query.
+
+This pattern also works naturally with schedules: because the handlers are registered on `projection.Base`, `c.RegisteredEvents()` can be used when subscribing.
+
+If you prefer a single dispatcher, you can also implement `ApplyEvent(event.Event)` manually. See [Projections](/guide/projections) for both handler styles and the tradeoffs.
 
 ## When to Split
 
