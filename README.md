@@ -13,6 +13,7 @@
 
 - Typed aggregates, events, commands, and repositories with less boilerplate
 - Backend-agnostic application code that works with in-memory, MongoDB, PostgreSQL, and NATS backends
+- Streaming-first query and subscription APIs that return channels, keeping large workloads incremental and low-memory
 - Production-oriented features like optimistic concurrency, snapshots, and continuous projections
 - A practical path from local development to distributed systems without changing your core domain model
 

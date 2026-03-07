@@ -107,11 +107,19 @@ func All[T any](in <-chan T, errs ...<-chan error) ([]T, error) {
 
 var errTakeDone = errors.New("take done")
 
-// Take receives elements from the input channel until it has received n
+// Take receives elements from the input channel until it has received up to n
 // elements or the input channel is closed. It returns a slice containing the
-// received elements. If any error occurs during the process, it is returned as
-// the second return value.
+// received elements.
+//
+// If the input channel closes before n elements arrive, Take returns the
+// elements received so far without error. If n <= 0, Take returns an empty
+// slice without consuming the stream. If any error occurs during the process,
+// it is returned as the second return value.
 func Take[T any](ctx context.Context, n int, in <-chan T, errs ...<-chan error) ([]T, error) {
+	if n <= 0 {
+		return make([]T, 0), nil
+	}
+
 	out := make([]T, 0, n)
 	if err := Walk(ctx, func(v T) error {
 		out = append(out, v)

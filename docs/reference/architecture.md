@@ -219,7 +219,7 @@ events, errs, err := store.Query(ctx, query.New(...))
 all, err := streams.Drain(ctx, events, errs)  // or streams.All(events, errs) with background context
 ```
 
-**`Take`** receives exactly *n* elements:
+**`Take`** receives up to *n* elements and returns early once it has them. If the stream closes first, it returns the elements received so far without error. If `n <= 0`, it returns an empty slice immediately:
 
 ```go
 first5, err := streams.Take(ctx, 5, events, errs)

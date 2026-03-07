@@ -30,8 +30,21 @@ Domain-Driven Design (DDD) is an approach to software development that focuses o
 
 - **Generic where it matters** — Typed events, commands, and repositories reduce boilerplate and catch mistakes at compile time.
 - **Backend-agnostic** — Swap between [MongoDB](/backends/mongodb), [PostgreSQL](/backends/postgres), [NATS](/backends/nats), or [in-memory backends](/backends/in-memory) without changing application code.
+- **Streaming-first APIs** — Queries and subscriptions return Go channels, so you can process large event sets incrementally with low memory overhead.
 - **Production-ready** — Built-in support for [snapshots](/guide/snapshots), optimistic concurrency, and continuous [projections](/guide/projections).
 - **Minimal boilerplate** — Define your aggregate, register event handlers, and the framework handles versioning, persistence, and replay.
+
+## Streaming by Default
+
+goes works in a streaming manner. Instead of returning large slices for queries and subscriptions, framework APIs typically return result and error channels:
+
+```go
+events, errs, err := store.Query(ctx, q)
+```
+
+That lets you consume data as it arrives, which keeps memory usage low and avoids waiting for a full result set before doing work. It also fits naturally with Go's `context` cancellation and `select`-based concurrency.
+
+See [The Streaming Pattern](/reference/architecture#the-streaming-pattern) for the full model and helper utilities.
 
 ## Next Steps
 
