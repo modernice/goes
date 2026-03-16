@@ -1,0 +1,33 @@
+{
+  "id": "first-aggregate",
+  "title": "Your First Aggregate",
+  "order": 2,
+  "goal": "Wire a single aggregate so domain validation raises an event and the applier mutates state.",
+  "summary": "Learn the smallest useful shape of a goes aggregate by finishing the constructor and create method.",
+  "docsLinks": [
+    {
+      "label": "Tutorial chapter 2",
+      "href": "/tutorial/02-first-aggregate"
+    }
+  ],
+  "files": [
+    {
+      "path": "shop/product.go",
+      "label": "shop/product.go",
+      "editable": true
+    },
+    {
+      "path": "cmd/app/main.go",
+      "label": "cmd/app/main.go",
+      "editable": false
+    }
+  ],
+  "run": {
+    "label": "Run the product demo",
+    "command": ["go", "run", "./cmd/app"]
+  },
+  "check": {
+    "label": "Run lesson checks",
+    "command": ["go", "test", "-json", "./..."]
+  }
+}

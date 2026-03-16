@@ -1,0 +1,33 @@
+{
+  "id": "repository",
+  "title": "Repositories",
+  "order": 4,
+  "goal": "Wire a typed repository so a product can be saved, fetched, and updated through replayed events.",
+  "summary": "Move from in-memory aggregate state to persisted event streams using a typed repository.",
+  "docsLinks": [
+    {
+      "label": "Tutorial chapter 5",
+      "href": "/tutorial/05-repository"
+    }
+  ],
+  "files": [
+    {
+      "path": "cmd/app/main.go",
+      "label": "cmd/app/main.go",
+      "editable": true
+    },
+    {
+      "path": "shop/product.go",
+      "label": "shop/product.go",
+      "editable": false
+    }
+  ],
+  "run": {
+    "label": "Run the repository flow",
+    "command": ["go", "run", "./cmd/app"]
+  },
+  "check": {
+    "label": "Run lesson checks",
+    "command": ["go", "test", "-json", "./..."]
+  }
+}

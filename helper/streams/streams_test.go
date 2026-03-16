@@ -10,6 +10,44 @@ import (
 	"github.com/modernice/goes/helper/streams"
 )
 
+func TestTake(t *testing.T) {
+	t.Run("returns up to n elements", func(t *testing.T) {
+		got, err := streams.Take(context.Background(), 2, streams.New([]int{1, 2, 3, 4}))
+		if err != nil {
+			t.Fatalf("take stream: %v", err)
+		}
+
+		want := []int{1, 2}
+		if !cmp.Equal(want, got) {
+			t.Fatalf("take returned wrong values\n%s", cmp.Diff(want, got))
+		}
+	})
+
+	t.Run("returns fewer when stream closes early", func(t *testing.T) {
+		got, err := streams.Take(context.Background(), 5, streams.New([]int{1, 2}))
+		if err != nil {
+			t.Fatalf("take stream: %v", err)
+		}
+
+		want := []int{1, 2}
+		if !cmp.Equal(want, got) {
+			t.Fatalf("take returned wrong values\n%s", cmp.Diff(want, got))
+		}
+	})
+
+	t.Run("returns empty when n is zero", func(t *testing.T) {
+		got, err := streams.Take(context.Background(), 0, streams.New([]int{1, 2}))
+		if err != nil {
+			t.Fatalf("take stream: %v", err)
+		}
+
+		want := []int{}
+		if !cmp.Equal(want, got) {
+			t.Fatalf("take returned wrong values\n%s", cmp.Diff(want, got))
+		}
+	})
+}
+
 func TestNewConcurrent(t *testing.T) {
 	str, push, _close := streams.NewConcurrent(1, 2, 3)
 

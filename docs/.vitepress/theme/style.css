@@ -1,0 +1,320 @@
+/* ==========================================================================
+ * goes — Custom VitePress Theme
+ *
+ * Dark & technical aesthetic with electric cyan accent (#22d3ee)
+ * JetBrains Mono headings + Inter body
+ * ========================================================================== */
+
+/* ==========================================================================
+ * 1. BRAND COLORS
+ * ========================================================================== */
+
+:root {
+  --vp-c-brand-1: #22d3ee;
+  --vp-c-brand-2: #06b6d4;
+  --vp-c-brand-3: #0891b2;
+  --vp-c-brand-soft: rgba(34, 211, 238, 0.14);
+}
+
+/* Light mode: darker cyan shades for contrast on white */
+html:not(.dark) {
+  --vp-c-brand-1: #0891b2;
+  --vp-c-brand-2: #0e7490;
+  --vp-c-brand-3: #155e75;
+  --vp-c-brand-soft: rgba(8, 145, 178, 0.14);
+}
+
+/* ==========================================================================
+ * 2. BACKGROUNDS
+ * ========================================================================== */
+
+.dark {
+  --vp-c-bg: #0a0a0a;
+  --vp-c-bg-alt: #111111;
+  --vp-c-bg-elv: #1a1a1a;
+  --vp-c-bg-soft: #1a1a1a;
+}
+
+/* ==========================================================================
+ * 3. TEXT
+ * ========================================================================== */
+
+.dark {
+  --vp-c-text-1: #e4e4e7;
+  --vp-c-text-2: #a1a1aa;
+  --vp-c-text-3: #71717a;
+}
+
+/* ==========================================================================
+ * 4. BORDERS & DIVIDERS
+ * ========================================================================== */
+
+.dark {
+  --vp-c-border: #27272a;
+  --vp-c-divider: #27272a;
+  --vp-c-gutter: #18181b;
+}
+
+/* ==========================================================================
+ * 5. TYPOGRAPHY
+ * ========================================================================== */
+
+:root {
+  --vp-font-family-base: 'Inter', ui-sans-serif, system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, 'Menlo', 'Monaco',
+    'Consolas', 'Liberation Mono', 'Courier New', monospace;
+}
+
+/* Headings: JetBrains Mono */
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  font-family: var(--vp-font-family-mono);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+/* Nav links */
+.VPNavBarMenuLink,
+.VPNavBarMenuGroup .text,
+.VPNavScreenMenuLink {
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Sidebar items */
+.VPSidebarItem .text {
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+/* Site title */
+.VPNavBarTitle .title {
+  font-family: var(--vp-font-family-mono);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ==========================================================================
+ * 6. SIDEBAR
+ * ========================================================================== */
+
+.dark {
+  --vp-sidebar-bg-color: #111111;
+}
+
+.VPSidebarItem.is-active > .item > .link > .text {
+  color: var(--vp-c-brand-1);
+}
+
+.VPSidebarItem.is-active > .item > .indicator {
+  background-color: var(--vp-c-brand-1);
+}
+
+.dark .VPSidebarItem .link:hover .text {
+  color: var(--vp-c-text-1);
+}
+
+/* ==========================================================================
+ * 7. NAV
+ * ========================================================================== */
+
+.dark {
+  --vp-nav-bg-color: rgba(10, 10, 10, 0.8);
+}
+
+.dark .VPNav {
+  border-bottom-color: #27272a;
+}
+
+.VPNavBarMenuLink.active {
+  color: var(--vp-c-brand-1);
+}
+
+/* ==========================================================================
+ * 8. CODE BLOCKS
+ * ========================================================================== */
+
+.dark {
+  --vp-code-block-bg: #111111;
+  --vp-code-block-divider-color: #27272a;
+  --vp-code-line-highlight-color: rgba(34, 211, 238, 0.06);
+  --vp-code-copy-code-bg: #1a1a1a;
+  --vp-code-copy-code-hover-bg: #27272a;
+  --vp-code-copy-code-border-color: #27272a;
+  --vp-code-copy-code-hover-border-color: #3f3f46;
+}
+
+/* Inline code: subtle cyan tint */
+.dark {
+  --vp-code-bg: rgba(34, 211, 238, 0.08);
+}
+
+:root {
+  --vp-code-tab-active-bar-color: var(--vp-c-brand-1);
+}
+
+/* ==========================================================================
+ * 9. TABLES
+ * ========================================================================== */
+
+.dark .vp-doc tr {
+  background-color: #0a0a0a;
+}
+
+.dark .vp-doc tr:nth-child(2n) {
+  background-color: #111111;
+}
+
+.dark .vp-doc th {
+  background-color: #1a1a1a;
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dark .vp-doc th,
+.dark .vp-doc td {
+  border-color: #27272a;
+}
+
+/* ==========================================================================
+ * 10. CUSTOM CONTAINERS (Tip / Warning / Danger / Info)
+ * ========================================================================== */
+
+/* Tip: cyan accent */
+.dark {
+  --vp-custom-block-tip-border: rgba(34, 211, 238, 0.3);
+  --vp-custom-block-tip-bg: rgba(34, 211, 238, 0.06);
+  --vp-custom-block-tip-code-bg: rgba(34, 211, 238, 0.08);
+}
+
+.dark .custom-block.tip {
+  border-left: 3px solid var(--vp-c-brand-1);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Warning: amber */
+.dark {
+  --vp-custom-block-warning-border: rgba(234, 179, 8, 0.3);
+  --vp-custom-block-warning-bg: rgba(234, 179, 8, 0.06);
+  --vp-custom-block-warning-code-bg: rgba(234, 179, 8, 0.08);
+}
+
+.dark .custom-block.warning {
+  border-left: 3px solid var(--vp-c-warning-1);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Danger: red */
+.dark {
+  --vp-custom-block-danger-border: rgba(244, 63, 94, 0.3);
+  --vp-custom-block-danger-bg: rgba(244, 63, 94, 0.06);
+  --vp-custom-block-danger-code-bg: rgba(244, 63, 94, 0.08);
+}
+
+.dark .custom-block.danger {
+  border-left: 3px solid var(--vp-c-danger-1);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Info / Note: neutral */
+.dark {
+  --vp-custom-block-info-border: rgba(161, 161, 170, 0.2);
+  --vp-custom-block-info-bg: rgba(161, 161, 170, 0.04);
+  --vp-custom-block-note-border: rgba(161, 161, 170, 0.2);
+  --vp-custom-block-note-bg: rgba(161, 161, 170, 0.04);
+}
+
+.dark .custom-block.info,
+.dark .custom-block.note {
+  border-left: 3px solid var(--vp-c-text-3);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Container title: mono uppercase */
+.custom-block-title {
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ==========================================================================
+ * 11. BUTTONS
+ * ========================================================================== */
+
+:root {
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #0a0a0a;
+  --vp-button-brand-bg: #22d3ee;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #0a0a0a;
+  --vp-button-brand-hover-bg: #06b6d4;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #0a0a0a;
+  --vp-button-brand-active-bg: #0891b2;
+}
+
+.dark {
+  --vp-button-alt-border: #27272a;
+  --vp-button-alt-text: #e4e4e7;
+  --vp-button-alt-bg: #1a1a1a;
+  --vp-button-alt-hover-border: #3f3f46;
+  --vp-button-alt-hover-text: #e4e4e7;
+  --vp-button-alt-hover-bg: #27272a;
+  --vp-button-alt-active-border: #3f3f46;
+  --vp-button-alt-active-text: #e4e4e7;
+  --vp-button-alt-active-bg: #27272a;
+}
+
+/* ==========================================================================
+ * 12. SEARCH
+ * ========================================================================== */
+
+.dark {
+  --vp-local-search-bg: #111111;
+  --vp-local-search-result-bg: #1a1a1a;
+  --vp-local-search-result-border: #27272a;
+  --vp-local-search-result-selected-bg: #1a1a1a;
+  --vp-local-search-result-selected-border: var(--vp-c-brand-1);
+  --vp-local-search-highlight-bg: var(--vp-c-brand-1);
+  --vp-local-search-highlight-text: #0a0a0a;
+}
+
+/* ==========================================================================
+ * 13. SCROLLBAR
+ * ========================================================================== */
+
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* ==========================================================================
+ * 14. SELECTION
+ * ========================================================================== */
+
+::selection {
+  background-color: rgba(34, 211, 238, 0.2);
+  color: inherit;
+}
