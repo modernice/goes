@@ -22,14 +22,12 @@ jobs:
       with:
         access_token: ${{ github.token }}
 
-    - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+    - uses: actions/checkout@v2
 
     - name: Setup Go
-      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      uses: actions/setup-go@v4
       with:
         go-version-file: go.mod
 
     - name: Test
       run: make mongo-test
-
-
