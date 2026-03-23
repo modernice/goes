@@ -38,7 +38,7 @@ The event store connects automatically on the first `Insert`, `Find`, `Query`, o
 err := store.Connect(ctx)
 ```
 
-The store uses `pgxpool.Pool` from pgx v4 for connection pooling. After connecting, the underlying pool is available:
+The store uses `pgxpool.Pool` from pgx v5 for connection pooling. After connecting, the underlying pool is available:
 
 ```go
 store.Pool() // *pgxpool.Pool
