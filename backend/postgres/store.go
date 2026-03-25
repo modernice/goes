@@ -13,8 +13,8 @@ import (
 
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event"
@@ -164,7 +164,7 @@ func (store *EventStore) connect(ctx context.Context) error {
 		return fmt.Errorf("parse connection string: %w", err)
 	}
 
-	pool, err := pgxpool.Connect(ctx, cfg.ConnString())
+	pool, err := pgxpool.New(ctx, cfg.ConnString())
 	if err != nil {
 		return fmt.Errorf("connect to postgres: %w [url=%s]", err, url)
 	}
@@ -211,7 +211,7 @@ func (store *EventStore) useDatabase(ctx context.Context) error {
 	purl.Path = "/" + store.database
 	connURL := purl.String()
 
-	pool, err := pgxpool.Connect(ctx, connURL)
+	pool, err := pgxpool.New(ctx, connURL)
 	if err != nil {
 		return fmt.Errorf("connect to postgres: %w [url=%s]", err, cfg.ConnString())
 	}

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modernice/goes/backend/postgres"
 	"github.com/modernice/goes/backend/testing/eventstoretest"
 	"github.com/modernice/goes/codec"
@@ -28,7 +28,7 @@ func TestEventStoreWithPool(t *testing.T) {
 	eventstoretest.Run(t, "postgres", func(enc codec.Encoding) event.Store {
 		ctx := context.Background()
 
-		pool, err := pgxpool.Connect(ctx, os.Getenv("POSTGRES_EVENTSTORE"))
+		pool, err := pgxpool.New(ctx, os.Getenv("POSTGRES_EVENTSTORE"))
 		if err != nil {
 			t.Fatalf("Failed to create bootstrapping connection to server: %v", err)
 		}
@@ -42,7 +42,7 @@ func TestEventStoreWithPool(t *testing.T) {
 		pool.Close()
 
 		time.Sleep(60 * time.Millisecond) // Wait for previous connections to close
-		pool, err = pgxpool.Connect(ctx, fmt.Sprintf("%s/%s?pool_max_conn_lifetime=50ms", os.Getenv("POSTGRES_EVENTSTORE"), database))
+		pool, err = pgxpool.New(ctx, fmt.Sprintf("%s/%s?pool_max_conn_lifetime=50ms", os.Getenv("POSTGRES_EVENTSTORE"), database))
 		if err != nil {
 			t.Fatalf("Failed to create connection to database %q: %v", database, err)
 		}
