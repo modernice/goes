@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,18 +41,36 @@ func (s *EventStore) Subscribe(ctx context.Context, names ...string) (<-chan eve
 		startTime: time.Now(),
 	}
 
-	// Subscribe to all currently known aggregate streams.
-	s.aggStreams.Range(func(key, value any) bool {
-		streamName := key.(string)
-		stream := value.(jetstream.Stream)
-		if err := sub.addStream(streamName, stream); err != nil {
+	// Subscribe to all existing aggregate streams in JetStream.
+	prefix := s.namespace + "_agg_"
+	streamLister := s.js.ListStreams(ctx)
+	for info := range streamLister.Info() {
+		if !strings.HasPrefix(info.Config.Name, prefix) {
+			continue
+		}
+
+		stream, err := s.js.Stream(ctx, info.Config.Name)
+		if err != nil {
+			select {
+			case errCh <- fmt.Errorf("get stream: %w [stream=%s]", err, info.Config.Name):
+			case <-ctx.Done():
+			}
+			continue
+		}
+
+		// Populate the in-memory cache so watchNewStreams doesn't re-process these.
+		s.aggStreams.LoadOrStore(info.Config.Name, stream)
+
+		if err := sub.addStream(info.Config.Name, stream); err != nil {
 			select {
 			case errCh <- err:
 			case <-ctx.Done():
 			}
 		}
-		return true
-	})
+	}
+	if err := streamLister.Err(); err != nil {
+		return nil, nil, fmt.Errorf("list streams: %w", err)
+	}
 
 	// Watch for new aggregate streams being created.
 	go sub.watchNewStreams()
