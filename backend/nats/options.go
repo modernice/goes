@@ -127,6 +127,12 @@ func LoadBalancer(serviceName string) EventBusOption {
 //
 // By default, the event name is used as the subject.
 //
+// When using the JetStream driver, ".", "*", and ">" characters in the
+// resulting subject are replaced with "_" to ensure single-token subjects.
+// This is because the JetStream driver's stream is configured with a "*"
+// subject filter, which only matches single-token subjects. The Core driver
+// does not perform this replacement.
+//
 // Read more about subjects: https://docs.nats.io/nats-concepts/subjects
 func SubjectFunc(fn func(eventName string) string) EventBusOption {
 	return func(bus *EventBus) {
@@ -134,8 +140,12 @@ func SubjectFunc(fn func(eventName string) string) EventBusOption {
 	}
 }
 
-// SubjectFunc returns an option that specifies how the NATS subjects for event
-// names are generated.
+// SubjectPrefix returns an option that prefixes event name subjects with the
+// given prefix.
+//
+// When using the JetStream driver, ".", "*", and ">" characters in the
+// resulting subject are replaced with "_" to ensure single-token subjects.
+// The Core driver does not perform this replacement.
 func SubjectPrefix(prefix string) EventBusOption {
 	return SubjectFunc(func(eventName string) string {
 		return prefix + eventName

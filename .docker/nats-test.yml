@@ -4,8 +4,10 @@ services:
 
   jetstream:
     image: nats
-    command: ["-js"]
-  
+    command: ["-js", "-sd", "/data"]
+    volumes:
+      - jetstream-data:/data
+
   test:
     depends_on:
       - nats
@@ -18,3 +20,6 @@ services:
     environment:
       - NATS_URL=nats://nats:4222
       - JETSTREAM_URL=nats://jetstream:4222
+
+volumes:
+  jetstream-data:
