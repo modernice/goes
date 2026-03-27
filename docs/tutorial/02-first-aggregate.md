@@ -102,9 +102,9 @@ func (p *Product) Create(name string, price, stock int) error {
 // events from the store.
 func (p *Product) created(evt ProductCreatedEvent) {
 	data := evt.Data()
-	p.Name = data.Name
-	p.Price = data.Price
-	p.Stock = data.Stock
+	p.ProductDTO.Name = data.Name
+	p.ProductDTO.Price = data.Price
+	p.ProductDTO.Stock = data.Stock
 }
 ```
 
