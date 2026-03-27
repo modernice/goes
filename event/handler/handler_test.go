@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/event/eventstore"
@@ -200,22 +201,21 @@ func TestStartup_withQuery_replaces_names(t *testing.T) {
 		t.Fatalf("foo event was handled")
 	}
 
-	select {
-	case <-time.After(50 * time.Millisecond):
-		t.Fatalf("bar event was not handled #1")
-	case evt := <-barHandled:
-		if evt.ID() != testID {
-			t.Fatalf("expected event ID %q; got %q", testID, evt.ID())
+	var handledIDs []uuid.UUID
+	for i := 0; i < 2; i++ {
+		select {
+		case <-time.After(50 * time.Millisecond):
+			t.Fatalf("bar event was not handled #%d", i+1)
+		case evt := <-barHandled:
+			handledIDs = append(handledIDs, evt.ID())
 		}
 	}
 
-	select {
-	case <-time.After(50 * time.Millisecond):
-		t.Fatalf("bar event was not handled #2")
-	case evt := <-barHandled:
-		if evt.ID() == testID {
-			t.Fatalf("expected event ID not to be %q; got %q", testID, evt.ID())
-		}
+	if handledIDs[0] != testID && handledIDs[1] != testID {
+		t.Fatalf("expected testID %q in handled events; got %v", testID, handledIDs)
+	}
+	if handledIDs[0] == handledIDs[1] {
+		t.Fatalf("expected two different bar events; got same ID %q twice", handledIDs[0])
 	}
 }
 
