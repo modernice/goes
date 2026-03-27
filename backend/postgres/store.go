@@ -87,6 +87,8 @@ func Table(name string) EventStoreOption {
 	}
 }
 
+var ErrTableDoesNotExist = errors.New("table does not exist")
+
 // NewEventStore returns a new PostgreSQL event store. If not otherwise
 // specified using the URL() option, os.Getenv("POSTGRES_EVENTSTORE") is used as
 // the connection string.
@@ -142,12 +144,18 @@ func (store *EventStore) connectOnce(ctx context.Context) error {
 			return
 		}
 
-		if err = store.createTable(ctx); err != nil {
-			return
-		}
+		if err = store.validateTableSchema(ctx); err != nil {
+			if errors.Is(err, ErrTableDoesNotExist) {
+				if err = store.createTable(ctx); err != nil {
+					return
+				}
 
-		if err = store.createIndexes(ctx); err != nil {
-			return
+				if err = store.createIndexes(ctx); err != nil {
+					return
+				}
+			} else {
+				return
+			}
 		}
 	})
 	return err
@@ -216,6 +224,88 @@ func (store *EventStore) useDatabase(ctx context.Context) error {
 		return fmt.Errorf("connect to postgres: %w [url=%s]", err, cfg.ConnString())
 	}
 	store.pool = pool
+
+	return nil
+}
+
+func (store *EventStore) validateTableSchema(ctx context.Context) error {
+	builder := squirrel.
+		Select("column_name", "data_type", "udt_name").
+		From("information_schema.columns").
+		Where(squirrel.Eq{"table_name": store.table}).
+		OrderBy("ordinal_position").
+		PlaceholderFormat(squirrel.Dollar)
+
+	sql, args, err := builder.ToSql()
+	if err != nil {
+		return fmt.Errorf("build sql: %w", err)
+	}
+
+	type colInfo struct {
+		name     string
+		dataType string
+		udtName  string
+	}
+
+	rows, _ := store.pool.Query(ctx, sql, args...)
+	cols, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (colInfo, error) {
+		var c colInfo
+		err := row.Scan(&c.name, &c.dataType, &c.udtName)
+		return c, err
+	})
+	if err != nil {
+		return fmt.Errorf("collect column info for table %q: %w", store.table, err)
+	}
+
+	if len(cols) == 0 {
+		return fmt.Errorf("table %q does not exist: %w", store.table, ErrTableDoesNotExist)
+	}
+
+	columns := make(map[string]colInfo, len(cols))
+	for _, c := range cols {
+		columns[c.name] = c
+	}
+
+	expected := map[string]string{
+		columnID:               "uuid",
+		columnName:             "character varying",
+		columnTime:             "bigint",
+		columnAggregateID:      "uuid",
+		columnAggregateName:    "character varying",
+		columnAggregateVersion: "integer",
+		columnData:             "USER-DEFINED",
+	}
+
+	var missing []string
+	var typeMismatches []string
+	for col, expectedType := range expected {
+		info, ok := columns[col]
+		if !ok {
+			missing = append(missing, fmt.Sprintf("%q", col))
+			continue
+		}
+		// For jsonb, Postgres reports data_type as "USER-DEFINED" and udt_name as "jsonb".
+		actualType := info.dataType
+		if actualType == "USER-DEFINED" {
+			actualType = info.udtName
+		}
+		checkType := expectedType
+		if checkType == "USER-DEFINED" {
+			checkType = "jsonb"
+		}
+		if actualType != checkType {
+			typeMismatches = append(typeMismatches, fmt.Sprintf("column %q should have type %q but has type %q", col, checkType, actualType))
+		}
+	}
+
+	if len(missing) > 0 || len(typeMismatches) > 0 {
+		var problems []string
+		if len(missing) > 0 {
+			problems = append(problems, fmt.Sprintf("missing columns: %s", strings.Join(missing, ", ")))
+		}
+		problems = append(problems, typeMismatches...)
+		return fmt.Errorf("table %q schema mismatch: %s", store.table, strings.Join(problems, "; "))
+	}
 
 	return nil
 }
