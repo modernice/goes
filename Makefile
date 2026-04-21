@@ -21,8 +21,9 @@ test-actions:
 
 .PHONY: nats-test
 nats-test:
+	docker compose -f .docker/nats-test.yml down --remove-orphans -v 2>/dev/null; \
 	docker compose -f .docker/nats-test.yml up --build --abort-on-container-exit --remove-orphans; \
-	docker compose -f .docker/nats-test.yml down --remove-orphans
+	docker compose -f .docker/nats-test.yml down --remove-orphans -v
 
 .PHONY: nats-bench
 nats-bench:

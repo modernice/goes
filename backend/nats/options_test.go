@@ -156,7 +156,7 @@ func TestSubjectFunc_subjectFunc(t *testing.T) {
 		return fmt.Sprintf("prefix.%s", eventName)
 	}))
 
-	want := "prefix_foo"
+	want := "prefix.foo"
 	if got := bus.subjectFunc("foo"); got != want {
 		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", want, got))
 	}
@@ -165,7 +165,7 @@ func TestSubjectFunc_subjectFunc(t *testing.T) {
 func TestSubjectPrefix(t *testing.T) {
 	bus := NewEventBus(test.NewEncoder(), SubjectPrefix("prefix."))
 
-	want := "prefix_foo"
+	want := "prefix.foo"
 	if got := bus.subjectFunc("foo"); got != want {
 		t.Fatal(fmt.Errorf("expected bus.subjectFunc(%q) to return %q; got %q", "foo", want, got))
 	}

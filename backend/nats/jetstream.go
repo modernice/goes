@@ -146,7 +146,7 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 	queue := bus.queueFunc(normalizeEvent(event))
 	durableName := js.durableFunc(normalizeEvent(event), normalizeQueue(queue))
 
-	userProvidedSubject := bus.subjectFunc(event)
+	userProvidedSubject := replacer.Replace(bus.subjectFunc(event))
 	subject := subscribeSubject(userProvidedSubject, event)
 
 	// By default, we let JetStream create an ephemeral consumer. If the user
@@ -265,7 +265,7 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 		return fmt.Errorf("encode envelope: %w", err)
 	}
 
-	subject := bus.subjectFunc(env.Name)
+	subject := replacer.Replace(bus.subjectFunc(env.Name))
 
 	var opts []nats.PubOpt
 	if id := evt.ID(); id != uuid.Nil {
