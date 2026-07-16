@@ -75,7 +75,10 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 		ticker.Stop()
 	}()
 
-	if cfg.Startup != nil {
+	var startupJobs []projection.Job
+	if cfg.Startup != nil && cfg.StartupAsync {
+		startupJobs = append(startupJobs, schedule.newStartupJob(ctx, cfg))
+	} else if cfg.Startup != nil {
 		if err := schedule.applyStartupJob(ctx, cfg, jobs, apply); err != nil {
 			return nil, fmt.Errorf("startup: %w", err)
 		}
@@ -86,7 +89,7 @@ func (schedule *Periodic) Subscribe(ctx context.Context, apply func(projection.J
 
 	go schedule.handleTicker(ctx, cfg, ticker, jobs, out, &wg)
 	go schedule.handleTriggers(ctx, cfg, triggers, jobs, out, &wg)
-	go schedule.applyJobs(ctx, apply, jobs, out, done)
+	go schedule.applyJobs(ctx, apply, jobs, out, done, startupJobs...)
 
 	go func() {
 		wg.Wait()

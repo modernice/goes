@@ -295,6 +295,11 @@ func example(s projection.Schedule) {
 }
 ```
 
+`Startup()` blocks until the initial projection job finishes and returns its
+error directly from `Subscribe()`. Use `StartupAsync()` to return from
+`Subscribe()` immediately instead. The initial job is still applied before any
+subsequent jobs, but failures are reported through the returned `errs` channel.
+
 ### Manually trigger a job
 
 Both continuous and periodic schedules can be manually triggered at any time

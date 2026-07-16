@@ -132,16 +132,31 @@ func (schedule *schedule) applyJobs(
 	jobs <-chan projection.Job,
 	out chan<- error,
 	done chan struct{},
+	startupJobs ...projection.Job,
 ) {
 	defer close(done)
 	defer close(out)
-	for job := range jobs {
+
+	applyJob := func(job projection.Job, operation string) bool {
 		if err := apply(job); err != nil {
 			select {
 			case <-ctx.Done():
-				return
-			case out <- fmt.Errorf("apply job: %w", err):
+				return false
+			case out <- fmt.Errorf("%s: %w", operation, err):
 			}
+		}
+		return true
+	}
+
+	for _, job := range startupJobs {
+		if !applyJob(job, "startup") {
+			return
+		}
+	}
+
+	for job := range jobs {
+		if !applyJob(job, "apply job") {
+			return
 		}
 	}
 }
@@ -155,19 +170,22 @@ func (schedule *schedule) applyStartupJob(
 	if sub.Startup == nil {
 		return nil
 	}
+	return apply(schedule.newStartupJob(ctx, sub))
+}
 
+func (schedule *schedule) newStartupJob(ctx context.Context, sub projection.Subscription) projection.Job {
 	q := sub.Startup.Query
 	if q == nil {
 		q = query.New(query.Name(schedule.eventNames...), query.SortByTime())
 	}
 
-	return apply(schedule.newJob(
+	return schedule.newJob(
 		ctx,
 		sub,
 		schedule.store,
 		q,
 		sub.Startup.JobOptions()...,
-	))
+	)
 }
 
 func (schedule *schedule) newJob(ctx context.Context, sub projection.Subscription, store event.Store, q event.Query, opts ...projection.JobOption) projection.Job {

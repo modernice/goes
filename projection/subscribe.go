@@ -13,6 +13,9 @@ type SubscribeOption func(*Subscription)
 type Subscription struct {
 	// If provided, the projection schedule triggers a projection job on startup.
 	Startup *Trigger
+	// StartupAsync specifies whether the startup projection job is applied
+	// asynchronously.
+	StartupAsync bool
 
 	// BeforeEvent are the "before"-interceptors for the event streams created
 	// by a job's `EventsFor()` and `Apply()` methods.
@@ -25,6 +28,20 @@ func Startup(opts ...TriggerOption) SubscribeOption {
 	return func(s *Subscription) {
 		t := NewTrigger(opts...)
 		s.Startup = &t
+		s.StartupAsync = false
+	}
+}
+
+// StartupAsync returns a SubscribeOption that triggers an initial projection
+// run asynchronously when subscribing to a projection schedule. Subscribe
+// returns without waiting for the startup job to finish. The startup job is
+// applied before subsequent jobs, and errors are reported through the error
+// channel returned by Schedule.Subscribe.
+func StartupAsync(opts ...TriggerOption) SubscribeOption {
+	return func(s *Subscription) {
+		t := NewTrigger(opts...)
+		s.Startup = &t
+		s.StartupAsync = true
 	}
 }
 

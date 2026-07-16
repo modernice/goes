@@ -164,7 +164,10 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 		schedule.removeTriggers(triggers)
 	}()
 
-	if cfg.Startup != nil {
+	var startupJobs []projection.Job
+	if cfg.Startup != nil && cfg.StartupAsync {
+		startupJobs = append(startupJobs, schedule.newStartupJob(ctx, cfg))
+	} else if cfg.Startup != nil {
 		if err := schedule.applyStartupJob(ctx, cfg, jobs, apply); err != nil {
 			return nil, fmt.Errorf("startup: %w", err)
 		}
@@ -175,7 +178,7 @@ func (schedule *Continuous) Subscribe(ctx context.Context, apply func(projection
 
 	go schedule.handleEvents(ctx, cfg, events, errs, jobs, out, &wg)
 	go schedule.handleTriggers(ctx, cfg, triggers, jobs, out, &wg)
-	go schedule.applyJobs(ctx, apply, jobs, out, done)
+	go schedule.applyJobs(ctx, apply, jobs, out, done, startupJobs...)
 
 	go func() {
 		wg.Wait()

@@ -194,6 +194,8 @@ errs, err := s.Subscribe(ctx, func(job projection.Job) error {
 
 The `projection.Startup()` option triggers an initial catch-up run that processes all existing events from the store. Without it, only new events (arriving after subscription) are processed.
 
+`projection.Startup()` blocks until that catch-up finishes. Use `projection.StartupAsync()` when subscription setup should return immediately. The startup job still runs before later jobs, and any startup failure is sent to the returned error channel.
+
 The returned error channel reports asynchronous errors during job processing.
 
 ## Jobs
