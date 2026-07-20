@@ -11,6 +11,14 @@
     "vitepress": "^1.6.3"
   },
   "dependencies": {
-    "@vercel/analytics": "^1.6.1"
+    "@vercel/analytics": "^1.6.1",
+    "tailwindcss": "^3.3.5",
+    "vue": "^3.3.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "vue-demi"
+    ]
   }
 }
