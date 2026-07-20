@@ -4,6 +4,7 @@ package cmdbus_test
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"os"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/modernice/goes/command"
 	"github.com/modernice/goes/command/cmdbus"
 	"github.com/modernice/goes/command/cmdbus/dispatch"
+	natsjs "github.com/nats-io/nats.go"
 )
 
 func TestBus_NATS_Core(t *testing.T) {
@@ -114,13 +116,14 @@ func TestBus_NATS_JetStream(t *testing.T) {
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.New()
 	codec.Register[mockPayload](enc, "foo-cmd")
+	stream := "cmdbus-js-" + randomHex()
 	bus := nats.NewEventBus(
 		ereg,
-		nats.Use(nats.JetStream()),
+		nats.Use(nats.JetStream(nats.StreamName(stream))),
 		nats.URL(os.Getenv("JETSTREAM_URL")),
 		nats.SubjectPrefix("cmdbus_js:"),
 	)
-	defer cleanup(bus)
+	defer cleanup(bus, stream)
 	testNATSBus(t, bus, bus)
 }
 
@@ -129,21 +132,22 @@ func TestBus_NATS_JetStream_Durable(t *testing.T) {
 	cmdbus.RegisterEvents(ereg)
 	enc := codec.New()
 	codec.Register[mockPayload](enc, "foo-cmd")
+	stream := "cmdbus-durable-" + randomHex()
 	subBus := nats.NewEventBus(
 		ereg,
-		nats.Use(nats.JetStream(nats.Durable("cmdbus_sub"))),
+		nats.Use(nats.JetStream(nats.StreamName(stream), nats.Durable("cmdbus_sub"))),
 		nats.URL(os.Getenv("JETSTREAM_URL")),
 		nats.SubjectPrefix("cmdbus_durable:"),
 	)
 	pubBus := nats.NewEventBus(
 		ereg,
-		nats.Use(nats.JetStream(nats.Durable("cmdbus_pub"))),
+		nats.Use(nats.JetStream(nats.StreamName(stream), nats.Durable("cmdbus_pub"))),
 		nats.URL(os.Getenv("JETSTREAM_URL")),
 		nats.SubjectPrefix("cmdbus_durable:"),
 	)
 
-	defer cleanup(subBus)
-	defer cleanup(pubBus)
+	defer cleanup(subBus, stream)
+	defer cleanup(pubBus, stream)
 
 	testNATSBus(t, subBus, pubBus)
 }
@@ -217,18 +221,24 @@ L:
 	}
 }
 
-func cleanup(bus *nats.EventBus) {
+func cleanup(bus *nats.EventBus, stream string) {
 	js, err := bus.Connection().JetStream()
 	if err != nil {
 		return
 	}
 
-	streams := js.StreamNames()
-	for stream := range streams {
-		consumers := js.ConsumerNames(stream)
-		for cons := range consumers {
-			js.DeleteConsumer(stream, cons)
+	for cons := range js.ConsumerNames(stream) {
+		if err := js.DeleteConsumer(stream, cons); err != nil && err != natsjs.ErrConsumerNotFound {
+			panic(fmt.Errorf("delete %q consumer from %q: %w", cons, stream, err))
 		}
-		js.DeleteStream(stream)
 	}
+	if err := js.DeleteStream(stream); err != nil && err != natsjs.ErrStreamNotFound {
+		panic(fmt.Errorf("delete %q stream: %w", stream, err))
+	}
+}
+
+func randomHex() string {
+	buf := make([]byte, 8)
+	rand.Read(buf)
+	return fmt.Sprintf("%x", buf)
 }

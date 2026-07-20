@@ -5,4 +5,4 @@ WORKDIR /coverage
 COPY go.mod go.sum /coverage/
 RUN go mod download
 COPY . .
-CMD go test -v -race -tags=$TAGS -covermode=atomic -coverprofile=out/coverage.out ./...
+CMD sh -c 'go test -v -race -tags="$TAGS" -covermode=atomic -coverprofile=out/coverage.out $(bash ./scripts/test-packages ./...)'

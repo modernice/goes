@@ -8,11 +8,11 @@ generate:
 
 .PHONY: test
 test:
-	@go test ./...
+	@go test $$(bash ./scripts/test-packages ./...)
 
 .PHONY: test-race
 test-race:
-	@go test -race ./...
+	@go test -race $$(bash ./scripts/test-packages ./...)
 
 .PHONY: test-actions
 test-actions:
@@ -53,7 +53,7 @@ github-test:
 
 .PHONY: bench
 bench:
-	@go test -bench=${bench} -run=${run} -count=${count} ./...
+	@go test -bench=${bench} -run=${run} -count=${count} $$(bash ./scripts/test-packages ./...)
 
 .PHONY: cli
 cli:

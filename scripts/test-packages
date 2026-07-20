@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+patterns=("$@")
+if [[ ${#patterns[@]} -eq 0 ]]; then
+	patterns=(./...)
+fi
+
+exclude_prefix="github.com/modernice/goes/tour"
+packages=()
+errors=()
+
+while IFS=$'\t' read -r status pkg err; do
+	if [[ -z "${pkg:-}" ]]; then
+		continue
+	fi
+
+	if [[ "$pkg" == "$exclude_prefix" || "$pkg" == "$exclude_prefix/"* ]]; then
+		continue
+	fi
+
+	if [[ "$status" == "ERR" ]]; then
+		errors+=("$pkg: $err")
+		continue
+	fi
+
+	packages+=("$pkg")
+done < <(go list -e -f '{{if .Error}}ERR	{{.ImportPath}}	{{.Error.Err}}{{else}}OK	{{.ImportPath}}{{end}}' "${patterns[@]}")
+
+if (( ${#errors[@]} > 0 )); then
+	printf 'failed to enumerate test packages:\n' >&2
+	printf '  %s\n' "${errors[@]}" >&2
+	exit 1
+fi
+
+if (( ${#packages[@]} == 0 )); then
+	printf 'no packages matched: %s\n' "${patterns[*]}" >&2
+	exit 1
+fi
+
+printf '%s\n' "${packages[@]}"

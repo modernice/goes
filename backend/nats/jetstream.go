@@ -6,6 +6,8 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -13,7 +15,10 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-const jetStreamDriverName = "jetstream"
+const (
+	jetStreamDriverName       = "jetstream"
+	jetStreamBootstrapSubject = "_goes_jetstream"
+)
 
 var (
 	// DefaultStream is the default JetStream stream name to use/create if no
@@ -139,15 +144,16 @@ func (js *jetStream) subscribe(ctx context.Context, bus *EventBus, event string)
 		return sub.subscribe(ctx)
 	}
 
-	if err := js.ensureStream(ctx); err != nil {
-		return recipient{}, fmt.Errorf("ensure stream: %w", err)
-	}
-
 	queue := bus.queueFunc(normalizeEvent(event))
 	durableName := js.durableFunc(normalizeEvent(event), normalizeQueue(queue))
 
 	userProvidedSubject := replacer.Replace(bus.subjectFunc(event))
 	subject := subscribeSubject(userProvidedSubject, event)
+	streamSubject := streamSubjectFor(subject, event)
+
+	if err := js.ensureStream(ctx, streamSubject); err != nil {
+		return recipient{}, fmt.Errorf("ensure stream: %w", err)
+	}
 
 	// By default, we let JetStream create an ephemeral consumer. If the user
 	// provides a durable name or queue group, we create a durable consumer.
@@ -266,6 +272,9 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 	}
 
 	subject := replacer.Replace(bus.subjectFunc(env.Name))
+	if err := js.ensureStream(ctx, streamSubjectFor(subject, env.Name)); err != nil {
+		return fmt.Errorf("ensure stream: %w", err)
+	}
 
 	var opts []nats.PubOpt
 	if id := evt.ID(); id != uuid.Nil {
@@ -279,17 +288,22 @@ func (js *jetStream) publish(ctx context.Context, bus *EventBus, evt event.Event
 	return nil
 }
 
-func (js *jetStream) ensureStream(_ context.Context) error {
+func (js *jetStream) ensureStream(_ context.Context, subject string) error {
 	info, err := js.ctx.StreamInfo(js.stream)
 	if err == nil {
 		if info.Config.Name != js.stream {
 			return fmt.Errorf("%w: stream name mismatch: %q != %q", ErrStreamExists, info.Config.Name, js.stream)
 		}
 
-		if len(info.Config.Subjects) != 1 || info.Config.Subjects[0] != "*" {
-			return fmt.Errorf("%w: subjects mismatch: %v != %v", ErrStreamExists, info.Config.Subjects, []string{"*"})
+		if slices.Contains(info.Config.Subjects, subject) {
+			return nil
 		}
 
+		cfg := info.Config
+		cfg.Subjects = append(append([]string(nil), info.Config.Subjects...), subject)
+		if _, err := js.ctx.UpdateStream(&cfg); err != nil {
+			return fmt.Errorf("update stream: %w [name=%v, subjects=%v]", err, js.stream, cfg.Subjects)
+		}
 		return nil
 	}
 
@@ -297,7 +311,10 @@ func (js *jetStream) ensureStream(_ context.Context) error {
 		return fmt.Errorf("get stream info: %w [stream=%v]", err, js.stream)
 	}
 
-	subjects := []string{"*"}
+	// Event subjects may be a single token ("foo") or multi-token
+	// ("goes.command.dispatched"). Using "*"/"*.>" covers both without relying
+	// on the special catch-all ">" stream subject.
+	subjects := []string{subject}
 
 	if _, err := js.ctx.AddStream(&nats.StreamConfig{
 		Name:     js.stream,
@@ -393,3 +410,16 @@ func normalizeQueue(queue string) string {
 }
 
 func nonDurable(string, string) string { return "" }
+
+func streamSubjectFor(subject, event string) string {
+	if event == "*" {
+		return jetStreamBootstrapSubject
+	}
+
+	tokens := strings.Split(subject, ".")
+	if len(tokens) <= 1 {
+		return subject
+	}
+
+	return tokens[0] + ".>"
+}

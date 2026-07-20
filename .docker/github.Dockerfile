@@ -6,4 +6,4 @@ COPY go.mod go.sum /github/
 RUN go mod download
 COPY . .
 RUN go install gotest.tools/gotestsum@latest
-CMD gotestsum --packages=./... -- -v -tags=$TAGS
+CMD sh -c 'gotestsum --raw-command -- go test -json -v -tags="$TAGS" $(bash ./scripts/test-packages ./...)'
