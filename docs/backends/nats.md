@@ -54,6 +54,39 @@ bus := nats.NewEventBus(enc,
 
 Core is the simpler choice and works well for most applications. JetStream is useful when you need guaranteed bus delivery — for example, when a subscriber goes offline temporarily and must receive the events it missed without a full restart.
 
+### Sagas with Core and JetStream
+
+[Sagas](/guide/sagas) work with both NATS Core and JetStream.
+
+With Core, the saga service recovers recently missed trigger events from the event store during startup replay. This replay is bounded by `saga.Config.TriggerReplayWindow`; `0` uses the default of `24*time.Hour`, and a negative value disables startup replay.
+
+With JetStream, the bus itself also provides durable delivery, which is useful when you want stronger recovery at the transport layer in addition to store-based recovery.
+
+For distributed saga services, configure queue/load-balancing on the saga trigger bus so only one instance handles each trigger event. Do **not** reuse that same load-balanced bus configuration as the transport for `cmdbus.New(...)`.
+
+Use two event-bus configurations instead:
+
+```go
+triggerBus := nats.NewEventBus(eventReg,
+	nats.LoadBalancer("order-sagas"),
+	nats.Use(nats.JetStream(
+		nats.Durable("order-sagas"),
+	)),
+)
+
+commandTransport := nats.NewEventBus(eventReg)
+
+cmdBus := cmdbus.New[int](cmdReg, commandTransport)
+svc := saga.NewService(saga.Config{
+	Encoding: cmdReg,
+	Store:    store,
+	Bus:      triggerBus,
+	Commands: cmdBus,
+}, OrderProcess)
+```
+
+This keeps saga trigger delivery distributed while preserving the command bus requirement that command coordination must not run on a load-balanced event bus.
+
 ## Connection
 
 The event bus connects lazily on the first `Publish` or `Subscribe` call. To connect explicitly:

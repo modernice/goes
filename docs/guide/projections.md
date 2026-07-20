@@ -4,6 +4,8 @@ Projections build read-optimized views from events. While aggregates enforce con
 
 > For a step-by-step introduction, see the [Tutorial](/tutorial/10-projections).
 
+If your read model is primarily a reverse lookup or uniqueness index, see [Lookups](/guide/lookups) first — it packages a common projection pattern into a small reusable component.
+
 ## `projection.Base`
 
 `projection.Base` provides event handler registration for projections, the same way `aggregate.Base` does for aggregates:

@@ -194,6 +194,10 @@ Command handlers return error channels (`<-chan error`). Errors are sent asynchr
 
 `streams.FanInAll` merges multiple error channels into one.
 
+::: tip Advanced Reading
+If your commands map cleanly to one aggregate and you want the aggregate to register its own command handlers, see [Aggregate-Owned Command Handlers](/guide/commands#aggregate-owned-command-handlers).
+:::
+
 ## Next
 
 Let's build our second aggregate. In the [next chapter](./07-order-aggregate), we'll create the Order.

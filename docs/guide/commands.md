@@ -108,6 +108,168 @@ The handler receives a `command.Ctx[P]` which provides:
 
 `command.Ctx[P]` embeds `context.Context`, so it can be passed to repository methods directly.
 
+## Aggregate-Owned Command Handlers
+
+`command.MustHandle(...)` is the best default when command handling lives in application setup code:
+
+- a handler orchestrates multiple aggregates
+- a handler calls other services or clients
+- the command flow is more workflow than aggregate API
+
+Sometimes the command handling belongs inside the aggregate itself. In that case, use `command/handler`.
+
+The pattern has two parts:
+
+1. The aggregate registers its own command handlers.
+2. `command/handler.New(...)` subscribes the bus and routes matching commands into that aggregate.
+
+### Example
+
+```go
+package todo
+
+import (
+	"context"
+	"errors"
+
+	"github.com/google/uuid"
+	"github.com/modernice/goes/aggregate"
+	"github.com/modernice/goes/command"
+	cmdhandler "github.com/modernice/goes/command/handler"
+	"github.com/modernice/goes/event"
+)
+
+const (
+	ListAggregate = "todo.list"
+
+	AddTaskCmd    = "todo.list.add_task"
+	RemoveTaskCmd = "todo.list.remove_task"
+
+	TaskAdded   = "todo.list.task_added"
+	TaskRemoved = "todo.list.task_removed"
+)
+
+type List struct {
+	*aggregate.Base
+	*cmdhandler.BaseHandler
+	Tasks []string
+}
+
+func NewList(id uuid.UUID) *List {
+	list := &List{
+		Base: aggregate.New(ListAggregate, id),
+		BaseHandler: cmdhandler.NewBase(
+			cmdhandler.BeforeHandle(func(ctx command.Ctx[string]) error {
+				if ctx.Payload() == "" {
+					return errors.New("task must not be empty")
+				}
+				return nil
+			}, AddTaskCmd),
+		),
+		Tasks: make([]string, 0),
+	}
+
+	event.ApplyWith(list, list.taskAdded, TaskAdded)
+	event.ApplyWith(list, list.taskRemoved, TaskRemoved)
+
+	command.HandleWith(list, func(ctx command.Ctx[string]) error {
+		return list.AddTask(ctx.Payload())
+	}, AddTaskCmd)
+
+	command.HandleWith(list, func(ctx command.Ctx[string]) error {
+		return list.RemoveTask(ctx.Payload())
+	}, RemoveTaskCmd)
+
+	return list
+}
+
+func (l *List) AddTask(task string) error {
+	aggregate.Next(l, TaskAdded, task)
+	return nil
+}
+
+func (l *List) RemoveTask(task string) error {
+	aggregate.Next(l, TaskRemoved, task)
+	return nil
+}
+
+func (l *List) taskAdded(evt event.Of[string]) {
+	l.Tasks = append(l.Tasks, evt.Data())
+}
+
+func (l *List) taskRemoved(evt event.Of[string]) {
+	for i, task := range l.Tasks {
+		if task == evt.Data() {
+			l.Tasks = append(l.Tasks[:i], l.Tasks[i+1:]...)
+			return
+		}
+	}
+}
+
+func run(ctx context.Context, cbus command.Bus, repo aggregate.Repository) <-chan error {
+	return cmdhandler.New(NewList, repo, cbus).MustHandle(ctx)
+}
+```
+
+### `command/handler.Base`
+
+The core type is `command/handler.Base`. In aggregates you will usually embed the `BaseHandler` alias from the same package because it avoids colliding with `*aggregate.Base`.
+
+`NewBase(...)` sets up the command registration surface:
+
+- `RegisterCommandHandler(...)`
+- `CommandNames()`
+- `HandleCommand(...)`
+
+`command.HandleWith(...)` is the usual way to register typed command handlers on that base.
+
+### `BeforeHandle` and `AfterHandle`
+
+`BeforeHandle(...)` and `AfterHandle(...)` attach hooks around aggregate-owned command handling.
+
+Use `BeforeHandle(...)` for cheap validation or guard rails:
+
+```go
+cmdhandler.NewBase(
+	cmdhandler.BeforeHandle(func(ctx command.Ctx[string]) error {
+		if ctx.Payload() == "" {
+			return errors.New("task must not be empty")
+		}
+		return nil
+	}, AddTaskCmd),
+)
+```
+
+Use `AfterHandle(...)` for post-success side effects like metrics or logs:
+
+```go
+cmdhandler.NewBase(
+	cmdhandler.AfterHandle(func(ctx command.Ctx[string]) {
+		log.Printf("handled %s", ctx.Name())
+	}),
+)
+```
+
+If you omit command names, the hook applies to all commands handled by the aggregate.
+
+::: tip
+`command/handler.New(...)` instantiates the aggregate once during setup to discover its registered command names. Keep aggregate constructors side-effect free.
+:::
+
+### Which style should you choose?
+
+Use free-standing `command.MustHandle(...)` when:
+
+- the handler coordinates multiple aggregates
+- the handler talks to external systems
+- the command flow is easier to read in application setup
+
+Use `command/handler.New(...)` when:
+
+- the command maps cleanly to one aggregate
+- you want the aggregate to declare its own command surface
+- you want reusable per-aggregate hooks with `BeforeHandle(...)` and `AfterHandle(...)`
+
 ## Synchronous Dispatch
 
 By default, `Dispatch` is asynchronous — it returns once a handler has received the command, but without waiting for the handler to finish processing it. This still guarantees delivery: if no handler picks up the command within the `AssignTimeout` / `ReceiveTimeout`, `Dispatch` returns an error.
@@ -122,6 +284,16 @@ err := cbus.Dispatch(ctx, cmd.Any(), dispatch.Sync())
 ```
 
 With `dispatch.Sync()`, `Dispatch` blocks until the handler finishes and returns the handler's error directly.
+
+## When to Use a Saga
+
+Commands and sagas solve different problems:
+
+- A command is a single intent message.
+- A command handler is an immediate request handler.
+- A [saga](/guide/sagas) coordinates a multi-step workflow that reacts to later events, sets timeouts, and can enter compensation.
+
+If the process needs to wait for future events, survive across restarts, cross service/process boundaries, or manage explicit timeouts and compensation, reach for a saga rather than stretching a single command handler across the whole workflow.
 
 ## The Command Pattern
 

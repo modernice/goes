@@ -718,6 +718,10 @@ func main() {
 }
 ```
 
+::: tip Advanced Reading
+For reverse-lookup projections and uniqueness checks, see [Lookups](/guide/lookups). For lightweight in-memory observers without projection scheduling, see [Event Handlers](/guide/event-handlers). For deeper application patterns like dirty-finalize projections, snapshot jobs, and bounded backfills, see the [Cookbook](/reference/cookbook).
+:::
+
 ## Next
 
 Our application is feature-complete with in-memory backends. In the [next chapter](./11-backends), we'll swap them for production-ready MongoDB and NATS.

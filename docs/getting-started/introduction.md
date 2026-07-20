@@ -1,6 +1,6 @@
 # Introduction
 
-**goes** is an event-sourcing framework for Go. It provides the building blocks for modeling your domain with [aggregates](/guide/aggregates), persisting state as [events](/guide/events), building read models with [projections](/guide/projections), and coordinating workflows across aggregates.
+**goes** is an event-sourcing framework for Go. It provides the building blocks for modeling your domain with [aggregates](/guide/aggregates), persisting state as [events](/guide/events), building read models with [projections](/guide/projections), and coordinating long-running workflows with [sagas](/guide/sagas).
 
 ## What is Event Sourcing?
 
@@ -24,6 +24,7 @@ Domain-Driven Design (DDD) is an approach to software development that focuses o
 - **[Aggregates](/guide/aggregates)** — Consistency boundaries that protect business rules. They encapsulate state and validate changes before accepting them.
 - **[Events](/guide/events)** — Facts about what happened. Past-tense, immutable records of state changes.
 - **[Commands](/guide/commands)** — Requests to do something. They express intent and are validated by aggregates before producing events.
+- **[Sagas](/guide/sagas)** — Long-running process managers that coordinate workflows across aggregates and services using events, commands, timeouts, and compensation.
 - **[Projections](/guide/projections)** — Read-optimized views derived from events. Tailored for specific query needs, updated reactively as events flow through the system.
 
 ## Why goes?
