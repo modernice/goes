@@ -19,7 +19,7 @@
 
 ## Install
 
-`goes` currently targets Go 1.24+.
+`goes` currently targets Go 1.25+.
 
 ```bash
 go get github.com/modernice/goes/...
