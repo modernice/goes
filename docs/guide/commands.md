@@ -285,15 +285,15 @@ err := cbus.Dispatch(ctx, cmd.Any(), dispatch.Sync())
 
 With `dispatch.Sync()`, `Dispatch` blocks until the handler finishes and returns the handler's error directly.
 
-## When to Use a Saga
+## When to Use a Workflow
 
-Commands and sagas solve different problems:
+Commands and workflows solve different problems:
 
 - A command is a single intent message.
 - A command handler is an immediate request handler.
-- A [saga](/guide/sagas) coordinates a multi-step workflow that reacts to later events, sets timeouts, and can enter compensation.
+- A [workflow](/guide/workflows) coordinates a multi-step process that reacts to later events, sets timeouts, and can enter compensation.
 
-If the process needs to wait for future events, survive across restarts, cross service/process boundaries, or manage explicit timeouts and compensation, reach for a saga rather than stretching a single command handler across the whole workflow.
+If the process needs to wait for future events, survive across restarts, cross service/process boundaries, or manage explicit timeouts and compensation, reach for a workflow rather than stretching a single command handler across the whole process.
 
 ## The Command Pattern
 

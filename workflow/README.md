@@ -224,4 +224,15 @@ registry passed as `Config.Commands` receives them automatically.
 
 ## Migrating from package saga
 
-TODO
+The deprecated [`saga`](../saga) package ran a predefined sequence of actions
+in-process: execution was neither persisted nor distributed, so a crashed
+process could not recover a running SAGA. Workflows replace that model with
+durable, event-driven instances — control flow is inverted (handlers react to
+domain events instead of a central sequence invoking actions), effects are
+persisted, and compensation is an explicit phase instead of an automatic
+rollback stack.
+
+See the [saga README](../saga/README.md#migrating-to-workflow) for a
+side-by-side API mapping, and the
+[workflows guide](https://goes.modernice.dev/guide/workflows) for the full
+documentation of this package.

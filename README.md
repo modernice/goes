@@ -15,6 +15,7 @@
 - Backend-agnostic application code that works with in-memory, MongoDB, PostgreSQL, and NATS backends
 - Streaming-first query and subscription APIs that return channels, keeping large workloads incremental and low-memory
 - Production-oriented features like optimistic concurrency, snapshots, and continuous projections
+- Durable, event-driven workflows (sagas) that coordinate long-running processes with timeouts and compensation
 - A practical path from local development to distributed systems without changing your core domain model
 
 ## Install
@@ -152,6 +153,7 @@ Event-sourced aggregates are easy to test because they are in-memory state machi
 - Getting started: [`docs/getting-started/`](./docs/getting-started)
 - Tutorial: [`docs/tutorial/`](./docs/tutorial)
 - Backends: [`docs/backends/`](./docs/backends)
+- Workflows (sagas): [`docs/guide/workflows.md`](./docs/guide/workflows.md) and the [`workflow`](./workflow) package
 - Architecture and best practices: [`docs/reference/`](./docs/reference)
 - Distributed example app: [`examples/todo/`](./examples/todo)
 

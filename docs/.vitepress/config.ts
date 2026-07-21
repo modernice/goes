@@ -66,7 +66,7 @@ export default defineConfig({
           { text: 'Events', link: '/guide/events' },
           { text: 'Event Handlers', link: '/guide/event-handlers' },
           { text: 'Commands', link: '/guide/commands' },
-          { text: 'Sagas', link: '/guide/sagas' },
+          { text: 'Workflows (Sagas)', link: '/guide/workflows' },
           { text: 'Projections', link: '/guide/projections' },
           { text: 'Lookups', link: '/guide/lookups' },
           { text: 'Codec Registry', link: '/guide/codec' },

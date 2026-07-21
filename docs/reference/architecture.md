@@ -14,7 +14,7 @@ goes is a layered event-sourcing framework. Each layer depends only on the layer
             event ◄────── command
               │  ▲            ▲
               │  │            │
-              │  └──── saga ──┘
+              │  └─ workflow ─┘
               │         │
               └───────┬─┘
                       │
@@ -31,7 +31,7 @@ goes is a layered event-sourcing framework. Each layer depends only on the layer
 | --- | --- |
 | `event` | Core event types, event store and event bus interfaces, query builder |
 | `command` | Command types, command bus interface, handler registration |
-| `saga` | Distributed process managers that persist workflow state, react to domain events, and emit durable command/timeout effects |
+| `workflow` | Distributed process managers (sagas) that persist workflow state, react to domain events, and emit durable command/timeout effects |
 | `aggregate` | Event-sourced aggregate base type, event handler registration |
 | `aggregate/repository` | Persistence facade — save, fetch, and query aggregates |
 | `projection` | Read-model [projections](/guide/projections) with scheduling and progress tracking |
@@ -56,7 +56,7 @@ Dispatch ──► Command Bus ──► Handler ──► repo.Use() ──► 
 cmd := command.New(CreateProduct, CreateProductPayload{
 	Name:  "Wireless Mouse",
 	Price: 2999,
-}, command.Aggregate(productID, ProductAggregate))
+}, command.Aggregate(ProductAggregate, productID))
 
 bus.Dispatch(ctx, cmd.Any(), dispatch.Sync())
 ```
@@ -89,9 +89,9 @@ func (p *Product) Create(name string, price int) error {
 
 **6. The store publishes events to the bus.** If the store is wrapped with `eventstore.WithBus(store, bus)`, events are automatically published to the event bus after insertion. This is what triggers the read path.
 
-## The Saga / Process Manager Path
+## The Workflow / Process Manager Path
 
-Sagas coordinate workflows that span multiple events, commands, timeouts, or compensation steps. Unlike aggregates, they are not consistency boundaries. They are workflow coordinators that persist their own state and recover from crashes.
+[Workflows](/guide/workflows) coordinate processes that span multiple events, commands, timeouts, or compensation steps. Unlike aggregates, they are not consistency boundaries. They are process coordinators that persist their own state and recover from crashes.
 
 The runtime flow looks like this:
 
@@ -99,51 +99,50 @@ The runtime flow looks like this:
 Bus.Publish / Startup Replay
             │
             ▼
-       Saga Service
+     Workflow Service
             │
             ▼
-   Load/Create Saga Aggregate
+ Load/Create Workflow Aggregate
             │
             ▼
-     Record Saga Events
+   Record Workflow Events
             │
             ▼
-         Store.Insert
+       Store.Insert
             │
+            ▼
+      Effect Runtime
      ┌──────┴──────┐
-     │             │
-     ▼             ▼
-Command Worker   Timeout Worker
      │             │
      ▼             ▼
 command.Bus     timeout fired event
  Dispatch            │
      │               ▼
-     └──────────► Saga Service
+     └──────────► Workflow Service
 ```
 
 ### Step by step
 
-**1. Domain events are published or replayed.** Saga trigger events usually arrive through the event bus. On startup, the saga runtime can also replay recent trigger events from the event store.
+**1. Domain events are published or replayed.** Workflow trigger events usually arrive through the event bus. On startup, the workflow runtime can also replay recent trigger events from the event store (opt-in via `workflow.Config.TriggerReplayWindow`).
 
-**2. The runtime correlates the event to a saga instance.** A saga definition maps the event to a saga UUID with a correlator such as `saga.AggregateID()`.
+**2. The runtime correlates the event to a workflow instance.** A workflow definition maps the event to a workflow UUID with a correlator such as `workflow.ByAggregateID` or `workflow.ByKey(...)`.
 
-**3. The runtime loads or creates the saga aggregate.** Start handlers can create new saga instances. Reaction handlers only run for existing instances.
+**3. The runtime loads or creates the workflow aggregate.** Start handlers can create new workflow instances. Reaction handlers only run for existing instances.
 
-**4. The handler records durable saga events.** Saga handlers do not execute side effects inline. They record lifecycle changes, command requests, and timeouts in the saga stream.
+**4. The handler records durable workflow events.** Workflow handlers do not execute side effects inline. They record lifecycle changes, command requests, and timeouts in the workflow stream — atomically together with the ID of the trigger event, which makes trigger handling exactly-once.
 
-**5. Saga state is saved.** The saga aggregate is persisted through the event store like any other aggregate.
+**5. Workflow state is saved.** The workflow aggregate is persisted through the event store like any other aggregate.
 
-**6. Background workers execute pending effects.** One worker dispatches pending commands through `command.Bus`. Another tracks active timeouts and emits timeout-fired events when due.
+**6. The effect runtime executes pending effects.** It dispatches pending commands through `command.Bus` and fires active timeouts when due. Before executing an effect, it re-fetches the workflow and verifies the effect is still pending — periodic resyncs from the event store let any service instance take over the effects of a crashed one.
 
-**7. Timeout firing re-enters the saga.** A timeout-fired event follows the same trigger path as an external event, which keeps timeout handling durable and replayable.
+**7. Timeout firing re-enters the workflow.** A timeout-fired event follows the same trigger path as an external event, which keeps timeout handling durable and replayable.
 
 Key properties of the model:
 
-- Saga side effects are durable and asynchronous.
-- Command and timeout effects are at-least-once.
-- Saga state survives crashes because it is rebuilt from events.
-- The saga package coordinates workflows, but it does not replace aggregate consistency rules.
+- Workflow side effects are durable and asynchronous.
+- Trigger events are handled exactly once; command and timeout effects are at-least-once.
+- Workflow state survives crashes because it is rebuilt from events.
+- The workflow package coordinates processes, but it does not replace aggregate consistency rules.
 
 ## The Read Path
 

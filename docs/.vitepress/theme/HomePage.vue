@@ -52,10 +52,10 @@ const features: Feature[] = [
       'Fluent test assertions for aggregates, in-memory backends for integration tests, and conformance suites for custom implementations.',
   },
   {
-    icon: '🦾',
-    title: 'Modular Design',
+    icon: '⚙️',
+    title: 'Durable Workflows',
     description:
-      'Use only what you need — the event system, commands, projections — and adopt more components as your project grows.',
+      'Coordinate long-running processes across services with event-sourced workflows — durable commands, timeouts, and explicit compensation.',
   },
   {
     icon: '🔋',
