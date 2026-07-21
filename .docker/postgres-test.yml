@@ -4,14 +4,23 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
   test:
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     build:
       context: ..
       dockerfile: .docker/tag-test.Dockerfile
       args:
         TAGS: postgres
+        TEST_PATH: ./backend/postgres/...
     environment:
-      - POSTGRES_EVENTSTORE=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
+      # Base URL without a database path or query string: the tests append
+      # "/<database>" and "?<params>" to this value.
+      - POSTGRES_EVENTSTORE=postgres://postgres:postgres@postgres:5432

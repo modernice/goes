@@ -1,0 +1,26 @@
+name: Postgres
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      !startsWith(github.event.head_commit.message, 'docs') &&
+      !contains(github.event.head_commit.message, 'skip ci') &&
+      !contains(github.event.head_commit.message, 'ci skip')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Test
+      run: make postgres-test

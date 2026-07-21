@@ -37,8 +37,10 @@ mongo-test:
 
 .PHONY: postgres-test
 postgres-test:
-	docker compose -f .docker/postgres-test.yml up --build --abort-on-container-exit --remove-orphans; \
-	docker compose -f .docker/postgres-test.yml down --remove-orphans
+	docker compose -f .docker/postgres-test.yml up --build --exit-code-from test --remove-orphans; \
+	status=$$?; \
+	docker compose -f .docker/postgres-test.yml down --remove-orphans; \
+	exit $$status
 
 .PHONY: coverage
 coverage:
