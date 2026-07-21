@@ -194,6 +194,35 @@ Cancels the active timeout with the given key. If no timeout with that key exist
 ctx.Unschedule("payment")
 ```
 
+#### Recurring timeouts
+
+A fired timeout is consumed — its key becomes free again. Scheduling the same key from inside the `OnTimeout` handler therefore arms a fresh deadline, which turns a one-shot timeout into a reminder or escalation loop. Persist the round counter through an internal workflow event (the same [state pattern](#workflow-struct-constructor-and-state-methods) as in the full example) so the loop survives restarts:
+
+```go
+workflow.OnTimeout("payment", (*OrderWorkflow).onPaymentDue)
+
+func (w *OrderWorkflow) onPaymentDue(ctx workflow.Ctx[workflow.TimeoutFiredData]) error {
+	if w.RemindersSent >= 3 {
+		return ctx.Fail(errors.New("payment overdue after 3 reminders"))
+	}
+
+	// Records an internal event whose applier increments w.RemindersSent.
+	w.recordReminderSent()
+
+	if err := ctx.Dispatch("payment-reminder", command.New(
+		SendPaymentReminderCmd,
+		SendPaymentReminderPayload{OrderID: w.AggregateID()},
+		command.Aggregate(OrderAggregate, w.AggregateID()),
+	).Any()); err != nil {
+		return err
+	}
+
+	return ctx.Schedule("payment", time.Now().Add(24*time.Hour))
+}
+```
+
+Each firing is a distinct trigger event, so effect keys reused across rounds (like `"payment-reminder"` here) produce fresh effects — the reminder command is dispatched once per round, not deduplicated across rounds. After the last round, transition instead of rescheduling: `Fail` the workflow, or `Compensate` and let the compensation phase clean up.
+
 ### Transitioning the workflow
 
 These methods move the workflow through its lifecycle. Each one also cancels all active timeouts before transitioning.

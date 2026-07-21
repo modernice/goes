@@ -27,8 +27,8 @@ import (
 	"fmt"
 	"testing"
 
-	"example.com/shop"
 	"github.com/modernice/goes/exp/gtest"
+	"github.com/yourname/shop"
 )
 
 func TestNewProduct(t *testing.T) {
@@ -55,9 +55,9 @@ package shop_test
 import (
 	"testing"
 
-	"example.com/shop"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/exp/gtest"
+	"github.com/yourname/shop"
 )
 
 func TestProduct_Create(t *testing.T) {
@@ -154,10 +154,10 @@ import (
 	"context"
 	"testing"
 
-	"example.com/shop"
 	"github.com/google/uuid"
 	"github.com/modernice/goes/aggregate/repository"
 	"github.com/modernice/goes/event/eventstore"
+	"github.com/yourname/shop"
 )
 
 func TestProduct_PersistAndFetch(t *testing.T) {
@@ -201,9 +201,9 @@ Test simple event-by-event projections by applying events manually:
 
 ```go
 import (
-	"example.com/shop"
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/projection"
+	"github.com/yourname/shop"
 )
 
 func TestProductCatalog(t *testing.T) {
@@ -239,10 +239,10 @@ For projections that rebuild from aggregates, you need the full event store and 
 
 ```go
 import (
-	"example.com/shop"
 	"github.com/modernice/goes/backend/memory"
 	"github.com/modernice/goes/event/eventbus"
 	"github.com/modernice/goes/helper/streams"
+	"github.com/yourname/shop"
 )
 
 func TestOrderSummaryProjector(t *testing.T) {
@@ -365,19 +365,6 @@ func TestCreateProductCommand(t *testing.T) {
 
 4. **Test validation boundaries** — ensure your aggregate rejects invalid operations (empty names, negative prices, wrong status transitions).
 
-## What You've Built
+## Next
 
-Congratulations! You've built a complete event-sourced e-commerce application with:
-
-- **4 aggregates** — Product, Pricing, Order, Customer
-- **Type-safe events and commands** — with codec registration
-- **Typed repositories** — persist and fetch aggregates
-- **A product catalog projection** — reactive read model
-- **Production backends** — MongoDB event store, NATS event bus
-- **Tests** — for aggregates, projections, and command handlers
-
-## What's Next?
-
-- **[Guide](/guide/aggregates)** — deep-dive into each framework component
-- **[Backends](/backends/)** — detailed backend configuration and options
-- **[Reference](/reference/architecture)** — architecture overview and best practices
+The shop works and is tested — but nothing enforces payment yet, and a cancelled order never returns its stock. In the [final chapter](./13-workflows), we fix both with a durable workflow.

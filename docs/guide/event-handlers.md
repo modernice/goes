@@ -22,6 +22,8 @@ Use a [projection](/guide/projections) instead when you need:
 
 If the component is specifically a reverse lookup or uniqueness index, start with [Lookups](/guide/lookups).
 
+And when the component must *drive* a process rather than observe it — dispatch commands, wait for future events, enforce deadlines, compensate partial progress — use a [workflow](/guide/workflows) instead: unlike an event handler, a workflow persists its state and pending effects durably and survives restarts.
+
 ## Minimal setup
 
 Create a handler from an event bus, register typed handlers with `event.HandleWith(...)`, then run it.

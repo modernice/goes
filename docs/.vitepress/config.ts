@@ -55,6 +55,7 @@ export default defineConfig({
           { text: '10. Projections', link: '/tutorial/10-projections' },
           { text: '11. Production Backends', link: '/tutorial/11-backends' },
           { text: '12. Testing', link: '/tutorial/12-testing' },
+          { text: '13. The Payment Workflow', link: '/tutorial/13-workflows' },
         ],
       },
       {

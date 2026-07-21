@@ -225,4 +225,4 @@ Without this wrapper, you'd need to manually publish events after saving them.
 
 ## Next
 
-Everything works end-to-end. In the [final chapter](./12-testing), we'll write tests for our aggregates and projections.
+Everything works end-to-end. In the [next chapter](./12-testing), we'll write tests for our aggregates and projections.

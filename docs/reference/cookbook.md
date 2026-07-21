@@ -259,9 +259,132 @@ func MigrateOrders(ctx context.Context, oldOrders aggregate.TypedRepository[*Leg
 - prefer dispatching commands into the new model instead of mutating new aggregates out of band
 - log or collect per-item failures instead of aborting the whole run on the first bad record
 
+## Workflow status dashboard
+
+### Use it when
+
+Use this pattern when you run [workflow](/guide/workflows) services in production and need to answer operational questions across many instances:
+
+- how many workflows are running, completed, or failed right now
+- which instances are stuck in compensation and need manual intervention
+- alerting when a workflow has been compensating (or running) for too long
+
+Fetching workflow instances one by one doesn't scale to a dashboard. The workflow runtime already records lifecycle events (`goes.workflow.*`) on every instance — project them into a status read model instead.
+
+### Pattern
+
+1. Subscribe a projection to the built-in workflow lifecycle events.
+2. Key rows by the event's aggregate ID — that *is* the workflow instance ID — and label them with the aggregate name, so one dashboard covers all workflow types.
+3. Track status, failure reason, and the time of the last transition.
+4. Report or alert on instances that sit in a non-terminal status for too long.
+
+```go
+type StatusView struct {
+	ID        uuid.UUID
+	Workflow  string // aggregate name, e.g. "shop.order_workflow"
+	Status    workflow.Status
+	Reason    string
+	UpdatedAt time.Time
+}
+
+type WorkflowStatus struct {
+	*projection.Base
+
+	mux   sync.RWMutex
+	views map[uuid.UUID]StatusView
+}
+
+func NewWorkflowStatus() *WorkflowStatus {
+	p := &WorkflowStatus{
+		Base:  projection.New(),
+		views: make(map[uuid.UUID]StatusView),
+	}
+
+	event.ApplyWith(p, p.started, workflow.Started)
+	event.ApplyWith(p, p.completed, workflow.Completed)
+	event.ApplyWith(p, p.failed, workflow.Failed)
+	event.ApplyWith(p, p.compensating, workflow.CompensationStarted)
+	event.ApplyWith(p, p.compensated, workflow.CompensationCompleted)
+	event.ApplyWith(p, p.compensationFailed, workflow.CompensationFailed)
+
+	return p
+}
+
+func (p *WorkflowStatus) started(evt event.Of[workflow.StartedData]) {
+	set(p, evt, workflow.StatusRunning, "")
+}
+
+func (p *WorkflowStatus) failed(evt event.Of[workflow.FailedData]) {
+	set(p, evt, workflow.StatusFailed, evt.Data().Reason)
+}
+
+func (p *WorkflowStatus) compensating(evt event.Of[workflow.CompensationStartedData]) {
+	set(p, evt, workflow.StatusCompensating, evt.Data().Reason)
+}
+
+// completed, compensated, and compensationFailed follow the same shape.
+
+func set[D any](p *WorkflowStatus, evt event.Of[D], status workflow.Status, reason string) {
+	id := pick.AggregateID(evt)
+
+	view := p.views[id]
+	view.ID = id
+	view.Workflow = pick.AggregateName(evt)
+	view.Status = status
+	view.Reason = reason
+	view.UpdatedAt = evt.Time() // event time, so replayed history stays accurate
+	p.views[id] = view
+}
+
+func (p *WorkflowStatus) Run(ctx context.Context, bus event.Bus, store event.Store) (<-chan error, error) {
+	s := schedule.Continuously(bus, store, p.RegisteredEvents())
+
+	return s.Subscribe(ctx, func(job projection.Job) error {
+		p.mux.Lock()
+		defer p.mux.Unlock()
+		return job.Apply(job, p)
+	}, projection.Startup())
+}
+
+// Stuck returns workflows that entered compensation more than olderThan ago
+// and never finished it — candidates for manual intervention.
+func (p *WorkflowStatus) Stuck(olderThan time.Duration) []StatusView {
+	p.mux.RLock()
+	defer p.mux.RUnlock()
+
+	cutoff := time.Now().Add(-olderThan)
+
+	var stuck []StatusView
+	for _, view := range p.views {
+		if view.Status == workflow.StatusCompensating && view.UpdatedAt.Before(cutoff) {
+			stuck = append(stuck, view)
+		}
+	}
+	return stuck
+}
+```
+
+Run `Stuck(...)` on a ticker and page someone, or expose the views through an HTTP endpoint. The same comparison against `StatusRunning` catches workflows that have been running past their expected horizon.
+
+### Why this works
+
+- the workflow runtime records the lifecycle events automatically — no instrumentation in your handlers
+- the reason strings come straight from your `ctx.Fail(...)` / `ctx.Compensate(...)` calls
+- all workflow types share the same event names, so a single projection covers every workflow service in the system, distinguished by aggregate name
+- `projection.Startup()` rebuilds the dashboard from the event store on restart
+
+### Prerequisites
+
+The lifecycle events must reach the projection: wrap the event store with `eventstore.WithBus(store, bus)` in the workflow service, and register the built-in events via `workflow.RegisterEvents(...)` in the codec registry used by the store and bus.
+
+### Tradeoff
+
+This is an in-memory view rebuilt from the store on startup. For very large workflow populations, persist the views (database-backed projection with `projection.Progressor`) instead of holding them in a map.
+
 ## Related guides
 
 - [Commands](/guide/commands)
+- [Workflows](/guide/workflows)
 - [Projections](/guide/projections)
 - [Lookups](/guide/lookups)
 - [Snapshots](/guide/snapshots)

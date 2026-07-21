@@ -8,6 +8,7 @@ In this tutorial, you'll build an event-sourced e-commerce application from scra
 - **Order** aggregate — place orders with line items, cancel orders
 - **Customer** aggregate — manage customer profiles and addresses
 - **Product Catalog** projection — a read model that stays in sync with product events
+- **Payment** workflow — enforce payment deadlines and restock cancelled orders
 
 ## What You'll Learn
 
@@ -25,6 +26,7 @@ In this tutorial, you'll build an event-sourced e-commerce application from scra
 | [10. Projections](./10-projections) | Read models, schedules |
 | [11. Production Backends](./11-backends) | MongoDB, NATS, PostgreSQL |
 | [12. Testing](./12-testing) | Testing aggregates and projections |
+| [13. The Payment Workflow](./13-workflows) | Durable workflows, timeouts, compensation |
 
 ## Prerequisites
 
@@ -43,6 +45,7 @@ shop/
   order.go          # Order aggregate + events + commands
   customer.go       # Customer aggregate + events + commands
   catalog.go        # Product catalog projection
+  payment_workflow.go # Payment workflow + internal events
 ```
 
 Let's get started.
