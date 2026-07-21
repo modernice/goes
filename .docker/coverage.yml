@@ -53,6 +53,6 @@ services:
       - MONGOREPLSTORE_URL=mongodb://mongostore_replicaset:27017
       - MONGOSNAP_URL=mongodb://mongosnap:27017
       - MONGOMODEL_URL=mongodb://mongostore_replicaset:27017
-      - POSTGRES_EVENTSTORE=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
+      - POSTGRES_EVENTSTORE=postgres://postgres:postgres@postgres:5432
     volumes:
       - ../out:/coverage/out
