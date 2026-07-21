@@ -24,7 +24,34 @@ import (
 
 func TestEventStore(t *testing.T) {
 	eventstoretest.Run(t, "postgres", func(enc codec.Encoding) event.Store {
-		return postgres.NewEventStore(enc, postgres.URL(fmt.Sprintf("%s?pool_max_conn_lifetime=50ms", os.Getenv("POSTGRES_EVENTSTORE"))), postgres.Database(nextDatabase()))
+		store := postgres.NewEventStore(enc, postgres.URL(fmt.Sprintf("%s?pool_max_conn_lifetime=50ms", os.Getenv("POSTGRES_EVENTSTORE"))), postgres.Database(nextDatabase()))
+		closePoolOnCleanup(t, store)
+		return store
+	})
+}
+
+func TestEventStoreWithPool(t *testing.T) {
+	eventstoretest.Run(t, "postgres", func(enc codec.Encoding) event.Store {
+		database := preCreateDatabase(t)
+
+		pool, err := pgxpool.New(context.Background(), fmt.Sprintf("%s/%s?pool_max_conn_lifetime=50ms", os.Getenv("POSTGRES_EVENTSTORE"), database))
+		if err != nil {
+			t.Fatalf("Failed to create connection to database %q: %v", database, err)
+		}
+		t.Cleanup(pool.Close)
+
+		return postgres.NewEventStore(enc, postgres.Pool(pool))
+	})
+}
+
+// closePoolOnCleanup closes the connection pool that the store creates on
+// Connect. Without this, every factory call leaks a pool and the server
+// eventually rejects connections with "too many clients already".
+func closePoolOnCleanup(t *testing.T, store *postgres.EventStore) {
+	t.Cleanup(func() {
+		if pool := store.Pool(); pool != nil {
+			pool.Close()
+		}
 	})
 }
 
@@ -103,6 +130,67 @@ func TestConnect_ExistingTableWithInvalidSchema(t *testing.T) {
 	expectedError := `table "events" schema mismatch: missing columns: "data"; column "aggregate_id" should have type "uuid" but has type "bigint"`
 	if err.Error() != expectedError {
 		t.Fatalf("Connect returned unexpected error: %v", err)
+	}
+}
+
+func TestConnect_ExistingTableWithTextColumns(t *testing.T) {
+	database := preCreateDatabaseAndTable(t, `CREATE TABLE %s (
+		id UUID PRIMARY KEY NOT NULL,
+		name TEXT NOT NULL,
+		time BIGINT NOT NULL,
+		aggregate_id UUID,
+		aggregate_name TEXT,
+		aggregate_version INTEGER,
+		data JSONB
+	)`)
+
+	ctx := context.Background()
+
+	pool, err := pgxpool.New(ctx, fmt.Sprintf("%s/%s", os.Getenv("POSTGRES_EVENTSTORE"), database))
+	if err != nil {
+		t.Fatalf("Failed to create connection to database %q: %v", database, err)
+	}
+	defer pool.Close()
+
+	store := postgres.NewEventStore(test.NewEncoder(), postgres.Pool(pool))
+	if err := store.Connect(ctx); err != nil {
+		t.Fatalf("Failed to connect store with TEXT columns: %v", err)
+	}
+}
+
+func TestConnect_TableInUnrelatedSchema(t *testing.T) {
+	database := preCreateDatabase(t)
+
+	ctx := context.Background()
+
+	pool, err := pgxpool.New(ctx, fmt.Sprintf("%s/%s", os.Getenv("POSTGRES_EVENTSTORE"), database))
+	if err != nil {
+		t.Fatalf("Failed to create connection to database %q: %v", database, err)
+	}
+	defer pool.Close()
+
+	// A same-named table in a schema that is not on the search_path must not
+	// count as the event table: the store's queries would not resolve to it.
+	if _, err := pool.Exec(ctx, "CREATE SCHEMA other"); err != nil {
+		t.Fatalf("create schema: %v", err)
+	}
+	if _, err := pool.Exec(ctx, fmt.Sprintf(correctTableSQL, "other.events")); err != nil {
+		t.Fatalf("create decoy table: %v", err)
+	}
+
+	store := postgres.NewEventStore(test.NewEncoder(), postgres.Pool(pool))
+	if err := store.Connect(ctx); err != nil {
+		t.Fatalf("Failed to connect store: %v", err)
+	}
+
+	// Connect must have created the event table on the search_path instead of
+	// validating against the decoy.
+	var exists bool
+	if err := pool.QueryRow(ctx, "SELECT to_regclass('public.events') IS NOT NULL").Scan(&exists); err != nil {
+		t.Fatalf("check public.events: %v", err)
+	}
+	if !exists {
+		t.Fatal("Connect did not create the event table on the search_path")
 	}
 }
 
