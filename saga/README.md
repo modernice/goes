@@ -1,17 +1,55 @@
 # SAGAs / Process Managers
 
-The `saga` package implements a SAGA coordinator / process manager for more
-complex multi-step transactions. This package integrates with the event,
-aggregate and command system to provide convenient access to the different
-components within the defined SAGA actions.
+> **Deprecated:** This package has been superseded by the
+> [`workflow`](../workflow) package and will be removed in a future release.
+> Use `workflow` for all new code.
 
-> This SAGA implementation is very likely subject to a rewrite. This is due to the
-implementation not working distributed like the [command bus](../command) or
-[projection service](../projection). Instead, a SAGA is executed and coordinates
-from within a single process, which provides no recover strategy for when the
-process that executes the SAGA fails. A rewrite is necessary to make SAGAs work
-event-driven, which should provide the required persistence layer and state
-needed for recovering SAGAs.
+The `saga` package implements an **in-process** SAGA coordinator: it runs a
+predefined sequence of actions within a single process and compensates
+completed actions in reverse order when a later action fails. Because
+execution is neither persisted nor distributed, a crashed process cannot
+recover a running SAGA — the limitation that motivated the replacement.
+
+The [`workflow`](../workflow) package replaces it with a durable, event-driven
+workflow runtime: workflow instances are event-sourced aggregates, every step
+is persisted, commands and timeouts are recorded as durable effects, and any
+service instance can recover and resume the work of a crashed one.
+
+## Migrating to `workflow`
+
+| `saga` | `workflow` |
+| --- | --- |
+| `saga.New(...)` (a `saga.Setup`) | `workflow.Define(NewOrderWorkflow, ...)` |
+| `saga.Action("step", fn)` | Event-driven handlers: `workflow.Starts(...)`, `workflow.Reacts(...)` |
+| `saga.Sequence(...)`, `saga.StartWith(...)` | No fixed sequence — steps advance by reacting to domain events |
+| `saga.Compensate("step", "undo-step")` | Explicit compensation phase: `ctx.Compensate(err)`, `workflow.Compensates(...)` handlers, `ctx.Compensated()` |
+| `saga.NewExecutor(...).Execute(ctx, setup)` | `workflow.NewService(workflow.Config{...}, defs...)` + `svc.Run(ctx)` |
+| `saga.Repository()`, `saga.EventBus()`, `saga.CommandBus()` | `workflow.Config{EventStore, EventBus, CommandBus, Commands}` |
+| `action.Context.Dispatch(...)` | `ctx.Dispatch("effect-key", cmd)` — a durable, at-least-once command effect |
+| `action.Context.Publish(...)` | Workflows react to events published by your aggregates and command handlers |
+| `action.Context.Fetch(...)` | The workflow instance itself is event-sourced state; fetch other aggregates in your command handlers |
+| `saga.Report()` / `report.Report` | `Status()` / `Reason()` on the workflow, plus the built-in `goes.workflow.*` events |
+| — | Durable timeouts: `ctx.Schedule(...)`, `workflow.OnTimeout(...)` |
+
+The semantics change with the migration:
+
+- A SAGA executes once, synchronously, in the calling process. A workflow is a
+  long-lived, durable instance that is advanced by events — across service
+  restarts and across multiple service instances.
+- Control flow is inverted: instead of a central sequence invoking actions,
+  each handler dispatches commands whose resulting domain events trigger the
+  next handler.
+- Compensation is not automatic: entering compensation is an explicit decision
+  (`ctx.Compensate`), the undo work is driven by `Compensates` handlers
+  reacting to events, and `ctx.Compensated()` (or `ctx.CompensationFailed()`)
+  ends the phase.
+
+See the [workflow README](../workflow/README.md) for the full model, delivery
+semantics, and a complete example.
+
+---
+
+# Legacy documentation
 
 ## Features
 

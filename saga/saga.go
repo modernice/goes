@@ -1,3 +1,13 @@
+// Package saga provides an in-process SAGA coordinator that runs a predefined
+// sequence of actions and compensates completed actions when a later action
+// fails.
+//
+// Deprecated: Package saga has been superseded by package workflow
+// (github.com/modernice/goes/workflow), a durable, event-driven, and
+// distributed workflow runtime. Unlike this package, workflows are
+// event-sourced aggregates that survive crashes and support durable command
+// dispatch and timeouts. This package will be removed in a future release;
+// see the package README for a migration guide.
 package saga
 
 import (
