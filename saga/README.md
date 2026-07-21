@@ -1,116 +1,236 @@
-# Saga
+# SAGAs / Process Managers
 
-The `saga` package provides an event-driven, distributed saga/process-manager runtime.
+The `saga` package implements a SAGA coordinator / process manager for more
+complex multi-step transactions. This package integrates with the event,
+aggregate and command system to provide convenient access to the different
+components within the defined SAGA actions.
 
-## Model
+> This SAGA implementation is very likely subject to a rewrite. This is due to the
+implementation not working distributed like the [command bus](../command) or
+[projection service](../projection). Instead, a SAGA is executed and coordinates
+from within a single process, which provides no recover strategy for when the
+process that executes the SAGA fails. A rewrite is necessary to make SAGAs work
+event-driven, which should provide the required persistence layer and state
+needed for recovering SAGAs.
 
-- A saga instance embeds `*saga.Base`.
-- Saga behavior is defined statically with `saga.Define(...)`.
-- Domain events start or advance the saga through `saga.Starts(...)`, `saga.Reacts(...)`, `saga.Compensates(...)`, `saga.OnTimeout(...)`, and `saga.OnCompensationTimeout(...)`.
-- Handlers do not dispatch commands or timers inline. They record durable saga events.
-- Compensation is phase-based and explicit. The runtime does not infer reverse operations or maintain an automatic rollback stack.
-- Background workers replay pending command and timeout effects from the event store.
-- On startup, trigger events are also replayed from the event store before the runtime continues live processing. This allows recovery with non-durable event buses such as NATS Core.
-- Trigger replay is bounded by `saga.Config.TriggerReplayWindow`; the default is `24*time.Hour`.
+## Features
 
-## Example
+- Action-based SAGA setups
+- Compensators
+- Flexible action invoking
+- Integrates with goes' components
+
+## Setups
+
+The main type of the SAGA implementation is the `saga.Setup` interface, which
+provides the executor with runnable actions and some configuration:
 
 ```go
-type OrderSaga struct {
-	*saga.Base
+package saga
+
+type Setup interface {
+  // Sequence returns the names of the actions that should be run sequentially.
+  Sequence() []string
+
+  // Compensator finds and returns the name of the compensating action for the
+  // Action with the given name. If Compensator returns an empty string, there
+  // is no compensator for the given action configured.
+  Compensator(string) string
+
+  // Action returns the action with the given name. Action returns nil if no
+  // Action with that name was configured.
+  Action(string) action.Action
 }
+```
 
-func NewOrderSaga(id uuid.UUID) *OrderSaga {
-	s := &OrderSaga{Base: saga.New("shop.order_saga", id)}
+### Actions
 
-	event.ApplyWith(s, s.started, saga.Started)
-	return s
-}
+A `saga.Setup` implementation can be instantiated using `saga.New()`. Pass
+`saga.Action()` options to define the actions within the SAGA.
 
-var OrderProcess = saga.Define(
-	NewOrderSaga,
-	saga.Starts(
-		saga.AggregateID[OrderPlacedData](),
-		(*OrderSaga).onOrderPlaced,
-		OrderPlaced,
-	),
-	saga.Reacts(
-		saga.AggregateID[PaymentReceivedData](),
-		(*OrderSaga).onPaymentReceived,
-		PaymentReceived,
-	),
-	saga.Compensates(
-		saga.AggregateID[StockReleasedData](),
-		(*OrderSaga).onStockReleased,
-		StockReleased,
-	),
-	saga.OnTimeout("payment", (*OrderSaga).onPaymentTimeout),
-	saga.OnCompensationTimeout("release-stock", (*OrderSaga).onReleaseTimeout),
+```go
+package example
+
+import (
+  "github.com/modernice/goes/saga"
+  "github.com/modernice/goes/saga/action"
 )
 
-func (s *OrderSaga) onOrderPlaced(ctx saga.Ctx[OrderPlacedData]) error {
-	if err := ctx.Dispatch("reserve-stock", command.New(...).Any()); err != nil {
-		return err
-	}
-
-	return ctx.Schedule("payment", time.Now().Add(15*time.Minute))
-}
-
-func (s *OrderSaga) onPaymentReceived(ctx saga.Ctx[PaymentReceivedData]) error {
-	if err := ctx.CancelTimeout("payment"); err != nil {
-		return err
-	}
-
-	return ctx.Complete()
-}
-
-func (s *OrderSaga) onPaymentDeclined(ctx saga.Ctx[PaymentDeclinedData]) error {
-	if err := ctx.Compensate(errors.New("payment declined")); err != nil {
-		return err
-	}
-
-	if err := ctx.Dispatch("release-stock", command.New(...).Any()); err != nil {
-		return err
-	}
-
-	return ctx.Schedule("release-stock", time.Now().Add(30*time.Second))
-}
-
-func (s *OrderSaga) onStockReleased(ctx saga.Ctx[StockReleasedData]) error {
-	return ctx.Compensated()
+func example() {
+  setup := saga.New(
+    saga.Action("foo", func(ctx action.Context) error {
+       return nil
+    }),
+    saga.Action("bar", func(ctx action.Context) error {
+       return nil
+    }),
+    saga.Action("baz", func(ctx action.Context) error {
+       return nil
+    }),
+  )
 }
 ```
 
-Run the service with an event store, event bus, command bus, and one or more saga definitions:
+### Sequence / Starting Action
+
+The `saga.Sequece()` option defines the order in which the actions of the SAGA
+are run. When an action returns a non-nil error, remaining actions are not run.
 
 ```go
-svc := saga.NewService(saga.Config{
-	Encoding: registry,
-	Store:    store,
-	Bus:      eventBus,
-	Commands: commandBus,
-	Strict:   true,
-}, OrderProcess)
+package example
 
-errs, err := svc.Run(ctx)
+import (
+  "github.com/modernice/goes/saga"
+  "github.com/modernice/goes/saga/action"
+)
+
+func example() {
+  setup := saga.New(
+    saga.Action("foo", func(ctx action.Context) error {
+       return nil
+    }),
+    saga.Action("bar", func(ctx action.Context) error {
+       return nil
+    }),
+    saga.Action("baz", func(ctx action.Context) error {
+       return nil
+    }),
+
+    // Run "bar", then "baz", finally "foo".
+    saga.Sequence("bar", "baz", "foo"),
+  )
+}
 ```
 
-## Built-in Events
+Alternatively, the `saga.StartWith()` option can be used to specify a single
+action that should be run when executing this setup. Using the action's context,
+other actions can be called from within a running action by name.
 
-The package persists these built-in saga events:
+```go
+package example
 
-- `goes.saga.started`
-- `goes.saga.completed`
-- `goes.saga.failed`
-- `goes.saga.compensation.started`
-- `goes.saga.compensation.completed`
-- `goes.saga.compensation.failed`
-- `goes.saga.trigger.recorded`
-- `goes.saga.command.requested`
-- `goes.saga.command.dispatched`
-- `goes.saga.timeout.requested`
-- `goes.saga.timeout.canceled`
-- `goes.saga.timeout.fired`
+import (
+  "github.com/modernice/goes/saga"
+  "github.com/modernice/goes/saga/action"
+)
 
-Register them with `saga.RegisterEvents(registry)` when a codec-backed transport or
-store needs to encode/decode saga event payloads.
+func example() {
+  setup := saga.New(
+    saga.Action("foo", func(ctx action.Context) error {
+       return nil
+    }),
+    saga.Action("bar", func(ctx action.Context) error {
+      return ctx.Run(ctx, "baz")
+    }),
+    saga.Action("baz", func(ctx action.Context) error {
+      return ctx.Run(ctx, "foo")
+    }),
+
+    // Same as saga.Sequece("bar")
+    saga.StartWith("bar"),
+  )
+}
+```
+
+If neither the `saga.Sequence()` nor the saga `saga.StartWith()` option is
+passed, the first defined action is automatically used as the starting action to
+the SAGA (effectively an automatic `saga.StartWith()` option using the first
+defined action).
+
+
+### Compensating Actions
+
+Compensating actions are run to gracefully recover or fix application state when
+the execution of a setup fails. When an action of a SAGA fails, all previously
+run actions that returned **no error** will be compensating by running their
+configured compensator action (if any), in reverse order. Any action can be
+configured as the compensating action for another action.
+
+```go
+package example
+
+import (
+  "github.com/modernice/goes/saga"
+  "github.com/modernice/goes/saga/action"
+)
+
+func example() {
+  setup := saga.New(
+    saga.Action("foo", func(ctx action.Context) error {
+       return nil
+    }),
+    saga.Action("bar", func(ctx action.Context) error {
+      return nil
+    }),
+    saga.Action("baz", func(ctx action.Context) error {
+      return errors.New("oops")
+    }),
+
+    saga.Action("fix-foo", func(ctx action.Context) error {
+      return nil
+    }),
+
+    saga.Action("fix-bar", func(ctx action.Context) error {
+      return nil
+    }),
+
+    saga.Sequence("foo", "bar", "baz"),
+    saga.Compensate("foo", "fix-foo"),
+    saga.Compensate("bar", "fix-bar"),
+  )
+}
+```
+
+The example above would result the following actions be run in the given order:
+
+- "foo"
+- "bar"
+- "baz"
+- "fix-bar"
+- "fix-foo"
+
+### Action Context
+
+The `action.Context` that is passed to action functions provides functions to
+fetch aggregates, publish events and dispatch commands. For this to work, the
+`saga.Executor` that executes the setup needs to have the aggregate repository,
+event bus and/or command bus explicitly configured (see [Executor Options](
+#executor-options)); otherwise these following functions return
+`action.ErrMissingRepository` errors.
+
+```go
+package example
+
+func example() {
+  setup := saga.New(
+    saga.Action("foo", func(ctx action.Context) error {
+      err := ctx.Fetch(ctx, ...)
+      err := ctx.Publish(ctx, event.New(...))
+      err := ctx.Dispatch(ctx, command.New(...))
+    }),
+  )
+}
+```
+
+## Executor
+
+A SAGA setup can be executed using a `saga.Executor`.
+
+```go
+package example
+
+func example(setup saga.Setup) {
+  exec := saga.NewExecutor()
+  err := exec.Execute(context.TODO(), setup)
+}
+```
+
+### Executor Options
+
+When creating an executor, use the
+
+- `saga.Repository()` ,
+- `saga.EventBus()` and
+- `saga.CommandBus()`
+
+options to provide the executor with repositories which will be available from within the SAGAs `action.Context`s.

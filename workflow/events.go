@@ -1,4 +1,4 @@
-package saga
+package workflow
 
 import (
 	"fmt"
@@ -10,93 +10,79 @@ import (
 	"github.com/modernice/goes/event"
 )
 
+// Built-in workflow events. These events are recorded on workflow instances
+// by the runtime and by handler contexts, and drive the lifecycle and effect
+// state of every workflow.
 const (
-	// Started marks the creation of a saga instance.
-	Started = "goes.saga.started"
+	// Started marks the creation of a workflow instance.
+	Started = "goes.workflow.started"
 
-	// Completed marks a successfully finished saga instance.
-	Completed = "goes.saga.completed"
+	// Completed marks a successfully finished workflow.
+	Completed = "goes.workflow.completed"
 
-	// Failed marks a failed saga instance.
-	Failed = "goes.saga.failed"
+	// Failed marks a failed workflow.
+	Failed = "goes.workflow.failed"
 
-	// CompensationStarted marks a saga entering compensation mode.
-	CompensationStarted = "goes.saga.compensation.started"
+	// CompensationStarted marks a workflow entering compensation.
+	CompensationStarted = "goes.workflow.compensation.started"
 
-	// CompensationCompleted marks a successfully compensated saga.
-	CompensationCompleted = "goes.saga.compensation.completed"
+	// CompensationCompleted marks a successfully compensated workflow.
+	CompensationCompleted = "goes.workflow.compensation.completed"
 
-	// CompensationFailed marks a compensation flow that ended unsuccessfully.
-	CompensationFailed = "goes.saga.compensation.failed"
+	// CompensationFailed marks a compensation that ended unsuccessfully.
+	CompensationFailed = "goes.workflow.compensation.failed"
 
-	// TriggerRecorded stores the external trigger IDs already processed by a saga.
-	TriggerRecorded = "goes.saga.trigger.recorded"
+	// TriggerRecorded stores the ids of trigger events already handled by a
+	// workflow, making trigger handling idempotent.
+	TriggerRecorded = "goes.workflow.trigger.recorded"
 
 	// CommandRequested records an outgoing command effect.
-	CommandRequested = "goes.saga.command.requested"
+	CommandRequested = "goes.workflow.command.requested"
 
 	// CommandDispatched marks an outgoing command effect as dispatched.
-	CommandDispatched = "goes.saga.command.dispatched"
+	CommandDispatched = "goes.workflow.command.dispatched"
 
 	// TimeoutRequested records an active timeout.
-	TimeoutRequested = "goes.saga.timeout.requested"
+	TimeoutRequested = "goes.workflow.timeout.requested"
 
 	// TimeoutCanceled cancels an active timeout.
-	TimeoutCanceled = "goes.saga.timeout.canceled"
+	TimeoutCanceled = "goes.workflow.timeout.canceled"
 
-	// TimeoutFired records a fired timeout and can trigger saga reactions.
-	TimeoutFired = "goes.saga.timeout.fired"
+	// TimeoutFired records a fired timeout and triggers timeout handlers.
+	TimeoutFired = "goes.workflow.timeout.fired"
 )
 
-// Status describes the lifecycle of a saga instance.
-type Status string
-
-const (
-	StatusRunning      Status = "running"
-	StatusCompleted    Status = "completed"
-	StatusFailed       Status = "failed"
-	StatusCompensating Status = "compensating"
-)
-
-// Compensation describes persisted compensation metadata of a saga instance.
-type Compensation struct {
-	Active    bool
-	Completed bool
-	Failed    bool
-	Error     string
-}
-
-// StartedData is the payload of Started.
+// StartedData is the payload of the Started event.
 type StartedData struct{}
 
-// CompletedData is the payload of Completed.
+// CompletedData is the payload of the Completed event.
 type CompletedData struct{}
 
-// FailedData is the payload of Failed.
+// FailedData is the payload of the Failed event.
 type FailedData struct {
-	Error string
+	Reason string
 }
 
-// CompensationStartedData is the payload of CompensationStarted.
+// CompensationStartedData is the payload of the CompensationStarted event.
 type CompensationStartedData struct {
 	Reason string
 }
 
-// CompensationCompletedData is the payload of CompensationCompleted.
+// CompensationCompletedData is the payload of the CompensationCompleted event.
 type CompensationCompletedData struct{}
 
-// CompensationFailedData is the payload of CompensationFailed.
+// CompensationFailedData is the payload of the CompensationFailed event.
 type CompensationFailedData struct {
-	Error string
+	Reason string
 }
 
-// TriggerRecordedData is the payload of TriggerRecorded.
+// TriggerRecordedData is the payload of the TriggerRecorded event.
 type TriggerRecordedData struct {
 	TriggerID   uuid.UUID
 	TriggerName string
 }
 
-// CommandRequestedData is the payload of CommandRequested.
+// CommandRequestedData is the payload of the CommandRequested event.
 type CommandRequestedData struct {
 	EffectID      uuid.UUID
 	Key           string
@@ -108,12 +94,12 @@ type CommandRequestedData struct {
 	Payload       []byte
 }
 
-// CommandDispatchedData is the payload of CommandDispatched.
+// CommandDispatchedData is the payload of the CommandDispatched event.
 type CommandDispatchedData struct {
 	EffectID uuid.UUID
 }
 
-// TimeoutRequestedData is the payload of TimeoutRequested.
+// TimeoutRequestedData is the payload of the TimeoutRequested event.
 type TimeoutRequestedData struct {
 	EffectID  uuid.UUID
 	Key       string
@@ -121,21 +107,23 @@ type TimeoutRequestedData struct {
 	At        time.Time
 }
 
-// TimeoutCanceledData is the payload of TimeoutCanceled.
+// TimeoutCanceledData is the payload of the TimeoutCanceled event.
 type TimeoutCanceledData struct {
 	EffectID uuid.UUID
 	Key      string
 }
 
-// TimeoutFiredData is the payload of TimeoutFired.
+// TimeoutFiredData is the payload of the TimeoutFired event.
 type TimeoutFiredData struct {
 	EffectID     uuid.UUID
-	SagaID       uuid.UUID
+	WorkflowID   uuid.UUID
 	Key          string
 	ScheduledFor time.Time
 }
 
-// RegisterEvents registers the built-in saga event types.
+// RegisterEvents registers the built-in workflow events into a codec
+// registry, so that codec-backed event stores and buses can encode and
+// decode their payloads.
 func RegisterEvents(r codec.Registerer) {
 	codec.Register[StartedData](r, Started)
 	codec.Register[CompletedData](r, Completed)
@@ -159,10 +147,10 @@ func (b *Base) recordCompleted() {
 	aggregate.Next(b, Completed, CompletedData{})
 }
 
-func (b *Base) recordFailed(err error) {
+func (b *Base) recordFailed(reason error) {
 	data := FailedData{}
-	if err != nil {
-		data.Error = err.Error()
+	if reason != nil {
+		data.Reason = reason.Error()
 	}
 	aggregate.Next(b, Failed, data)
 }
@@ -179,10 +167,10 @@ func (b *Base) recordCompensationCompleted() {
 	aggregate.Next(b, CompensationCompleted, CompensationCompletedData{})
 }
 
-func (b *Base) recordCompensationFailed(err error) {
+func (b *Base) recordCompensationFailed(reason error) {
 	data := CompensationFailedData{}
-	if err != nil {
-		data.Error = err.Error()
+	if reason != nil {
+		data.Reason = reason.Error()
 	}
 	aggregate.Next(b, CompensationFailed, data)
 }
@@ -218,45 +206,36 @@ func (b *Base) recordTimeoutFired(data TimeoutFiredData, id uuid.UUID) {
 
 func (b *Base) applyStarted(event.Of[StartedData]) {
 	b.status = StatusRunning
-	b.failureReason = ""
-	b.compensation = Compensation{}
+	b.reason = ""
 }
 
 func (b *Base) applyCompleted(event.Of[CompletedData]) {
 	b.status = StatusCompleted
-	b.failureReason = ""
-	b.compensation = Compensation{}
+	b.reason = ""
 }
 
 func (b *Base) applyFailed(evt event.Of[FailedData]) {
 	b.status = StatusFailed
-	b.failureReason = evt.Data().Error
-	b.compensation = Compensation{}
+	b.reason = evt.Data().Reason
 }
 
 func (b *Base) applyCompensationStarted(evt event.Of[CompensationStartedData]) {
 	b.status = StatusCompensating
-	b.failureReason = evt.Data().Reason
-	b.compensation = Compensation{Active: true}
+	b.reason = evt.Data().Reason
 }
 
 func (b *Base) applyCompensationCompleted(event.Of[CompensationCompletedData]) {
-	b.status = StatusFailed
-	b.compensation = Compensation{Completed: true}
+	b.status = StatusCompensated
 }
 
 func (b *Base) applyCompensationFailed(evt event.Of[CompensationFailedData]) {
 	b.status = StatusFailed
-	b.compensation = Compensation{
-		Failed: true,
-		Error:  evt.Data().Error,
-	}
+	b.reason = evt.Data().Reason
 }
 
 func (b *Base) applyTriggerRecorded(evt event.Of[TriggerRecordedData]) {
-	data := evt.Data()
-	if data.TriggerID != uuid.Nil {
-		b.triggers[data.TriggerID] = struct{}{}
+	if id := evt.Data().TriggerID; id != uuid.Nil {
+		b.triggers[id] = struct{}{}
 	}
 }
 
@@ -265,11 +244,11 @@ func (b *Base) applyCommandRequested(evt event.Of[CommandRequestedData]) {
 	if data.EffectID == uuid.Nil {
 		return
 	}
-	b.pendingCommands[data.EffectID] = data
+	b.commands[data.EffectID] = data
 }
 
 func (b *Base) applyCommandDispatched(evt event.Of[CommandDispatchedData]) {
-	delete(b.pendingCommands, evt.Data().EffectID)
+	delete(b.commands, evt.Data().EffectID)
 }
 
 func (b *Base) applyTimeoutRequested(evt event.Of[TimeoutRequestedData]) {
@@ -278,37 +257,34 @@ func (b *Base) applyTimeoutRequested(evt event.Of[TimeoutRequestedData]) {
 		return
 	}
 
-	key := timeoutMapKey(b.AggregateID(), data.Key)
-	if current, ok := b.activeTimeouts[key]; ok && current.EffectID != data.EffectID {
-		delete(b.timeoutByID, current.EffectID)
+	if current, ok := b.timeoutsByKey[data.Key]; ok && current.EffectID != data.EffectID {
+		delete(b.timeoutsByID, current.EffectID)
 	}
 
-	b.activeTimeouts[key] = data
-	b.timeoutByID[data.EffectID] = data
+	b.timeoutsByKey[data.Key] = data
+	b.timeoutsByID[data.EffectID] = data
 }
 
 func (b *Base) applyTimeoutCanceled(evt event.Of[TimeoutCanceledData]) {
 	data := evt.Data()
-	key := timeoutMapKey(b.AggregateID(), data.Key)
-	if current, ok := b.activeTimeouts[key]; ok && current.EffectID == data.EffectID {
-		delete(b.activeTimeouts, key)
+	if current, ok := b.timeoutsByKey[data.Key]; ok && current.EffectID == data.EffectID {
+		delete(b.timeoutsByKey, data.Key)
 	}
-	delete(b.timeoutByID, data.EffectID)
+	delete(b.timeoutsByID, data.EffectID)
 }
 
 func (b *Base) applyTimeoutFired(evt event.Of[TimeoutFiredData]) {
 	data := evt.Data()
-	key := timeoutMapKey(b.AggregateID(), data.Key)
-	if current, ok := b.activeTimeouts[key]; ok && current.EffectID == data.EffectID {
-		delete(b.activeTimeouts, key)
+	if current, ok := b.timeoutsByKey[data.Key]; ok && current.EffectID == data.EffectID {
+		delete(b.timeoutsByKey, data.Key)
 	}
-	delete(b.timeoutByID, data.EffectID)
+	delete(b.timeoutsByID, data.EffectID)
 }
 
 func decodeTimeoutFired(evt event.Event) (TimeoutFiredData, error) {
 	fired, ok := event.TryCast[TimeoutFiredData](evt)
 	if !ok {
-		return TimeoutFiredData{}, fmt.Errorf("cast %q event to saga.TimeoutFiredData", evt.Name())
+		return TimeoutFiredData{}, fmt.Errorf("cast %q event to workflow.TimeoutFiredData", evt.Name())
 	}
 	return fired.Data(), nil
 }

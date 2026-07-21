@@ -1,6 +1,6 @@
 //go:build nats
 
-package saga_test
+package workflow_test
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	natsbackend "github.com/modernice/goes/backend/nats"
 	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/event/eventstore"
-	"github.com/modernice/goes/saga"
+	"github.com/modernice/goes/workflow"
 	"github.com/nats-io/nats.go"
 )
 
@@ -25,10 +25,10 @@ func TestService_CoreRecoveryFromStore(t *testing.T) {
 	store := eventstore.New()
 	cmdBus := newCommandBus(t, reg)
 	defer cmdBus.Close(t)
-	factory, def := newOrderSagaDefinition(time.Second)
+	factory, def := newOrderWorkflowDefinition(time.Second)
 
-	subjectPrefix := "saga_core_" + randomHex() + ":"
-	queue := "saga-core-queue-" + randomHex()
+	subjectPrefix := "workflow_core_" + randomHex() + ":"
+	queue := "workflow-core-queue-" + randomHex()
 
 	publisher := newCorePublisherBus(reg, subjectPrefix)
 	defer cleanupNATSBus(t, publisher)
@@ -37,19 +37,20 @@ func TestService_CoreRecoveryFromStore(t *testing.T) {
 
 	orderID := uuid.New()
 	if err := appStore.Insert(context.Background(), newOrderPlaced(orderID, uuid.New())); err != nil {
-		t.Fatalf("insert placed event while saga service is offline: %v", err)
+		t.Fatalf("insert placed event while workflow service is offline: %v", err)
 	}
 
-	bus := newCoreSagaBus(reg, subjectPrefix, queue)
+	bus := newCoreWorkflowBus(reg, subjectPrefix, queue)
 	defer cleanupNATSBus(t, bus)
 
-	svc := saga.NewService(saga.Config{
-		Encoding:        reg,
-		Store:           store,
-		Bus:             bus,
-		Commands:        cmdBus,
-		RetryInterval:   defaultCommandRetry,
-		TimerResolution: defaultTimerResolution,
+	svc := workflow.NewService(workflow.Config{
+		Commands:            reg,
+		EventStore:          store,
+		EventBus:            bus,
+		CommandBus:          cmdBus,
+		DispatchInterval:    defaultDispatchInterval,
+		TimerResolution:     defaultTimerResolution,
+		TriggerReplayWindow: 24 * time.Hour,
 	}, def)
 
 	cancel, wait := runService(t, svc)
@@ -60,8 +61,8 @@ func TestService_CoreRecoveryFromStore(t *testing.T) {
 
 	awaitCommand(t, cmdBus, 1)
 	awaitState(t, func() bool {
-		s := loadSaga(t, store, factory, orderID)
-		return s.Status() == saga.StatusRunning && s.PlacedCount == 1
+		w := loadWorkflow(t, store, factory, orderID)
+		return w.Status() == workflow.StatusRunning && w.PlacedCount == 1
 	})
 }
 
@@ -72,12 +73,12 @@ func TestService_JetStreamRecoveryFromStore(t *testing.T) {
 	store := eventstore.New()
 	cmdBus := newCommandBus(t, reg)
 	defer cmdBus.Close(t)
-	factory, def := newOrderSagaDefinition(time.Second)
+	factory, def := newOrderWorkflowDefinition(time.Second)
 
-	subjectPrefix := "saga_js_" + randomHex() + ":"
-	queue := "saga-queue-" + randomHex()
-	durable := "saga-durable-" + randomHex()
-	stream := "saga-js-" + randomHex()
+	subjectPrefix := "workflow_js_" + randomHex() + ":"
+	queue := "workflow-queue-" + randomHex()
+	durable := "workflow-durable-" + randomHex()
+	stream := "workflow-js-" + randomHex()
 
 	publisher := natsbackend.NewEventBus(
 		reg,
@@ -91,19 +92,20 @@ func TestService_JetStreamRecoveryFromStore(t *testing.T) {
 
 	orderID := uuid.New()
 	if err := appStore.Insert(context.Background(), newOrderPlaced(orderID, uuid.New())); err != nil {
-		t.Fatalf("insert placed event while saga service is offline: %v", err)
+		t.Fatalf("insert placed event while workflow service is offline: %v", err)
 	}
 
-	bus := newJetStreamSagaBus(reg, subjectPrefix, queue, durable, stream)
+	bus := newJetStreamWorkflowBus(reg, subjectPrefix, queue, durable, stream)
 	defer cleanupNATSBus(t, bus, stream)
 
-	svc := saga.NewService(saga.Config{
-		Encoding:        reg,
-		Store:           store,
-		Bus:             bus,
-		Commands:        cmdBus,
-		RetryInterval:   defaultCommandRetry,
-		TimerResolution: defaultTimerResolution,
+	svc := workflow.NewService(workflow.Config{
+		Commands:            reg,
+		EventStore:          store,
+		EventBus:            bus,
+		CommandBus:          cmdBus,
+		DispatchInterval:    defaultDispatchInterval,
+		TimerResolution:     defaultTimerResolution,
+		TriggerReplayWindow: 24 * time.Hour,
 	}, def)
 
 	cancel, wait := runService(t, svc)
@@ -114,8 +116,8 @@ func TestService_JetStreamRecoveryFromStore(t *testing.T) {
 
 	awaitCommand(t, cmdBus, 1)
 	awaitState(t, func() bool {
-		s := loadSaga(t, store, factory, orderID)
-		return s.Status() == saga.StatusRunning && s.PlacedCount == 1
+		w := loadWorkflow(t, store, factory, orderID)
+		return w.Status() == workflow.StatusRunning && w.PlacedCount == 1
 	})
 }
 
@@ -128,7 +130,7 @@ func newCorePublisherBus(reg codec.Encoding, subjectPrefix string) *natsbackend.
 	)
 }
 
-func newCoreSagaBus(reg codec.Encoding, subjectPrefix, queue string) *natsbackend.EventBus {
+func newCoreWorkflowBus(reg codec.Encoding, subjectPrefix, queue string) *natsbackend.EventBus {
 	return natsbackend.NewEventBus(
 		reg,
 		natsbackend.EatErrors(),
@@ -138,7 +140,7 @@ func newCoreSagaBus(reg codec.Encoding, subjectPrefix, queue string) *natsbacken
 	)
 }
 
-func newJetStreamSagaBus(reg codec.Encoding, subjectPrefix, queue, durable, stream string) *natsbackend.EventBus {
+func newJetStreamWorkflowBus(reg codec.Encoding, subjectPrefix, queue, durable, stream string) *natsbackend.EventBus {
 	return natsbackend.NewEventBus(
 		reg,
 		natsbackend.EatErrors(),
