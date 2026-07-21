@@ -112,6 +112,32 @@ var eventTableColumns = []struct {
 // NewEventStore returns a new PostgreSQL event store. If not otherwise
 // specified using the URL() option, os.Getenv("POSTGRES_EVENTSTORE") is used as
 // the connection string.
+//
+// On connect, the store looks up the event table (see the Table option). If
+// the table does not exist, the store creates it together with its indexes,
+// which requires the CREATE privilege on the schema. If the table already
+// exists — for example because it was created by a migration tool using a more
+// privileged role — the store instead validates that the table matches the
+// following schema and creates any missing indexes if permitted:
+//
+//	CREATE TABLE events (
+//		id UUID PRIMARY KEY NOT NULL,
+//		name VARCHAR(255) NOT NULL,
+//		time BIGINT NOT NULL,
+//		aggregate_id UUID,
+//		aggregate_name VARCHAR(255),
+//		aggregate_version INTEGER,
+//		data JSONB
+//	);
+//
+//	CREATE INDEX goes_name ON events (name);
+//	CREATE INDEX goes_time ON events (time);
+//	CREATE UNIQUE INDEX goes_aggregate ON events (aggregate_id, aggregate_name, aggregate_version);
+//
+// TEXT columns are accepted in place of VARCHAR. The UNIQUE index on
+// (aggregate_id, aggregate_name, aggregate_version) is required because it
+// enforces optimistic concurrency for aggregates: Connect fails if it is
+// missing and cannot be created with the privileges of the connected role.
 func NewEventStore(enc codec.Encoding, opts ...EventStoreOption) *EventStore {
 	store := &EventStore{
 		enc:           enc,
@@ -165,18 +191,19 @@ func (store *EventStore) connectOnce(ctx context.Context) error {
 		}
 
 		if err = store.validateTableSchema(ctx); err != nil {
-			if errors.Is(err, ErrTableDoesNotExist) {
-				if err = store.createTable(ctx); err != nil {
-					return
-				}
-
-				if err = store.createIndexes(ctx); err != nil {
-					return
-				}
-			} else {
+			if !errors.Is(err, ErrTableDoesNotExist) {
 				return
 			}
+
+			if err = store.createTable(ctx); err != nil {
+				return
+			}
+
+			err = store.createIndexes(ctx)
+			return
 		}
+
+		err = store.ensureIndexes(ctx)
 	})
 	return err
 }
@@ -316,6 +343,147 @@ func (store *EventStore) createTable(ctx context.Context) error {
 	return nil
 }
 
+// indexSpec describes an index that the event store requires on the event
+// table.
+type indexSpec struct {
+	name   string
+	fields []string
+	unique bool
+}
+
+// requiredIndexes are the indexes the event store requires on the event table.
+// The unique index enforces optimistic concurrency for aggregates: without it,
+// concurrently inserted events with conflicting aggregate versions would not
+// fail.
+var requiredIndexes = []indexSpec{
+	{
+		name:   "goes_name",
+		fields: []string{columnName},
+	},
+	{
+		name:   "goes_time",
+		fields: []string{columnTime},
+	},
+	{
+		name:   "goes_aggregate",
+		fields: []string{columnAggregateID, columnAggregateName, columnAggregateVersion},
+		unique: true,
+	},
+}
+
+// tableIndex describes an index that exists on the event table.
+type tableIndex struct {
+	unique  bool
+	keyCols int16
+	columns []string
+}
+
+// satisfies reports whether the index provides what the required index spec
+// demands. A unique requirement is only satisfied by a unique index over
+// exactly the required columns (in any order), because a unique index over
+// more columns enforces a weaker constraint. A non-unique requirement is
+// satisfied by any index whose leading columns are the required ones.
+func (idx tableIndex) satisfies(spec indexSpec) bool {
+	if len(idx.columns) != int(idx.keyCols) {
+		// The index has expression keys and cannot be matched against plain
+		// column requirements.
+		return false
+	}
+
+	if spec.unique {
+		if !idx.unique || len(idx.columns) != len(spec.fields) {
+			return false
+		}
+		for _, field := range spec.fields {
+			if !slices.Contains(idx.columns, field) {
+				return false
+			}
+		}
+		return true
+	}
+
+	if len(idx.columns) < len(spec.fields) {
+		return false
+	}
+	return slices.Equal(idx.columns[:len(spec.fields)], spec.fields)
+}
+
+// ensureIndexes checks that an existing event table provides the required
+// indexes. Missing indexes are created if the connected role has the required
+// privileges (the behavior of previous releases). Otherwise, an error is
+// returned that includes the DDL to create them manually.
+func (store *EventStore) ensureIndexes(ctx context.Context) error {
+	missing, err := store.missingIndexes(ctx)
+	if err != nil {
+		return err
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+
+	createErr := store.createIndexes(ctx)
+
+	if missing, err = store.missingIndexes(ctx); err != nil {
+		return err
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+
+	names := make([]string, len(missing))
+	ddl := make([]string, len(missing))
+	for i, spec := range missing {
+		names[i] = fmt.Sprintf("%q", spec.name)
+		ddl[i] = indexSQL(spec.name, store.table, spec.fields, spec.unique)
+	}
+
+	if createErr != nil {
+		return fmt.Errorf(
+			"table %q is missing required indexes (%s): %w\ncreate them manually:\n%s",
+			store.table, strings.Join(names, ", "), createErr, strings.Join(ddl, ";\n"),
+		)
+	}
+
+	return fmt.Errorf(
+		"table %q has indexes named %s that do not match the required definitions:\n%s",
+		store.table, strings.Join(names, ", "), strings.Join(ddl, ";\n"),
+	)
+}
+
+// missingIndexes returns the required indexes that no existing index of the
+// event table satisfies.
+func (store *EventStore) missingIndexes(ctx context.Context) ([]indexSpec, error) {
+	// Key columns of every valid, non-partial index of the table, resolved
+	// through the search_path like the store's queries. Expression keys have
+	// no matching pg_attribute row and are filtered out of the column array;
+	// satisfies() detects this via indnkeyatts.
+	const query = `
+		SELECT i.indisunique, i.indnkeyatts, COALESCE(array_agg(a.attname ORDER BY k.ord) FILTER (WHERE a.attname IS NOT NULL), '{}')
+		FROM pg_catalog.pg_index i
+		CROSS JOIN LATERAL unnest(i.indkey::int2[]) WITH ORDINALITY AS k(attnum, ord)
+		LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum
+		WHERE i.indrelid = to_regclass($1) AND i.indisvalid AND i.indpred IS NULL AND k.ord <= i.indnkeyatts
+		GROUP BY i.indexrelid, i.indisunique, i.indnkeyatts`
+
+	rows, _ := store.pool.Query(ctx, query, store.table)
+	indexes, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (tableIndex, error) {
+		var idx tableIndex
+		err := row.Scan(&idx.unique, &idx.keyCols, &idx.columns)
+		return idx, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("collect index info for table %q: %w", store.table, err)
+	}
+
+	var missing []indexSpec
+	for _, spec := range requiredIndexes {
+		if !slices.ContainsFunc(indexes, func(idx tableIndex) bool { return idx.satisfies(spec) }) {
+			missing = append(missing, spec)
+		}
+	}
+	return missing, nil
+}
+
 func (store *EventStore) createIndexes(ctx context.Context) error {
 	tx, err := store.pool.Begin(ctx)
 	if err != nil {
@@ -323,27 +491,7 @@ func (store *EventStore) createIndexes(ctx context.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
-	indexes := []struct {
-		name   string
-		fields []string
-		unique bool
-	}{
-		{
-			name:   "goes_name",
-			fields: []string{columnName},
-		},
-		{
-			name:   "goes_time",
-			fields: []string{columnTime},
-		},
-		{
-			name:   "goes_aggregate",
-			fields: []string{columnAggregateID, columnAggregateName, columnAggregateVersion},
-			unique: true,
-		},
-	}
-
-	for _, idx := range indexes {
+	for _, idx := range requiredIndexes {
 		schema := indexSQL(idx.name, store.table, idx.fields, idx.unique)
 		if _, err := tx.Exec(ctx, schema); err != nil {
 			return fmt.Errorf("create %q index: %w [fields=%v]", idx.name, err, idx.fields)
