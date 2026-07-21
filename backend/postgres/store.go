@@ -777,7 +777,7 @@ func (store *EventStore) buildQuery(query event.Query) (string, []any, error) {
 	}
 
 	if sortings := query.Sortings(); len(sortings) > 0 {
-		orders := make([]string, len(sortings))
+		orders := make([]string, len(sortings), len(sortings)+1)
 		for i, sorting := range sortings {
 			dir := "ASC"
 			if sorting.Dir == event.SortDesc {
@@ -798,6 +798,10 @@ func (store *EventStore) buildQuery(query event.Query) (string, []any, error) {
 
 			orders[i] = fmt.Sprintf("%s %s", field, dir)
 		}
+
+		// Postgres returns rows with equal sort keys in arbitrary order, so
+		// break ties by the unique event id to make the order deterministic.
+		orders = append(orders, columnID+" ASC")
 
 		builder = builder.OrderBy(orders...)
 	}

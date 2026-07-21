@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -73,17 +74,23 @@ func AssertEqualEvents[Events ~[]event.Of[D], D any](t *testing.T, events ...Eve
 // AssertEqualEventsUnsorted does the same as AssertEqualEvents but ignores
 // the order of the events.
 func AssertEqualEventsUnsorted[Events ~[]event.Of[D], D any](t *testing.T, events ...Events) {
+	normalized := make([]Events, len(events))
 	for i, evts := range events {
-		es := eventSlice[D](evts)
-		es.sortByTime()
-		events[i] = Events(es)
+		es := make(eventSlice[D], len(evts))
+		copy(es, evts)
+		es.sortByID()
+		normalized[i] = Events(es)
 	}
-	AssertEqualEvents(t, events...)
+	AssertEqualEvents(t, normalized...)
 }
 
-func (es eventSlice[D]) sortByTime() {
+// sortByID sorts the events into a canonical order. The event id is the sort
+// key because it is the only property that is guaranteed to be unique; event
+// times can collide, which would make the normalized order depend on the
+// input order.
+func (es eventSlice[D]) sortByID() {
 	sort.Slice(es, func(i, j int) bool {
-		return es[i].Time().Equal(es[j].Time()) ||
-			es[i].Time().Before(es[j].Time())
+		a, b := es[i].ID(), es[j].ID()
+		return bytes.Compare(a[:], b[:]) < 0
 	})
 }

@@ -118,7 +118,7 @@ func SortMulti(snaps []Snapshot, sorts ...aggregate.SortOptions) []Snapshot {
 	sorted := make([]Snapshot, len(snaps))
 	copy(sorted, snaps)
 
-	sort.Slice(sorted, func(i, j int) bool {
+	sort.SliceStable(sorted, func(i, j int) bool {
 		for _, opts := range sorts {
 			ai := aggregate.New(
 				sorted[i].AggregateName(),
@@ -135,7 +135,7 @@ func SortMulti(snaps []Snapshot, sorts ...aggregate.SortOptions) []Snapshot {
 				return opts.Dir.Bool(cmp < 0)
 			}
 		}
-		return true
+		return false
 	})
 
 	return sorted

@@ -158,14 +158,14 @@ func SortMulti(as []Aggregate, sorts ...SortOptions) []Aggregate {
 	sorted := make([]Aggregate, len(as))
 	copy(sorted, as)
 
-	sort.Slice(sorted, func(i, j int) bool {
+	sort.SliceStable(sorted, func(i, j int) bool {
 		for _, opts := range sorts {
 			cmp := opts.Sort.Compare(sorted[i], sorted[j])
 			if cmp != 0 {
 				return opts.Dir.Bool(cmp < 0)
 			}
 		}
-		return true
+		return false
 	})
 
 	return sorted

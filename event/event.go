@@ -195,14 +195,14 @@ func SortMulti[Events ~[]Of[D], D any](events Events, sorts ...SortOptions) Even
 	sorted := make(Events, len(events))
 	copy(sorted, events)
 
-	sort.Slice(sorted, func(i, j int) bool {
+	sort.SliceStable(sorted, func(i, j int) bool {
 		for _, opts := range sorts {
 			cmp := CompareSorting(opts.Sort, sorted[i], sorted[j])
 			if cmp != 0 {
 				return opts.Dir.Bool(cmp < 0)
 			}
 		}
-		return true
+		return false
 	})
 
 	return sorted
