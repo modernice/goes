@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -87,7 +88,26 @@ func Table(name string) EventStoreOption {
 	}
 }
 
+// ErrTableDoesNotExist is returned when the configured event table does not
+// exist in the connected database.
 var ErrTableDoesNotExist = errors.New("table does not exist")
+
+// eventTableColumns are the required columns of the event table together with
+// their accepted types, as reported by format_type. The first type of each
+// column is the one the store itself creates; any additional types are
+// functionally equivalent alternatives that pre-created tables may use.
+var eventTableColumns = []struct {
+	name  string
+	types []string
+}{
+	{columnID, []string{"uuid"}},
+	{columnName, []string{"character varying", "text"}},
+	{columnTime, []string{"bigint"}},
+	{columnAggregateID, []string{"uuid"}},
+	{columnAggregateName, []string{"character varying", "text"}},
+	{columnAggregateVersion, []string{"integer"}},
+	{columnData, []string{"jsonb"}},
+}
 
 // NewEventStore returns a new PostgreSQL event store. If not otherwise
 // specified using the URL() option, os.Getenv("POSTGRES_EVENTSTORE") is used as
@@ -229,28 +249,26 @@ func (store *EventStore) useDatabase(ctx context.Context) error {
 }
 
 func (store *EventStore) validateTableSchema(ctx context.Context) error {
-	builder := squirrel.
-		Select("column_name", "data_type", "udt_name").
-		From("information_schema.columns").
-		Where(squirrel.Eq{"table_name": store.table}).
-		OrderBy("ordinal_position").
-		PlaceholderFormat(squirrel.Dollar)
-
-	sql, args, err := builder.ToSql()
-	if err != nil {
-		return fmt.Errorf("build sql: %w", err)
-	}
+	// Resolve the table through to_regclass so that the lookup follows the
+	// same rules as the store's queries: the search_path decides which schema
+	// the unqualified table name refers to, and schema-qualified names are
+	// honored. Filtering information_schema.columns by table name alone would
+	// match same-named tables in unrelated schemas.
+	const query = `
+		SELECT a.attname, format_type(a.atttypid, NULL)
+		FROM pg_catalog.pg_attribute a
+		WHERE a.attrelid = to_regclass($1) AND a.attnum > 0 AND NOT a.attisdropped
+		ORDER BY a.attnum`
 
 	type colInfo struct {
 		name     string
 		dataType string
-		udtName  string
 	}
 
-	rows, _ := store.pool.Query(ctx, sql, args...)
+	rows, _ := store.pool.Query(ctx, query, store.table)
 	cols, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (colInfo, error) {
 		var c colInfo
-		err := row.Scan(&c.name, &c.dataType, &c.udtName)
+		err := row.Scan(&c.name, &c.dataType)
 		return c, err
 	})
 	if err != nil {
@@ -261,40 +279,21 @@ func (store *EventStore) validateTableSchema(ctx context.Context) error {
 		return fmt.Errorf("table %q does not exist: %w", store.table, ErrTableDoesNotExist)
 	}
 
-	columns := make(map[string]colInfo, len(cols))
+	columns := make(map[string]string, len(cols))
 	for _, c := range cols {
-		columns[c.name] = c
-	}
-
-	expected := map[string]string{
-		columnID:               "uuid",
-		columnName:             "character varying",
-		columnTime:             "bigint",
-		columnAggregateID:      "uuid",
-		columnAggregateName:    "character varying",
-		columnAggregateVersion: "integer",
-		columnData:             "USER-DEFINED",
+		columns[c.name] = c.dataType
 	}
 
 	var missing []string
 	var typeMismatches []string
-	for col, expectedType := range expected {
-		info, ok := columns[col]
+	for _, col := range eventTableColumns {
+		actualType, ok := columns[col.name]
 		if !ok {
-			missing = append(missing, fmt.Sprintf("%q", col))
+			missing = append(missing, fmt.Sprintf("%q", col.name))
 			continue
 		}
-		// For jsonb, Postgres reports data_type as "USER-DEFINED" and udt_name as "jsonb".
-		actualType := info.dataType
-		if actualType == "USER-DEFINED" {
-			actualType = info.udtName
-		}
-		checkType := expectedType
-		if checkType == "USER-DEFINED" {
-			checkType = "jsonb"
-		}
-		if actualType != checkType {
-			typeMismatches = append(typeMismatches, fmt.Sprintf("column %q should have type %q but has type %q", col, checkType, actualType))
+		if !slices.Contains(col.types, actualType) {
+			typeMismatches = append(typeMismatches, fmt.Sprintf("column %q should have type %q but has type %q", col.name, col.types[0], actualType))
 		}
 	}
 
