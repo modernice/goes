@@ -10,6 +10,7 @@ Create `order.go`:
 package shop
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -236,17 +237,34 @@ func HandleOrderCommands(
 		pl := ctx.Payload()
 
 		return orders.Use(ctx, ctx.AggregateID(), func(o *Order) error {
-			// Adjust stock first — if any product has insufficient
-			// stock, the order is never placed.
+			// Place the order first — if the command is invalid
+			// (already placed, no items), no stock is touched. The
+			// OrderPlaced event is only persisted if this function
+			// returns nil.
+			if err := o.Place(pl.CustomerID, pl.Items); err != nil {
+				return err
+			}
+
+			// Reserve stock for each item. Each products.Use saves
+			// its product immediately, so if a later reservation
+			// fails, the earlier ones must be rolled back.
+			var reserved []LineItem
 			for _, item := range pl.Items {
 				if err := products.Use(ctx, item.ProductID, func(p *Product) error {
 					return p.AdjustStock(-item.Quantity, "ordered")
 				}); err != nil {
+					// Return the stock that was already reserved.
+					for _, r := range reserved {
+						err = errors.Join(err, products.Use(ctx, r.ProductID, func(p *Product) error {
+							return p.AdjustStock(r.Quantity, "order failed")
+						}))
+					}
 					return err
 				}
+				reserved = append(reserved, item)
 			}
 
-			return o.Place(pl.CustomerID, pl.Items)
+			return nil
 		})
 	})
 
@@ -271,14 +289,14 @@ func HandleOrderCommands(
 The `PlaceOrderCmd` handler operates across two aggregates — it places the order *and* adjusts stock for each product. This is done by nesting `Use` calls:
 
 1. The outer `orders.Use` loads the Order aggregate.
-2. For each line item, the inner `products.Use` loads the Product and calls `AdjustStock`.
-3. If any `AdjustStock` fails (e.g. insufficient stock), the error propagates up and the Order is never placed.
-4. Only after all stock is reserved does `o.Place(...)` raise the `OrderPlaced` event.
+2. `o.Place(...)` validates the command and records the `OrderPlaced` event. Recording is not saving — the event is only persisted when the outer function returns `nil`, so an invalid order fails before any stock is touched.
+3. For each line item, the inner `products.Use` loads the Product and calls `AdjustStock`.
+4. If a reservation fails (e.g. insufficient stock), the handler rolls back the reservations that already succeeded and returns the error — the Order is never placed.
 
-`Use` only saves when the function returns `nil`. This means you get all-or-nothing semantics within a single command handler. Partial state is never persisted.
+Note that `Use` is atomic *per aggregate*, not across aggregates: each inner `products.Use` saves its product **immediately**, so by the time the third reservation fails, the first two are already persisted. That's why the error path explicitly returns the reserved stock — without the rollback loop, a failed order would leak stock that no order owns.
 
 > [!NOTE]
-> This works because everything runs in the same process. For operations spanning separate services, you'd coordinate with asynchronous messaging instead.
+> The rollback is best-effort: if the process crashes between reserving and rolling back, stock stays reserved for an order that was never placed. For this single-process tutorial that window is tiny. The robust version of this pattern is a *workflow* — a durable, event-sourced process that records its pending effects and recovers them after a crash. We'll build one in [chapter 13](./13-workflows).
 
 ## Wire Into main.go
 

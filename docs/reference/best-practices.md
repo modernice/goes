@@ -194,23 +194,42 @@ command.MustHandle(ctx, bus, CreateProduct, func(ctx command.Ctx[CreateProductPa
 })
 ```
 
-When a command needs to coordinate multiple aggregates, nest the `Use` calls. The outer aggregate acts as the orchestrator:
+When a command needs to coordinate multiple aggregates, nest the `Use` calls. The outer aggregate acts as the orchestrator — but note that `Use` is atomic *per aggregate*, not across aggregates: each nested `Use` saves its aggregate immediately, so the handler must undo already-persisted changes when a later step fails:
 
 ```go
 command.MustHandle(ctx, bus, PlaceOrderCmd, func(ctx command.Ctx[PlaceOrderPayload]) error {
+	pl := ctx.Payload()
+
 	return orders.Use(ctx, ctx.AggregateID(), func(o *Order) error {
-		// Reserve stock on each product first
-		for _, item := range ctx.Payload().Items {
+		// Validate the order before touching any stock. The OrderPlaced
+		// event is only persisted when this function returns nil.
+		if err := o.Place(pl.CustomerID, pl.Items); err != nil {
+			return err
+		}
+
+		// Each products.Use saves immediately — roll back the
+		// reservations that already succeeded if a later one fails.
+		var reserved []LineItem
+		for _, item := range pl.Items {
 			if err := products.Use(ctx, item.ProductID, func(p *Product) error {
 				return p.AdjustStock(-item.Quantity, "ordered")
 			}); err != nil {
-				return err // Stock insufficient — order never placed
+				for _, r := range reserved {
+					err = errors.Join(err, products.Use(ctx, r.ProductID, func(p *Product) error {
+						return p.AdjustStock(r.Quantity, "order failed")
+					}))
+				}
+				return err
 			}
+			reserved = append(reserved, item)
 		}
-		return o.Place(ctx.Payload().CustomerID, ctx.Payload().Items)
+
+		return nil
 	})
 })
 ```
+
+The rollback is best-effort — a crash between reserving and rolling back leaks the reserved stock. When that matters, coordinate the aggregates with a durable [workflow](/guide/workflows) instead of a rollback loop.
 
 **Prefer synchronous dispatch when you need confirmation.** By default, `Dispatch` is fire-and-forget. Use `dispatch.Sync()` when the caller needs to know the command succeeded:
 
