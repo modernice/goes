@@ -18,6 +18,14 @@ env:
 jobs:
   publish:
     name: Build and publish
+    if: >-
+      ${{
+        startsWith(github.ref, 'refs/tags/goes-ui-v') ||
+        (
+          !startsWith(github.event.head_commit.message, 'docs:') &&
+          !startsWith(github.event.head_commit.message, 'docs(')
+        )
+      }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

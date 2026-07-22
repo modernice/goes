@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:22.19-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:22.19-alpine AS frontend
 RUN corepack enable
 WORKDIR /src/ui
 COPY ui/package.json ui/pnpm-lock.yaml ./
@@ -8,12 +8,14 @@ RUN pnpm install --frozen-lockfile
 COPY ui/ ./
 RUN pnpm build
 
-FROM golang:1.25-alpine AS backend
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS backend
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/goes-ui ./cmd/goes-ui
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/goes-ui ./cmd/goes-ui
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates && addgroup -S -g 10001 goes && adduser -S -D -H -u 10001 -G goes goes
