@@ -1,0 +1,52 @@
+<div class="goes-boot">
+  <style>
+    .goes-boot {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 14px;
+      background: #fafafa;
+    }
+    html.dark .goes-boot { background: #0a0a0a; }
+    .goes-boot-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: #0891b2;
+      color: #fafafa;
+      display: grid;
+      place-content: center;
+      gap: 4px;
+      animation: goes-boot-pulse 1.6s ease-in-out infinite;
+    }
+    html.dark .goes-boot-mark {
+      background: #22d3ee;
+      color: #0a0a0a;
+    }
+    .goes-boot-mark i {
+      display: block;
+      height: 3px;
+      border-radius: 2px;
+      background: currentColor;
+    }
+    .goes-boot-mark i:nth-child(1) { width: 14px; margin-left: 6px; }
+    .goes-boot-mark i:nth-child(2) { width: 20px; }
+    .goes-boot-mark i:nth-child(3) { width: 11px; margin-left: 3px; }
+    .goes-boot-label {
+      font: 700 11px/1 "JetBrains Mono Variable", ui-monospace, monospace;
+      letter-spacing: 0.08em;
+      color: #71717a;
+    }
+    @keyframes goes-boot-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .goes-boot-mark { animation: none; }
+    }
+  </style>
+  <div class="goes-boot-mark"><i></i><i></i><i></i></div>
+  <div class="goes-boot-label">goes</div>
+</div>

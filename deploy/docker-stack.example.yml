@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  goes-ui:
+    image: ghcr.io/modernice/goes-ui:latest
+    ports:
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: ingress
+    environment:
+      GOES_UI_AUTH_USERNAME: developer
+      GOES_UI_STORES_FILE: /run/secrets/goes_ui_stores
+      GOES_UI_AUTH_PASSWORD_FILE: /run/secrets/goes_ui_password
+      GOES_UI_SESSION_SECRET_FILE: /run/secrets/goes_ui_session_secret
+      # Enable when TLS terminates at a reverse proxy in front of this service.
+      GOES_UI_SECURE_COOKIES: "true"
+    secrets:
+      - goes_ui_stores
+      - goes_ui_password
+      - goes_ui_session_secret
+    networks:
+      - eventstores
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
+secrets:
+  goes_ui_stores:
+    file: ./secrets/stores.json
+  goes_ui_password:
+    file: ./secrets/password
+  goes_ui_session_secret:
+    file: ./secrets/session-secret
+
+networks:
+  eventstores:
+    external: true

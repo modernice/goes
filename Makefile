@@ -67,6 +67,26 @@ bench:
 cli:
 	@go install ./cmd/goes
 
+.PHONY: ui-install
+ui-install:
+	@pnpm --dir ui install --frozen-lockfile
+
+.PHONY: ui-test
+ui-test:
+	@pnpm --dir ui typecheck
+
+.PHONY: ui-build
+ui-build:
+	@pnpm --dir ui build
+
+.PHONY: goes-ui
+goes-ui: ui-build
+	@go run ./cmd/goes-ui
+
+.PHONY: docker-ui
+docker-ui:
+	@docker build -t goes-ui:latest .
+
 .PHONY: mock-cli-connector
 mock-cli-connector:
 	@go run ./internal/cmd/cli-connector/main.go

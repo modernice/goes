@@ -6,6 +6,8 @@ export default defineConfig({
 
   appearance: 'dark',
 
+  cleanUrls: true,
+
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
@@ -83,6 +85,12 @@ export default defineConfig({
           { text: 'PostgreSQL', link: '/backends/postgres' },
           { text: 'NATS', link: '/backends/nats' },
           { text: 'In-Memory', link: '/backends/in-memory' },
+        ],
+      },
+      {
+        text: 'Tooling',
+        items: [
+          { text: 'Event Store UI', link: '/tooling/event-store-ui' },
         ],
       },
       {

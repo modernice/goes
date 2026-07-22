@@ -1,23 +1,13 @@
+.git
+.github
+.claude
+.vscode
 out
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-*.log
-.DS_Store
 dev.env
-
-# Docs
 docs/node_modules
 docs/.vitepress/cache
 docs/.vitepress/dist
-
-# Event store UI
 ui/node_modules
 ui/.nuxt
 ui/.output
-ui/.data
-ui/dist
+**/*.log

@@ -140,21 +140,31 @@ Application code stays on framework interfaces like `event.Store` and `event.Bus
 
 Use the in-memory backends for tests and local experiments. Use MongoDB or PostgreSQL for persisted event streams and NATS for distributed event delivery.
 
+## Event Store UI
+
+The repository includes a standalone web console for MongoDB and PostgreSQL event stores. It supports multiple named connections, event and aggregate filters, stream inspection, server-side payload decoding, and optional static login protection. A single Docker image serves both the Nuxt frontend and Go API.
+
+```bash
+docker pull ghcr.io/modernice/goes-ui:latest
+```
+
+Configuration is supplied through `GOES_UI_*` environment variables or Docker secrets. The stock image handles JSON event payloads; applications with custom codecs can inject their existing `codec.Encoding` through the public `eventstoreui` package. See the [Event Store UI guide](https://goes.modernice.dev/tooling/event-store-ui) for configuration and Docker Swarm examples.
+
 ## Testing
 
 Event-sourced aggregates are easy to test because they are in-memory state machines. `goes` also ships `github.com/modernice/goes/exp/gtest` for aggregate-focused assertions and provides in-memory backends for integration tests without external services.
 
-- Guide: [`docs/guide/testing.md`](./docs/guide/testing.md)
+- Guide: [Testing](https://goes.modernice.dev/guide/testing)
 - Package docs: [`exp/gtest`](https://pkg.go.dev/github.com/modernice/goes/exp/gtest)
 
 ## Learn More
 
 - Documentation site: [goes.modernice.dev](https://goes.modernice.dev)
-- Getting started: [`docs/getting-started/`](./docs/getting-started)
-- Tutorial: [`docs/tutorial/`](./docs/tutorial)
-- Backends: [`docs/backends/`](./docs/backends)
-- Workflows (sagas): [`docs/guide/workflows.md`](./docs/guide/workflows.md) and the [`workflow`](./workflow) package
-- Architecture and best practices: [`docs/reference/`](./docs/reference)
+- Getting started: [Introduction](https://goes.modernice.dev/getting-started/introduction)
+- Tutorial: [Build an event-sourced app](https://goes.modernice.dev/tutorial/)
+- Backends: [Overview](https://goes.modernice.dev/backends/)
+- Workflows (sagas): [Guide](https://goes.modernice.dev/guide/workflows) and the [`workflow`](./workflow) package
+- Reference: [Architecture](https://goes.modernice.dev/reference/architecture) and [Best Practices](https://goes.modernice.dev/reference/best-practices)
 - Distributed example app: [`examples/todo/`](./examples/todo)
 
 ## Community

@@ -14,7 +14,10 @@ var EventStore = EventStoreIndices{
 		Options: options.Index().SetName("goes_id").SetUnique(true),
 	},
 
-	Name: mongo.IndexModel{Keys: bson.D{{Key: "name", Value: 1}}},
+	Name: mongo.IndexModel{
+		Keys:    bson.D{{Key: "name", Value: 1}},
+		Options: options.Index().SetName("goes_name"),
+	},
 
 	NameAndTime: mongo.IndexModel{
 		Keys: bson.D{

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "orders",
+    "name": "Orders",
+    "driver": "postgres",
+    "url": "postgres://goes_ui:replace-me@postgres:5432/orders?sslmode=disable",
+    "table": "events"
+  },
+  {
+    "id": "billing",
+    "name": "Billing",
+    "driver": "mongo",
+    "url": "mongodb://goes_ui:replace-me@mongo:27017/billing",
+    "database": "billing",
+    "collection": "events"
+  }
+]
