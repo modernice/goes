@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type mongoReader struct {
@@ -61,7 +61,7 @@ func newMongoReader(cfg StoreConfig, decoder Decoder) (*mongoReader, error) {
 	if cfg.Collection == "" || strings.ContainsRune(cfg.Collection, '\x00') {
 		return nil, fmt.Errorf("invalid mongo collection %q", cfg.Collection)
 	}
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.URL))
+	client, err := mongo.Connect(options.Client().ApplyURI(cfg.URL))
 	if err != nil {
 		return nil, fmt.Errorf("create mongo client: %w", err)
 	}
@@ -248,16 +248,16 @@ func (reader *mongoReader) Summary(ctx context.Context) (Summary, error) {
 	if summary.TotalEvents, err = reader.collection.CountDocuments(ctx, bson.D{}); err != nil {
 		return Summary{}, fmt.Errorf("count events: %w", err)
 	}
-	eventNames, err := reader.collection.Distinct(ctx, "name", bson.D{})
-	if err != nil {
+	var eventNames []string
+	if err := reader.collection.Distinct(ctx, "name", bson.D{{Key: "name", Value: bson.D{{Key: "$ne", Value: ""}}}}).Decode(&eventNames); err != nil {
 		return Summary{}, fmt.Errorf("count event types: %w", err)
 	}
-	summary.EventTypes = int64(len(nonEmptyStrings(eventNames)))
-	aggregateNames, err := reader.collection.Distinct(ctx, "aggregateName", bson.D{{Key: "aggregateName", Value: bson.D{{Key: "$ne", Value: ""}}}})
-	if err != nil {
+	summary.EventTypes = int64(len(eventNames))
+	var aggregateNames []string
+	if err := reader.collection.Distinct(ctx, "aggregateName", bson.D{{Key: "aggregateName", Value: bson.D{{Key: "$ne", Value: ""}}}}).Decode(&aggregateNames); err != nil {
 		return Summary{}, fmt.Errorf("count aggregate types: %w", err)
 	}
-	summary.AggregateTypes = int64(len(nonEmptyStrings(aggregateNames)))
+	summary.AggregateTypes = int64(len(aggregateNames))
 
 	var latest struct {
 		TimeNano int64 `bson:"timeNano"`
@@ -273,16 +273,6 @@ func (reader *mongoReader) Summary(ctx context.Context) (Summary, error) {
 		summary.LatestEventTime = &t
 	}
 	return summary, nil
-}
-
-func nonEmptyStrings(values []any) []string {
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		if stringValue, ok := value.(string); ok && stringValue != "" {
-			out = append(out, stringValue)
-		}
-	}
-	return out
 }
 
 func (reader *mongoReader) Facets(ctx context.Context) (Facets, error) {

@@ -185,12 +185,12 @@ Unlike the in-memory model repository, the MongoDB version takes a `*mongo.Colle
 
 ```go
 import (
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	gomongo "github.com/modernice/goes/backend/mongo"
 )
 
-client, err := mongo.Connect(ctx)
+client, err := mongo.Connect()
 if err != nil {
 	// handle error
 }

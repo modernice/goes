@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/modernice/goes/event"
 )
@@ -15,12 +15,12 @@ type transactionKey struct{}
 
 type transaction struct {
 	mux            sync.RWMutex
-	session        mongo.Session
+	session        *mongo.Session
 	store          *EventStore
 	insertedEvents []event.Event
 }
 
-func newTransaction(session mongo.Session, store *EventStore) *transaction {
+func newTransaction(session *mongo.Session, store *EventStore) *transaction {
 	tx := &transaction{session: session}
 
 	tx.store = &EventStore{
@@ -35,7 +35,7 @@ func newTransaction(session mongo.Session, store *EventStore) *transaction {
 // Session retrieves the mongo.Session associated with the current transaction.
 // This is the session used for executing MongoDB operations within the
 // transaction.
-func (tx *transaction) Session() mongo.Session {
+func (tx *transaction) Session() *mongo.Session {
 	return tx.session
 }
 
@@ -71,7 +71,7 @@ type transactionContext struct {
 	Transaction
 }
 
-func newTransactionContext(ctx mongo.SessionContext, tx Transaction) *transactionContext {
+func newTransactionContext(ctx context.Context, tx Transaction) *transactionContext {
 	return &transactionContext{
 		Context:     context.WithValue(ctx, transactionKey{}, tx),
 		Transaction: tx,

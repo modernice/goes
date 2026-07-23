@@ -13,9 +13,9 @@ import (
 	"github.com/modernice/goes/aggregate/snapshot"
 	"github.com/modernice/goes/event/query/time"
 	"github.com/modernice/goes/event/query/version"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var (
@@ -285,7 +285,7 @@ func (s *SnapshotStore) connect(ctx context.Context) error {
 	if uri == "" {
 		uri = os.Getenv("MONGO_URL")
 	}
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(options.Client().ApplyURI(uri))
 	if err != nil {
 		return fmt.Errorf("mongo: %w", err)
 	}
@@ -420,7 +420,7 @@ func withSnapshotTimeFilter(filter bson.D, times time.Constraints) bson.D {
 	return filter
 }
 
-func applySnapshotSortings(opts *options.FindOptions, sortings ...aggregate.SortOptions) *options.FindOptions {
+func applySnapshotSortings(opts *options.FindOptionsBuilder, sortings ...aggregate.SortOptions) *options.FindOptionsBuilder {
 	sorts := make(bson.D, len(sortings))
 	for i, opts := range sortings {
 		v := 1

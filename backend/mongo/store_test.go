@@ -11,10 +11,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	mongodb "go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	mongodb "go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/modernice/goes/aggregate"
 	"github.com/modernice/goes/backend/mongo"
@@ -210,7 +209,7 @@ func TestEventStore_Insert_preHookInsertingIntoCollection(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		id, _ := result.InsertedID.(primitive.ObjectID)
+		id, _ := result.InsertedID.(bson.ObjectID)
 		expectedEntity.ID = id
 		return nil
 	})
@@ -299,7 +298,7 @@ func TestEventStore_Insert_with3HooksLastFailing(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		id, _ := result.InsertedID.(primitive.ObjectID)
+		id, _ := result.InsertedID.(bson.ObjectID)
 		expectedEntity.ID = id
 		return expectedErr
 	})
@@ -411,13 +410,12 @@ func aHookObserver(fns ...func(mongo.TransactionContext) error) *hookObserver {
 }
 
 type testEntity struct {
-	ID   primitive.ObjectID `bson:"_id,omitempty"`
-	Name string             `bson:"name,omitempty"`
+	ID   bson.ObjectID `bson:"_id,omitempty"`
+	Name string        `bson:"name,omitempty"`
 }
 
 func aCollection(dbName string) (*mongodb.Client, *mongodb.Collection, error) {
-	client, err := mongodb.Connect(context.TODO(),
-		options.Client().ApplyURI(os.Getenv("MONGOREPLSTORE_URL")))
+	client, err := mongodb.Connect(options.Client().ApplyURI(os.Getenv("MONGOREPLSTORE_URL")))
 	if err != nil {
 		return nil, nil, err
 	}

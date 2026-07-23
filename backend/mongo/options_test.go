@@ -12,13 +12,12 @@ import (
 	"github.com/modernice/goes/event"
 	"github.com/modernice/goes/event/test"
 	"github.com/modernice/goes/internal"
-	gomongo "go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	gomongo "go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func TestClient(t *testing.T) {
 	client, err := gomongo.Connect(
-		context.Background(),
 		options.Client().ApplyURI(os.Getenv("MONGOSTORE_URL")),
 	)
 	if err != nil {

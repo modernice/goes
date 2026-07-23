@@ -10,10 +10,10 @@ import (
 	stdtime "time"
 
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/mongo/driver"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/x/mongo/driver"
 
 	"github.com/modernice/goes/backend/mongo/indices"
 	"github.com/modernice/goes/codec"
@@ -60,7 +60,7 @@ type EventStore struct {
 	additionalIndices []mongo.IndexModel
 	preInsertHooks    []func(TransactionContext) error
 	postInsertHooks   []func(TransactionContext) error
-	queryInterceptors []func(*options.FindOptions) *options.FindOptions
+	queryInterceptors []func(*options.FindOptionsBuilder) *options.FindOptionsBuilder
 
 	client  *mongo.Client
 	db      *mongo.Database
@@ -251,8 +251,8 @@ func WithIndices(models ...mongo.IndexModel) EventStoreOption {
 // WithQueryOptions allows the addition of custom query options to an
 // [EventStore], modifying how events are queried from the database. This can be
 // used to adjust or optimize query behavior by applying user-defined functions
-// to [options.FindOptions].
-func WithQueryOptions(fn func(*options.FindOptions) *options.FindOptions) EventStoreOption {
+// to [options.FindOptionsBuilder].
+func WithQueryOptions(fn func(*options.FindOptionsBuilder) *options.FindOptionsBuilder) EventStoreOption {
 	return func(s *EventStore) {
 		if fn != nil {
 			s.queryInterceptors = append(s.queryInterceptors, fn)
@@ -279,7 +279,7 @@ type Transaction interface {
 	// It returns a [mongo.Session] instance that represents the current session.
 	// The Session method is only available within a Transaction and should not be
 	// used outside of it to avoid unexpected behaviour or errors.
-	Session() mongo.Session
+	Session() *mongo.Session
 
 	// EventStore is a method of the Transaction interface. It returns an instance
 	// of the EventStore type that is associated with the transaction. This can be
@@ -417,7 +417,7 @@ func (s *EventStore) Insert(ctx context.Context, events ...event.Event) (out err
 	sessionCtx := mongo.NewSessionContext(ctx, tx.Session())
 
 	if s.transactions {
-		if err := sessionCtx.StartTransaction(); err != nil {
+		if err := tx.Session().StartTransaction(); err != nil {
 			return fmt.Errorf("start transaction: %w", err)
 		}
 	}
@@ -442,7 +442,7 @@ func (s *EventStore) Insert(ctx context.Context, events ...event.Event) (out err
 	}
 
 	if s.transactions {
-		if err := sessionCtx.CommitTransaction(sessionCtx); err != nil {
+		if err := tx.Session().CommitTransaction(sessionCtx); err != nil {
 			return fmt.Errorf("commit transaction: %w", err)
 		}
 	}
@@ -474,7 +474,7 @@ func (s *EventStore) createTransaction(ctx context.Context) (tx *transaction, er
 	return newTransaction(session, s), nil
 }
 
-func (s *EventStore) abortTransaction(ctx mongo.SessionContext, err error) error {
+func (s *EventStore) abortTransaction(ctx context.Context, err error) error {
 	if s.isTransactionStore {
 		return s.root.abortTransaction(ctx, err)
 	}
@@ -483,14 +483,14 @@ func (s *EventStore) abortTransaction(ctx mongo.SessionContext, err error) error
 		return err
 	}
 
-	if abortError := ctx.AbortTransaction(ctx); abortError != nil {
+	if abortError := mongo.SessionFromContext(ctx).AbortTransaction(ctx); abortError != nil {
 		return fmt.Errorf("abort transaction with error %q: %w", err, abortError)
 	}
 
 	return err
 }
 
-func (s *EventStore) insertInSession(ctx mongo.SessionContext, events []event.Event) (out error) {
+func (s *EventStore) insertInSession(ctx context.Context, events []event.Event) (out error) {
 	st, err := s.validateEventVersions(ctx, events)
 	if err != nil {
 		return s.abortTransaction(ctx, fmt.Errorf("validate versions: %w", err))
@@ -507,7 +507,7 @@ func (s *EventStore) insertInSession(ctx mongo.SessionContext, events []event.Ev
 	return nil
 }
 
-func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []event.Event) (state, error) {
+func (s *EventStore) validateEventVersions(ctx context.Context, events []event.Event) (state, error) {
 	if len(events) == 0 {
 		return state{}, nil
 	}
@@ -550,7 +550,7 @@ func (s *EventStore) validateEventVersions(ctx mongo.SessionContext, events []ev
 	return st, nil
 }
 
-func (s *EventStore) updateState(ctx mongo.SessionContext, st state, events []event.Event) error {
+func (s *EventStore) updateState(ctx context.Context, st state, events []event.Event) error {
 	if len(events) == 0 || st.AggregateName == "" || st.AggregageID == uuid.Nil {
 		return nil
 	}
@@ -642,14 +642,14 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
 	sessionCtx := mongo.NewSessionContext(ctx, tx.Session())
 
 	if s.transactions {
-		if err := sessionCtx.StartTransaction(); err != nil {
+		if err := tx.Session().StartTransaction(); err != nil {
 			return fmt.Errorf("start transaction: %w", err)
 		}
 	}
 
 	commit := func() error {
 		if s.transactions {
-			if err := sessionCtx.CommitTransaction(ctx); err != nil {
+			if err := tx.Session().CommitTransaction(ctx); err != nil {
 				return fmt.Errorf("commit transaction: %w", err)
 			}
 		}
@@ -681,7 +681,7 @@ func (s *EventStore) Delete(ctx context.Context, events ...event.Event) error {
 	return commit()
 }
 
-func (s *EventStore) deleteInSession(ctx mongo.SessionContext, ids []uuid.UUID) error {
+func (s *EventStore) deleteInSession(ctx context.Context, ids []uuid.UUID) error {
 	if _, err := s.entries.DeleteMany(ctx, bson.D{
 		{Key: "id", Value: bson.D{{Key: "$in", Value: ids}}},
 	}); err != nil {
@@ -843,7 +843,7 @@ func (s *EventStore) connect(ctx context.Context, opts ...*options.ClientOptions
 		)
 
 		var err error
-		if s.client, err = mongo.Connect(ctx, opts...); err != nil {
+		if s.client, err = mongo.Connect(opts...); err != nil {
 			s.client = nil
 			return fmt.Errorf("mongo.Connect: %w", err)
 		}
@@ -879,20 +879,41 @@ func (s *EventStore) ensureIndexes(ctx context.Context) error {
 	}
 
 	for _, model := range models {
-		if model.Options == nil {
+		name, ok, err := indexModelName(model)
+		if err != nil {
+			return fmt.Errorf("resolve index options: %w", err)
+		}
+		if !ok {
 			continue
 		}
 
-		if indexNames[*model.Options.Name] {
+		if indexNames[name] {
 			continue
 		}
 
 		if _, err := s.entries.Indexes().CreateOne(ctx, model); err != nil {
-			return fmt.Errorf("create %q index: %w", *model.Options.Name, err)
+			return fmt.Errorf("create %q index: %w", name, err)
 		}
 	}
 
 	return nil
+}
+
+func indexModelName(model mongo.IndexModel) (string, bool, error) {
+	if model.Options == nil {
+		return "", false, nil
+	}
+
+	var opts options.IndexOptions
+	for _, set := range model.Options.List() {
+		if err := set(&opts); err != nil {
+			return "", false, err
+		}
+	}
+	if opts.Name == nil {
+		return "", false, nil
+	}
+	return *opts.Name, true, nil
 }
 
 func (e entry) event(enc codec.Encoding) (event.Event, error) {
@@ -1065,7 +1086,7 @@ func withAggregateRefFilter(filter bson.D, tuples []event.AggregateRef) bson.D {
 	return append(filter, bson.E{Key: "$or", Value: or})
 }
 
-func applySortings(opts *options.FindOptions, sortings ...event.SortOptions) *options.FindOptions {
+func applySortings(opts *options.FindOptionsBuilder, sortings ...event.SortOptions) *options.FindOptionsBuilder {
 	sorts := make(bson.D, len(sortings))
 	for i, opts := range sortings {
 		v := 1

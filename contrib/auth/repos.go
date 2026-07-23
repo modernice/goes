@@ -13,7 +13,7 @@ import (
 	"github.com/modernice/goes/backend/mongo"
 	"github.com/modernice/goes/persistence/model"
 	"github.com/modernice/goes/projection"
-	gomongo "go.mongodb.org/mongo-driver/mongo"
+	gomongo "go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 var _ ActorRepositories = (*ActorRepositoryRegistry)(nil)

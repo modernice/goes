@@ -10,7 +10,7 @@ import (
 	"github.com/modernice/goes/backend/mongo"
 	"github.com/modernice/goes/backend/mongo/mongotest"
 	"github.com/modernice/goes/event/test"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func TestStore_Connect_options(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modernice/goes/persistence/model"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var _ model.Repository[model.Model[uuid.UUID], uuid.UUID] = &ModelRepository[model.Model[uuid.UUID], uuid.UUID]{}
@@ -177,10 +177,11 @@ func (r *ModelRepository[Model, ID]) decode(res *mongo.SingleResult, m any) erro
 // If the ModelTransactions option is set to true, the operation is done within
 // a MongoDB transaction (must be supported by your MongoDB cluster).
 func (r *ModelRepository[Model, ID]) Use(ctx context.Context, id ID, fn func(Model) error) error {
-	return r.col.Database().Client().UseSession(ctx, func(ctx mongo.SessionContext) error {
+	return r.col.Database().Client().UseSession(ctx, func(ctx context.Context) error {
+		session := mongo.SessionFromContext(ctx)
 		abort := func(txError error) error {
 			if r.transactions {
-				if err := ctx.AbortTransaction(ctx); err != nil {
+				if err := session.AbortTransaction(ctx); err != nil {
 					return fmt.Errorf("failed to abort transaction after error %q: %w", txError, err)
 				}
 			}
@@ -188,7 +189,7 @@ func (r *ModelRepository[Model, ID]) Use(ctx context.Context, id ID, fn func(Mod
 		}
 
 		if r.transactions {
-			if err := ctx.StartTransaction(); err != nil {
+			if err := session.StartTransaction(); err != nil {
 				return fmt.Errorf("start transaction: %w", err)
 			}
 		}
@@ -213,7 +214,7 @@ func (r *ModelRepository[Model, ID]) Use(ctx context.Context, id ID, fn func(Mod
 		}
 
 		if r.transactions {
-			if err := ctx.CommitTransaction(ctx); err != nil {
+			if err := session.CommitTransaction(ctx); err != nil {
 				return fmt.Errorf("commit transaction: %w", err)
 			}
 		}

@@ -12,9 +12,9 @@ import (
 	"github.com/modernice/goes/backend/mongo"
 	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/persistence/model"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	gomongo "go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	gomongo "go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func TestModelRepository_Save_Fetch(t *testing.T) {
@@ -24,11 +24,11 @@ func TestModelRepository_Save_Fetch(t *testing.T) {
 	col := connect(t)
 
 	m := &basicModel{
-		ID:  primitive.NewObjectID(),
+		ID:  bson.NewObjectID(),
 		Foo: "foo",
 	}
 
-	r := mongo.NewModelRepository[*basicModel, primitive.ObjectID](col)
+	r := mongo.NewModelRepository[*basicModel, bson.ObjectID](col)
 
 	if _, err := r.Fetch(ctx, m.ModelID()); !errors.Is(err, model.ErrNotFound) {
 		t.Fatalf("Fetch() should fail with %q for a model that does not exist in the database; got %q", model.ErrNotFound, err)
@@ -54,20 +54,20 @@ func TestModelRepository_Save_Fetch(t *testing.T) {
 
 func TestModelRepository_Use(t *testing.T) {
 	col := connect(t)
-	testModelRepository_Use(t, mongo.NewModelRepository[*basicModel, primitive.ObjectID](col))
+	testModelRepository_Use(t, mongo.NewModelRepository[*basicModel, bson.ObjectID](col))
 }
 
 func TestModelRepository_Use_Transaction(t *testing.T) {
 	col := connect(t)
-	testModelRepository_Use(t, mongo.NewModelRepository[*basicModel, primitive.ObjectID](col, mongo.ModelTransactions(true)))
+	testModelRepository_Use(t, mongo.NewModelRepository[*basicModel, bson.ObjectID](col, mongo.ModelTransactions(true)))
 }
 
-func testModelRepository_Use(t *testing.T, r *mongo.ModelRepository[*basicModel, primitive.ObjectID]) {
+func testModelRepository_Use(t *testing.T, r *mongo.ModelRepository[*basicModel, bson.ObjectID]) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	m := &basicModel{
-		ID:  primitive.NewObjectID(),
+		ID:  bson.NewObjectID(),
 		Foo: "foo",
 	}
 
@@ -98,10 +98,10 @@ func TestModelRepository_Delete(t *testing.T) {
 
 	col := connect(t)
 
-	r := mongo.NewModelRepository[*basicModel, primitive.ObjectID](col)
+	r := mongo.NewModelRepository[*basicModel, bson.ObjectID](col)
 
 	m := &basicModel{
-		ID:  primitive.NewObjectID(),
+		ID:  bson.NewObjectID(),
 		Foo: "foo",
 	}
 
@@ -226,7 +226,7 @@ func TestModelRepository_Fetch_ModelFactory_CreateIfNotFound(t *testing.T) {
 }
 
 func connect(t *testing.T) *gomongo.Collection {
-	client, err := gomongo.Connect(context.Background(), options.Client().ApplyURI(os.Getenv("MONGOMODEL_URL")))
+	client, err := gomongo.Connect(options.Client().ApplyURI(os.Getenv("MONGOMODEL_URL")))
 	if err != nil {
 		t.Fatalf("connect to mongo: %v", err)
 		return nil
@@ -239,12 +239,12 @@ func connect(t *testing.T) *gomongo.Collection {
 }
 
 type basicModel struct {
-	ID  primitive.ObjectID `bson:"_id"`
+	ID  bson.ObjectID `bson:"_id"`
 	Foo string
 }
 
 // ModelID returns the unique identifier of a basicModel instance.
-func (m basicModel) ModelID() primitive.ObjectID {
+func (m basicModel) ModelID() bson.ObjectID {
 	return m.ID
 }
 
