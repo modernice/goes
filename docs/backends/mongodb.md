@@ -8,6 +8,8 @@ import "github.com/modernice/goes/backend/mongo"
 
 > For a step-by-step setup, see the [Tutorial](/tutorial/11-backends).
 
+> Since `goes@v0.9.0`, this backend uses v2 of the official MongoDB Go driver. Upgrading from an earlier version? See [Upgrading to v0.9](/migrations/v0-9).
+
 ## Event Store
 
 ```go

@@ -101,6 +101,12 @@ export default defineConfig({
           { text: 'Cookbook', link: '/reference/cookbook' },
         ],
       },
+      {
+        text: 'Migrations',
+        items: [
+          { text: 'Upgrading to v0.9', link: '/migrations/v0-9' },
+        ],
+      },
     ],
 
     socialLinks: [
