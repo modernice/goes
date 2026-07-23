@@ -1,6 +1,12 @@
 // Package natsjs provides a combined event store and event bus backed by NATS
 // JetStream.
 //
+// Deprecated: This backend has major architectural flaws — including missing
+// optimistic concurrency control, silently incomplete queries, and non-atomic
+// writes — and will be removed in a future release. Do not use it. Use the
+// mongo or postgres backend as the event store and the nats backend as the
+// event bus instead. See the package README for details.
+//
 // Events are stored in per-aggregate-type JetStream streams for efficient
 // aggregate fetching.
 //
@@ -40,6 +46,10 @@ var (
 // EventStore is a combined event store and event bus backed by NATS JetStream.
 //
 // Events are stored in per-aggregate-type streams for fast aggregate fetching.
+//
+// Deprecated: EventStore has major architectural flaws and will be removed in
+// a future release. Use the mongo or postgres event store and the nats event
+// bus instead. See the package README for details.
 type EventStore struct {
 	enc codec.Encoding
 
@@ -71,6 +81,10 @@ type EventStore struct {
 type Option func(*EventStore)
 
 // NewEventStore returns a new JetStream-backed event store and event bus.
+//
+// Deprecated: The natsjs backend has major architectural flaws and will be
+// removed in a future release. Use the mongo or postgres event store and the
+// nats event bus instead. See the package README for details.
 func NewEventStore(enc codec.Encoding, opts ...Option) *EventStore {
 	if enc == nil {
 		enc = event.NewRegistry()

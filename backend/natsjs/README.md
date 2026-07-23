@@ -1,71 +1,42 @@
 # natsjs
 
-> **Experimental** -- This backend is not tested in production. The API may
-> change without notice.
+> ⚠️ **Deprecated — do not use.** This backend has major architectural flaws
+> and will be removed in a future release.
 
-Combined `event.Store` and `event.Bus` backed by NATS JetStream.
+## Why you should not use this backend
 
-## How it works
+An architecture review found fundamental problems that cannot be fixed without
+a redesign, including:
 
-Events are stored in **per-aggregate-type JetStream streams** (created lazily
-on first insert) and indexed in a **KV bucket** for O(1) UUID lookups. The
-single `EventStore` type implements both `event.Store` and `event.Bus`.
+- **No optimistic concurrency control.** Aggregate versions are never
+  validated on insert, so concurrent saves of the same aggregate silently
+  corrupt its event history.
+- **Silently incomplete queries.** Queries without aggregate filters only see
+  streams known to the current process, so e.g. catch-up projections in a
+  freshly started process can return partial or empty results.
+- **Store/bus conflation.** `Publish` is `Insert`, which breaks the standard
+  `eventstore.WithBus` wiring (every save fails as a duplicate) and persists
+  transient bus events forever.
+- **Non-atomic writes.** Events are written to a stream and a KV index in two
+  separate steps, so crashes can leave events that are visible to queries and
+  subscribers but invisible to `Find`/`Delete` — or half-saved aggregates.
+- **Broken load balancing and delivery guarantees.** Load-balanced
+  subscriptions fail on restart, split events between independent subscribers,
+  and messages are acked before delivery (events can be lost on shutdown).
 
-### Subjects
+## Use instead
 
-```
-<namespace>.<aggregateName>.<aggregateID>.<eventName>
-```
+- [`backend/mongo`](../mongo) or [`backend/postgres`](../postgres) as the
+  `event.Store`
+- [`backend/nats`](../nats) as the `event.Bus`
 
-Examples (default namespace `goes`):
+## Cleaning up existing resources
 
-```
-goes.orders.550e8400-e29b-41d4-a716-446655440000.order_placed
-goes._._.user_logged_in
-```
-
-### JetStream resources
+If you experimented with this backend, it created the following JetStream
+resources (default namespace `goes`), which you may want to delete:
 
 | Resource | Naming | Example |
 |---|---|---|
 | Aggregate stream | `<namespace>_agg_<aggregateName>` | `goes_agg_orders` |
 | Non-aggregate stream | `<namespace>_agg__` | `goes_agg__` |
-| KV bucket | configurable | `goes_idx` |
-
-## Usage
-
-```go
-store := natsjs.NewEventStore(enc)
-
-// Explicit connect (optional -- called automatically by Insert/Find/Query/etc.)
-if err := store.Connect(ctx); err != nil {
-    log.Fatal(err)
-}
-defer store.Disconnect(ctx)
-```
-
-### Options
-
-```go
-store := natsjs.NewEventStore(enc,
-    natsjs.URL("nats://localhost:4222"),      // or set NATS_URL env var
-    natsjs.Conn(existingConn),                // use an existing *nats.Conn
-    natsjs.Namespace("myapp"),                // default: "goes"
-    natsjs.KVBucket("myapp_idx"),             // default: "goes_idx"
-    natsjs.LoadBalancer("order-service"),      // enable load-balanced subscriptions
-)
-```
-
-### Load balancing
-
-By default, every subscriber instance receives every event. Use `LoadBalancer`
-to distribute events across instances of the same service:
-
-```go
-store := natsjs.NewEventStore(enc,
-    natsjs.LoadBalancer("order-service"),
-)
-```
-
-Instances sharing the same service name create shared durable JetStream
-consumers, so each event is delivered to exactly one instance.
+| KV bucket | configurable, default `goes_idx` | `goes_idx` |
