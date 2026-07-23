@@ -40,7 +40,7 @@ func TestBus_enrichedError(t *testing.T) {
 		t.Fatal("expected dispatch to return an error")
 	}
 
-	cmdError := command.Error[int](dispatchError)
+	cmdError := command.Error(dispatchError)
 
 	if cmdError.Code() != errEnriched.Code() {
 		t.Fatalf("expected code %d, got %d", errEnriched.Code(), cmdError.Code())

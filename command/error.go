@@ -4,15 +4,20 @@ import (
 	"errors"
 	"fmt"
 
-	"golang.org/x/exp/constraints"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+// ErrorCode is the canonical code type for command execution errors.
+//
+// Error codes are serialized as int64 values when transmitted by a command bus.
+// The zero value denotes an unspecified error code.
+type ErrorCode int64
+
 // CodedError is an error with an error code.
-type CodedError[Code constraints.Integer] interface {
-	Code() Code
+type CodedError interface {
+	Code() ErrorCode
 }
 
 // DetailedError is an error with details.
@@ -49,8 +54,8 @@ type LocalizedMessage interface {
 // error does not implement [CodedError], the error code is set to 0.
 //
 // [*Err] implements [CodedError] and [DetailedError].
-type Err[Code constraints.Integer] struct {
-	code       Code
+type Err struct {
+	code       ErrorCode
 	underlying error
 	details    []*ErrDetail
 }
@@ -144,19 +149,19 @@ func WithErrorDetails(details ...*ErrDetail) ErrorOption {
 // is returned as is. Otherwise, it first extracts the error code from the error,
 // then calls [NewError] with the error code and error. If the provided error
 // does not satisfy `errors.As(err, new(CodedError))`, the error code is set to 0.
-func Error[Code constraints.Integer](err error) *Err[Code] {
+func Error(err error) *Err {
 	if err == nil {
 		return nil
 	}
 
-	var cerr *Err[Code]
+	var cerr *Err
 	if errors.As(err, &cerr) {
 		return cerr
 	}
 
 	var (
-		code  Code
-		coded CodedError[Code]
+		code  ErrorCode
+		coded CodedError
 	)
 	if errors.As(err, &coded) {
 		code = coded.Code()
@@ -168,7 +173,7 @@ func Error[Code constraints.Integer](err error) *Err[Code] {
 // NewError creates a new [*Err] with the provided error code and underlying
 // error. If the underlying error implements [DetailedError], the details of the
 // underlying error will be applied to the returned [*Err].
-func NewError[Code constraints.Integer](code Code, underlying error, opts ...ErrorOption) *Err[Code] {
+func NewError(code ErrorCode, underlying error, opts ...ErrorOption) *Err {
 	var baseOpts []ErrorOption
 	if derr, ok := underlying.(DetailedError); ok {
 		baseOpts = append(baseOpts, WithErrorDetails(derr.Details()...))
@@ -181,7 +186,7 @@ func NewError[Code constraints.Integer](code Code, underlying error, opts ...Err
 		opt(&errorOpts)
 	}
 
-	return &Err[Code]{
+	return &Err{
 		code:       code,
 		underlying: underlying,
 		details:    errorOpts.details,
@@ -192,7 +197,7 @@ func NewError[Code constraints.Integer](code Code, underlying error, opts ...Err
 // not nil, otherwise it returns a string representation of the error code formatted as:
 //
 //	fmt.Sprintf("<ERROR CODE %d>", code)
-func (err *Err[Code]) Error() string {
+func (err *Err) Error() string {
 	if err.underlying != nil {
 		return err.underlying.Error()
 	}
@@ -200,34 +205,34 @@ func (err *Err[Code]) Error() string {
 }
 
 // Code returns the error code.
-func (err *Err[Code]) Code() Code {
+func (err *Err) Code() ErrorCode {
 	return err.code
 }
 
 // Underlying returns the underlying error.
-func (err *Err[Code]) Underlying() error {
+func (err *Err) Underlying() error {
 	return err.underlying
 }
 
 // Unwrap returns the underlying error.
-func (err *Err[Code]) Unwrap() error {
+func (err *Err) Unwrap() error {
 	return err.underlying
 }
 
 // Details returns the details of the error.
-func (err *Err[Code]) Details() []*ErrDetail {
+func (err *Err) Details() []*ErrDetail {
 	return err.details
 }
 
 // WithDetails returns a new [*Err] with the provided details appended to the
 // details of the original error. The returned error will have the same error
 // code as the original error but will not be the same instance.
-func (err *Err[Code]) WithDetails(details ...*ErrDetail) *Err[Code] {
+func (err *Err) WithDetails(details ...*ErrDetail) *Err {
 	return NewError(err.code, err.underlying, WithErrorDetails(append(err.details, details...)...))
 }
 
 // Localized returns the localized message for the given locale.
-func (err *Err[Code]) Localized(locale string) string {
+func (err *Err) Localized(locale string) string {
 	for _, detail := range err.details {
 		msg, err := detail.Value()
 		if err != nil {

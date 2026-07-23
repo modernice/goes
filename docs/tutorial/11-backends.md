@@ -131,7 +131,7 @@ func main() {
 	orders := repository.Typed(repo, shop.NewOrder)
 	customers := repository.Typed(repo, shop.NewCustomer)
 
-	cbus := cmdbus.New[int](cmdReg, bus)
+	cbus := cmdbus.New(cmdReg, bus)
 
 	productErrs := shop.HandleProductCommands(ctx, cbus, products)
 	orderErrs := shop.HandleOrderCommands(ctx, cbus, orders, products)

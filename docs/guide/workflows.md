@@ -527,7 +527,7 @@ store := eventstore.WithBus(mongo.NewEventStore(reg), triggerBus)
 
 // Command bus for outgoing commands (separate, non-load-balanced transport).
 commandTransport := nats.NewEventBus(reg)
-cmdBus := cmdbus.New[int](reg, commandTransport)
+cmdBus := cmdbus.New(reg, commandTransport)
 
 // Create and start the service.
 svc := workflow.NewService(workflow.Config{

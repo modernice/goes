@@ -125,7 +125,7 @@ func TestBus_Dispatch_Report(t *testing.T) {
 		t.Fatalf("Dispatch should return an error!")
 	}
 
-	var execError *cmdbus.ExecutionError[any]
+	var execError *cmdbus.ExecutionError
 	if !errors.As(dispatchError, &execError) {
 		t.Fatalf("Dispatch should return a %T error; got %T", execError, dispatchError)
 	}
@@ -140,6 +140,59 @@ func TestBus_Dispatch_Report(t *testing.T) {
 
 	if rep.Runtime != dur {
 		t.Errorf("Report has wrong runtime. want=%s got=%s", dur, rep.Runtime)
+	}
+}
+
+func TestBus_Dispatch_SuccessReportHasNoError(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	bus, _, _ := newBus(ctx, cmdbus.AssignTimeout(0))
+	commands, errs, err := bus.Subscribe(ctx, "foo-cmd")
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+
+	var rep report.Report
+	dispatched := make(chan error, 1)
+	go func() {
+		dispatched <- bus.Dispatch(
+			ctx,
+			command.New("foo-cmd", mockPayload{}).Any(),
+			dispatch.Report(&rep),
+		)
+	}()
+
+	var cmdCtx command.Context
+	select {
+	case received, ok := <-commands:
+		if !ok {
+			t.Fatal("command subscription closed before receiving command")
+		}
+		cmdCtx = received
+	case err := <-errs:
+		t.Fatalf("command subscription: %v", err)
+	case err := <-dispatched:
+		t.Fatalf("dispatch returned before command execution: %v", err)
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+
+	if err := cmdCtx.Finish(ctx); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+
+	select {
+	case err := <-dispatched:
+		if err != nil {
+			t.Fatalf("dispatch: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+
+	if rep.Error != nil {
+		t.Fatalf("expected successful report to have no error, got %v", rep.Error)
 	}
 }
 
@@ -582,7 +635,7 @@ func newBus(ctx context.Context, opts ...cmdbus.Option) (command.Bus, event.Bus,
 }
 
 func newBusWith(ctx context.Context, reg *codec.Registry, ebus event.Bus, opts ...cmdbus.Option) (command.Bus, event.Bus, *codec.Registry) {
-	bus := cmdbus.New[int](reg, ebus, opts...)
+	bus := cmdbus.New(reg, ebus, opts...)
 
 	running := make(chan struct{})
 	go func() {

@@ -55,10 +55,10 @@ The implementation uses the event bus for transport:
 ```go
 import "github.com/modernice/goes/command/cmdbus"
 
-cbus := cmdbus.New[int](cmdReg, eventBus)
+cbus := cmdbus.New(cmdReg, eventBus)
 ```
 
-The type parameter (`int` above) is the error code type for execution errors. The `cmdReg` argument is a `codec.Encoding` — a separate [codec registry](/guide/codec) for command payloads. In practice, you should create two registries: one for events and one for commands. Using a single registry is possible if no event name collides with a command name, but keeping them separate is cleaner.
+The `cmdReg` argument is a `codec.Encoding` — a separate [codec registry](/guide/codec) for command payloads. In practice, you should create two registries: one for events and one for commands. Using a single registry is possible if no event name collides with a command name, but keeping them separate is cleaner.
 
 ### Command Bus Options
 
@@ -284,6 +284,35 @@ err := cbus.Dispatch(ctx, cmd.Any(), dispatch.Sync())
 ```
 
 With `dispatch.Sync()`, `Dispatch` blocks until the handler finishes and returns the handler's error directly.
+
+### Execution Errors
+
+When a synchronous dispatch fails, the returned error is a `*cmdbus.ExecutionError` that wraps the handler's error. Unwrap it with `cmdbus.ExecError`:
+
+```go
+if execErr, ok := cmdbus.ExecError(err); ok {
+	log.Printf("command %q failed: %v", execErr.Cmd.Name(), execErr.Err)
+}
+```
+
+Because the handler may run in a different process, the error arrives at the dispatch site as a serialized copy, not the original Go value. Plain error messages survive this round-trip, but typed errors don't — if the dispatch site needs to distinguish failure cases, attach an error code. Error codes are `command.ErrorCode` values (an `int64`); `0` means no code was set. Return a coded error from the handler with `command.NewError`, or implement `command.CodedError` (a `Code() command.ErrorCode` method) on your own error type:
+
+```go
+// In the handler:
+const ErrOutOfStock command.ErrorCode = 1001
+
+return command.NewError(ErrOutOfStock, errors.New("product is out of stock"))
+```
+
+At the dispatch site, extract the transmitted error with `command.Error`:
+
+```go
+if err := cbus.Dispatch(ctx, cmd.Any(), dispatch.Sync()); err != nil {
+	if command.Error(err).Code() == ErrOutOfStock {
+		// Handle the out-of-stock case.
+	}
+}
+```
 
 ## When to Use a Workflow
 

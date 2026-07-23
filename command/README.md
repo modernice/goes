@@ -29,18 +29,20 @@ type Bus interface {
 ```
 
 The `cmdbus` package provides the event-driven implementation of the command
-bus. Use the `cmdbus.New` constructor to create a command bus from an event bus:
+bus. Use the `cmdbus.New` constructor to create a command bus from a codec
+registry for the command payloads and an event bus:
 
 ```go
 package example
 
 import (
-	"github.com/modernice/goes/event"
+	"github.com/modernice/goes/codec"
 	"github.com/modernice/goes/command/cmdbus"
+	"github.com/modernice/goes/event"
 )
 
-func example(ebus event.Bus) {
-	bus := cmdbus.New(ebus)
+func example(reg *codec.Registry, ebus event.Bus) {
+	bus := cmdbus.New(reg, ebus)
 }
 ```
 

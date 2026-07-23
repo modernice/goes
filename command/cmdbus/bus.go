@@ -21,11 +21,10 @@ import (
 	"github.com/modernice/goes/helper/streams"
 	"github.com/modernice/goes/internal"
 	"github.com/modernice/goes/internal/concurrent"
-	"golang.org/x/exp/constraints"
 	"google.golang.org/protobuf/proto"
 )
 
-var _ command.Bus = (*Bus[int])(nil)
+var _ command.Bus = (*Bus)(nil)
 
 const (
 	// DefaultAssignTimeout is the default timeout for assigning a command to a
@@ -63,7 +62,7 @@ var (
 )
 
 // Bus is an event-driven Command Bus.
-type Bus[ErrorCode constraints.Integer] struct {
+type Bus struct {
 	*handler.Handler
 
 	options
@@ -164,8 +163,8 @@ func Filter(fn func(command.Command) bool) Option {
 }
 
 // New returns an event-driven command bus.
-func New[ErrorCode constraints.Integer](enc codec.Encoding, events event.Bus, opts ...Option) *Bus[ErrorCode] {
-	b := &Bus[ErrorCode]{
+func New(enc codec.Encoding, events event.Bus, opts ...Option) *Bus {
+	b := &Bus{
 		options: options{
 			assignTimeout:  DefaultAssignTimeout,
 			receiveTimeout: DefaultReceiveTimeout,
@@ -197,7 +196,7 @@ func New[ErrorCode constraints.Integer](enc codec.Encoding, events event.Bus, op
 // Run runs the command bus until ctx is canceled. If the bus is used before Run
 // has been called, Run will be called automtically and the errors are logged to
 // stderr.
-func (b *Bus[ErrorCode]) Run(ctx context.Context) (<-chan error, error) {
+func (b *Bus) Run(ctx context.Context) (<-chan error, error) {
 	b.debugLog("starting command bus ...")
 
 	errs, err := b.Handler.Run(ctx)
@@ -274,7 +273,7 @@ func (b *Bus[ErrorCode]) Run(ctx context.Context) (<-chan error, error) {
 //	log.Println(fmt.Sprintf("Command: %v", rep.Command()))
 //	log.Println(fmt.Sprintf("Runtime: %v", rep.Runtime()))
 //	log.Println(fmt.Sprintf("Error: %v", err))
-func (b *Bus[ErrorCode]) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) (err error) {
+func (b *Bus) Dispatch(ctx context.Context, cmd command.Command, opts ...command.DispatchOption) (err error) {
 	b.debugLog("dispatching %q command ...", cmd.Name())
 
 	if !b.Running() {
@@ -354,7 +353,7 @@ func (b *Bus[ErrorCode]) Dispatch(ctx context.Context, cmd command.Command, opts
 	return nil
 }
 
-func (b *Bus[ErrorCode]) cleanupDispatch(cmdID uuid.UUID) {
+func (b *Bus) cleanupDispatch(cmdID uuid.UUID) {
 	b.dispatchMux.Lock()
 	defer b.dispatchMux.Unlock()
 	delete(b.dispatched, cmdID)
@@ -381,7 +380,7 @@ func (b *Bus[ErrorCode]) cleanupDispatch(cmdID uuid.UUID) {
 // are pushed into the Context channel before it is closed. Use the DrainTimeout
 // Option to specify the timeout after which the remaining Commands are being
 // discarded.
-func (b *Bus[ErrorCode]) Subscribe(ctx context.Context, names ...string) (<-chan command.Ctx[any], <-chan error, error) {
+func (b *Bus) Subscribe(ctx context.Context, names ...string) (<-chan command.Ctx[any], <-chan error, error) {
 	if !b.Running() {
 		errs, err := b.Run(context.Background())
 		if err != nil {
@@ -432,7 +431,7 @@ func (b *Bus[ErrorCode]) Subscribe(ctx context.Context, names ...string) (<-chan
 	return out, errs, nil
 }
 
-func (b *Bus[ErrorCode]) commandDispatched(evt event.Of[CommandDispatchedData]) {
+func (b *Bus) commandDispatched(evt event.Of[CommandDispatchedData]) {
 	data := evt.Data()
 
 	load, err := b.enc.Unmarshal(data.Payload, data.Name)
@@ -470,7 +469,7 @@ func (b *Bus[ErrorCode]) commandDispatched(evt event.Of[CommandDispatchedData]) 
 	b.requested[data.ID] = cmd
 }
 
-func (b *Bus[ErrorCode]) handles(name string) bool {
+func (b *Bus) handles(name string) bool {
 	b.debugLog("checking if %q command is handled by this bus ...", name)
 	b.subMux.RLock()
 	defer b.subMux.RUnlock()
@@ -482,7 +481,7 @@ func (b *Bus[ErrorCode]) handles(name string) bool {
 	return true
 }
 
-func (b *Bus[ErrorCode]) filterAllows(cmd command.Command) bool {
+func (b *Bus) filterAllows(cmd command.Command) bool {
 	for _, fn := range b.filters {
 		if !fn(cmd) {
 			b.debugLog("filtered out %q command", cmd.Name())
@@ -492,7 +491,7 @@ func (b *Bus[ErrorCode]) filterAllows(cmd command.Command) bool {
 	return true
 }
 
-func (b *Bus[ErrorCode]) commandRequested(evt event.Of[CommandRequestedData]) {
+func (b *Bus) commandRequested(evt event.Of[CommandRequestedData]) {
 	data := evt.Data()
 
 	// if the bus did not dispatch the command, return
@@ -523,7 +522,7 @@ func (b *Bus[ErrorCode]) commandRequested(evt event.Of[CommandRequestedData]) {
 	b.assigned[data.ID] = cmd
 }
 
-func (b *Bus[ErrorCode]) commandAssigned(evt event.Of[CommandAssignedData]) {
+func (b *Bus) commandAssigned(evt event.Of[CommandAssignedData]) {
 	data := evt.Data()
 
 	// if the bus did not request the command, return
@@ -582,15 +581,12 @@ func (b *Bus[ErrorCode]) commandAssigned(evt event.Of[CommandAssignedData]) {
 	}
 }
 
-func (b *Bus[ErrorCode]) markDone(ctx context.Context, cmd command.Command, cfg finish.Config) error {
+func (b *Bus) markDone(ctx context.Context, cmd command.Command, cfg finish.Config) error {
 	var errbytes []byte
 
 	if cfg.Err != nil {
-		// log.Printf("%#v", cfg.Err)
-		cerr := command.Error[ErrorCode](cfg.Err)
-		// log.Printf("%#v", cerr)
+		cerr := command.Error(cfg.Err)
 		msg := commandpb.NewError(cerr)
-		// log.Printf("%#v", msg)
 		b, err := proto.Marshal(msg)
 		if err != nil {
 			return fmt.Errorf("marshal command error: %w", err)
@@ -613,7 +609,7 @@ func (b *Bus[ErrorCode]) markDone(ctx context.Context, cmd command.Command, cfg 
 	return nil
 }
 
-func (b *Bus[ErrorCode]) commandAccepted(evt event.Of[CommandAcceptedData]) {
+func (b *Bus) commandAccepted(evt event.Of[CommandAcceptedData]) {
 	data := evt.Data()
 
 	// if the bus did not assign the command, return
@@ -641,7 +637,7 @@ func (b *Bus[ErrorCode]) commandAccepted(evt event.Of[CommandAcceptedData]) {
 	}
 }
 
-func (b *Bus[ErrorCode]) commandExecuted(evt event.Of[CommandExecutedData]) {
+func (b *Bus) commandExecuted(evt event.Of[CommandExecutedData]) {
 	data := evt.Data()
 
 	// if the bus is not waiting for the execution of the command, return
@@ -666,7 +662,7 @@ func (b *Bus[ErrorCode]) commandExecuted(evt event.Of[CommandExecutedData]) {
 	delete(b.assigned, data.ID)
 
 	// parse the command error
-	var cmdError *command.Err[ErrorCode]
+	var cmdError *command.Err
 	if len(data.Error) > 0 {
 		var errpb commandpb.Error
 		if err := proto.Unmarshal(data.Error, &errpb); err != nil {
@@ -678,12 +674,19 @@ func (b *Bus[ErrorCode]) commandExecuted(evt event.Of[CommandExecutedData]) {
 			}
 			return
 		}
-		cmdError = commandpb.AsError[ErrorCode](&errpb)
+		cmdError = commandpb.AsError(&errpb)
 	}
 
 	// if the dispatch requested a report, report the execution result
 	if cmd.cfg.Reporter != nil {
 		id, name := cmd.cmd.Aggregate().Split()
+		reportOptions := []report.Option{report.Runtime(data.Runtime)}
+		if cmdError != nil {
+			reportOptions = append(reportOptions, report.Error(&ExecutionError{
+				Cmd: cmd.cmd,
+				Err: cmdError,
+			}))
+		}
 
 		cmd.cfg.Reporter.Report(report.New(report.Command{
 			ID:            cmd.cmd.ID(),
@@ -691,10 +694,7 @@ func (b *Bus[ErrorCode]) commandExecuted(evt event.Of[CommandExecutedData]) {
 			Payload:       cmd.cmd.Payload(),
 			AggregateName: name,
 			AggregateID:   id,
-		}, report.Runtime(data.Runtime), report.Error(&ExecutionError[any]{
-			Cmd: cmd.cmd,
-			Err: cmdError,
-		})))
+		}, reportOptions...))
 	}
 
 	// if command execution failed, send the error to the dispatcher error channel and return
@@ -703,7 +703,7 @@ func (b *Bus[ErrorCode]) commandExecuted(evt event.Of[CommandExecutedData]) {
 		case <-b.Context().Done():
 			return
 		case <-cmd.dispatchAborted:
-		case cmd.out <- &ExecutionError[any]{
+		case cmd.out <- &ExecutionError{
 			Cmd: cmd.cmd,
 			Err: cmdError,
 		}:
@@ -715,7 +715,7 @@ func (b *Bus[ErrorCode]) commandExecuted(evt event.Of[CommandExecutedData]) {
 	close(cmd.out)
 }
 
-func (b *Bus[ErrorCode]) debugLog(format string, vals ...any) {
+func (b *Bus) debugLog(format string, vals ...any) {
 	if b.debug {
 		log.Printf("[goes/command/cmdbus.Bus@debugLog] "+format, vals...)
 	}

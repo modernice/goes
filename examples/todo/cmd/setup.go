@@ -80,7 +80,7 @@ func (s *Setup) Commands(ereg *codec.Registry, ebus event.Bus) (command.Bus, *co
 
 	cmdbus.RegisterEvents(ereg)
 
-	return cmdbus.New[int](r, ebus), r
+	return cmdbus.New(r, ebus), r
 }
 
 // Aggregates returns a *repository.Repository for managing aggregates using the

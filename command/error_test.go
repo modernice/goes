@@ -33,10 +33,8 @@ func TestNewError(t *testing.T) {
 	}
 }
 
-type errorCode int
-
-func TestNewError_customCodeType(t *testing.T) {
-	code := errorCode(3)
+func TestNewError_code(t *testing.T) {
+	code := command.ErrorCode(3)
 	err := command.NewError(code, errUnderlying)
 
 	if err.Code() != code {
@@ -163,14 +161,14 @@ func TestErr_LocalizedMessage(t *testing.T) {
 }
 
 func TestError_isCommandError(t *testing.T) {
-	code := errorCode(3)
+	code := command.ErrorCode(3)
 	cerr := command.NewError(
 		code,
 		errUnderlying,
 		command.WithErrorDetails(command.LocalizeError("en", "Localized message")),
 	)
 
-	parsed := command.Error[errorCode](cerr)
+	parsed := command.Error(cerr)
 
 	if parsed != cerr {
 		t.Fatalf("expected parsed error to be %v, got %v", cerr, parsed)
@@ -183,7 +181,7 @@ func TestError_isCommandError(t *testing.T) {
 }
 
 func TestError_nonCommandError(t *testing.T) {
-	parsed := command.Error[int](errUnderlying)
+	parsed := command.Error(errUnderlying)
 
 	if parsed.Code() != 0 {
 		t.Fatalf("expected code 0, got %d", parsed.Code())
@@ -196,7 +194,7 @@ func TestError_nonCommandError(t *testing.T) {
 
 func TestError_nonCommandErrorWithCode(t *testing.T) {
 	underlying := &errorWithCode{code: 10}
-	parsed := command.Error[errorCode](underlying)
+	parsed := command.Error(underlying)
 
 	if parsed.Code() != 10 {
 		t.Fatalf("expected code 10, got %d", parsed.Code())
@@ -223,7 +221,7 @@ func (err *errorWithDetails) Details() []*command.ErrDetail {
 }
 
 type errorWithCode struct {
-	code errorCode
+	code command.ErrorCode
 }
 
 // Error returns the error message of the underlying error in the errorWithCode
@@ -233,6 +231,6 @@ func (err *errorWithCode) Error() string {
 }
 
 // Code returns the error code associated with the errorWithCode.
-func (err *errorWithCode) Code() errorCode {
+func (err *errorWithCode) Code() command.ErrorCode {
 	return err.code
 }

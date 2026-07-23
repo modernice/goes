@@ -280,7 +280,7 @@ func TestPaymentWorkflow_DeadlineMissed(t *testing.T) {
 	shop.RegisterProductCommands(cmdReg)
 	shop.RegisterOrderCommands(cmdReg)
 
-	cbus := cmdbus.New[int](cmdReg, bus)
+	cbus := cmdbus.New(cmdReg, bus)
 	go streams.Drain(shop.HandleProductCommands(ctx, cbus, products))
 	go streams.Drain(shop.HandleOrderCommands(ctx, cbus, orders, products))
 

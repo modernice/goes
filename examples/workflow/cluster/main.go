@@ -109,7 +109,7 @@ func main() {
 
 	store := eventstore.New()
 
-	cmdBus := cmdbus.New[int](reg, eventbus.New())
+	cmdBus := cmdbus.New(reg, eventbus.New())
 	cmdBusErrs, err := cmdBus.Run(ctx)
 	must(err)
 	go drain("command bus", cmdBusErrs)

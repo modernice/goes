@@ -120,7 +120,7 @@ func main() {
 	ebus := eventbus.New()
 	store := eventstore.New()
 
-	cmdBus := cmdbus.New[int](reg, ebus)
+	cmdBus := cmdbus.New(reg, ebus)
 	cmdBusErrs, err := cmdBus.Run(ctx)
 	must(err)
 	go drain("command bus", cmdBusErrs)

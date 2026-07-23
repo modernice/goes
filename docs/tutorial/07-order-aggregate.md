@@ -315,7 +315,7 @@ func main() {
 	products := repository.Typed(repo, shop.NewProduct)
 	orders := repository.Typed(repo, shop.NewOrder)  // [!code ++]
 
-	cbus := cmdbus.New[int](cmdReg, bus)
+	cbus := cmdbus.New(cmdReg, bus)
 
 	productErrs := shop.HandleProductCommands(ctx, cbus, products)
 	orderErrs := shop.HandleOrderCommands(ctx, cbus, orders, products)  // [!code ++]

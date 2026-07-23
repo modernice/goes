@@ -327,7 +327,7 @@ func TestCreateProductCommand(t *testing.T) {
 
 	repo := repository.New(store)
 	products := repository.Typed(repo, shop.NewProduct)
-	cbus := cmdbus.New[int](cmdReg, bus)
+	cbus := cmdbus.New(cmdReg, bus)
 
 	errs := shop.HandleProductCommands(ctx, cbus, products)
 	go streams.Drain(errs)

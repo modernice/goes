@@ -124,7 +124,7 @@ func main() {
 	products := repository.Typed(repo, shop.NewProduct)
 
 	// Create the command bus.                                         // [!code ++]
-	cbus := cmdbus.New[int](cmdReg, bus)                                  // [!code ++]
+	cbus := cmdbus.New(cmdReg, bus)                                    // [!code ++]
 	                                                                   // [!code ++]
 	// Start handling product commands.                                // [!code ++]
 	productErrs := shop.HandleProductCommands(ctx, cbus, products)     // [!code ++]

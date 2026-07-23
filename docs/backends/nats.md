@@ -76,7 +76,7 @@ triggerBus := nats.NewEventBus(reg,
 
 commandTransport := nats.NewEventBus(reg)
 
-cmdBus := cmdbus.New[int](reg, commandTransport)
+cmdBus := cmdbus.New(reg, commandTransport)
 svc := workflow.NewService(workflow.Config{
 	EventStore: store,
 	EventBus:   triggerBus,

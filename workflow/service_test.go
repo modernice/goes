@@ -302,7 +302,7 @@ func (w *guardWorkflow) onTimeout(ctx workflow.Ctx[workflow.TimeoutFiredData]) e
 func (w *guardWorkflow) applyFired(event.Of[guardFiredRecordedData]) { w.FiredCount++ }
 
 type recordingCommandBus struct {
-	*cmdbus.Bus[int]
+	*cmdbus.Bus
 
 	mu         sync.Mutex
 	dispatched []command.Command
@@ -316,7 +316,7 @@ func newCommandBus(t *testing.T, reg codec.Encoding) *recordingCommandBus {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	bus := cmdbus.New[int](reg, eventbus.New(), cmdbus.AssignTimeout(500*time.Millisecond))
+	bus := cmdbus.New(reg, eventbus.New(), cmdbus.AssignTimeout(500*time.Millisecond))
 
 	errs, err := bus.Run(ctx)
 	if err != nil {
