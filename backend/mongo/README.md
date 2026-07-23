@@ -12,8 +12,9 @@ go.mongodb.org/mongo-driver/v2
 ```
 
 Applications that exchange MongoDB driver types with this backend — clients,
-options, ObjectIDs, sessions — must migrate their own driver dependency and
-imports at the same time as they upgrade `goes`.
+options, ObjectIDs, sessions — or implement its BSON codec interfaces must
+migrate their own driver dependency and imports at the same time as they
+upgrade `goes`.
 
 ## Migrating from mongo-driver v1
 
@@ -25,11 +26,15 @@ imports at the same time as they upgrade `goes`.
 collections, indexes, and stored BSON fields, so existing data remains fully
 usable after the driver upgrade.
 
+That storage compatibility does not make application-defined BSON codecs
+source-compatible. Custom value codec method signatures must still be updated
+as described below.
+
 > **Tip:** This migration is well-suited for an AI coding agent. Give the agent
 > this README and the MongoDB migration guide linked below, then ask it to
-> update the driver dependency and affected APIs, run `go mod tidy`, compile
-> all code behind the `mongo` build tag, run the test suite, and review the
-> resulting diff.
+> update the driver dependency and affected APIs, search for custom BSON codec
+> implementations, run `go mod tidy`, compile all code behind the `mongo` build
+> tag, run the test suite, and review the resulting diff.
 
 MongoDB maintains a comprehensive
 [Go Driver 2.0 migration guide](https://github.com/mongodb/mongo-go-driver/blob/master/docs/migration-2.0.md).
@@ -92,7 +97,55 @@ var modelID bson.ObjectID
 This is especially relevant when `bson.ObjectID` is the ID type of a
 `ModelRepository`.
 
-### 4. Update sessions and transaction callbacks
+### 4. Update custom BSON value codecs
+
+Driver v2 changed the `bson.ValueMarshaler` and `bson.ValueUnmarshaler`
+interfaces to represent the BSON type as a `byte`:
+
+```go
+type ValueMarshaler interface {
+	MarshalBSONValue() (typ byte, data []byte, err error)
+}
+
+type ValueUnmarshaler interface {
+	UnmarshalBSONValue(typ byte, data []byte) error
+}
+```
+
+In v1 these methods used `bsontype.Type`. Change the signatures to `byte`, then
+convert at calls that still use `bson.Type`:
+
+```go
+func (v Value) MarshalBSONValue() (byte, []byte, error) {
+	typ, data, err := bson.MarshalValue(v.String())
+	return byte(typ), data, err
+}
+
+func (v *Value) UnmarshalBSONValue(typ byte, data []byte) error {
+	return bson.UnmarshalValue(bson.Type(typ), data, &v.value)
+}
+```
+
+> **Warning:** Do not use `bson.Type` in these method signatures. Although its
+> underlying type is `byte`, it is a distinct named type, so the methods no
+> longer implement the driver interfaces. Code can still compile while the
+> driver silently falls back to its default encoding or decoding behavior.
+
+Add compile-time assertions so future driver upgrades cannot silently disable
+the custom codec:
+
+```go
+var (
+	_ bson.ValueMarshaler   = Value{}
+	_ bson.ValueUnmarshaler = (*Value)(nil)
+)
+```
+
+Test both the exact stored BSON type and decoding data in its existing on-disk
+shape. A round-trip test alone can miss this regression when the default codec
+can encode and decode the same unintended representation.
+
+### 5. Update sessions and transaction callbacks
 
 In v2, `mongo.Session` is a struct used through `*mongo.Session`, and session
 callbacks receive a standard `context.Context`. Retrieve the session with
@@ -114,7 +167,7 @@ err := client.UseSession(ctx, func(ctx context.Context) error {
 Accordingly, `Transaction.Session()` from this backend now returns
 `*mongo.Session`. Transaction hooks still receive `mongo.TransactionContext`.
 
-### 5. Update query option interceptors
+### 6. Update query option interceptors
 
 Driver v2 represents operation options as builders. A `WithQueryOptions`
 callback now receives and returns `*options.FindOptionsBuilder`:
@@ -132,7 +185,7 @@ Code that only constructs options with calls such as
 fields must first apply the builder's setters to the corresponding options
 value.
 
-### 6. Decode `Distinct` results when using the driver directly
+### 7. Decode `Distinct` results when using the driver directly
 
 `Collection.Distinct` now returns a result that must be decoded:
 
@@ -150,6 +203,9 @@ if err := collection.Distinct(ctx, "name", bson.D{}).Decode(&names); err != nil 
 - Remove the context argument from direct `mongo.Connect` calls.
 - Replace `primitive.ObjectID` and `primitive.NewObjectID` with their `bson`
   equivalents.
+- Update every `bson.ValueMarshaler` and `bson.ValueUnmarshaler` implementation
+  to use `byte`, add compile-time interface assertions, and verify the stored
+  BSON type and decoding of existing data.
 - Change stored or returned sessions to `*mongo.Session`.
 - Replace `mongo.SessionContext` callback parameters with `context.Context`
   and use `mongo.SessionFromContext`.
