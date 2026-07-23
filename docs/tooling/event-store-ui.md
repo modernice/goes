@@ -85,7 +85,7 @@ The server answers health checks on `GET /healthz`; the published image already 
 
 ## Docker Swarm
 
-[`deploy/docker-stack.example.yml`](https://github.com/modernice/goes/blob/main/deploy/docker-stack.example.yml) is a complete stack file that reads the store list, password, and session secret from Swarm secrets:
+[`deploy/goes-ui/docker-stack.example.yml`](https://github.com/modernice/goes/blob/main/deploy/goes-ui/docker-stack.example.yml) is a complete stack file that reads the store list, password, and session secret from Swarm secrets:
 
 ```yaml
 services:
@@ -102,7 +102,7 @@ services:
       - goes_ui_session_secret
 ```
 
-[`deploy/stores.example.json`](https://github.com/modernice/goes/blob/main/deploy/stores.example.json) shows the matching store-list secret.
+[`deploy/goes-ui/stores.example.json`](https://github.com/modernice/goes/blob/main/deploy/goes-ui/stores.example.json) shows the matching store-list secret.
 
 ## Custom Builds
 
