@@ -136,6 +136,46 @@ onUnmounted(() => {
         </div>
       </div>
     </section>
+
+    <!-- Agency -->
+    <section class="agency">
+      <div class="agency-panel">
+        <div class="agency-info">
+          <p class="agency-kicker">Built &amp; maintained by</p>
+          <h2 class="agency-title">
+            modernice<span class="agency-domain">.design</span>
+          </h2>
+          <p class="agency-description">
+            goes is developed by modernice, a digital agency for web
+            development, AI solutions, and e-commerce from Germany. The
+            framework has been powering our client projects in production
+            since 2021.
+          </p>
+          <p class="agency-description">
+            Need a team that ships reliable, production-grade software —
+            or an event-sourced system like this one?
+          </p>
+        </div>
+        <div class="agency-actions">
+          <a
+            href="https://modernice.design/en?utm_source=goes-docs&utm_content=home"
+            class="action-button primary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Work with us
+          </a>
+          <a
+            href="https://modernice.design/en/open-source?utm_source=goes-docs&utm_content=home"
+            class="action-button secondary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            More open source
+          </a>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -370,5 +410,104 @@ html:not(.dark) .feature-card::before {
   line-height: 1.6;
   color: var(--vp-c-text-2);
   margin: 0;
+}
+
+/* ---- Agency ---- */
+.agency {
+  padding: 0 0 80px;
+}
+
+.agency-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 40px;
+  border-radius: 12px;
+  background:
+    radial-gradient(
+      800px circle at 0% 0%,
+      rgba(34, 211, 238, 0.06),
+      transparent 40%
+    ),
+    #111111;
+  border: 1px solid #27272a;
+}
+
+.agency-info {
+  max-width: 560px;
+}
+
+.agency-kicker {
+  font-family: 'JetBrains Mono', var(--vp-font-family-mono);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--vp-c-text-3);
+  margin-bottom: 8px;
+}
+
+.agency-title {
+  font-family: 'JetBrains Mono', var(--vp-font-family-mono);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--vp-c-text-1);
+  margin-bottom: 12px;
+}
+
+.agency-domain {
+  background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.agency-description {
+  font-family: var(--vp-font-family-base);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--vp-c-text-2);
+  margin: 0 0 8px;
+}
+
+.agency-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .agency-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 28px 24px;
+  }
+
+  .agency-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* Light mode agency panel */
+html:not(.dark) .agency-panel {
+  background:
+    radial-gradient(
+      800px circle at 0% 0%,
+      rgba(8, 145, 178, 0.05),
+      transparent 40%
+    ),
+    #ffffff;
+  border-color: #e4e4e7;
+}
+
+html:not(.dark) .agency-domain {
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 </style>

@@ -113,6 +113,12 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/modernice/goes' },
     ],
 
+    footer: {
+      message: 'Released under the Apache-2.0 License.',
+      copyright:
+        'Built by <a href="https://modernice.design/en?utm_source=goes-docs&utm_content=footer" target="_blank" rel="noopener noreferrer">modernice</a> — Digital Agency for Web Development, AI & E-Commerce',
+    },
+
     search: {
       provider: 'local',
     },
