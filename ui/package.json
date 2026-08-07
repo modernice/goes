@@ -16,7 +16,7 @@
     "@vueuse/core": "^14.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "nuxt": "^4.5.0",
+    "nuxt": "^4.5.1",
     "reka-ui": "^2.10.1",
     "shadcn-nuxt": "^2.8.0",
     "tailwind-merge": "^3.6.0"
